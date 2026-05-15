@@ -279,20 +279,24 @@ select:disabled {
   border-bottom: 1px solid rgba(227, 207, 158, 0.14);
 }
 
-.gate-meter {
+.gate-readout {
   display: grid;
-  grid-template-columns: auto minmax(112px, 142px);
-  gap: 12px;
-  align-items: center;
+  grid-template-columns: auto auto;
+  gap: 10px;
+  align-items: baseline;
   padding: 8px 12px;
   border-radius: 6px;
   background: rgba(216, 169, 71, 0.13);
 }
 
-.gate-meter span {
+.gate-readout span {
   color: #c0b7a7;
   font-size: 0.78rem;
   text-transform: uppercase;
+}
+
+.gate-readout strong {
+  font-size: 1.2rem;
 }
 
 .stat-meter {
@@ -322,7 +326,9 @@ select:disabled {
 
 .stat-meter-fill {
   position: absolute;
-  inset: 0 auto 0 0;
+  bottom: 0;
+  left: 0;
+  top: 0;
   border-radius: inherit;
 }
 
@@ -336,10 +342,6 @@ select:disabled {
 
 .stat-meter.gate .stat-meter-fill {
   background: linear-gradient(90deg, #d8a947, #f0cb74);
-}
-
-.gate-meter .stat-meter {
-  grid-template-columns: 58px minmax(0, 1fr);
 }
 
 .battlefield {
@@ -377,7 +379,9 @@ select:disabled {
   width: 82px;
   min-height: 142px;
   display: grid;
-  place-items: center;
+  align-content: center;
+  gap: 10px;
+  justify-items: center;
   padding: 12px;
   border: 2px solid rgba(232, 201, 134, 0.64);
   border-radius: 6px;
@@ -387,6 +391,21 @@ select:disabled {
   font-weight: 900;
   text-align: center;
   text-transform: uppercase;
+}
+
+.gate-objective .stat-meter {
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.gate-objective .stat-meter-label {
+  display: none;
+}
+
+.gate-objective .stat-meter-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(16, 19, 21, 0.62);
 }
 
 .squad-token {

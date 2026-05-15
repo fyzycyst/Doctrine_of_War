@@ -36,7 +36,12 @@ describe("App", () => {
 
     expect(screen.getByLabelText("Greyford Shields strength 86 of 100")).toBeInTheDocument();
     expect(screen.getByLabelText("Greyford Shields cohesion 76 of 100")).toBeInTheDocument();
-    expect(screen.getByLabelText("Greyford Gate integrity 100 of 100")).toBeInTheDocument();
+    expect(screen.getByLabelText("Gate integrity 100")).toHaveTextContent("100");
+
+    const fieldGateMeter = screen.getByLabelText("Greyford Gate field integrity 100 of 100");
+
+    expect(fieldGateMeter).toBeInTheDocument();
+    expect(fieldGateMeter.querySelector(".stat-meter-fill")).toHaveStyle({ width: "100%" });
     expect(screen.queryByText("STR 86 / COH 76")).not.toBeInTheDocument();
   });
 
