@@ -56,6 +56,20 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Objective" })).toBeInTheDocument();
   });
 
+  it("lets the player collapse and expand a completed battle report", async () => {
+    const user = await startTutorial();
+
+    await user.click(screen.getByRole("button", { name: /commit phase/i }));
+    await user.click(screen.getByRole("button", { name: /collapse report/i }));
+
+    expect(screen.queryByRole("heading", { name: "Casualties" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /expand report/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /expand report/i }));
+
+    expect(screen.getByRole("heading", { name: "Casualties" })).toBeInTheDocument();
+  });
+
   it("can reach a terminal scenario state", async () => {
     const user = await startTutorial();
 

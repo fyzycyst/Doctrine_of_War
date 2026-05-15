@@ -215,9 +215,29 @@ select:disabled {
   margin-bottom: 16px;
 }
 
+.report-heading {
+  display: flex;
+  gap: 12px;
+  align-items: start;
+  justify-content: space-between;
+}
+
 .panel-heading h2,
 .battlefield-header h2 {
   font-size: 1.08rem;
+}
+
+.report-toggle {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(227, 207, 158, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #eadfca;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .doctrine-list {
