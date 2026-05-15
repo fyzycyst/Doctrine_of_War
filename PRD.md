@@ -213,7 +213,28 @@ The MVP succeeds if:
 - The game may drift toward ordinary RTS controls.
   - Mitigation: keep player agency centered on doctrine assignment and command windows.
 
-## 16. Acceptance Criteria
+## 16. Post-MVP Direction
+
+The MVP establishes the doctrine-command loop. Future slices should improve the game board and reduce cognitive load before expanding campaign scope.
+
+Priority future needs:
+
+- Replace the text-heavy interface with a battlefield-first layout.
+- Keep essential information visible while moving details behind hover, right-click, buttons, menus, or focused inspector panels.
+- Represent Strength, Cohesion, Integrity, and similar quantities as visual meters, with exact numbers available on demand.
+- Expand from lane-field positioning toward full 2D tactical positioning.
+- Evaluate a hex-based board with a small terrain tile set and a small unit icon/sprite set.
+- Allow player-controlled unit placement before battle phases.
+- Add terrain effects that can alter combat, support, movement, or doctrine reliability.
+- Show shared-effect areas for support, morale, command, or area denial.
+- Add phase-resolution animation or visual indicators for engagements, damage, cohesion loss, support effects, and objective damage.
+
+Known MVP board issues:
+
+- Some labels and units overlap or sit awkwardly in the lane-field view.
+- This is acceptable as temporary MVP debt if the next board slice replaces the lane-field presentation.
+
+## 17. Acceptance Criteria
 
 - The app launches locally in a browser.
 - The tutorial scenario can be started from the main screen or directly loaded.
@@ -224,3 +245,10 @@ The MVP succeeds if:
 - The scenario can end in victory or defeat.
 - A post-phase report shows casualties, cohesion/Resolve-relevant effects, objective progress, and at least one explanatory note.
 
+## 18. MVP Evaluation
+
+Current evaluation:
+
+- The MVP successfully demonstrated that doctrine assignment and phase resolution can be interesting and fun even in a rudimentary form.
+- The game has enough potential to justify further slices.
+- The next planning pass should focus on board presentation, information hierarchy, 2D positioning, terrain, placement, shared-effect visualization, and combat feedback before broader campaign expansion.

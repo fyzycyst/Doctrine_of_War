@@ -25,6 +25,10 @@ Deferred until later:
 - Save/load.
 - Mac packaging or native app.
 
+## Post-MVP Direction
+
+The first MVP proved the core loop is promising, but the next slices should reduce the wall-of-words UI and make the battlefield the primary surface. Future planning should explore visual meters with tooltip details, full-window terrain, a move toward hex-based 2D positioning, player unit placement, terrain effects, shared-effect indicators, and animated combat/state changes during phase resolution.
+
 ## Run Locally
 
 ```bash
@@ -51,4 +55,3 @@ npm run build
 ## IP Guardrails
 
 This project should not use Tolkien-specific names, quoted lines, places, species-specific lore, hobbit analogues, or recognizable story structures. Common fantasy ingredients may be used only through original naming, worldbuilding, and mechanics.
-
