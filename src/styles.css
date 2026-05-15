@@ -260,8 +260,7 @@ select:disabled {
 }
 
 .doctrine-row strong,
-.doctrine-row small,
-.doctrine-row em {
+.doctrine-row small {
   display: block;
 }
 
@@ -282,14 +281,6 @@ select:disabled {
   color: #f3eee4;
   font-size: 0.9rem;
   font-weight: 700;
-}
-
-.doctrine-row em {
-  min-height: 38px;
-  color: #bfb7a9;
-  font-size: 0.78rem;
-  font-style: normal;
-  line-height: 1.45;
 }
 
 .battlefield-shell {
