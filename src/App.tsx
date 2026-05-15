@@ -1,11 +1,13 @@
-import { Flag, RotateCcw, Shield, Swords } from "lucide-react";
 import { useMemo, useState } from "react";
 import { resolvePhase } from "./game/resolvePhase";
-import { createInitialBattleState, firstBreachScenario } from "./game/scenario";
+import { createInitialBattleState } from "./game/scenario";
 import type { BattleState, DoctrineAssignments } from "./game/types";
+import { ActionBar } from "./ui/ActionBar";
 import { Battlefield } from "./ui/Battlefield";
 import { BattleReportPanel } from "./ui/BattleReportPanel";
+import { Briefing } from "./ui/Briefing";
 import { DoctrinePanel } from "./ui/DoctrinePanel";
+import { ObjectivePanel } from "./ui/ObjectivePanel";
 
 const playerSquads = (state: BattleState) =>
   state.squads.filter((squad) => squad.faction === "free_banners");
@@ -17,44 +19,13 @@ function initialAssignments(state: BattleState): DoctrineAssignments {
   return Object.fromEntries(playerSquads(state).map((squad) => [squad.id, squad.assignedDoctrineId]));
 }
 
-function Briefing({ onBegin }: { onBegin: () => void }) {
-  return (
-    <section className="briefing" aria-labelledby="briefing-title">
-      <div>
-        <p className="kicker">Doctrine of War: Ash & Banner</p>
-        <h1 id="briefing-title">The First Breach</h1>
-        <p className="briefing-copy">{firstBreachScenario.briefing}</p>
-        <div className="briefing-grid">
-          <div>
-            <Shield aria-hidden="true" />
-            <strong>You command the Free Banners.</strong>
-            <span>Assign standing orders, preserve cohesion, and hold Greyford Gate.</span>
-          </div>
-          <div>
-            <Swords aria-hidden="true" />
-            <strong>The Ashen Host moves first.</strong>
-            <span>Each phase begins with scripted pressure that your doctrines must answer.</span>
-          </div>
-          <div>
-            <Flag aria-hidden="true" />
-            <strong>Hold until dawn.</strong>
-            <span>Survive three phases with the gate intact to win the tutorial.</span>
-          </div>
-        </div>
-      </div>
-      <button className="primary-action" type="button" onClick={onBegin}>
-        Begin Command
-      </button>
-    </section>
-  );
-}
-
 function App() {
   const [started, setStarted] = useState(false);
   const [state, setState] = useState(() => createInitialBattleState());
   const [assignments, setAssignments] = useState(() => initialAssignments(createInitialBattleState()));
   const latestReport = state.reports.at(-1);
   const squads = useMemo(() => playerSquads(state), [state]);
+  const enemies = useMemo(() => hostSquads(state), [state]);
   const terminal = state.status !== "command";
 
   function updateAssignment(squadId: string, doctrineId: string) {
@@ -99,27 +70,9 @@ function App() {
         <DoctrinePanel squads={squads} assignments={assignments} onChange={updateAssignment} disabled={terminal} />
         <Battlefield state={state} assignments={assignments} />
         <aside className="right-rail">
-          <section className="panel objective-panel">
-            <div className="panel-heading">
-              <span>Objective</span>
-              <h2>Hold Until Dawn</h2>
-            </div>
-            <p>Survive three Host-first phases while Greyford Gate remains above zero integrity.</p>
-            <div className="squad-counts">
-              <span>Free Banners: {squads.filter((squad) => squad.strength > 0).length}</span>
-              <span>Ashen Host: {hostSquads(state).filter((squad) => squad.strength > 0).length}</span>
-            </div>
-          </section>
+          <ObjectivePanel playerSquads={squads} hostSquads={enemies} />
           <BattleReportPanel report={latestReport} />
-          <div className="actions">
-            <button className="primary-action" type="button" onClick={commitPhase} disabled={terminal}>
-              Commit Phase
-            </button>
-            <button className="secondary-action" type="button" onClick={restart}>
-              <RotateCcw aria-hidden="true" />
-              Restart
-            </button>
-          </div>
+          <ActionBar onCommit={commitPhase} onRestart={restart} disabled={terminal} />
         </aside>
       </div>
     </main>
