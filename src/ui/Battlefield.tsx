@@ -35,13 +35,21 @@ export function Battlefield({ state, assignments }: { state: BattleState; assign
           <span>Phase {state.currentPhase}</span>
           <h2 id="battlefield-title">Greyford Gate</h2>
         </div>
-        <div className="gate-meter">
-          <span>Gate</span>
-          <StatMeter label="Greyford Gate integrity" value={gate.integrity} tone="gate" shortLabel="Integrity" />
+        <div className="gate-readout" aria-label={`Gate integrity ${gate.integrity}`}>
+          <span>Gate Integrity</span>
+          <strong>{gate.integrity}</strong>
         </div>
       </div>
       <div className="battlefield" role="img" aria-label="2D battlefield with three approach lanes">
-        <div className="gate-objective">Greyford Gate</div>
+        <div className="gate-objective">
+          <span>Greyford Gate</span>
+          <StatMeter
+            label="Greyford Gate field integrity"
+            value={gate.integrity}
+            tone="gate"
+            shortLabel="Integrity"
+          />
+        </div>
         {firstBreachScenario.lanes.map((lane) => (
           <div
             className="lane"
