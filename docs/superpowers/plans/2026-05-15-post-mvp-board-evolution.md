@@ -31,33 +31,36 @@ The following game interfaces should evolve across the slices:
 
 **Intent:** Keep the same lane-field gameplay, but make the interface less word-heavy and create UI boundaries for later board replacement.
 
+**Status 2026-05-15:** Complete as smaller reversible sub-slices. `StatMeter` remains a local helper inside `Battlefield.tsx` because it is only used there so far; a standalone `StatusBar` was deferred because the current header status pill is still simple.
+
 **Files:**
 - Modify: `src/App.tsx`
 - Modify: `src/styles.css`
-- Create: `src/ui/Briefing.tsx`, `src/ui/DoctrinePanel.tsx`, `src/ui/Battlefield.tsx`, `src/ui/BattleReportPanel.tsx`, `src/ui/StatMeter.tsx`, `src/ui/StatusBar.tsx`
+- Create: `src/ui/Briefing.tsx`, `src/ui/DoctrinePanel.tsx`, `src/ui/Battlefield.tsx`, `src/ui/BattleReportPanel.tsx`, `src/ui/ObjectivePanel.tsx`, `src/ui/ActionBar.tsx`
 - Modify: `src/App.test.tsx`
 
 **Implementation:**
 
-- [ ] Extract the inline `Briefing`, `DoctrinePanel`, `Battlefield`, `BattleReportPanel`, and `ReportList` components from `src/App.tsx` into `src/ui/`.
-- [ ] Add `src/ui/StatMeter.tsx` with props `{ label: string; value: number; max?: number; tone?: "banner" | "ashen" | "neutral"; compact?: boolean }`.
-- [ ] Render Strength, Cohesion, and Gate Integrity as compact bars instead of inline `STR 70 / COH 42` text.
-- [ ] Keep exact values accessible through `aria-label` and `title`, e.g. `aria-label="Greyford Shields strength 86 of 100"`.
-- [ ] Replace long squad card text on the battlefield with name, doctrine name, and meters only; move longer doctrine summaries to the doctrine panel or tooltip.
-- [ ] Keep the right-side battle report, but make it scrollable/collapsible only after the main board is visible above the fold.
-- [ ] Do not change battle math in this slice.
+- [x] Extract the inline `Briefing`, `DoctrinePanel`, `Battlefield`, `BattleReportPanel`, and `ReportList` components from `src/App.tsx` into `src/ui/`.
+- [x] Add a local `StatMeter` helper in `src/ui/Battlefield.tsx` with exact-value accessible labels and bounded visual fill.
+- [x] Render Strength, Cohesion, and Gate Integrity as compact bars instead of inline `STR 70 / COH 42` text.
+- [x] Keep exact values accessible through `aria-label` and `title`, e.g. `aria-label="Greyford Shields strength 86 of 100"`.
+- [x] Replace long squad card text on the battlefield with name, doctrine name, and meters only; move longer doctrine summaries to doctrine select `title` attributes.
+- [x] Keep the right-side battle report scrollable/collapsible and tune desktop layout so the main board is visible above the fold before the report rail on mid-width screens.
+- [x] Do not change battle math in this slice.
 
 **Tests:**
 
-- [ ] Update `src/App.test.tsx` to assert that meters render with accessible labels for squad strength, cohesion, and gate integrity.
-- [ ] Keep existing tests for briefing, doctrine assignment, commit phase, and terminal scenario state.
-- [ ] Add a UI test that exact stat values are available through accessible labels even when the visible board text is reduced.
+- [x] Update `src/App.test.tsx` to assert that meters render with accessible labels for squad strength, cohesion, and gate integrity.
+- [x] Keep existing tests for briefing, doctrine assignment, commit phase, and terminal scenario state.
+- [x] Add a UI test that exact stat values are available through accessible labels even when the visible board text is reduced.
+- [x] Add UI coverage for report collapse/expand behavior and hidden doctrine summaries.
 
 **Verification:**
 
-- [ ] Run `npm test`.
-- [ ] Run `npm run build`.
-- [ ] Run a browser smoke test: start tutorial, assign at least one doctrine, commit one phase, confirm meters update and report still explains outcomes.
+- [x] Run `npm test`.
+- [x] Run `npm run build`.
+- [x] Run browser smoke tests: start tutorial, assign at least one doctrine, commit phases, confirm meters update, report collapse/expand works, doctrine summaries remain available by title, and battlefield layout prioritizes the board at desktop breakpoints.
 
 **Commit:**
 
