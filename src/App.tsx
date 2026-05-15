@@ -25,6 +25,29 @@ function resolveLabel(resolve: number) {
   return "Broken -3";
 }
 
+function StatMeter({
+  label,
+  value,
+  tone,
+  shortLabel,
+}: {
+  label: string;
+  value: number;
+  tone: "banner" | "ashen" | "gate";
+  shortLabel: string;
+}) {
+  const boundedValue = Math.max(0, Math.min(100, value));
+
+  return (
+    <div className={`stat-meter ${tone}`} aria-label={`${label} ${value} of 100`} title={`${label} ${value} of 100`}>
+      <span className="stat-meter-label">{shortLabel}</span>
+      <span className="stat-meter-track" aria-hidden="true">
+        <span className="stat-meter-fill" style={{ width: `${boundedValue}%` }} />
+      </span>
+    </div>
+  );
+}
+
 function Briefing({ onBegin }: { onBegin: () => void }) {
   return (
     <section className="briefing" aria-labelledby="briefing-title">
@@ -117,9 +140,9 @@ function Battlefield({ state, assignments }: { state: BattleState; assignments: 
           <span>Phase {state.currentPhase}</span>
           <h2 id="battlefield-title">Greyford Gate</h2>
         </div>
-        <div className="gate-meter" aria-label={`Greyford Gate integrity ${gate.integrity}`}>
+        <div className="gate-meter">
           <span>Gate</span>
-          <strong>{gate.integrity}</strong>
+          <StatMeter label="Greyford Gate integrity" value={gate.integrity} tone="gate" shortLabel="Integrity" />
         </div>
       </div>
       <div className="battlefield" role="img" aria-label="2D battlefield with three approach lanes">
@@ -155,9 +178,20 @@ function Battlefield({ state, assignments }: { state: BattleState; assignments: 
             >
               <strong>{squad.name}</strong>
               <span>{doctrine.name}</span>
-              <small>
-                STR {squad.strength} / COH {squad.cohesion}
-              </small>
+              <div className="squad-meters">
+                <StatMeter
+                  label={`${squad.name} strength`}
+                  value={squad.strength}
+                  tone={isPlayer ? "banner" : "ashen"}
+                  shortLabel="Str"
+                />
+                <StatMeter
+                  label={`${squad.name} cohesion`}
+                  value={squad.cohesion}
+                  tone={isPlayer ? "banner" : "ashen"}
+                  shortLabel="Coh"
+                />
+              </div>
             </div>
           );
         })}
@@ -282,4 +316,3 @@ function App() {
 }
 
 export default App;
-

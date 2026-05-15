@@ -281,9 +281,9 @@ select:disabled {
 
 .gate-meter {
   display: grid;
-  grid-template-columns: auto auto;
-  gap: 10px;
-  align-items: baseline;
+  grid-template-columns: auto minmax(112px, 142px);
+  gap: 12px;
+  align-items: center;
   padding: 8px 12px;
   border-radius: 6px;
   background: rgba(216, 169, 71, 0.13);
@@ -295,8 +295,51 @@ select:disabled {
   text-transform: uppercase;
 }
 
-.gate-meter strong {
-  font-size: 1.2rem;
+.stat-meter {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.stat-meter-label {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.58rem;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.stat-meter-track {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.stat-meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+}
+
+.stat-meter.banner .stat-meter-fill {
+  background: linear-gradient(90deg, #8dcfa6, #d8e9b7);
+}
+
+.stat-meter.ashen .stat-meter-fill {
+  background: linear-gradient(90deg, #e97552, #f3b06d);
+}
+
+.stat-meter.gate .stat-meter-fill {
+  background: linear-gradient(90deg, #d8a947, #f0cb74);
+}
+
+.gate-meter .stat-meter {
+  grid-template-columns: 58px minmax(0, 1fr);
 }
 
 .battlefield {
@@ -360,8 +403,7 @@ select:disabled {
 }
 
 .squad-token strong,
-.squad-token span,
-.squad-token small {
+.squad-token span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -376,10 +418,10 @@ select:disabled {
   font-size: 0.68rem;
 }
 
-.squad-token small {
-  color: rgba(255, 255, 255, 0.64);
-  font-size: 0.64rem;
-  font-weight: 800;
+.squad-meters {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
 .squad-token.banner {

@@ -31,6 +31,15 @@ describe("App", () => {
     expect(screen.getByLabelText(/doctrine for stoneford riders/i)).toHaveValue("clean_counterstroke");
   });
 
+  it("keeps exact battlefield stats accessible while reducing visible token text", async () => {
+    await startTutorial();
+
+    expect(screen.getByLabelText("Greyford Shields strength 86 of 100")).toBeInTheDocument();
+    expect(screen.getByLabelText("Greyford Shields cohesion 76 of 100")).toBeInTheDocument();
+    expect(screen.getByLabelText("Greyford Gate integrity 100 of 100")).toBeInTheDocument();
+    expect(screen.queryByText("STR 86 / COH 76")).not.toBeInTheDocument();
+  });
+
   it("commits a phase and shows report output", async () => {
     const user = await startTutorial();
 
