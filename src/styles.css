@@ -216,9 +216,14 @@ select:disabled {
 }
 
 .report-heading {
+  display: grid;
+  gap: 10px;
+}
+
+.report-heading-top {
   display: flex;
   gap: 12px;
-  align-items: start;
+  align-items: center;
   justify-content: space-between;
 }
 
