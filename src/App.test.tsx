@@ -31,6 +31,15 @@ describe("App", () => {
     expect(screen.getByLabelText(/doctrine for stoneford riders/i)).toHaveValue("clean_counterstroke");
   });
 
+  it("keeps doctrine summaries available without always showing them in the command panel", async () => {
+    await startTutorial();
+
+    const greyfordDoctrine = screen.getByLabelText(/doctrine for greyford shields/i);
+
+    expect(greyfordDoctrine).toHaveAttribute("title", "Hold formation, protect the gate, and absorb pressure.");
+    expect(screen.queryByText("Hold formation, protect the gate, and absorb pressure.")).not.toBeInTheDocument();
+  });
+
   it("keeps exact battlefield stats accessible while reducing visible token text", async () => {
     await startTutorial();
 

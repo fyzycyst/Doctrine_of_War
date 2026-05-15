@@ -42,6 +42,7 @@ export function DoctrinePanel({
               </span>
               <select
                 aria-label={`Doctrine for ${squad.name}`}
+                title={selected.summary}
                 value={assignments[squad.id]}
                 disabled={disabled}
                 onChange={(event) => onChange(squad.id, event.target.value)}
@@ -52,7 +53,6 @@ export function DoctrinePanel({
                   </option>
                 ))}
               </select>
-              <em>{selected.summary}</em>
             </label>
           );
         })}
