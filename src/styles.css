@@ -37,7 +37,7 @@ select:disabled {
 }
 
 .app {
-  width: min(1440px, 100%);
+  width: min(1520px, 100%);
   min-height: 100vh;
   margin: 0 auto;
   padding: 28px;
@@ -194,8 +194,8 @@ select:disabled {
 
 .layout {
   display: grid;
-  grid-template-columns: 320px minmax(480px, 1fr) 360px;
-  gap: 18px;
+  grid-template-columns: 280px minmax(680px, 1fr) 320px;
+  gap: 16px;
   align-items: start;
 }
 
@@ -362,7 +362,7 @@ select:disabled {
 
 .battlefield {
   position: relative;
-  min-height: 660px;
+  min-height: 700px;
   background:
     linear-gradient(90deg, rgba(115, 45, 35, 0.32), transparent 28%, transparent 70%, rgba(76, 108, 94, 0.18)),
     linear-gradient(180deg, #303027, #1d2926);
@@ -521,18 +521,18 @@ select:disabled {
   gap: 10px;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1380px) {
   .app {
     padding: 18px;
   }
 
   .layout {
-    grid-template-columns: 280px minmax(420px, 1fr);
+    grid-template-columns: 280px minmax(560px, 1fr);
   }
 
   .right-rail {
     grid-column: 1 / -1;
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: minmax(220px, 0.75fr) minmax(320px, 1.25fr) auto;
   }
 
   .actions {
