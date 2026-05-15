@@ -1,10 +1,10 @@
 import { Flag, RotateCcw, Shield, Swords } from "lucide-react";
 import { useMemo, useState } from "react";
-import { freeBannerDoctrines, getDoctrine } from "./game/doctrines";
 import { resolvePhase } from "./game/resolvePhase";
 import { createInitialBattleState, firstBreachScenario } from "./game/scenario";
-import type { BattleReport, BattleState, DoctrineAssignments, Squad } from "./game/types";
+import type { BattleReport, BattleState, DoctrineAssignments } from "./game/types";
 import { Battlefield } from "./ui/Battlefield";
+import { DoctrinePanel } from "./ui/DoctrinePanel";
 
 const playerSquads = (state: BattleState) =>
   state.squads.filter((squad) => squad.faction === "free_banners");
@@ -14,16 +14,6 @@ const hostSquads = (state: BattleState) =>
 
 function initialAssignments(state: BattleState): DoctrineAssignments {
   return Object.fromEntries(playerSquads(state).map((squad) => [squad.id, squad.assignedDoctrineId]));
-}
-
-function resolveLabel(resolve: number) {
-  if (resolve >= 3) return "Veteran +3";
-  if (resolve === 2) return "Hardened +2";
-  if (resolve === 1) return "Tested +1";
-  if (resolve === 0) return "Green 0";
-  if (resolve === -1) return "Unsteady -1";
-  if (resolve === -2) return "Shaken -2";
-  return "Broken -3";
 }
 
 function Briefing({ onBegin }: { onBegin: () => void }) {
@@ -54,56 +44,6 @@ function Briefing({ onBegin }: { onBegin: () => void }) {
       <button className="primary-action" type="button" onClick={onBegin}>
         Begin Command
       </button>
-    </section>
-  );
-}
-
-function DoctrinePanel({
-  squads,
-  assignments,
-  onChange,
-  disabled,
-}: {
-  squads: Squad[];
-  assignments: DoctrineAssignments;
-  onChange: (squadId: string, doctrineId: string) => void;
-  disabled: boolean;
-}) {
-  return (
-    <section className="panel doctrine-panel" aria-labelledby="doctrine-title">
-      <div className="panel-heading">
-        <span>Command Window</span>
-        <h2 id="doctrine-title">Assign Doctrines</h2>
-      </div>
-      <div className="doctrine-list">
-        {squads.map((squad) => {
-          const selected = getDoctrine(assignments[squad.id]);
-
-          return (
-            <label className="doctrine-row" key={squad.id}>
-              <span>
-                <strong>{squad.name}</strong>
-                <small>
-                  {squad.role} / Resolve {resolveLabel(squad.resolve)}
-                </small>
-              </span>
-              <select
-                aria-label={`Doctrine for ${squad.name}`}
-                value={assignments[squad.id]}
-                disabled={disabled}
-                onChange={(event) => onChange(squad.id, event.target.value)}
-              >
-                {freeBannerDoctrines.map((doctrine) => (
-                  <option key={doctrine.id} value={doctrine.id}>
-                    {doctrine.name}
-                  </option>
-                ))}
-              </select>
-              <em>{selected.summary}</em>
-            </label>
-          );
-        })}
-      </div>
     </section>
   );
 }
