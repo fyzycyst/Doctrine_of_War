@@ -19,19 +19,19 @@ export function BattleReportPanel({ report }: { report?: BattleReport }) {
   return (
     <section className="panel report-panel" aria-labelledby="report-title">
       <div className="panel-heading report-heading">
-        <div>
+        <div className="report-heading-top">
           <span>Battle Report</span>
-          <h2 id="report-title">{report.title}</h2>
+          <button
+            className="report-toggle"
+            type="button"
+            aria-controls="report-details"
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed((current) => !current)}
+          >
+            {collapsed ? "Expand Report" : "Collapse Report"}
+          </button>
         </div>
-        <button
-          className="report-toggle"
-          type="button"
-          aria-controls="report-details"
-          aria-expanded={!collapsed}
-          onClick={() => setCollapsed((current) => !current)}
-        >
-          {collapsed ? "Expand Report" : "Collapse Report"}
-        </button>
+        <h2 id="report-title">{report.title}</h2>
       </div>
       {!collapsed && (
         <div id="report-details">
