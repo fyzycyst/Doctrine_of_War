@@ -1,3 +1,5 @@
+import type { BoardLayout, HexCoord } from "./board";
+
 export type FactionId = "ashen_host" | "free_banners";
 
 export type SquadRole = "frontline" | "skirmish" | "support" | "siege" | "cavalry";
@@ -38,6 +40,7 @@ export interface Squad {
   faction: FactionId;
   role: SquadRole;
   laneId: string;
+  hex?: HexCoord;
   strength: number;
   cohesion: number;
   resolve: number;
@@ -53,6 +56,7 @@ export interface Objective {
 
 export interface ScriptedThreat {
   laneId: string;
+  targetHex?: HexCoord;
   attackerSquadId: string;
   pressure: number;
   note: string;
@@ -72,6 +76,7 @@ export interface Scenario {
   initiativeSide: FactionId;
   maxPhases: number;
   lanes: Lane[];
+  board?: BoardLayout;
   squads: Squad[];
   doctrines: Doctrine[];
   objectives: Objective[];
@@ -108,4 +113,3 @@ export interface BattleState {
 }
 
 export type DoctrineAssignments = Record<string, string>;
-

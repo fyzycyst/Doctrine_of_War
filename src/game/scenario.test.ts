@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getHex } from "./board";
 import { createInitialBattleState, firstBreachScenario } from "./scenario";
 
 describe("first breach scenario", () => {
@@ -37,5 +38,26 @@ describe("first breach scenario", () => {
     expect(state.maxPhases).toBe(3);
     expect(state.objectives[0].integrity).toBe(100);
   });
-});
 
+  it("places every squad on an existing board hex while preserving lane compatibility", () => {
+    expect(firstBreachScenario.board).toBeDefined();
+
+    for (const squad of firstBreachScenario.squads) {
+      expect(squad.laneId).toBeTruthy();
+      expect(squad.hex).toBeDefined();
+      expect(getHex(firstBreachScenario.board!, squad.hex!)).toBeDefined();
+    }
+  });
+
+  it("targets every scripted threat at an existing board hex while preserving lane compatibility", () => {
+    expect(firstBreachScenario.board).toBeDefined();
+
+    for (const phase of firstBreachScenario.scriptedOpponent) {
+      for (const threat of phase.threats) {
+        expect(threat.laneId).toBeTruthy();
+        expect(threat.targetHex).toBeDefined();
+        expect(getHex(firstBreachScenario.board!, threat.targetHex!)).toBeDefined();
+      }
+    }
+  });
+});

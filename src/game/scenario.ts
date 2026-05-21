@@ -1,5 +1,33 @@
 import { doctrines } from "./doctrines";
+import type { BoardLayout } from "./board";
 import type { BattleState, Scenario } from "./types";
+
+const firstBreachBoard: BoardLayout = {
+  width: 5,
+  height: 5,
+  hexes: [
+    { coord: { q: 0, r: -2 }, terrain: "ridge", label: "North Ridge" },
+    { coord: { q: 1, r: -2 }, terrain: "ridge" },
+    { coord: { q: -1, r: -1 }, terrain: "field" },
+    { coord: { q: 0, r: -1 }, terrain: "road", label: "Upper Gate Road" },
+    { coord: { q: 1, r: -1 }, terrain: "ruin", label: "Broken Watch" },
+    { coord: { q: -2, r: 0 }, terrain: "ford", label: "River Ford" },
+    { coord: { q: -1, r: 0 }, terrain: "field" },
+    { coord: { q: 0, r: 0 }, terrain: "road", label: "Gate Road" },
+    { coord: { q: 1, r: 0 }, terrain: "road", label: "Siege Approach" },
+    { coord: { q: 2, r: 0 }, terrain: "ruin" },
+    { coord: { q: -2, r: 1 }, terrain: "ford" },
+    { coord: { q: -1, r: 1 }, terrain: "field" },
+    {
+      coord: { q: 0, r: 1 },
+      terrain: "wall",
+      label: "Greyford Gate",
+      objectiveId: "greyford_gate",
+    },
+    { coord: { q: 1, r: 1 }, terrain: "wall" },
+    { coord: { q: -1, r: 2 }, terrain: "field" },
+  ],
+};
 
 export const firstBreachScenario: Scenario = {
   id: "first_breach",
@@ -38,6 +66,7 @@ export const firstBreachScenario: Scenario = {
       description: "A narrow crossing where a clean counterstroke can trap attackers.",
     },
   ],
+  board: firstBreachBoard,
   objectives: [
     {
       id: "greyford_gate",
@@ -54,6 +83,7 @@ export const firstBreachScenario: Scenario = {
       faction: "free_banners",
       role: "frontline",
       laneId: "gate_road",
+      hex: { q: 0, r: 0 },
       strength: 86,
       cohesion: 76,
       resolve: 2,
@@ -65,6 +95,7 @@ export const firstBreachScenario: Scenario = {
       faction: "free_banners",
       role: "skirmish",
       laneId: "north_ridge",
+      hex: { q: 0, r: -2 },
       strength: 68,
       cohesion: 70,
       resolve: 1,
@@ -76,6 +107,7 @@ export const firstBreachScenario: Scenario = {
       faction: "free_banners",
       role: "support",
       laneId: "gate_road",
+      hex: { q: 0, r: 1 },
       strength: 52,
       cohesion: 82,
       resolve: 0,
@@ -87,6 +119,7 @@ export const firstBreachScenario: Scenario = {
       faction: "free_banners",
       role: "cavalry",
       laneId: "river_ford",
+      hex: { q: -2, r: 1 },
       strength: 72,
       cohesion: 66,
       resolve: -1,
@@ -98,6 +131,7 @@ export const firstBreachScenario: Scenario = {
       faction: "ashen_host",
       role: "frontline",
       laneId: "gate_road",
+      hex: { q: 1, r: 0 },
       strength: 92,
       cohesion: 72,
       resolve: 1,
@@ -109,6 +143,7 @@ export const firstBreachScenario: Scenario = {
       faction: "ashen_host",
       role: "siege",
       laneId: "gate_road",
+      hex: { q: 2, r: 0 },
       strength: 78,
       cohesion: 68,
       resolve: 2,
@@ -120,6 +155,7 @@ export const firstBreachScenario: Scenario = {
       faction: "ashen_host",
       role: "skirmish",
       laneId: "north_ridge",
+      hex: { q: 1, r: -2 },
       strength: 64,
       cohesion: 62,
       resolve: 0,
@@ -131,6 +167,7 @@ export const firstBreachScenario: Scenario = {
       faction: "ashen_host",
       role: "frontline",
       laneId: "river_ford",
+      hex: { q: -2, r: 0 },
       strength: 70,
       cohesion: 64,
       resolve: 0,
@@ -144,12 +181,14 @@ export const firstBreachScenario: Scenario = {
       threats: [
         {
           laneId: "gate_road",
+          targetHex: { q: 1, r: 0 },
           attackerSquadId: "gatebreak_engine",
           pressure: 30,
           note: "The Gatebreak Engine hammers the road barricades.",
         },
         {
           laneId: "north_ridge",
+          targetHex: { q: 0, r: -2 },
           attackerSquadId: "ember_runners",
           pressure: 16,
           note: "Ember Runners climb the ridge to scatter the archers.",
@@ -162,12 +201,14 @@ export const firstBreachScenario: Scenario = {
       threats: [
         {
           laneId: "gate_road",
+          targetHex: { q: 0, r: 0 },
           attackerSquadId: "cinder_vanguard",
           pressure: 26,
           note: "The Cinder Vanguard crowds the gate road.",
         },
         {
           laneId: "river_ford",
+          targetHex: { q: -2, r: 1 },
           attackerSquadId: "ford_reavers",
           pressure: 22,
           note: "Ford Reavers push through the shallows.",
@@ -180,12 +221,14 @@ export const firstBreachScenario: Scenario = {
       threats: [
         {
           laneId: "gate_road",
+          targetHex: { q: 0, r: 1 },
           attackerSquadId: "gatebreak_engine",
           pressure: 34,
           note: "The Gatebreak Engine drives at the weakened gate.",
         },
         {
           laneId: "river_ford",
+          targetHex: { q: -1, r: 1 },
           attackerSquadId: "ford_reavers",
           pressure: 24,
           note: "Ford Reavers try to pull defenders away from the gate.",
@@ -207,4 +250,3 @@ export function createInitialBattleState(scenario = firstBreachScenario): Battle
     events: [],
   };
 }
-
