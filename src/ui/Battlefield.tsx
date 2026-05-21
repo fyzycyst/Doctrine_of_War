@@ -1,8 +1,18 @@
 import { getDoctrine } from "../game/doctrines";
 import { firstBreachScenario } from "../game/scenario";
-import type { HexCoord } from "../game/board";
+import { terrainDefenseBonus, type HexCoord, type TerrainType } from "../game/board";
 import type { BattleState, DoctrineAssignments } from "../game/types";
 import { HexBoard } from "./HexBoard";
+
+const terrainTypes: TerrainType[] = ["road", "ridge", "ford", "wall", "field", "ruin"];
+
+function terrainName(terrain: TerrainType) {
+  return terrain[0].toUpperCase() + terrain.slice(1);
+}
+
+function signed(value: number) {
+  return value >= 0 ? `+${value}` : `${value}`;
+}
 
 function StatMeter({
   label,
@@ -68,6 +78,16 @@ export function Battlefield({
           onSelectSquad={onSelectSquad}
           onDeploySquad={onDeploySquad}
         />
+        <ul className="terrain-legend" aria-label="Terrain effects">
+          {terrainTypes.map((terrain) => (
+            <li className={`terrain-legend-item terrain-${terrain}`} key={terrain}>
+              <span className="terrain-swatch" aria-hidden="true" />
+              <span>
+                {terrainName(terrain)} {signed(terrainDefenseBonus(terrain))} defense
+              </span>
+            </li>
+          ))}
+        </ul>
         <div className="board-status-panel">
           <StatMeter
             label="Greyford Gate field integrity"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialBattleState, firstBreachScenario } from "./scenario";
 import { resolvePhase } from "./resolvePhase";
-import type { BattleState, DoctrineAssignments } from "./types";
+import type { BattleState, DoctrineAssignments, Scenario } from "./types";
 
 const allAssignments = (doctrineId: string): DoctrineAssignments =>
   Object.fromEntries(
@@ -16,6 +16,32 @@ const defaultAssignments: DoctrineAssignments = {
   mercy_standard: "rescue_standard",
   stoneford_riders: "fighting_withdrawal",
 };
+
+const defensiveAssignments: DoctrineAssignments = {
+  greyford_shields: "shield_the_line",
+  dawnwatch_archers: "shield_the_line",
+  mercy_standard: "shield_the_line",
+  stoneford_riders: "shield_the_line",
+};
+
+const scenarioWithThreat = (targetHex: { q: number; r: number }, pressure = 24): Scenario => ({
+  ...firstBreachScenario,
+  scriptedOpponent: [
+    {
+      phase: 1,
+      hostIntent: "Test hex pressure.",
+      threats: [
+        {
+          laneId: "gate_road",
+          targetHex,
+          attackerSquadId: "gatebreak_engine",
+          pressure,
+          note: "test pressure",
+        },
+      ],
+    },
+  ],
+});
 
 describe("resolvePhase", () => {
   it("records Ashen Host initiative before resolving Free Banners doctrine", () => {
@@ -81,7 +107,11 @@ describe("resolvePhase", () => {
       ...createInitialBattleState(),
       objectives: [{ ...createInitialBattleState().objectives[0], integrity: 8 }],
     };
-    const defeated = resolvePhase(fragileState, allAssignments("fighting_withdrawal"));
+    const defeated = resolvePhase(
+      fragileState,
+      allAssignments("fighting_withdrawal"),
+      scenarioWithThreat({ q: 3, r: 2 }, 90),
+    );
 
     expect(defeated.status).toBe("defeat");
     expect(defeated.reports[0].notes.join(" ")).toContain("collapses");
@@ -95,5 +125,149 @@ describe("resolvePhase", () => {
       }),
     ).toThrow("Invalid doctrine assignment");
   });
-});
 
+  it("omits zero-strength casualty lines from the prose report", () => {
+    const next = resolvePhase(createInitialBattleState(), defaultAssignments);
+
+    expect(next.reports[0].casualties.some((item) => item.includes("lost 0 strength"))).toBe(false);
+  });
+
+  it("engages defenders adjacent to the threat hex and ignores distant defenders in the same lane", () => {
+    const state = createInitialBattleState();
+    state.squads = state.squads.map((squad) => {
+      if (squad.id === "greyford_shields") {
+        return { ...squad, laneId: "gate_road", hex: { q: 3, r: 2 } };
+      }
+
+      if (squad.id === "dawnwatch_archers") {
+        return { ...squad, laneId: "gate_road", hex: { q: 0, r: 0 } };
+      }
+
+      if (squad.id === "mercy_standard") {
+        return { ...squad, hex: { q: 0, r: 4 } };
+      }
+
+      if (squad.id === "stoneford_riders") {
+        return { ...squad, hex: { q: 1, r: 4 } };
+      }
+
+      return squad;
+    });
+
+    const next = resolvePhase(state, defensiveAssignments, scenarioWithThreat({ q: 3, r: 2 }));
+    const shields = next.squads.find((squad) => squad.id === "greyford_shields");
+    const archers = next.squads.find((squad) => squad.id === "dawnwatch_archers");
+
+    expect(shields?.cohesion).toBeLessThan(76);
+    expect(archers?.cohesion).toBe(70);
+    expect(next.reports[0].phaseEvents).toContainEqual(
+      expect.objectContaining({
+        kind: "engagement",
+        attackerSquadId: "gatebreak_engine",
+        defenderSquadIds: ["greyford_shields"],
+        targetHex: { q: 3, r: 2 },
+      }),
+    );
+  });
+
+  it("uses defender terrain to reduce cohesion loss and objective pressure", () => {
+    const fieldScenario = scenarioWithThreat({ q: 3, r: 2 }, 30);
+    const wallScenario: Scenario = {
+      ...fieldScenario,
+      board: {
+        ...firstBreachScenario.board!,
+        hexes: firstBreachScenario.board!.hexes.map((hex) =>
+          hex.coord.q === 3 && hex.coord.r === 2 ? { ...hex, terrain: "wall" } : hex,
+        ),
+      },
+    };
+    const exposedState = () => {
+      const state = createInitialBattleState();
+
+      state.squads = state.squads.map((squad) => {
+        if (squad.id === "mercy_standard") {
+          return { ...squad, hex: { q: 0, r: 4 } };
+        }
+
+        if (squad.id === "stoneford_riders") {
+          return { ...squad, hex: { q: 1, r: 4 } };
+        }
+
+        return squad;
+      });
+      return state;
+    };
+
+    const fieldResult = resolvePhase(exposedState(), defensiveAssignments, fieldScenario);
+    const wallResult = resolvePhase(exposedState(), defensiveAssignments, wallScenario);
+    const fieldShields = fieldResult.squads.find((squad) => squad.id === "greyford_shields");
+    const wallShields = wallResult.squads.find((squad) => squad.id === "greyford_shields");
+
+    expect(wallShields?.cohesion).toBeGreaterThan(fieldShields?.cohesion ?? 0);
+    expect(wallResult.objectives[0].integrity).toBeGreaterThan(fieldResult.objectives[0].integrity);
+    expect(wallResult.reports[0].notes.join(" ")).toContain("wall terrain");
+  });
+
+  it("supports neighboring allies but not lower-cohesion distant allies", () => {
+    const state = createInitialBattleState();
+    state.squads = state.squads.map((squad) => {
+      if (squad.id === "greyford_shields") {
+        return { ...squad, cohesion: 50, hex: { q: 3, r: 2 } };
+      }
+
+      if (squad.id === "mercy_standard") {
+        return { ...squad, hex: { q: 3, r: 1 } };
+      }
+
+      if (squad.id === "stoneford_riders") {
+        return { ...squad, cohesion: 10, hex: { q: 0, r: 4 } };
+      }
+
+      return squad;
+    });
+    const quietScenario: Scenario = {
+      ...firstBreachScenario,
+      scriptedOpponent: [{ phase: 1, hostIntent: "No attack.", threats: [] }],
+    };
+
+    const next = resolvePhase(state, defaultAssignments, quietScenario);
+    const shields = next.squads.find((squad) => squad.id === "greyford_shields");
+    const riders = next.squads.find((squad) => squad.id === "stoneford_riders");
+
+    expect(shields?.cohesion).toBeGreaterThan(50);
+    expect(riders?.cohesion).toBe(10);
+    expect(next.reports[0].phaseEvents).toContainEqual(
+      expect.objectContaining({
+        kind: "support",
+        sourceSquadId: "mercy_standard",
+        targetSquadId: "greyford_shields",
+        affectedHexes: [{ q: 3, r: 2 }],
+      }),
+    );
+  });
+
+  it("generates objective damage events only for gate and gate-approach threats", () => {
+    const farResult = resolvePhase(
+      createInitialBattleState(),
+      defensiveAssignments,
+      scenarioWithThreat({ q: 2, r: 1 }, 32),
+    );
+    const approachResult = resolvePhase(
+      createInitialBattleState(),
+      defensiveAssignments,
+      scenarioWithThreat({ q: 3, r: 2 }, 90),
+    );
+
+    expect(farResult.objectives[0].integrity).toBe(100);
+    expect(farResult.reports[0].phaseEvents.some((event) => event.kind === "objectiveDamage")).toBe(false);
+    expect(approachResult.objectives[0].integrity).toBeLessThan(100);
+    expect(approachResult.reports[0].phaseEvents).toContainEqual(
+      expect.objectContaining({
+        kind: "objectiveDamage",
+        objectiveId: "greyford_gate",
+        hex: { q: 3, r: 2 },
+        oldIntegrity: 100,
+      }),
+    );
+  });
+});

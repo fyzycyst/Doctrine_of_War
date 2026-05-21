@@ -101,6 +101,19 @@ describe("App", () => {
     expect(screen.queryByRole("img", { name: /three approach lanes/i })).not.toBeInTheDocument();
   });
 
+  it("shows a terrain legend with each terrain impact", async () => {
+    await startTutorial();
+
+    const legend = screen.getByRole("list", { name: /terrain effects/i });
+
+    expect(legend).toHaveTextContent("Road +0 defense");
+    expect(legend).toHaveTextContent("Ridge +3 defense");
+    expect(legend).toHaveTextContent("Ford -1 defense");
+    expect(legend).toHaveTextContent("Wall +4 defense");
+    expect(legend).toHaveTextContent("Field +0 defense");
+    expect(legend).toHaveTextContent("Ruin +2 defense");
+  });
+
   it("lets the player collapse and expand a completed battle report", async () => {
     const user = await startTutorial();
 

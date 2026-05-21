@@ -1,3 +1,4 @@
+import { getHex, hexDistance, terrainDefenseBonus, type HexCoord } from "./board";
 import { getDoctrine } from "./doctrines";
 import { firstBreachScenario } from "./scenario";
 import type {
@@ -6,13 +7,14 @@ import type {
   BattleState,
   Doctrine,
   DoctrineAssignments,
+  PhaseEvent,
   Scenario,
   Squad,
 } from "./types";
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-const cloneSquad = (squad: Squad): Squad => ({ ...squad });
+const cloneSquad = (squad: Squad): Squad => ({ ...squad, hex: squad.hex ? { ...squad.hex } : undefined });
 
 const byId = <T extends { id: string }>(items: T[]) => new Map(items.map((item) => [item.id, item]));
 
@@ -24,7 +26,55 @@ function counterScore(squad: Squad, doctrine: Doctrine): number {
   return Math.max(0, squad.strength * 0.03 + squad.resolve * 1.5 + doctrine.counterBias);
 }
 
-function applySupport(squads: Squad[], phase: number, report: BattleReport, events: BattleEvent[]) {
+function coordText(coord: HexCoord): string {
+  return `${coord.q},${coord.r}`;
+}
+
+function signed(value: number): string {
+  return value > 0 ? `+${value}` : `${value}`;
+}
+
+function terrainForSquad(squad: Squad, scenario: Scenario) {
+  return squad.hex && scenario.board ? getHex(scenario.board, squad.hex) : undefined;
+}
+
+function terrainBonusForSquad(squad: Squad, scenario: Scenario): number {
+  const hex = terrainForSquad(squad, scenario);
+
+  return hex ? terrainDefenseBonus(hex.terrain) : 0;
+}
+
+function defendersForThreat(squads: Squad[], threat: { laneId: string; targetHex?: HexCoord }): Squad[] {
+  return squads.filter((squad) => {
+    if (squad.faction !== "free_banners" || squad.strength <= 0) {
+      return false;
+    }
+
+    if (threat.targetHex) {
+      return Boolean(squad.hex && hexDistance(squad.hex, threat.targetHex) <= 1);
+    }
+
+    return squad.laneId === threat.laneId;
+  });
+}
+
+function objectiveHex(scenario: Scenario, objectiveId: string) {
+  return scenario.board?.hexes.find((hex) => hex.objectiveId === objectiveId);
+}
+
+function threatensObjective(scenario: Scenario, targetHex: HexCoord | undefined, objectiveId: string): boolean {
+  const objective = objectiveHex(scenario, objectiveId);
+
+  return Boolean(targetHex && objective && hexDistance(targetHex, objective.coord) <= 2);
+}
+
+function applySupport(
+  squads: Squad[],
+  phase: number,
+  report: BattleReport,
+  events: BattleEvent[],
+  phaseEvents: PhaseEvent[],
+) {
   const supportSquads = squads.filter(
     (squad) =>
       squad.faction === "free_banners" && getDoctrine(squad.assignedDoctrineId).formation === "support",
@@ -32,7 +82,14 @@ function applySupport(squads: Squad[], phase: number, report: BattleReport, even
 
   for (const support of supportSquads) {
     const allies = squads
-      .filter((squad) => squad.faction === "free_banners" && squad.id !== support.id)
+      .filter(
+        (squad) =>
+          squad.faction === "free_banners" &&
+          squad.id !== support.id &&
+          squad.hex &&
+          support.hex &&
+          hexDistance(squad.hex, support.hex) <= 1,
+      )
       .sort((a, b) => a.cohesion - b.cohesion);
     const target = allies[0];
 
@@ -51,6 +108,14 @@ function applySupport(squads: Squad[], phase: number, report: BattleReport, even
       faction: "free_banners",
       kind: "support",
       message: `${support.name} raised the standard near ${target.name}.`,
+    });
+    phaseEvents.push({
+      phase,
+      kind: "support",
+      sourceSquadId: support.id,
+      targetSquadId: target.id,
+      affectedHexes: target.hex ? [{ ...target.hex }] : [],
+      restored,
     });
   }
 }
@@ -81,6 +146,7 @@ export function resolvePhase(
     cohesionChanges: [],
     objectiveChanges: [],
     notes: [],
+    phaseEvents: [],
   };
   const events: BattleEvent[] = [
     ...state.events,
@@ -103,7 +169,7 @@ export function resolvePhase(
     squad.assignedDoctrineId = doctrineId;
   }
 
-  applySupport(squads, state.currentPhase, report, events);
+  applySupport(squads, state.currentPhase, report, events, report.phaseEvents);
 
   for (const threat of phaseScript.threats) {
     const attacker = squadMap.get(threat.attackerSquadId);
@@ -112,14 +178,14 @@ export function resolvePhase(
       continue;
     }
 
-    const defenders = squads.filter(
-      (squad) => squad.faction === "free_banners" && squad.laneId === threat.laneId && squad.strength > 0,
-    );
+    const defenders = defendersForThreat(squads, threat);
     const lane = scenario.lanes.find((item) => item.id === threat.laneId);
+    const targetHex = threat.targetHex;
+    const targetName = targetHex ? `hex ${coordText(targetHex)}` : lane?.name ?? threat.laneId;
     const attackerPower = threat.pressure + attacker.strength * 0.08 + attacker.resolve * 2;
     const defensePower = defenders.reduce((sum, defender) => {
       const doctrine = getDoctrine(defender.assignedDoctrineId);
-      return sum + resolveScore(defender, doctrine);
+      return sum + resolveScore(defender, doctrine) + terrainBonusForSquad(defender, scenario);
     }, 0);
     const counterPower = defenders.reduce((sum, defender) => {
       const doctrine = getDoctrine(defender.assignedDoctrineId);
@@ -131,32 +197,64 @@ export function resolvePhase(
       ? 5
       : 0;
     const pressureGap = attackerPower - defensePower;
-    const objectiveDamage = clamp(Math.round(pressureGap * 0.48 + withdrawalPenalty), 0, 28);
+    const objectiveThreat = threatensObjective(scenario, targetHex, primaryObjective.id);
+    const objectiveDamage = objectiveThreat ? clamp(Math.round(pressureGap * 0.48 + withdrawalPenalty), 0, 28) : 0;
     const oldIntegrity = primaryObjective.integrity;
     primaryObjective.integrity = clamp(primaryObjective.integrity - objectiveDamage, 0, 100);
 
-    if (objectiveDamage > 0) {
+    if (!objectiveThreat) {
+      report.objectiveChanges.push(`${targetName} did not threaten the gate.`);
+    } else if (objectiveDamage > 0) {
       report.objectiveChanges.push(
-        `${primaryObjective.name} lost ${objectiveDamage} integrity at ${lane?.name ?? threat.laneId}.`,
+        `${primaryObjective.name} lost ${objectiveDamage} integrity at ${targetName}.`,
       );
+      if (targetHex) {
+        report.phaseEvents.push({
+          phase: state.currentPhase,
+          kind: "objectiveDamage",
+          objectiveId: primaryObjective.id,
+          hex: { ...targetHex },
+          oldIntegrity,
+          newIntegrity: primaryObjective.integrity,
+        });
+      }
     } else {
-      report.objectiveChanges.push(`${lane?.name ?? threat.laneId} held without gate damage.`);
+      report.objectiveChanges.push(`${targetName} held without gate damage.`);
     }
+
+    const strengthChanges: Record<string, number> = {};
+    const cohesionChanges: Record<string, number> = {};
 
     for (const defender of defenders) {
       const doctrine = getDoctrine(defender.assignedDoctrineId);
+      const terrainHex = terrainForSquad(defender, scenario);
+      const terrainBonus = terrainBonusForSquad(defender, scenario);
       const stress = Math.max(4, Math.round(threat.pressure / Math.max(1, defenders.length)));
-      const reliability = clamp(defender.resolve * 2 + doctrine.cohesionBias * 0.35, -10, 20);
+      const reliability = clamp(defender.resolve * 2 + doctrine.cohesionBias * 0.35 + terrainBonus, -10, 24);
       const cohesionLoss = clamp(Math.round(stress - reliability), 1, 22);
       const strengthLossBase = Math.max(1, Math.round((attackerPower - defensePower * 0.35) / 12));
       const strengthProtection = doctrine.formation === "withdraw" ? 4 : doctrine.formation === "hold" ? 2 : 0;
-      const strengthLoss = clamp(strengthLossBase - strengthProtection - Math.max(0, defender.resolve), 0, 12);
+      const strengthLoss = clamp(
+        strengthLossBase - strengthProtection - Math.max(0, defender.resolve) - Math.max(0, terrainBonus),
+        0,
+        12,
+      );
 
       defender.cohesion = clamp(defender.cohesion - cohesionLoss, 0, 100);
       defender.strength = clamp(defender.strength - strengthLoss, 0, 100);
+      strengthChanges[defender.id] = -strengthLoss;
+      cohesionChanges[defender.id] = -cohesionLoss;
 
-      report.casualties.push(`${defender.name} lost ${strengthLoss} strength.`);
+      if (strengthLoss > 0) {
+        report.casualties.push(`${defender.name} lost ${strengthLoss} strength.`);
+      }
       report.cohesionChanges.push(`${defender.name} lost ${cohesionLoss} cohesion under ${threat.note}`);
+
+      if (terrainHex && terrainBonus !== 0) {
+        report.notes.push(
+          `${defender.name} used ${terrainHex.terrain} terrain (${signed(terrainBonus)} defense).`,
+        );
+      }
 
       if (doctrine.formation === "withdraw" && objectiveDamage > 0) {
         report.notes.push(`${defender.name} preserved troops, but the withdrawal yielded ground.`);
@@ -175,11 +273,23 @@ export function resolvePhase(
       report.notes.push(`Counterstroke pressure punished ${attacker.name} after its advance.`);
     }
 
+    if (targetHex && defenders.length > 0) {
+      report.phaseEvents.push({
+        phase: state.currentPhase,
+        kind: "engagement",
+        attackerSquadId: attacker.id,
+        defenderSquadIds: defenders.map((defender) => defender.id),
+        targetHex: { ...targetHex },
+        strengthChanges,
+        cohesionChanges,
+      });
+    }
+
     events.push({
       phase: state.currentPhase,
       faction: "ashen_host",
       kind: "clash",
-      message: `${attacker.name} pressed ${lane?.name ?? threat.laneId}.`,
+      message: `${attacker.name} pressed ${targetName}.`,
     });
   }
 
@@ -224,4 +334,3 @@ export function resolvePhase(
     events,
   };
 }
-

@@ -182,6 +182,7 @@ git commit -m "feat: ui: render hex board and deployment"
 - [ ] Define engagement radius as distance `<= 1` from the threat target for normal clashes.
 - [ ] Define support radius as distance `<= 1` from support squads using `Rescue Standard` or future support doctrines.
 - [ ] Apply `terrainDefenseBonus()` to defenders based on their current hex.
+- [ ] Add an on-screen terrain legend once terrain changes resolution, showing each terrain type and its gameplay impact.
 - [ ] Apply objective damage when an attacker threat targets an objective hex or an adjacent gate approach.
 - [ ] Generate structured events for the UI:
   - `engagement`: attacker id, defender ids, target hex, strength/cohesion changes.
@@ -203,7 +204,7 @@ git commit -m "feat: ui: render hex board and deployment"
 
 - [ ] Run `npm test`.
 - [ ] Run `npm run build`.
-- [ ] Browser smoke test: place a support unit adjacent to a defender, commit a phase, confirm report and visible effect area reflect support.
+- [ ] Browser smoke test: place a support unit adjacent to a defender, commit a phase, confirm support and terrain effects appear in the report and the terrain legend is visible.
 
 **Commit:**
 
@@ -236,6 +237,8 @@ git commit -m "feat: game: resolve phases on hex positions"
 - [ ] Disable doctrine assignment and placement while playback is resolving.
 - [ ] Keep playback short and skippable; the report remains available immediately after playback.
 - [ ] Do not add a full timeline editor or replay system in this slice.
+- [ ] Consider token-only unit presentation for larger boards; text-heavy unit cards on the board will not scale.
+- [ ] Explore round tokens with circular integrity/strength/cohesion fills around the token edge when larger boards make text labels too small.
 
 **Tests:**
 
@@ -308,3 +311,12 @@ git commit -m "docs: product: document board evolution outcome"
 6. Slice 6: Documentation and evaluation.
 
 Stop after Slice 3 if the hex board is not legible or fun enough; adjust board model before moving combat resolution fully onto it.
+
+## Future Board Loop Notes
+
+These are intentionally deferred until the board-first loop has stable resolution and feedback.
+
+- `Clean Counterstroke` implies forward movement: on success, the Ash unit should retreat and the Free Banners unit should advance.
+- `Fighting Withdrawal` implies fallback movement: the unit should move back by one hex when the doctrine resolves.
+- Player turns should eventually include deliberate unit movement, with cavalry able to move farther than infantry.
+- Ranged units should reach beyond adjacent hexes. Their effect may diminish with range, or they may take reduced melee damage because ranged pressure happens before close combat.

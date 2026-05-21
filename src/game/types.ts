@@ -90,6 +90,33 @@ export interface BattleEvent {
   message: string;
 }
 
+export type PhaseEvent =
+  | {
+      phase: number;
+      kind: "engagement";
+      attackerSquadId: string;
+      defenderSquadIds: string[];
+      targetHex: HexCoord;
+      strengthChanges: Record<string, number>;
+      cohesionChanges: Record<string, number>;
+    }
+  | {
+      phase: number;
+      kind: "support";
+      sourceSquadId: string;
+      targetSquadId: string;
+      affectedHexes: HexCoord[];
+      restored: number;
+    }
+  | {
+      phase: number;
+      kind: "objectiveDamage";
+      objectiveId: string;
+      hex: HexCoord;
+      oldIntegrity: number;
+      newIntegrity: number;
+    };
+
 export interface BattleReport {
   phase: number;
   title: string;
@@ -97,6 +124,7 @@ export interface BattleReport {
   cohesionChanges: string[];
   objectiveChanges: string[];
   notes: string[];
+  phaseEvents: PhaseEvent[];
 }
 
 export type BattleStatus = "command" | "victory" | "defeat";

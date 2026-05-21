@@ -50,7 +50,9 @@ function ReportList({ title, items }: { title: string; items: string[] }) {
     <div className="report-block">
       <h3>{title}</h3>
       <ul>
-        {items.length > 0 ? items.map((item) => <li key={item}>{item}</li>) : <li>No major change.</li>}
+        {items.length > 0
+          ? items.map((item, index) => <li key={`${title}-${index}-${item}`}>{item}</li>)
+          : <li>No major change.</li>}
       </ul>
     </div>
   );
