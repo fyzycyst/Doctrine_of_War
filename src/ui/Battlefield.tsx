@@ -1,6 +1,8 @@
 import { getDoctrine } from "../game/doctrines";
 import { firstBreachScenario } from "../game/scenario";
+import type { HexCoord } from "../game/board";
 import type { BattleState, DoctrineAssignments } from "../game/types";
+import { HexBoard } from "./HexBoard";
 
 function StatMeter({
   label,
@@ -25,7 +27,21 @@ function StatMeter({
   );
 }
 
-export function Battlefield({ state, assignments }: { state: BattleState; assignments: DoctrineAssignments }) {
+export function Battlefield({
+  state,
+  assignments,
+  selectedSquadId,
+  deploymentLocked,
+  onSelectSquad,
+  onDeploySquad,
+}: {
+  state: BattleState;
+  assignments: DoctrineAssignments;
+  selectedSquadId?: string | null;
+  deploymentLocked?: boolean;
+  onSelectSquad?: (squadId: string) => void;
+  onDeploySquad?: (squadId: string, coord: HexCoord) => void;
+}) {
   const gate = state.objectives[0];
 
   return (
@@ -40,64 +56,52 @@ export function Battlefield({ state, assignments }: { state: BattleState; assign
           <strong>{gate.integrity}</strong>
         </div>
       </div>
-      <div className="battlefield" role="img" aria-label="2D battlefield with three approach lanes">
-        <div className="gate-objective">
-          <span>Greyford Gate</span>
+      <div className="battlefield">
+        <HexBoard
+          board={firstBreachScenario.board!}
+          squads={state.squads}
+          assignments={assignments}
+          objectives={state.objectives}
+          playerFaction={firstBreachScenario.playerFaction}
+          selectedSquadId={selectedSquadId}
+          deploymentLocked={deploymentLocked}
+          onSelectSquad={onSelectSquad}
+          onDeploySquad={onDeploySquad}
+        />
+        <div className="board-status-panel">
           <StatMeter
             label="Greyford Gate field integrity"
             value={gate.integrity}
             tone="gate"
             shortLabel="Integrity"
           />
-        </div>
-        {firstBreachScenario.lanes.map((lane) => (
-          <div
-            className="lane"
-            key={lane.id}
-            style={{
-              left: `${lane.x}%`,
-              top: `${lane.y}%`,
-              width: `${lane.width}%`,
-              height: `${lane.height}%`,
-            }}
-          >
-            <span>{lane.name}</span>
-          </div>
-        ))}
-        {state.squads.map((squad) => {
-          const lane = firstBreachScenario.lanes.find((item) => item.id === squad.laneId)!;
-          const isPlayer = squad.faction === "free_banners";
-          const x = isPlayer ? lane.x + lane.width * 0.72 : lane.x + lane.width * 0.18;
-          const y = lane.y + lane.height * (squad.role === "support" ? 0.72 : 0.36);
-          const doctrineId = isPlayer ? assignments[squad.id] : squad.assignedDoctrineId;
-          const doctrine = getDoctrine(doctrineId);
+          {state.squads.map((squad) => {
+            const isPlayer = squad.faction === "free_banners";
+            const doctrineId = isPlayer ? assignments[squad.id] : squad.assignedDoctrineId;
+            const doctrine = getDoctrine(doctrineId);
 
-          return (
-            <div
-              className={`squad-token ${isPlayer ? "banner" : "ashen"}`}
-              key={squad.id}
-              style={{ left: `${x}%`, top: `${y}%` }}
-              title={`${squad.name}: ${doctrine.name}`}
-            >
-              <strong>{squad.name}</strong>
-              <span>{doctrine.name}</span>
-              <div className="squad-meters">
-                <StatMeter
-                  label={`${squad.name} strength`}
-                  value={squad.strength}
-                  tone={isPlayer ? "banner" : "ashen"}
-                  shortLabel="Str"
-                />
-                <StatMeter
-                  label={`${squad.name} cohesion`}
-                  value={squad.cohesion}
-                  tone={isPlayer ? "banner" : "ashen"}
-                  shortLabel="Coh"
-                />
+            return (
+              <div className={`squad-status ${isPlayer ? "banner" : "ashen"}`} key={squad.id}>
+                <strong>{squad.name}</strong>
+                <span>{doctrine.name}</span>
+                <div className="squad-meters">
+                  <StatMeter
+                    label={`${squad.name} strength`}
+                    value={squad.strength}
+                    tone={isPlayer ? "banner" : "ashen"}
+                    shortLabel="Str"
+                  />
+                  <StatMeter
+                    label={`${squad.name} cohesion`}
+                    value={squad.cohesion}
+                    tone={isPlayer ? "banner" : "ashen"}
+                    shortLabel="Coh"
+                  />
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </section>
   );

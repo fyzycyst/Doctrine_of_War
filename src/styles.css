@@ -363,9 +363,187 @@ select:disabled {
 .battlefield {
   position: relative;
   min-height: 700px;
+  display: grid;
+  align-content: stretch;
   background:
     linear-gradient(90deg, rgba(115, 45, 35, 0.32), transparent 28%, transparent 70%, rgba(76, 108, 94, 0.18)),
     linear-gradient(180deg, #303027, #1d2926);
+}
+
+.hex-board-wrap {
+  min-height: 520px;
+  padding: 18px;
+}
+
+.hex-board {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+}
+
+.hex-tile polygon {
+  stroke: rgba(35, 27, 19, 0.82);
+  stroke-width: 2;
+  transition:
+    filter 160ms ease,
+    stroke 160ms ease;
+}
+
+.hex-tile.terrain-field polygon {
+  fill: #536b4f;
+}
+
+.hex-tile.terrain-road polygon {
+  fill: #7b6748;
+}
+
+.hex-tile.terrain-ridge polygon {
+  fill: #68784e;
+}
+
+.hex-tile.terrain-ford polygon {
+  fill: #2f5d60;
+}
+
+.hex-tile.terrain-wall polygon {
+  fill: #74776a;
+}
+
+.hex-tile.terrain-ruin polygon {
+  fill: #52483f;
+}
+
+.hex-tile.deployable {
+  cursor: pointer;
+}
+
+.hex-tile.deployable polygon {
+  stroke: rgba(141, 207, 166, 0.92);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 8px rgba(141, 207, 166, 0.34));
+}
+
+.hex-label {
+  fill: rgba(246, 232, 196, 0.74);
+  font-size: 8px;
+  font-weight: 900;
+  text-anchor: middle;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.objective-marker {
+  pointer-events: none;
+}
+
+.objective-marker rect {
+  fill: #5d6258;
+  stroke: rgba(232, 201, 134, 0.82);
+  stroke-width: 2;
+}
+
+.objective-marker text {
+  fill: #f8e9c2;
+  font-size: 10px;
+  font-weight: 900;
+  text-anchor: middle;
+  text-transform: uppercase;
+}
+
+.hex-squad {
+  cursor: default;
+}
+
+.hex-squad[role="button"] {
+  cursor: pointer;
+}
+
+.hex-squad rect {
+  stroke-width: 2;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.34));
+}
+
+.hex-squad.banner rect {
+  fill: #2f6856;
+  stroke: #9bd6ad;
+}
+
+.hex-squad.ashen rect {
+  fill: #7a3429;
+  stroke: #e97552;
+}
+
+.hex-squad.selected rect {
+  stroke: #f0cb74;
+  stroke-width: 3;
+}
+
+.hex-squad text {
+  fill: #fff4df;
+  font-size: 9px;
+  font-weight: 900;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.hex-squad .token-doctrine {
+  fill: rgba(255, 244, 223, 0.74);
+  font-size: 6px;
+}
+
+.board-status-panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 18px 18px;
+  padding: 10px;
+  border: 1px solid rgba(227, 207, 158, 0.14);
+  border-radius: 8px;
+  background: rgba(15, 18, 17, 0.76);
+  backdrop-filter: blur(8px);
+}
+
+.board-status-panel > .stat-meter {
+  grid-column: 1 / -1;
+  grid-template-columns: 68px minmax(0, 1fr);
+}
+
+.board-status-panel > .stat-meter .stat-meter-label {
+  white-space: nowrap;
+}
+
+.squad-status {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.squad-status strong,
+.squad-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.squad-status strong {
+  font-size: 0.72rem;
+}
+
+.squad-status span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.62rem;
+}
+
+.squad-status.banner {
+  background: rgba(47, 104, 86, 0.46);
+}
+
+.squad-status.ashen {
+  background: rgba(122, 52, 41, 0.42);
 }
 
 .lane {
@@ -558,6 +736,20 @@ select:disabled {
 
   .battlefield {
     min-height: 560px;
+  }
+
+  .hex-board-wrap {
+    min-height: 420px;
+    padding: 10px;
+  }
+
+  .hex-board {
+    min-height: 420px;
+  }
+
+  .board-status-panel {
+    grid-template-columns: 1fr;
+    margin: 0 10px 10px;
   }
 
   .squad-token {

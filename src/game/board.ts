@@ -1,6 +1,13 @@
+import type { FactionId } from "./types";
+
 export interface HexCoord {
   q: number;
   r: number;
+}
+
+export interface PixelPoint {
+  x: number;
+  y: number;
 }
 
 export type TerrainType = "road" | "ridge" | "ford" | "wall" | "field" | "ruin";
@@ -10,6 +17,7 @@ export interface BoardHex {
   terrain: TerrainType;
   label?: string;
   objectiveId?: string;
+  deploymentFaction?: FactionId;
 }
 
 export interface BoardLayout {
@@ -48,6 +56,39 @@ export function hexNeighbors(coord: HexCoord): HexCoord[] {
     q: coord.q + offset.q,
     r: coord.r + offset.r,
   }));
+}
+
+const cleanFloat = (value: number) => (Math.abs(value) < 1e-10 ? 0 : value);
+
+export function hexToPixel(coord: HexCoord, size: number): PixelPoint {
+  return {
+    x: cleanFloat(size * 1.5 * coord.q),
+    y: cleanFloat(size * Math.sqrt(3) * (coord.r + coord.q / 2)),
+  };
+}
+
+export function hexPolygonPoints(center: PixelPoint, size: number): PixelPoint[] {
+  return Array.from({ length: 6 }, (_, index) => {
+    const angle = (Math.PI / 3) * index;
+
+    return {
+      x: cleanFloat(center.x + size * Math.cos(angle)),
+      y: cleanFloat(center.y + size * Math.sin(angle)),
+    };
+  });
+}
+
+export function boardPixelBounds(layout: BoardLayout, size: number) {
+  const points = layout.hexes.flatMap((hex) => hexPolygonPoints(hexToPixel(hex.coord, size), size));
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+
+  return {
+    minX: Math.min(...xs),
+    minY: Math.min(...ys),
+    maxX: Math.max(...xs),
+    maxY: Math.max(...ys),
+  };
 }
 
 export function getHex(layout: BoardLayout, coord: HexCoord): BoardHex | undefined {

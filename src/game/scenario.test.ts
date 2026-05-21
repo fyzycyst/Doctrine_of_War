@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getHex } from "./board";
+import { getHex, hexDistance, hexKey } from "./board";
 import { createInitialBattleState, firstBreachScenario } from "./scenario";
 
 describe("first breach scenario", () => {
@@ -59,5 +59,39 @@ describe("first breach scenario", () => {
         expect(getHex(firstBreachScenario.board!, threat.targetHex!)).toBeDefined();
       }
     }
+  });
+
+  it("uses a complete 5 by 5 tessellated board for the tutorial battlefield", () => {
+    expect(firstBreachScenario.board).toBeDefined();
+
+    const board = firstBreachScenario.board!;
+    const boardKeys = new Set(board.hexes.map((hex) => hexKey(hex.coord)));
+    const expectedKeys = new Set(
+      Array.from({ length: board.width }, (_, q) =>
+        Array.from({ length: board.height }, (_, r) => `${q},${r}`),
+      ).flat(),
+    );
+
+    expect(board.width).toBe(5);
+    expect(board.height).toBe(5);
+    expect(board.hexes).toHaveLength(25);
+    expect(boardKeys).toEqual(expectedKeys);
+  });
+
+  it("stages Free Banners near Greyford Gate and keeps Ashen Host on the approaches", () => {
+    const gateHex = firstBreachScenario.board!.hexes.find((hex) => hex.objectiveId === "greyford_gate");
+    expect(gateHex).toBeDefined();
+
+    const playerSquads = firstBreachScenario.squads.filter((squad) => squad.faction === "free_banners");
+    const hostSquads = firstBreachScenario.squads.filter((squad) => squad.faction === "ashen_host");
+    const nearbyDefenders = playerSquads.filter(
+      (squad) => squad.hex && hexDistance(squad.hex, gateHex!.coord) <= 2,
+    );
+    const adjacentHost = hostSquads.filter(
+      (squad) => squad.hex && hexDistance(squad.hex, gateHex!.coord) <= 1,
+    );
+
+    expect(nearbyDefenders).toHaveLength(3);
+    expect(adjacentHost).toHaveLength(0);
   });
 });

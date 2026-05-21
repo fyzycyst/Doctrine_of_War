@@ -65,6 +65,42 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Objective" })).toBeInTheDocument();
   });
 
+  it("lets the player deploy a Free Banners squad to an empty friendly hex before phase one", async () => {
+    const user = await startTutorial();
+
+    await user.click(screen.getByLabelText(/select stoneford riders at hex 3,3/i));
+    await user.click(screen.getByLabelText(/deploy stoneford riders to hex 2,3/i));
+
+    expect(screen.getByLabelText(/select stoneford riders at hex 2,3/i)).toBeInTheDocument();
+  });
+
+  it("prevents deployment to occupied, enemy-only, and objective hexes", async () => {
+    const user = await startTutorial();
+
+    await user.click(screen.getByLabelText(/select stoneford riders at hex 3,3/i));
+
+    expect(screen.queryByLabelText(/deploy stoneford riders to hex 3,2/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/deploy stoneford riders to hex 1,2/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/deploy stoneford riders to hex 4,2/i)).not.toBeInTheDocument();
+  });
+
+  it("locks deployment after the first phase has been committed", async () => {
+    const user = await startTutorial();
+
+    await user.click(screen.getByRole("button", { name: /commit phase/i }));
+    await user.click(screen.getByLabelText(/select stoneford riders at hex 3,3/i));
+
+    expect(screen.queryByLabelText(/deploy stoneford riders to hex 2,3/i)).not.toBeInTheDocument();
+  });
+
+  it("renders a fully tessellated 25 tile battlefield instead of lane fields", async () => {
+    await startTutorial();
+
+    expect(screen.getByRole("img", { name: /tessellated hex battlefield/i })).toBeInTheDocument();
+    expect(screen.getAllByTestId("hex-tile")).toHaveLength(25);
+    expect(screen.queryByRole("img", { name: /three approach lanes/i })).not.toBeInTheDocument();
+  });
+
   it("lets the player collapse and expand a completed battle report", async () => {
     const user = await startTutorial();
 

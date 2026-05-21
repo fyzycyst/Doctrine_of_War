@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  boardPixelBounds,
   getHex,
+  hexPolygonPoints,
+  hexToPixel,
   hexDistance,
   hexKey,
   hexNeighbors,
@@ -67,5 +70,37 @@ describe("hex board model", () => {
     for (const [terrain, bonus] of Object.entries(expectedBonuses) as [TerrainType, number][]) {
       expect(terrainDefenseBonus(terrain)).toBe(bonus);
     }
+  });
+
+  it("projects axial coordinates to true flat-top tessellated centers", () => {
+    const size = 10;
+    const origin = hexToPixel({ q: 0, r: 0 }, size);
+    const east = hexToPixel({ q: 1, r: 0 }, size);
+    const southeast = hexToPixel({ q: 0, r: 1 }, size);
+
+    expect(origin).toEqual({ x: 0, y: 0 });
+    expect(east.x).toBeCloseTo(15);
+    expect(east.y).toBeCloseTo(8.660254);
+    expect(southeast.x).toBeCloseTo(0);
+    expect(southeast.y).toBeCloseTo(17.320508);
+  });
+
+  it("creates flat-top hex polygons with shared-edge geometry", () => {
+    const points = hexPolygonPoints({ x: 0, y: 0 }, 10);
+
+    expect(points).toHaveLength(6);
+    expect(points[1].y).toBeCloseTo(points[2].y);
+    expect(points[4].y).toBeCloseTo(points[5].y);
+    expect(points[0]).toEqual({ x: 10, y: 0 });
+    expect(points[3]).toEqual({ x: -10, y: 0 });
+  });
+
+  it("computes board bounds from all rendered hex polygons", () => {
+    const bounds = boardPixelBounds(testBoard, 10);
+
+    expect(bounds.minX).toBeLessThan(0);
+    expect(bounds.minY).toBeLessThan(0);
+    expect(bounds.maxX).toBeGreaterThan(20);
+    expect(bounds.maxY).toBeGreaterThan(20);
   });
 });
