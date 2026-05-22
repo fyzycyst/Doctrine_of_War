@@ -27,21 +27,25 @@ Doctrine of War: Ash & Banner is a web-first, phase-based fantasy command game. 
 
 Players who like strategy games, tactical RPGs, autobattlers, and RTS concepts, but want planning and command judgment to matter more than rapid manual unit control.
 
-## 5. MVP Scope
+## 5. Current Playable Scope
 
-The MVP contains one tutorial scenario.
+The current playable build contains one tutorial scenario plus a board-first post-MVP iteration.
 
-Required MVP features:
+Implemented features:
 
 - Web app shell.
-- 2D battlefield view.
 - One tutorial scenario.
 - Phase-based command loop.
 - Squad-level doctrine assignment from a pick list.
 - Faction-flavored doctrine presets.
 - Scenario-driven computer-controlled opponent.
-- Basic battle resolution and playback.
-- Basic battle report after each phase.
+- Hex-based 2D battlefield view.
+- Player deployment before phase one on allowed hexes.
+- Terrain effects that influence resolution.
+- Support radius effects from support doctrines.
+- Structured phase events for support, engagement, and objective damage.
+- Stepwise phase playback with visual indicators.
+- Battle report after each phase.
 - Visible squad state including role, health/cohesion, doctrine, and Resolve.
 - Scenario data represented separately from UI code.
 
@@ -52,6 +56,10 @@ Deferred features:
 - Resolve persistence between scenarios.
 - Branching campaigns.
 - Campaign editor.
+- Larger scrolling maps.
+- Art assets and richer token presentation.
+- User-adjustable playback speed and a playback off switch.
+- Deliberate unit movement orders.
 - Utility AI skirmish mode.
 - Save/load.
 - Mac packaging or native app.
@@ -177,6 +185,7 @@ Scenario data should be able to describe:
 - Factions.
 - Acting side or initiative rule.
 - Battlefield layout.
+- Hex terrain, deployment eligibility, and objective locations.
 - Squads.
 - Available doctrines.
 - Objectives.
@@ -215,24 +224,32 @@ The MVP succeeds if:
 
 ## 16. Post-MVP Direction
 
-The MVP establishes the doctrine-command loop. Future slices should improve the game board and reduce cognitive load before expanding campaign scope.
+The MVP established the doctrine-command loop. Slices 2-5 then moved the tutorial toward a board-first experience before campaign expansion.
+
+Implemented board-first outcomes:
+
+- Lane-field positioning has been replaced by a small axial hex board.
+- Terrain is represented in board data and affects defensive resolution.
+- Player deployment is available before the first phase on allowed Free Banners hexes.
+- Support effects use adjacent hexes and are exposed as structured events.
+- Engagements and objective damage are exposed as structured phase events.
+- Phase playback shows support context, then individual engagement beats, then objective damage when present.
+- Pulsing playback indicators stop once the report state is reached.
 
 Priority future needs:
 
-- Replace the text-heavy interface with a battlefield-first layout.
-- Keep essential information visible while moving details behind hover, right-click, buttons, menus, or focused inspector panels.
-- Represent Strength, Cohesion, Integrity, and similar quantities as visual meters, with exact numbers available on demand.
-- Expand from lane-field positioning toward full 2D tactical positioning.
-- Evaluate a hex-based board with a small terrain tile set and a small unit icon/sprite set.
-- Allow player-controlled unit placement before battle phases.
-- Add terrain effects that can alter combat, support, movement, or doctrine reliability.
-- Show shared-effect areas for support, morale, command, or area denial.
-- Add phase-resolution animation or visual indicators for engagements, damage, cohesion loss, support effects, and objective damage.
+- Validate whether the current board remains readable at larger scenario sizes.
+- Improve token presentation before text labels become too small or crowded.
+- Add movement rules only after the static deployment and resolution loop stays legible.
+- Consider user-adjustable playback speed or a playback off switch when larger scenarios create longer resolution sequences.
+- Add more effect types only when they can be represented without obscuring unit state.
 
-Known MVP board issues:
+Known board debt:
 
-- Some labels and units overlap or sit awkwardly in the lane-field view.
-- This is acceptable as temporary MVP debt if the next board slice replaces the lane-field presentation.
+- Browser smoke checks confirmed visibility, but not pixel-perfect overlap across all viewport sizes.
+- Current indicators are abstract SVG rings and badges, not final art.
+- The board is small and fixed; larger maps may require scrolling, zoom, or denser token rules.
+- The playback speed is currently fixed at the selected readable timing.
 
 ## 17. Acceptance Criteria
 

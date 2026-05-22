@@ -70,23 +70,22 @@ Useful references:
 - Into the Breach: chess-like positional clarity and strong cause-and-effect readability.
 - Tactics Ogre-style isometric battlefields: useful as a warning and inspiration for depth, height, and tactical staging, but the MVP should avoid excessive grid complexity.
 
-## Post-MVP Direction
+## Board-First Direction
 
-The MVP validated the core doctrine loop, but the next experience should move away from a text-heavy control surface and toward a battlefield-first game board.
+The MVP validated the core doctrine loop, and the first post-MVP board pass moved the tutorial away from a text-heavy lane-field presentation toward a battlefield-first hex board.
 
-Future direction should prioritize:
+Implemented board-first outcomes:
 
-- A full-window landscape with UI overlaid only where it does not obscure essential game elements.
-- Reduced always-visible text; show only essential state by default and reveal detail through hover, context menus, buttons, or panels.
-- Visual meters for Strength, Cohesion, Integrity, and similar quantities, with exact values available on demand.
-- A move from lane-field presentation toward full 2D tactical positioning.
-- Player-controlled unit placement before battle phases.
-- Terrain effects that influence movement, defense, visibility, support, or doctrine reliability.
-- A likely hex-based board with a limited terrain tile set and a limited unit icon/sprite set.
-- Clear visual indication for shared effects, such as support auras, command radius, morale influence, or area denial.
-- Animation or visual combat indicators during phase resolution so players can see engagements and state meters change in response.
+- A small axial hex board with terrain, deployment zones, and objective hexes.
+- Reduced always-visible text on the board, with exact values still available through accessible meters and reports.
+- Player-controlled Free Banners deployment before phase one.
+- Terrain defense effects during resolution.
+- Adjacent support effects from support doctrines.
+- Structured phase events for support, engagements, and objective damage.
+- Human-perceptible phase playback where support context appears first, engagements resolve one at a time, and objective hits resolve afterward.
+- Static report state after playback, with pulsing indicators stopped.
 
-The current MVP board has known temporary placement and overlap issues. Those issues should not drive large cleanup work if the next slice replaces the lane-field board with a richer 2D board model.
+The board-first direction is promising enough to continue, but it should be evaluated at a larger scenario size before campaign or editor expansion. Larger boards may require token-only presentation, scrolling/zooming, playback speed preferences, or a playback off switch.
 
 ## Doctrine System Needs
 
@@ -168,9 +167,10 @@ Common fantasy elements such as armies, banners, siege engines, elves, dwarves, 
 ## Open Questions
 
 - Should the first tutorial allow choosing either faction, or should it teach one faction first and preview the other?
-- Should the first battle use lanes, free movement, or a hybrid 2D battlefield with authored routes?
+- How large can the current hex board become before readability breaks?
 - How much randomness should battle resolution include?
 - Should doctrine assignment be per squad only, or should some scenario-level orders also exist?
 - What visual style best balances clarity, mood, and implementation cost?
-- Should the post-MVP 2D board use hexes from the start, or should it first use a simpler zone grid to prove placement, terrain, and adjacency?
 - Which details should be visible by default, and which should move behind tooltips, context menus, or inspector panels?
+- When large scenarios arrive, should playback speed be user-adjustable, and should players be able to turn playback off entirely?
+- When should deliberate unit movement enter the command loop, and how can it avoid turning the game into rapid RTS micromanagement?

@@ -217,6 +217,8 @@ git commit -m "feat: game: resolve phases on hex positions"
 
 **Intent:** Make combat resolution visible. The player should see engagement markers, support areas, and meters changing during or immediately after phase resolution.
 
+**Status 2026-05-22:** Complete. Playback uses structured `BattleReport.phaseEvents`; support appears as context, engagements resolve one at a time at the selected readable timing, objective damage resolves afterward, and pulsing stops in the report state. User-adjustable playback speed/off-switch is deferred until larger scenarios prove the need.
+
 **Files:**
 - Modify: `src/game/types.ts`
 - Modify: `src/game/resolvePhase.ts`
@@ -229,30 +231,34 @@ git commit -m "feat: game: resolve phases on hex positions"
 
 **Implementation:**
 
-- [ ] Add `phaseEvents` to `BattleReport` with structured event data from Slice 4.
-- [ ] Render support area overlays around active support squads.
-- [ ] Render combat indicators on engaged hexes after commit, such as pulse rings, crossed-weapon icons, impact flashes, or brief event badges.
-- [ ] Animate meter changes with CSS transitions; respect `prefers-reduced-motion`.
-- [ ] Add playback state in `App.tsx`: `"command" | "resolving" | "report"`.
-- [ ] Disable doctrine assignment and placement while playback is resolving.
-- [ ] Keep playback short and skippable; the report remains available immediately after playback.
-- [ ] Do not add a full timeline editor or replay system in this slice.
+- [x] Add `phaseEvents` to `BattleReport` with structured event data from Slice 4.
+- [x] Render support area overlays around active support squads.
+- [x] Render combat indicators on engaged hexes after commit, such as pulse rings, crossed-weapon icons, impact flashes, or brief event badges.
+- [x] Animate meter changes with CSS transitions; respect `prefers-reduced-motion`.
+- [x] Add playback state in `App.tsx`: `"command" | "resolving" | "report"`.
+- [x] Disable doctrine assignment and placement while playback is resolving.
+- [x] Keep playback short and skippable; the report remains available immediately after playback.
+- [x] Do not add a full timeline editor or replay system in this slice.
 - [ ] Consider token-only unit presentation for larger boards; text-heavy unit cards on the board will not scale.
 - [ ] Explore round tokens with circular integrity/strength/cohesion fills around the token edge when larger boards make text labels too small.
 
 **Tests:**
 
-- [ ] UI test verifies committing a phase shows at least one combat indicator and one support indicator when applicable.
-- [ ] UI test verifies doctrine selects are disabled during resolution.
-- [ ] UI test verifies report is visible after playback completes or after skip.
-- [ ] Unit test verifies resolver emits structured phase events for support, engagement, and objective damage.
+- [x] UI test verifies committing a phase shows at least one combat indicator and one support indicator when applicable.
+- [x] UI test verifies doctrine selects are disabled during resolution.
+- [x] UI test verifies report is visible after playback completes or after skip.
+- [x] Unit test verifies resolver emits structured phase events for support, engagement, and objective damage.
+- [x] UI test verifies support appears before individual engagements.
+- [x] UI test verifies engagements step through at the selected readable timing.
+- [x] UI test verifies pulsing indicators stop after playback reaches the report state.
 
 **Verification:**
 
-- [ ] Run `npm test`.
-- [ ] Run `npm run build`.
-- [ ] Browser smoke test: play one phase and confirm visual indicators appear, meters change, and report remains readable.
-- [ ] Browser viewport check at desktop and narrow widths to confirm overlays do not obscure essential board state.
+- [x] Run `npm test`.
+- [x] Run `npm run build`.
+- [x] Browser smoke test: play one phase and confirm visual indicators appear, meters change, and report remains readable.
+- [x] Browser viewport check at desktop and narrow widths to confirm overlays do not obscure essential board state.
+- [x] Browser smoke confirmed support active first, individual engagement beats, report state, and zero active/pulsing indicators after playback completes.
 
 **Commit:**
 
@@ -265,6 +271,8 @@ git commit -m "feat: ui: add phase playback indicators"
 
 **Intent:** Decide whether the board-first direction is working before expanding campaign scope.
 
+**Status 2026-05-22:** In progress. The board-first loop is promising enough to continue, but larger-scenario readability remains the key gate before campaign/editor expansion.
+
 **Files:**
 - Modify: `PRD.md`
 - Modify: `Stakeholder_Needs.md`
@@ -273,10 +281,10 @@ git commit -m "feat: ui: add phase playback indicators"
 
 **Implementation:**
 
-- [ ] Update docs to describe the actual board model chosen: hexes, terrain, deployment, support radius, and playback events.
-- [ ] Add a short evaluation section comparing the new board experience against the post-MVP direction.
-- [ ] Record any deferred debt explicitly: art assets, larger map scrolling, campaign progression, doctrine editor, utility AI, save/load.
-- [ ] Do not start campaign expansion until the board-first loop is validated.
+- [x] Update docs to describe the actual board model chosen: hexes, terrain, deployment, support radius, and playback events.
+- [x] Add a short evaluation section comparing the new board experience against the post-MVP direction.
+- [x] Record any deferred debt explicitly: art assets, larger map scrolling, campaign progression, doctrine editor, utility AI, save/load.
+- [x] Do not start campaign expansion until the board-first loop is validated.
 
 **Tests:**
 
