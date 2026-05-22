@@ -9,7 +9,7 @@ import {
   type BoardLayout,
   type HexCoord,
 } from "../game/board";
-import type { DoctrineAssignments, FactionId, Objective, Squad } from "../game/types";
+import type { DoctrineAssignments, FactionId, Objective, PhaseEvent, Squad } from "../game/types";
 
 const HEX_SIZE = 42;
 const BOARD_PADDING = 18;
@@ -79,6 +79,8 @@ export function HexBoard({
   assignments,
   objectives,
   playerFaction,
+  phaseEvents = [],
+  activePhaseEvent,
   selectedSquadId,
   deploymentLocked = false,
   onSelectSquad,
@@ -89,6 +91,8 @@ export function HexBoard({
   assignments: DoctrineAssignments;
   objectives: Objective[];
   playerFaction: FactionId;
+  phaseEvents?: PhaseEvent[];
+  activePhaseEvent?: PhaseEvent;
   selectedSquadId?: string | null;
   deploymentLocked?: boolean;
   onSelectSquad?: (squadId: string) => void;
@@ -148,6 +152,74 @@ export function HexBoard({
                 tabIndex={isDeployable ? 0 : undefined}
               >
                 <polygon points={pointList(hexPolygonPoints(center, HEX_SIZE))} />
+              </g>
+            );
+          })}
+        </g>
+        <g className="phase-indicators">
+          {phaseEvents.map((event, index) => {
+            const activeClass = event === activePhaseEvent ? "active pulsing" : "static";
+
+            if (event.kind === "engagement") {
+              const center = translate(event.targetHex);
+
+              return (
+                <g
+                  aria-label={`Engagement at hex ${coordText(event.targetHex)}`}
+                  className={`phase-indicator engagement ${activeClass}`}
+                  key={`engagement-${index}-${coordText(event.targetHex)}`}
+                >
+                  <circle cx={center.x} cy={center.y} r="29" />
+                  <text aria-hidden="true" x={center.x} y={center.y + 4}>
+                    Clash
+                  </text>
+                </g>
+              );
+            }
+
+            if (event.kind === "support") {
+              const source = squads.find((squad) => squad.id === event.sourceSquadId);
+              const sourceCenter = source?.hex ? translate(source.hex) : undefined;
+
+              return (
+                <g
+                  aria-label={`Support from ${source?.name ?? event.sourceSquadId}`}
+                  className={`phase-indicator support ${activeClass}`}
+                  key={`support-${index}-${event.sourceSquadId}`}
+                >
+                  {sourceCenter && (
+                    <circle className="support-source" cx={sourceCenter.x} cy={sourceCenter.y} r="31" />
+                  )}
+                  {event.affectedHexes.map((coord) => {
+                    const center = translate(coord);
+
+                    return (
+                      <circle
+                        aria-label={`Support effect at hex ${coordText(coord)}`}
+                        className="support-area"
+                        cx={center.x}
+                        cy={center.y}
+                        key={coordText(coord)}
+                        r="25"
+                      />
+                    );
+                  })}
+                </g>
+              );
+            }
+
+            const center = translate(event.hex);
+
+            return (
+              <g
+                aria-label={`Objective damage at hex ${coordText(event.hex)}`}
+                className={`phase-indicator objective-damage ${activeClass}`}
+                key={`objective-${index}-${event.objectiveId}`}
+              >
+                <circle cx={center.x} cy={center.y} r="27" />
+                <text aria-hidden="true" x={center.x} y={center.y + 4}>
+                  Hit
+                </text>
               </g>
             );
           })}

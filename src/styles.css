@@ -192,6 +192,16 @@ select:disabled {
   color: #ffb0a5;
 }
 
+.status-pill.resolving {
+  border-color: rgba(240, 203, 116, 0.72);
+  color: #ffe0a0;
+}
+
+.status-pill.report {
+  border-color: rgba(141, 207, 166, 0.56);
+  color: #bfe9c9;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 280px minmax(680px, 1fr) 320px;
@@ -346,6 +356,7 @@ select:disabled {
   left: 0;
   top: 0;
   border-radius: inherit;
+  transition: width 520ms ease;
 }
 
 .stat-meter.banner .stat-meter-fill {
@@ -448,6 +459,81 @@ select:disabled {
   font-size: 10px;
   font-weight: 900;
   text-anchor: middle;
+  text-transform: uppercase;
+}
+
+.phase-indicators {
+  pointer-events: none;
+}
+
+.phase-indicator circle {
+  fill: none;
+  stroke-width: 4;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.phase-indicator text {
+  fill: #fff4df;
+  font-size: 8px;
+  font-weight: 900;
+  text-anchor: middle;
+  text-transform: uppercase;
+}
+
+.phase-indicator.engagement circle {
+  stroke: rgba(255, 194, 96, 0.92);
+  filter: drop-shadow(0 0 10px rgba(255, 194, 96, 0.52));
+}
+
+.phase-indicator.engagement.active circle {
+  animation: phase-pulse 840ms ease-out infinite;
+}
+
+.phase-indicator.engagement text {
+  fill: #ffe0a0;
+}
+
+.phase-indicator.support .support-source {
+  stroke: rgba(141, 207, 166, 0.86);
+  filter: drop-shadow(0 0 9px rgba(141, 207, 166, 0.44));
+}
+
+.phase-indicator.support .support-area {
+  fill: rgba(141, 207, 166, 0.16);
+  stroke: rgba(141, 207, 166, 0.7);
+  stroke-dasharray: 5 5;
+}
+
+.phase-indicator.objective-damage circle {
+  stroke: rgba(255, 118, 91, 0.9);
+  filter: drop-shadow(0 0 10px rgba(255, 118, 91, 0.46));
+}
+
+.phase-indicator.objective-damage text {
+  fill: #ffc1b4;
+}
+
+.phase-indicator.static {
+  opacity: 0.58;
+}
+
+.phase-indicator.active {
+  opacity: 1;
+}
+
+.playback-badge {
+  position: absolute;
+  left: 28px;
+  top: 18px;
+  z-index: 3;
+  padding: 7px 10px;
+  border: 1px solid rgba(240, 203, 116, 0.42);
+  border-radius: 999px;
+  background: rgba(24, 23, 20, 0.82);
+  color: #ffe0a0;
+  font-size: 0.68rem;
+  font-weight: 900;
   text-transform: uppercase;
 }
 
@@ -754,6 +840,33 @@ select:disabled {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
+}
+
+.playback-skip {
+  width: 100%;
+}
+
+@keyframes phase-pulse {
+  0% {
+    opacity: 0.92;
+    transform: scale(0.9);
+  }
+
+  100% {
+    opacity: 0.28;
+    transform: scale(1.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-meter-fill,
+  .hex-tile polygon {
+    transition: none;
+  }
+
+  .phase-indicator.engagement circle {
+    animation: none;
+  }
 }
 
 @media (max-width: 1380px) {

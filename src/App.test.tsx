@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 async function startTutorial() {
@@ -9,6 +9,10 @@ async function startTutorial() {
   await user.click(screen.getByRole("button", { name: /begin command/i }));
   return user;
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("App", () => {
   it("renders the tutorial briefing", () => {
@@ -63,6 +67,78 @@ describe("App", () => {
     expect(screen.getByText(/the host moves first/i)).toBeInTheDocument();
     expect(screen.getByText(/casualties/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Objective" })).toBeInTheDocument();
+  });
+
+  it("starts playback with support context before individual engagements", async () => {
+    const user = await startTutorial();
+
+    await user.click(screen.getByRole("button", { name: /commit phase/i }));
+
+    expect(screen.getByText("Resolving")).toBeInTheDocument();
+    expect(screen.getByLabelText(/support from mercy standard/i)).toHaveClass("active");
+    expect(screen.queryByLabelText(/engagement at hex 2,2/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /commit phase/i })).toBeDisabled();
+    expect(screen.getByLabelText(/doctrine for greyford shields/i)).toBeDisabled();
+    expect(screen.getByRole("button", { name: /skip playback/i })).toBeInTheDocument();
+  });
+
+  it("steps through engagements at the selected readable timing", async () => {
+    vi.useFakeTimers();
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /begin command/i }));
+    fireEvent.click(screen.getByRole("button", { name: /commit phase/i }));
+
+    await act(async () => {
+      vi.advanceTimersByTime(625);
+    });
+
+    expect(screen.getByLabelText(/engagement at hex 2,2/i)).toHaveClass("active");
+    expect(screen.queryByLabelText(/engagement at hex 2,1/i)).not.toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1250);
+    });
+
+    expect(screen.getByLabelText(/engagement at hex 2,1/i)).toHaveClass("active");
+    expect(screen.getByLabelText(/engagement at hex 2,2/i)).not.toHaveClass("active");
+  });
+
+  it("stops pulsing phase indicators after playback reaches the report state", async () => {
+    vi.useFakeTimers();
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /begin command/i }));
+    fireEvent.click(screen.getByRole("button", { name: /commit phase/i }));
+
+    await act(async () => {
+      vi.advanceTimersByTime(625);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1250);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1250);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(875);
+    });
+
+    expect(screen.getByText("Report")).toBeInTheDocument();
+    expect(document.querySelectorAll(".phase-indicator.active, .phase-indicator.pulsing")).toHaveLength(0);
+    expect(screen.getByLabelText(/engagement at hex 2,2/i)).toBeInTheDocument();
+  });
+
+  it("keeps the battle report visible after skipping phase playback", async () => {
+    const user = await startTutorial();
+
+    await user.click(screen.getByRole("button", { name: /commit phase/i }));
+    await user.click(screen.getByRole("button", { name: /skip playback/i }));
+
+    expect(screen.getByText("Report")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /phase 1/i })).toBeInTheDocument();
+    expect(screen.getByText(/the host moves first/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /commit phase/i })).not.toBeDisabled();
   });
 
   it("lets the player deploy a Free Banners squad to an empty friendly hex before phase one", async () => {
@@ -132,8 +208,11 @@ describe("App", () => {
     const user = await startTutorial();
 
     await user.click(screen.getByRole("button", { name: /commit phase/i }));
+    await user.click(screen.getByRole("button", { name: /skip playback/i }));
     await user.click(screen.getByRole("button", { name: /commit phase/i }));
+    await user.click(screen.getByRole("button", { name: /skip playback/i }));
     await user.click(screen.getByRole("button", { name: /commit phase/i }));
+    await user.click(screen.getByRole("button", { name: /skip playback/i }));
 
     expect(screen.getByText(/scenario victory|scenario defeat/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /commit phase/i })).toBeDisabled();

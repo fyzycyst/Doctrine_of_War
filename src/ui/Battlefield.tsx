@@ -1,7 +1,7 @@
 import { getDoctrine } from "../game/doctrines";
 import { firstBreachScenario } from "../game/scenario";
 import { terrainDefenseBonus, type HexCoord, type TerrainType } from "../game/board";
-import type { BattleState, DoctrineAssignments } from "../game/types";
+import type { BattleState, DoctrineAssignments, PhaseEvent } from "../game/types";
 import { HexBoard } from "./HexBoard";
 
 const terrainTypes: TerrainType[] = ["road", "ridge", "ford", "wall", "field", "ruin"];
@@ -40,6 +40,9 @@ function StatMeter({
 export function Battlefield({
   state,
   assignments,
+  phaseEvents,
+  activePhaseEvent,
+  playbackState,
   selectedSquadId,
   deploymentLocked,
   onSelectSquad,
@@ -47,6 +50,9 @@ export function Battlefield({
 }: {
   state: BattleState;
   assignments: DoctrineAssignments;
+  phaseEvents?: PhaseEvent[];
+  activePhaseEvent?: PhaseEvent;
+  playbackState?: "command" | "resolving" | "report";
   selectedSquadId?: string | null;
   deploymentLocked?: boolean;
   onSelectSquad?: (squadId: string) => void;
@@ -73,11 +79,14 @@ export function Battlefield({
           assignments={assignments}
           objectives={state.objectives}
           playerFaction={firstBreachScenario.playerFaction}
+          phaseEvents={phaseEvents}
+          activePhaseEvent={activePhaseEvent}
           selectedSquadId={selectedSquadId}
           deploymentLocked={deploymentLocked}
           onSelectSquad={onSelectSquad}
           onDeploySquad={onDeploySquad}
         />
+        {playbackState === "resolving" && <div className="playback-badge">Resolving phase events</div>}
         <ul className="terrain-legend" aria-label="Terrain effects">
           {terrainTypes.map((terrain) => (
             <li className={`terrain-legend-item terrain-${terrain}`} key={terrain}>
