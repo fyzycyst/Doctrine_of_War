@@ -328,3 +328,29 @@ These are intentionally deferred until the board-first loop has stable resolutio
 - `Fighting Withdrawal` implies fallback movement: the unit should move back by one hex when the doctrine resolves.
 - Player turns should eventually include deliberate unit movement, with cavalry able to move farther than infantry.
 - Ranged units should reach beyond adjacent hexes. Their effect may diminish with range, or they may take reduced melee damage because ranged pressure happens before close combat.
+
+## Slice 7: Larger-Board Readability Evaluation Spike
+
+**Intent:** Test whether the current board presentation has enough headroom before adding campaign breadth or richer scenario systems.
+
+**Status 2026-06-26:** Complete. Added a data-only readability fixture with an 8 by 7 axial board, 14 squads, 2 objectives, and 7 scripted threats across 3 phases. The fixture is intentionally not wired into the app as a selectable scenario; it exists to stress board density, token identity, terrain spread, support adjacency, and playback event volume without starting campaign scope.
+
+**Files:**
+- Create: `src/game/readabilityScenario.ts`
+- Create: `src/game/readabilityScenario.test.ts`
+- Modify: `docs/superpowers/plans/2026-05-15-post-mvp-board-evolution.md`
+
+**Evaluation:**
+
+- The larger fixture stays within the existing scenario data shape and confirms the board model can represent a wider line without new architecture.
+- The current rectangular token treatment is likely the next scaling bottleneck. On a 14-squad fixture, role-based token text such as `Shield` or `Engine` would repeat across multiple squads, weakening at-a-glance identity.
+- The side status panel also becomes longer with the larger roster, so exact stats should remain off-token but the board token itself needs denser, clearer identity cues.
+- Fixed playback timing is worth revisiting after token density improves. Seven scripted threats across three phases is enough to test event volume, but the stronger immediate issue is token identity rather than playback pacing.
+
+**Tests:**
+
+- [x] `src/game/readabilityScenario.test.ts` verifies board size, squad count, threat count, complete rectangular axial coordinates, valid squad/objective/threat hexes, unique initial squad positions, terrain variety, support adjacency, and multiple objective locations.
+
+**Recommendation:**
+
+- Proceed to Slice 8 before Slice 9. Use the larger fixture as evidence that compact token identity should improve before adding playback pace controls.
