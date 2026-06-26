@@ -17,10 +17,18 @@ const hostSquads = (state: BattleState) =>
   state.squads.filter((squad) => squad.faction === "ashen_host");
 
 type PlaybackState = "command" | "resolving" | "report";
-const PLAYBACK_TIMING_MS: Record<PhaseEvent["kind"], number> = {
-  support: 625,
-  engagement: 1250,
-  objectiveDamage: 875,
+type PlaybackPace = "readable" | "fast";
+const PLAYBACK_TIMING_MS: Record<PlaybackPace, Record<PhaseEvent["kind"], number>> = {
+  readable: {
+    support: 625,
+    engagement: 1250,
+    objectiveDamage: 875,
+  },
+  fast: {
+    support: 250,
+    engagement: 500,
+    objectiveDamage: 350,
+  },
 };
 const PLAYBACK_ORDER: Record<PhaseEvent["kind"], number> = {
   support: 0,
@@ -60,6 +68,7 @@ function App() {
   const [assignments, setAssignments] = useState(() => initialAssignments(createInitialBattleState()));
   const [selectedSquadId, setSelectedSquadId] = useState<string | null>(null);
   const [playbackState, setPlaybackState] = useState<PlaybackState>("command");
+  const [playbackPace, setPlaybackPace] = useState<PlaybackPace>("readable");
   const [activeEventIndex, setActiveEventIndex] = useState(0);
   const latestReport = state.reports.at(-1);
   const terminal = state.status !== "command";
@@ -112,10 +121,10 @@ function App() {
 
         return nextIndex;
       });
-    }, PLAYBACK_TIMING_MS[activeEvent.kind]);
+    }, PLAYBACK_TIMING_MS[playbackPace][activeEvent.kind]);
 
     return () => window.clearTimeout(timeout);
-  }, [activeEventIndex, playbackEvents, resolving]);
+  }, [activeEventIndex, playbackEvents, playbackPace, resolving]);
 
   function updateAssignment(squadId: string, doctrineId: string) {
     setAssignments((current) => ({ ...current, [squadId]: doctrineId }));
@@ -199,16 +208,38 @@ function App() {
         <aside className="right-rail">
           <ObjectivePanel playerSquads={squads} hostSquads={enemies} />
           <BattleReportPanel report={latestReport} />
-          {resolving && (
-            <button
-              className="secondary-action playback-skip"
-              type="button"
-              onClick={() => setPlaybackState("report")}
-            >
-              Skip Playback
-            </button>
-          )}
-          <ActionBar onCommit={commitPhase} onRestart={restart} disabled={terminal || resolving} />
+          <div className="right-controls">
+            <div className="playback-pace" role="group" aria-label="Playback pace">
+              <button
+                className={playbackPace === "readable" ? "active" : ""}
+                type="button"
+                aria-pressed={playbackPace === "readable"}
+                disabled={terminal || resolving}
+                onClick={() => setPlaybackPace("readable")}
+              >
+                Readable
+              </button>
+              <button
+                className={playbackPace === "fast" ? "active" : ""}
+                type="button"
+                aria-pressed={playbackPace === "fast"}
+                disabled={terminal || resolving}
+                onClick={() => setPlaybackPace("fast")}
+              >
+                Fast
+              </button>
+            </div>
+            {resolving && (
+              <button
+                className="secondary-action playback-skip"
+                type="button"
+                onClick={() => setPlaybackState("report")}
+              >
+                Skip Playback
+              </button>
+            )}
+            <ActionBar onCommit={commitPhase} onRestart={restart} disabled={terminal || resolving} />
+          </div>
         </aside>
       </div>
     </main>

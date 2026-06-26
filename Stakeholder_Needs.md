@@ -85,7 +85,7 @@ Implemented board-first outcomes:
 - Human-perceptible phase playback where support context appears first, engagements resolve one at a time, and objective hits resolve afterward.
 - Static report state after playback, with pulsing indicators stopped.
 
-The board-first direction is promising enough to continue, but it should be evaluated at a larger scenario size before campaign or editor expansion. Larger boards may require token-only presentation, scrolling/zooming, playback speed preferences, or a playback off switch.
+The board-first direction is promising enough to continue, but it should be evaluated at a larger scenario size before campaign or editor expansion. Larger boards may still require scrolling, zooming, denser token rules, or a playback off switch.
 
 ## Doctrine System Needs
 
@@ -172,5 +172,5 @@ Common fantasy elements such as armies, banners, siege engines, elves, dwarves, 
 - Should doctrine assignment be per squad only, or should some scenario-level orders also exist?
 - What visual style best balances clarity, mood, and implementation cost?
 - Which details should be visible by default, and which should move behind tooltips, context menus, or inspector panels?
-- When large scenarios arrive, should playback speed be user-adjustable, and should players be able to turn playback off entirely?
+- When large scenarios arrive, should players be able to turn playback off entirely?
 - When should deliberate unit movement enter the command loop, and how can it avoid turning the game into rapid RTS micromanagement?

@@ -384,3 +384,33 @@ These are intentionally deferred until the board-first loop has stable resolutio
 **Recommendation:**
 
 - Proceed to Slice 9 with the smallest pace control. Do not add a replay timeline or scenario selector.
+
+## Slice 9: Playback Pace and Event-Volume Control
+
+**Intent:** Keep phase playback understandable as event volume grows without building a replay timeline or exposing the larger fixture as a scenario.
+
+**Status 2026-06-26:** Complete. Added a compact `Readable` / `Fast` playback pace control in the right rail. Readable keeps the original timing; Fast shortens support, engagement, and objective-damage beats for higher-volume phases.
+
+**Files:**
+- Modify: `src/App.tsx`
+- Modify: `src/App.test.tsx`
+- Modify: `src/styles.css`
+- Modify: `README.md`
+- Modify: `PRD.md`
+- Modify: `Stakeholder_Needs.md`
+- Modify: `docs/superpowers/plans/2026-05-15-post-mvp-board-evolution.md`
+
+**Evaluation:**
+
+- The control is intentionally small: two segmented buttons, no replay timeline, no off switch, and no scenario selector.
+- `Readable` remains the default for first-time tutorial comprehension.
+- `Fast` gives the existing playback loop a lower-latency path for phases with more support, engagement, and objective events.
+- Playback off remains deferred until larger rendered scenarios prove that skipping is not enough.
+
+**Tests:**
+
+- [x] `src/App.test.tsx` verifies that selecting `Fast` changes event stepping duration with fake timers while preserving the existing readable timing tests.
+
+**Recommendation:**
+
+- Stop this three-slice stack here. The next stack should decide whether to render the readability fixture in a controlled evaluation route, add board zoom/scroll, or begin doctrine-driven movement events.

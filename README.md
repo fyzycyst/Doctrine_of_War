@@ -13,7 +13,7 @@ This repository implements the first playable tutorial scenario plus the first b
 - Hex-based 2D battlefield with terrain, deployment hexes, and objective hexes.
 - Preset doctrine assignment from pick lists.
 - Squad-level strength, cohesion, and Resolve.
-- Deterministic hex-based phase resolution with terrain defense, support radius, objective pressure, structured phase events, visual playback, and battle reports.
+- Deterministic hex-based phase resolution with terrain defense, support radius, objective pressure, structured phase events, readable/fast visual playback, and battle reports.
 
 Deferred until later:
 
@@ -22,7 +22,7 @@ Deferred until later:
 - Resolve persistence between scenarios.
 - Campaign editor.
 - Larger maps, scrolling, art assets, and richer unit tokens.
-- User-adjustable playback speed or a playback off switch.
+- Playback off switch.
 - Deliberate in-phase unit movement.
 - Utility AI skirmish mode.
 - Save/load.

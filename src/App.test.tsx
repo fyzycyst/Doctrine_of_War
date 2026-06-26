@@ -104,6 +104,24 @@ describe("App", () => {
     expect(screen.getByLabelText(/engagement at hex 2,2/i)).not.toHaveClass("active");
   });
 
+  it("uses fast playback timing when the player changes playback pace", async () => {
+    vi.useFakeTimers();
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /begin command/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Fast" }));
+    fireEvent.click(screen.getByRole("button", { name: /commit phase/i }));
+
+    expect(screen.getByRole("button", { name: "Fast" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText(/support from mercy standard/i)).toHaveClass("active");
+
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(screen.getByLabelText(/engagement at hex 2,2/i)).toHaveClass("active");
+  });
+
   it("stops pulsing phase indicators after playback reaches the report state", async () => {
     vi.useFakeTimers();
 
