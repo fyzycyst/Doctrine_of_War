@@ -545,37 +545,57 @@ select:disabled {
   cursor: pointer;
 }
 
-.hex-squad rect {
+.hex-squad .token-body {
   stroke-width: 2;
   filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.34));
 }
 
-.hex-squad.banner rect {
+.hex-squad.banner .token-body {
   fill: #2f6856;
   stroke: #9bd6ad;
 }
 
-.hex-squad.ashen rect {
+.hex-squad.ashen .token-body {
   fill: #7a3429;
   stroke: #e97552;
 }
 
-.hex-squad.selected rect {
+.hex-squad.selected .token-body {
   stroke: #f0cb74;
   stroke-width: 3;
 }
 
+.hex-squad .token-role {
+  stroke: rgba(15, 18, 17, 0.88);
+  stroke-width: 1.5;
+}
+
+.hex-squad.role-frontline .token-role {
+  fill: #e6d28c;
+}
+
+.hex-squad.role-skirmish .token-role {
+  fill: #9fc6c0;
+}
+
+.hex-squad.role-support .token-role {
+  fill: #f0cb74;
+}
+
+.hex-squad.role-siege .token-role {
+  fill: #f08f6f;
+}
+
+.hex-squad.role-cavalry .token-role {
+  fill: #b8dd9e;
+}
+
 .hex-squad text {
   fill: #fff4df;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 900;
   text-anchor: middle;
   pointer-events: none;
-}
-
-.hex-squad .token-doctrine {
-  fill: rgba(255, 244, 223, 0.74);
-  font-size: 6px;
 }
 
 .terrain-legend {

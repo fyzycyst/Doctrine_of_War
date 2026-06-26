@@ -354,3 +354,33 @@ These are intentionally deferred until the board-first loop has stable resolutio
 **Recommendation:**
 
 - Proceed to Slice 8 before Slice 9. Use the larger fixture as evidence that compact token identity should improve before adding playback pace controls.
+
+## Slice 8: Token Density and Board Information Pass
+
+**Intent:** Improve board-token identity so a larger board can be scanned without relying on repeated role words or wide text rectangles.
+
+**Status 2026-06-26:** Complete. Squad tokens now render as compact circular faction markers with two-character callsigns and role pips. Accessible labels still expose squad name, hex, role, and doctrine; exact strength and cohesion remain in the status panel rather than on-token.
+
+**Files:**
+- Modify: `src/ui/HexBoard.tsx`
+- Modify: `src/ui/HexBoard.test.tsx`
+- Modify: `src/styles.css`
+
+**Evaluation:**
+
+- The tutorial roster now renders as unique short codes: `GS`, `DA`, `MS`, `SR`, `CV`, `GE`, `ER`, and `FR`.
+- The larger readability fixture also receives unique two-character token codes across all 14 squads, preventing repeated `Shield` or `Engine` labels.
+- Faction remains encoded through token body color, while role is encoded through a small pip and role class.
+- Browser QA confirmed desktop token selection, commit/skip playback flow, and a 390px mobile viewport with no horizontal overflow.
+- Slice 9 remains useful: the larger fixture can generate enough phase events that fixed readable timing may feel long once the fixture is rendered or simulated through future scenario flows.
+
+**Tests:**
+
+- [x] `src/ui/HexBoard.test.tsx` verifies compact tutorial token codes, unique larger-fixture token codes, role/faction cues, selectable player tokens, deployment behavior, and objective hex labeling.
+- [x] `npm test` passed with 53 tests.
+- [x] `npm run build` passed.
+- [x] `git diff --check` passed.
+
+**Recommendation:**
+
+- Proceed to Slice 9 with the smallest pace control. Do not add a replay timeline or scenario selector.

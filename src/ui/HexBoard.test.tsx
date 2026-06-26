@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { readabilityScenario } from "../game/readabilityScenario";
 import { createInitialBattleState, firstBreachScenario } from "../game/scenario";
 import type { DoctrineAssignments } from "../game/types";
 import { HexBoard } from "./HexBoard";
@@ -11,6 +12,12 @@ const assignments: DoctrineAssignments = {
   mercy_standard: "rescue_standard",
   stoneford_riders: "fighting_withdrawal",
 };
+const readabilityState = createInitialBattleState(readabilityScenario);
+const readabilityAssignments: DoctrineAssignments = Object.fromEntries(
+  readabilityState.squads
+    .filter((squad) => squad.faction === "free_banners")
+    .map((squad) => [squad.id, squad.assignedDoctrineId]),
+);
 
 describe("HexBoard", () => {
   it("renders every board hex as part of a tessellated battlefield", () => {
@@ -50,7 +57,7 @@ describe("HexBoard", () => {
     expect(engine).toHaveAttribute("data-r", "2");
   });
 
-  it("uses compact visible token labels that fit the unit rectangles", () => {
+  it("uses unique compact visible token codes that scale past the tutorial roster", () => {
     render(
       <HexBoard
         board={firstBreachScenario.board!}
@@ -63,8 +70,50 @@ describe("HexBoard", () => {
 
     const tokenLabels = screen.getAllByTestId("squad-token-label").map((label) => label.textContent ?? "");
 
-    expect(tokenLabels).toEqual(["Shield", "Archer", "Mercy", "Rider", "Cinder", "Engine", "Ember", "Reaver"]);
-    expect(tokenLabels.every((label) => label.length <= 6)).toBe(true);
+    expect(tokenLabels).toEqual(["GS", "DA", "MS", "SR", "CV", "GE", "ER", "FR"]);
+    expect(tokenLabels.every((label) => label.length <= 2)).toBe(true);
+  });
+
+  it("keeps token codes unique on the larger readability fixture", () => {
+    render(
+      <HexBoard
+        board={readabilityScenario.board!}
+        squads={readabilityState.squads}
+        assignments={readabilityAssignments}
+        objectives={readabilityState.objectives}
+        playerFaction="free_banners"
+      />,
+    );
+
+    const tokenLabels = screen.getAllByTestId("squad-token-label").map((label) => label.textContent ?? "");
+
+    expect(tokenLabels).toHaveLength(14);
+    expect(new Set(tokenLabels).size).toBe(14);
+    expect(tokenLabels.every((label) => label.length <= 2)).toBe(true);
+    expect(tokenLabels).not.toContain("Shield");
+    expect(tokenLabels).not.toContain("Engine");
+  });
+
+  it("exposes faction and role cues while keeping player tokens selectable by accessible name", () => {
+    render(
+      <HexBoard
+        board={firstBreachScenario.board!}
+        squads={state.squads}
+        assignments={assignments}
+        objectives={state.objectives}
+        playerFaction="free_banners"
+      />,
+    );
+
+    const shields = screen.getByLabelText(/select greyford shields at hex 3,2/i);
+    const engine = screen.getByLabelText(/gatebreak engine at hex 0,2/i);
+
+    expect(shields).toHaveClass("banner");
+    expect(shields).toHaveClass("role-frontline");
+    expect(shields).toHaveAttribute("data-role", "frontline");
+    expect(engine).toHaveClass("ashen");
+    expect(engine).toHaveClass("role-siege");
+    expect(engine).toHaveAttribute("data-role", "siege");
   });
 
   it("lets selected player squads request deployment to valid empty hexes", () => {

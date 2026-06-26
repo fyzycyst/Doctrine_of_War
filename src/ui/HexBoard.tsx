@@ -30,28 +30,74 @@ function coordText(coord: HexCoord) {
   return `${coord.q},${coord.r}`;
 }
 
-const tokenLabelByRole: Record<Squad["role"], string> = {
-  cavalry: "Rider",
-  frontline: "Shield",
-  siege: "Engine",
-  skirmish: "Archer",
-  support: "Mercy",
+const numberWordCodes: Record<string, string> = {
+  one: "1",
+  two: "2",
+  three: "3",
+  four: "4",
+  five: "5",
 };
 
-function tokenLabel(squad: Squad) {
-  if (squad.id === "cinder_vanguard") {
-    return "Cinder";
+function wordsForToken(name: string) {
+  return name
+    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function baseTokenCode(squad: Squad) {
+  const words = wordsForToken(squad.name);
+  const lastWord = words.at(-1)?.toLowerCase();
+
+  if (lastWord && numberWordCodes[lastWord] && words[0]) {
+    return `${words[0][0]}${numberWordCodes[lastWord]}`.toUpperCase();
   }
 
-  if (squad.id === "ember_runners") {
-    return "Ember";
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
   }
 
-  if (squad.id === "ford_reavers") {
-    return "Reaver";
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
   }
 
-  return tokenLabelByRole[squad.role];
+  return squad.role.slice(0, 2).toUpperCase();
+}
+
+function tokenCodesForSquads(squads: Squad[]) {
+  const groups = new Map<string, Squad[]>();
+  const codes = new Map<string, string>();
+  const used = new Set<string>();
+  const suffixes = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  for (const squad of squads) {
+    const base = baseTokenCode(squad);
+    groups.set(base, [...(groups.get(base) ?? []), squad]);
+  }
+
+  for (const [base, groupedSquads] of groups) {
+    if (groupedSquads.length === 1 && !used.has(base)) {
+      codes.set(groupedSquads[0].id, base);
+      used.add(base);
+      continue;
+    }
+
+    groupedSquads.forEach((squad, index) => {
+      const prefix = base[0] ?? "U";
+      let suffixIndex = index;
+      let code = `${prefix}${suffixes[suffixIndex] ?? "X"}`;
+
+      while (used.has(code) && suffixIndex < suffixes.length - 1) {
+        suffixIndex += 1;
+        code = `${prefix}${suffixes[suffixIndex]}`;
+      }
+
+      codes.set(squad.id, code);
+      used.add(code);
+    });
+  }
+
+  return codes;
 }
 
 function canDeployToHex({
@@ -110,6 +156,7 @@ export function HexBoard({
     };
   };
   const selectedSquad = squads.find((squad) => squad.id === selectedSquadId);
+  const tokenCodes = tokenCodesForSquads(squads);
 
   return (
     <div className="hex-board-wrap">
@@ -255,16 +302,18 @@ export function HexBoard({
             const isPlayer = squad.faction === playerFaction;
             const doctrine = getDoctrine(isPlayer ? assignments[squad.id] : squad.assignedDoctrineId);
             const selected = selectedSquadId === squad.id;
+            const tokenCode = tokenCodes.get(squad.id) ?? baseTokenCode(squad);
             const label = isPlayer
-              ? `Select ${squad.name} at hex ${coordText(squad.hex)}`
-              : `${squad.name} at hex ${coordText(squad.hex)}`;
+              ? `Select ${squad.name} at hex ${coordText(squad.hex)}, ${squad.role}, ${doctrine.name}`
+              : `${squad.name} at hex ${coordText(squad.hex)}, ${squad.role}, ${doctrine.name}`;
 
             return (
               <g
                 aria-label={label}
-                className={`hex-squad ${isPlayer ? "banner" : "ashen"} ${selected ? "selected" : ""}`}
+                className={`hex-squad ${isPlayer ? "banner" : "ashen"} role-${squad.role} ${selected ? "selected" : ""}`}
                 data-q={squad.hex.q}
                 data-r={squad.hex.r}
+                data-role={squad.role}
                 key={squad.id}
                 onClick={() => {
                   if (isPlayer) {
@@ -274,12 +323,10 @@ export function HexBoard({
                 role={isPlayer ? "button" : undefined}
                 tabIndex={isPlayer ? 0 : undefined}
               >
-                <rect x={center.x - 25} y={center.y - 18} width="50" height="36" rx="7" />
-                <text aria-hidden="true" data-testid="squad-token-label" x={center.x} y={center.y - 3}>
-                  {tokenLabel(squad)}
-                </text>
-                <text aria-hidden="true" className="token-doctrine" x={center.x} y={center.y + 11}>
-                  {doctrine.name.split(" ")[0]}
+                <circle className="token-body" cx={center.x} cy={center.y} r="18" />
+                <circle className="token-role" cx={center.x + 12} cy={center.y - 12} r="5" />
+                <text aria-hidden="true" data-testid="squad-token-label" x={center.x} y={center.y + 4}>
+                  {tokenCode}
                 </text>
               </g>
             );
