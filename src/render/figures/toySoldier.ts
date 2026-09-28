@@ -106,3 +106,64 @@ export function buildToySoldier(faction: FactionId, style: FactionStyle, height:
   g.scale(s, s, s);
   return g;
 }
+
+/**
+ * The refugee Column (noncombatants): hooded walkers in undyed wool with
+ * bundles on their backs and lanterns (the `glow` channel), no helmets, shields
+ * or spears. Same pivot and frame as the soldiers so every animation applies.
+ */
+export function buildRefugee(height: number, variant: number): THREE.BufferGeometry {
+  const b = new GeoBuilder();
+  const robe = color(["#7a6a58", "#6a5e52", "#857560"][variant % 3]);
+  const hood = color(["#5a4a3e", "#4e4a44", "#6a5040"][variant % 3]);
+  const skin = color("#d8b08c");
+  const bundle = color("#b8a888");
+  const brass = color("#8a6a3a");
+  b.add(G.cyl8, trs(0, 0.009, 0, 0, 0, 0, 0.062, 0.018, 0.062), color("#2a2420"));
+  // Long robe to the ground, narrower shoulders than a soldier.
+  b.add(new THREE.CylinderGeometry(0.036, 0.058, 0.2, 8), trs(0, 0.118, 0, 0, 0, 0, 1), robe);
+  b.add(G.head, trs(0.006, 0.232, 0, 0, 0, 0, 0.036), skin);
+  // Hood: a dome pulled forward, with a short cowl down the back.
+  b.add(G.dome, trs(-0.004, 0.236, 0, 0.12, 0, 0, 0.045, 0.05, 0.045), hood);
+  b.add(G.box, trs(-0.03, 0.2, 0, 0, 0, 0.1, 0.02, 0.07, 0.07), hood);
+  // Bundle on the back.
+  b.add(G.ball, trs(-0.055, 0.17, 0, 0, 0, 0, 0.038, 0.045, 0.04), bundle);
+  if (variant % 2 === 0) {
+    // Lantern held low at the side: brass frame, glowing heart.
+    b.add(G.cyl6, trs(0.03, 0.14, 0.05, 0, 0, 0, 0.004, 0.05, 0.004), brass);
+    b.add(G.box, trs(0.03, 0.105, 0.05, 0, 0, 0, 0.032, 0.04, 0.032), brass);
+    b.add(G.box, trs(0.03, 0.105, 0.05, 0, 0, 0, 0.026, 0.034, 0.026), color("#ffcf8a"), 0, undefined, 1.4);
+  } else {
+    // A walking staff instead.
+    b.add(G.cyl6, trs(0.035, 0.15, 0.05, 0, 0, -0.1, 0.005, 0.3, 0.005), color("#5a4030"));
+  }
+  const g = b.build();
+  const s = height / REF_HEIGHT;
+  g.scale(s, s, s);
+  return g;
+}
+
+/** A covered cart for the Column: wooden bed, two wheels, canvas tilt, lantern. */
+export function buildCart(height: number): THREE.BufferGeometry {
+  const b = new GeoBuilder();
+  const wood = color("#5a4030");
+  const dark = color("#3a2a20");
+  const canvas = color("#d8ccb0");
+  // Bed and shafts (the cart faces +x like the figures).
+  b.add(G.box, trs(0, 0.1, 0, 0, 0, 0, 0.3, 0.05, 0.17), wood);
+  b.add(G.box, trs(0.2, 0.08, 0.055, 0, 0, 0.12, 0.16, 0.012, 0.012), dark);
+  b.add(G.box, trs(0.2, 0.08, -0.055, 0, 0, 0.12, 0.16, 0.012, 0.012), dark);
+  // Wheels.
+  for (const side of [-1, 1]) {
+    b.add(G.cyl8, trs(-0.02, 0.065, side * 0.095, Math.PI / 2, 0, 0, 0.065, 0.018, 0.065), dark);
+    b.add(G.cyl6, trs(-0.02, 0.065, side * 0.105, Math.PI / 2, 0, 0, 0.012, 0.012, 0.012), wood);
+  }
+  // Canvas tilt: the +x half of a cylinder (θ 0..π), turned so it arches over the bed.
+  b.add(new THREE.CylinderGeometry(0.09, 0.09, 0.28, 10, 1, false, 0, Math.PI), trs(-0.01, 0.125, 0, 0, 0, Math.PI / 2, 1), canvas, 0.12);
+  // A lantern hung at the front.
+  b.add(G.box, trs(0.13, 0.19, 0, 0, 0, 0, 0.02, 0.026, 0.02), color("#ffcf8a"), 0, undefined, 1);
+  const g = b.build();
+  const s = height / REF_HEIGHT;
+  g.scale(s, s, s);
+  return g;
+}

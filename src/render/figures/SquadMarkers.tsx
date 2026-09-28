@@ -9,6 +9,7 @@ import type { FactionStyle } from "../skins/types";
 import { cohesionArc } from "../squadLayout";
 import type { SquadAnimator } from "./squadAnimation";
 import type { PlacedSquad } from "./types";
+import { useDisposable } from "../dispose";
 
 /**
  * Per-squad dressing shared by both figure approaches (tech plan D7): a faction
@@ -26,7 +27,8 @@ export function SquadMarkers({ placed, animator }: { placed: PlacedSquad[]; anim
     [skin],
   );
   useEffect(() => () => Object.values(clothTextures).forEach((t) => t.dispose()), [clothTextures]);
-  const shadowTexture = useMemo(() => makeShadowTexture(), []);
+  const shadowTexture = useDisposable(() => makeShadowTexture(), []);
+  const columnTexture = useDisposable(() => makeColumnTexture(), []);
 
   return (
     <>
@@ -35,7 +37,7 @@ export function SquadMarkers({ placed, animator }: { placed: PlacedSquad[]; anim
           key={p.squad.id}
           placed={p}
           animator={animator}
-          texture={clothTextures[p.squad.faction]}
+          texture={p.squad.kind === "column" ? columnTexture : clothTextures[p.squad.faction]}
           shadow={shadowTexture}
           phase={i * 1.7}
         />
@@ -57,7 +59,7 @@ function SquadMarker({
   shadow: THREE.Texture;
   phase: number;
 }) {
-  const { skin } = useLook();
+  const { skin, reducedMotion, motion } = useLook();
   const { squad } = placed;
   const style = skin.factions[squad.faction];
   const selected = useAppStore((s) => s.selectedSquadId === squad.id);
@@ -70,11 +72,18 @@ function SquadMarker({
   const crest = useRef<THREE.Group>(null);
 
   const ghost = !!squad.lastKnown;
+  // The refugee Column: a small pale banner and a bone-white ring.
+  const column = squad.kind === "column";
   const { lit } = cohesionArc(squad.cohesion);
   const thetaLength = Math.max(0.001, lit * Math.PI * 2);
   // Rings are kept below the figures in brightness (look-lock #7).
   const ringBase = useMemo(
-    () => (ghost ? new THREE.Color("#8a94a8").multiplyScalar(0.9) : new THREE.Color(style.glow).multiplyScalar(1.05)),
+    () =>
+      ghost
+        ? new THREE.Color("#8a94a8").multiplyScalar(0.9)
+        : column
+          ? new THREE.Color("#e8dcc4").multiplyScalar(0.95)
+          : new THREE.Color(style.glow).multiplyScalar(1.05),
     [style.glow, ghost],
   );
   const ringMat = useMemo(
@@ -106,7 +115,7 @@ function SquadMarker({
     ringMat.opacity = (ghost ? 0.4 : 0.62) * fade;
     ringBackMat.opacity = ghost ? 0 : 0.12 * fade;
     if (halo.current) {
-      const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+      const pulse = reducedMotion ? 0.6 : 0.5 + 0.5 * Math.sin(t * 4);
       haloMat.opacity = selected ? 0.35 + 0.35 * pulse : hovered ? 0.18 : 0;
       halo.current.scale.setScalar(1 + (selected ? 0.03 * pulse : 0));
     }
@@ -119,14 +128,14 @@ function SquadMarker({
       g.scale.setScalar(Math.max(0.001, bf));
       g.visible = bf > 0.01;
     }
-    cloth.userData.uniforms.uTime.value += dt;
+    cloth.userData.uniforms.uTime.value += dt * (reducedMotion ? 0.3 : 1);
     cloth.emissiveIntensity = 0.22 + (pose?.bannerFlare ?? 0);
-    if (crest.current) crest.current.rotation.y = t * 0.8;
+    if (crest.current) crest.current.rotation.y = t * 0.8 * motion;
   });
 
-  const poleHeight = 0.78;
-  const w = 0.34;
-  const h = 0.22;
+  const poleHeight = column ? 0.6 : 0.78;
+  const w = column ? 0.24 : 0.34;
+  const h = column ? 0.16 : 0.22;
   return (
     <group ref={root} position={[placed.x, placed.y, placed.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
@@ -235,6 +244,32 @@ export function makeClothMaterial(texture: THREE.Texture, phase: number, ghost =
   m.customProgramCacheKey = () => (ghost ? "banner-cloth-ghost" : "banner-cloth");
   m.userData.uniforms = uniforms;
   return m;
+}
+
+/** The Column's pale banner: undyed linen with a small lantern mark. */
+function makeColumnTexture(): THREE.Texture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 192;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#e6dcc6";
+  ctx.fillRect(0, 0, 192, 128);
+  ctx.fillStyle = "#cfc2a4";
+  ctx.fillRect(0, 0, 18, 128);
+  // Lantern: a small hooded frame with a warm heart.
+  ctx.strokeStyle = "#6a5a44";
+  ctx.lineWidth = 6;
+  ctx.strokeRect(84, 40, 34, 44);
+  ctx.beginPath();
+  ctx.moveTo(84, 40);
+  ctx.lineTo(101, 24);
+  ctx.lineTo(118, 40);
+  ctx.stroke();
+  ctx.fillStyle = "#e0a050";
+  ctx.fillRect(92, 50, 18, 24);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
 
 export function makeBannerTexture(faction: FactionId, style: FactionStyle): THREE.Texture {

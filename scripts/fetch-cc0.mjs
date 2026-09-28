@@ -1,5 +1,5 @@
 // Downloads the CC0 KayKit figure pack used by the Look Lab's figure approach (b).
-// Assets are gitignored; licenses are verified CC0 (see public/assets/cc0/README.md).
+// Assets are gitignored; licenses are verified CC0 (see lab-assets/cc0/README.md).
 import { mkdir, writeFile, access } from "node:fs/promises";
 import path from "node:path";
 
@@ -11,7 +11,8 @@ const files = [
   [`${RAW}/KayKit-Character-Pack-Skeletons-1.0/main/LICENSE.txt`, "LICENSE-skeletons.txt"],
 ];
 
-const outDir = path.resolve("public/assets/cc0/kaykit");
+// Lab-only: served by the dev server at /lab-assets, never copied into a production build.
+const outDir = path.resolve("lab-assets/cc0/kaykit");
 await mkdir(outDir, { recursive: true });
 
 for (const [url, name] of files) {

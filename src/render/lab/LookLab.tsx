@@ -16,7 +16,7 @@ import { closeShot, DioramaCamera, wideShot, type CameraShot } from "../camera/D
 import { Diorama } from "../Diorama";
 import type { SquadAnimationApi, SquadAnimator } from "../figures/squadAnimation";
 import type { FigureApproach } from "../figures/types";
-import { boardRadius } from "../hexWorld";
+import { boardCenter, boardRadius, hexToWorld } from "../hexWorld";
 import { LookProvider, useLook } from "../look/LookContext";
 import { canvasDpr } from "../quality";
 import { PostFX } from "../post/PostFX";
@@ -42,8 +42,8 @@ import { fogOfWar, LAB_SCENES, stepToward, type LabSceneId } from "./labScene";
  * Exposes `window.__lookLab = { ready, frames, fps }` for the capture script.
  */
 
-type AnimName = "march" | "lunge" | "fall" | "rout" | "rally" | "brace";
-const ANIMS: AnimName[] = ["march", "lunge", "fall", "rout", "rally", "brace"];
+type AnimName = "march" | "lunge" | "fall" | "rout" | "rally" | "brace" | "shake";
+const ANIMS: AnimName[] = ["march", "lunge", "fall", "rout", "rally", "brace", "shake"];
 
 type LabState = {
   preset: TimeOfDay;
@@ -68,8 +68,13 @@ function readParams() {
   const figures = p.get("figures");
   const num = (k: string) => (p.get(k) === null ? undefined : Number(p.get(k)));
   const anim = p.get("anim");
+  const scenarioParam = p.get("scenario");
   const board: LabSceneId =
-    p.get("board") === "stress" ? "stress" : p.get("scenario") === "emberFord" ? "emberFord" : "firstBreach";
+    p.get("board") === "stress"
+      ? "stress"
+      : scenarioParam === "emberFord" || scenarioParam === "saltmarsh" || scenarioParam === "holdForDawn"
+        ? scenarioParam
+        : "firstBreach";
   return {
     state: {
       preset: isTimeOfDay(preset) ? preset : LAB_SCENES[board].timeOfDay,
@@ -96,6 +101,9 @@ function readParams() {
     campaignMock: p.get("campaignMock") === "b" ? "b" : "a",
     path: p.get("path") as CinematicPathId | null,
     seq: p.get("seq") === "1",
+    fadeTo: isTimeOfDay(p.get("fadeTo")) ? (p.get("fadeTo") as TimeOfDay) : null,
+    fadeAt: num("fadeAt") ?? 1,
+    focusHex: p.get("focusHex"),
     fogFreeze: num("fogFreeze"),
   };
 }
@@ -173,11 +181,14 @@ const CAMPAIGN_MOCKS: Record<"a" | "b", CampaignMapBattle[]> = {
 
 function CampaignLab({ seq, mock }: { seq: boolean; mock: "a" | "b" }) {
   const [picked, setPicked] = useState<string | null>(null);
+  const [focus, setFocus] = useState<string | null>(() => new URLSearchParams(window.location.search).get("focus"));
   return (
     <div style={{ position: "fixed", inset: 0 }}>
       <CampaignMap
         battles={CAMPAIGN_MOCKS[mock]}
         onSelect={setPicked}
+        focusedId={focus}
+        onFocusChange={setFocus}
         frameloop={seq ? "never" : "always"}
         inCanvas={<LabProbes ready seq={seq} />}
       >
@@ -245,7 +256,15 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
   const scene = LAB_SCENES[state.board];
   const skin = getSkin(state.skin);
   const shot = useMemo<CameraShot>(() => {
-    const base = state.cam === "close" ? closeShot(scene.focus) : wideShot(boardRadius(scene.board));
+    const [fq, fr] = (initial.focusHex ?? "").split(",").map(Number);
+    const focus: [number, number, number] =
+      initial.focusHex && Number.isFinite(fq) && Number.isFinite(fr)
+        ? (() => {
+            const [x, z] = hexToWorld({ q: fq, r: fr }, boardCenter(scene.board));
+            return [x + 0.9, 0.4, z + 0.6] as [number, number, number];
+          })()
+        : scene.focus;
+    const base = state.cam === "close" ? closeShot(focus) : wideShot(boardRadius(scene.board));
     return {
       ...base,
       azimuth: initial.shot.azimuth ?? base.azimuth,
@@ -277,6 +296,10 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
   const play = useCallback(
     (name: AnimName, squadId: string | null) => {
       const api = animations.current;
+      if (api && name === "shake") {
+        const objective = scene.board.hexes.find((h) => h.objectiveId) ?? scene.board.hexes.find((h) => h.terrain === "wall");
+        return objective ? api.shakeObjective(objective.coord, 1) : Promise.resolve();
+      }
       const squad = scene.squads.find((s) => s.id === squadId);
       if (!api || !squad) return Promise.resolve();
       const occupied = new Set(scene.squads.map((s) => hexKey(s.hex)));
@@ -295,6 +318,10 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
           return api.rout(squad.id);
         case "rally":
           return api.rally(squad.id);
+        case "shake": {
+          const objective = scene.board.hexes.find((h) => h.objectiveId) ?? scene.board.hexes.find((h) => h.terrain === "wall");
+          return objective ? api.shakeObjective(objective.coord, 1) : Promise.resolve();
+        }
         case "brace":
           return api.brace(squad.id);
       }
@@ -337,6 +364,9 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
           )}
           {revealed && initial.fogFreeze !== undefined && (
             <After seconds={initial.fogFreeze} run={() => freezeAll(animations.current)} />
+          )}
+          {initial.fadeTo && figuresReady && (
+            <After seconds={initial.fadeAt} run={() => setState((st) => ({ ...st, preset: initial.fadeTo! }))} />
           )}
           {initial.anim && figuresReady && (
             <AutoAnimation
@@ -387,7 +417,7 @@ function After({ seconds, run }: { seconds: number; run: () => void }) {
 /** Freeze every tween (figures, weather, fog) for a still; set from inside the scene. */
 let freezeAtmosphere: (() => void) | null = null;
 function freezeAll(animator: SquadAnimationApi | null) {
-  if (animator) (animator as SquadAnimator).timeScale = 0;
+  animator?.pause();
   freezeAtmosphere?.();
 }
 function AtmosphereFreezer() {
@@ -420,7 +450,7 @@ function AutoAnimation({
       started.current = t;
       void run();
     } else if (freezeAt !== undefined && t - started.current >= freezeAt) {
-      (animator.current as SquadAnimator | null)!.timeScale = 0;
+      animator.current?.pause();
     }
   });
   return null;

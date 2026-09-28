@@ -88,3 +88,34 @@ describe("SquadAnimator", () => {
     expect(anim.activeCount).toBe(1);
   });
 });
+
+describe("playback controls", () => {
+  it("setTimeScale / pause / resume without casts", async () => {
+    const anim = new SquadAnimator(makeScene());
+    anim.setTimeScale(0.5);
+    let done = false;
+    const p = anim.rally("a").then(() => (done = true));
+    run(anim, 1);
+    expect(done).toBe(false); // 0.5 s of rally time elapsed; it lasts 0.8 s
+    anim.pause();
+    run(anim, 5);
+    expect(anim.activeCount).toBe(1);
+    anim.resume();
+    run(anim, 1);
+    await p;
+    expect(done).toBe(true);
+  });
+
+  it("shakeObjective reports an active hit, then resolves", async () => {
+    const anim = new SquadAnimator(makeScene());
+    const p = anim.shakeObjective({ q: 2, r: 0 }, 0.8);
+    anim.tick(0.1);
+    const [hit] = anim.activeShakes();
+    expect(hit.at.x).toBe(2);
+    expect(hit.intensity).toBeCloseTo(0.8);
+    expect(hit.t).toBeCloseTo(0.1);
+    run(anim, 2);
+    await p;
+    expect(anim.activeShakes()).toHaveLength(0);
+  });
+});

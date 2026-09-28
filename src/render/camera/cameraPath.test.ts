@@ -44,3 +44,19 @@ describe("camera paths", () => {
     }
   });
 });
+
+describe("allocation-free sampling", () => {
+  it("sampleCameraPathInto matches the pure sampler and reuses its output", async () => {
+    const { sampleCameraPathInto } = await import("./cameraPath");
+    const THREE = await import("three");
+    const out = { position: new THREE.Vector3(), target: new THREE.Vector3(), fov: 0 };
+    for (const t of [0, 1.3, 2.5, 5, 7.7, 10, 42]) {
+      const ref = sampleCameraPath(line, t);
+      const got = sampleCameraPathInto(line, t, out);
+      expect(got).toBe(out);
+      expect(got.position.distanceTo(ref.position)).toBeLessThan(1e-9);
+      expect(got.target.distanceTo(ref.target)).toBeLessThan(1e-9);
+      expect(got.fov).toBeCloseTo(ref.fov);
+    }
+  });
+});

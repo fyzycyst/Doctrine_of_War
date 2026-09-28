@@ -56,7 +56,8 @@ node node_modules/electron/install.js
 - `npm run dev`, then open `/?lab=1` for the dev-only diorama lab (`&scenario=firstBreach|emberFord`,
   `&board=stress`, `&preset=`, `&skin=`, `&quality=low`; see `src/render/README.md`).
 - `npm run capture [-- <filter>]` saves 1600×1000 PNGs of the lab into `captures/` (gitignored).
-- `npm run fetch:cc0` downloads the optional CC0 KayKit figures (figure approach b).
+- `npm run fetch:cc0` downloads the optional CC0 KayKit figures (figure approach b) into
+  `lab-assets/`. They are lab-only: served by the dev server, never bundled or shipped.
 
 ### Capture mode and video frames
 

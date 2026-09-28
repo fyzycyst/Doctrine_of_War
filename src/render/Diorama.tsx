@@ -1,12 +1,11 @@
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { Suspense, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
+import { lazy, Suspense, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
 import { useAppStore } from "../app/store";
 import { hexKey, type BoardLayout, type HexCoord } from "../game/board";
 import { GroundMist, type MistDensityMap } from "./atmosphere/GroundMist";
 import { Fires } from "./atmosphere/Fires";
 import { Particles } from "./atmosphere/Particles";
 import { SkyDome } from "./atmosphere/SkyDome";
-import { KayKitSquads } from "./figures/KayKitSquads";
 import { SquadAnimator, type AnimatorScene, type SquadAnimationApi } from "./figures/squadAnimation";
 import { SquadMarkers } from "./figures/SquadMarkers";
 import { ToySoldierSquads } from "./figures/ToySoldierSquads";
@@ -20,7 +19,19 @@ import { pickBoardHex, resolveClick } from "./picking";
 import { BoardHighlights } from "./terrain/BoardHighlights";
 import { buildIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
+import { WallsAndObjectiveFX } from "./terrain/ObjectiveFX";
+import { Reeds } from "./terrain/Reeds";
 import { Water } from "./terrain/Water";
+import { useDisposable } from "./dispose";
+
+/**
+ * Figure approach (b), the CC0 KayKit pack, is lab-only: the module (and its
+ * gitignored GLBs) only exist in dev builds. In production `figures="kaykit"`
+ * falls back to the toy soldiers, and the import is dead code the bundler drops.
+ */
+const KayKitSquads = import.meta.env.DEV
+  ? lazy(async () => ({ default: (await import("./figures/KayKitSquads")).KayKitSquads }))
+  : null;
 
 /**
  * The living diorama: floating island built from a BoardLayout, atmosphere,
@@ -71,11 +82,18 @@ export function Diorama({
   const { skin, preset, atmosphere } = useLook();
   const island = useMemo(() => buildIsland(board, skin), [board, skin]);
   const material = useMemo(() => createIslandMaterial(skin.material), [skin.material]);
-  const outline = useMemo(
+  const outline = useDisposable(
     () => (skin.material.outline ? createOutlineMaterial(skin.material.outlineColor, 0.012) : null),
     [skin.material.outline, skin.material.outlineColor],
   );
-  useEffect(() => () => island.geometry.dispose(), [island]);
+  useEffect(
+    () => () => {
+      island.geometry.dispose();
+      island.wallGeometry?.dispose();
+      island.reedGeometry?.dispose();
+    },
+    [island],
+  );
   useEffect(() => () => material.dispose(), [material]);
 
   useMemo(() => {
@@ -192,14 +210,26 @@ export function Diorama({
         }}
         onClick={onIslandClick}
       />
+      <WallsAndObjectiveFX
+        island={island}
+        material={material}
+        animator={animator}
+        onPointerMove={onIslandMove}
+        onPointerOut={() => {
+          setHoveredHex(null);
+          setHoveredSquad(null);
+        }}
+        onClick={onIslandClick}
+      />
       {outline && <mesh geometry={island.geometry} material={outline} />}
       <Water island={island} />
+      <Reeds island={island} />
       <Fires island={island} />
       {island.gateBanner && <GateBanner anchor={island.gateBanner} />}
       <BoardHighlights island={island} deploymentHexes={deploymentHexes} />
       <SquadMarkers placed={placed} animator={animator} />
       <Suspense fallback={null}>
-        {figures === "kaykit" ? (
+        {figures === "kaykit" && KayKitSquads ? (
           <KayKitSquads placed={placed} />
         ) : (
           <ToySoldierSquads placed={placed} animator={animator} onSquadClick={onFigureClick} onSquadHover={setHoveredSquad} />

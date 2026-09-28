@@ -1,6 +1,7 @@
 # CC0 third-party assets
 
-Used only by the Look Lab's figure approach (b). Binaries are **gitignored**; run
+Used only by the dev-only Look Lab's figure approach (b). This folder is served by the Vite dev
+server at `/lab-assets/` and is never part of a production build (web or Electron). Binaries are **gitignored**; run
 `npm run fetch:cc0` to download them into `kaykit/` (the licence files come along).
 
 | Asset | Author | Licence | Source |

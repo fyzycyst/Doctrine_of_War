@@ -2,6 +2,7 @@ import { hexDistance, hexKey, hexNeighbors, type BoardLayout, type HexCoord } fr
 import { emberFord } from "../../game/engine/scenarios/emberFord";
 import { firstBreach } from "../../game/engine/scenarios/firstBreach";
 import { stressScenario } from "./stressScenario";
+import { placeholderBoard } from "../showcase/placeholderBoards";
 import type { DioramaVisibility } from "../Diorama";
 import type { DioramaSquad } from "../figures/types";
 import { dioramaSquads, lightingFor } from "../fromEngine";
@@ -49,6 +50,31 @@ export const LAB_SCENES = {
   firstBreach: toScene(firstBreach.board, dioramaSquads(firstBreach.squads), lightingFor(firstBreach.timeOfDay), OVERRIDES),
   emberFord: toScene(emberFord.board, dioramaSquads(emberFord.squads), lightingFor(emberFord.timeOfDay)),
   stress: toScene(stressScenario.board, dioramaSquads(stressScenario.squads), "dusk"),
+  // Mocks until the engine ships The Saltmarsh Column and Hold for Dawn.
+  saltmarsh: toScene(
+    placeholderBoard("saltmarsh"),
+    dioramaSquads([
+      { id: "the_column", faction: "free_banners", hex: { q: 3, r: 2 }, strength: 90, cohesion: 58, noncombatant: true },
+      { id: "column_van", faction: "free_banners", hex: { q: 4, r: 2 }, strength: 70, cohesion: 66 },
+      { id: "column_rear", faction: "free_banners", hex: { q: 3, r: 3 }, strength: 62, cohesion: 60 },
+      { id: "marsh_raiders", faction: "ashen_host", hex: { q: 0, r: 2 }, strength: 74, cohesion: 64 },
+      { id: "reed_stalkers", faction: "ashen_host", hex: { q: 1, r: 2 }, strength: 58, cohesion: 60 },
+      { id: "fen_hounds", faction: "ashen_host", hex: { q: 0, r: 4 }, strength: 60, cohesion: 62 },
+    ]),
+    "rainGrey",
+  ),
+  holdForDawn: toScene(
+    placeholderBoard("holdForDawn"),
+    dioramaSquads([
+      { id: "last_shields", faction: "free_banners", hex: { q: 4, r: 2 }, strength: 72, cohesion: 64, renown: { title: "The Gatebreakers" } },
+      { id: "last_archers", faction: "free_banners", hex: { q: 4, r: 1 }, strength: 60, cohesion: 62 },
+      { id: "dawn_riders", faction: "free_banners", hex: { q: 4, r: 3 }, strength: 58, cohesion: 70 },
+      { id: "siege_host", faction: "ashen_host", hex: { q: 1, r: 2 }, strength: 92, cohesion: 72 },
+      { id: "host_flank", faction: "ashen_host", hex: { q: 2, r: 0 }, strength: 80, cohesion: 66 },
+      { id: "host_reserve", faction: "ashen_host", hex: { q: 0, r: 3 }, strength: 84, cohesion: 70 },
+    ]),
+    "predawn",
+  ),
 } as const;
 
 export type LabSceneId = keyof typeof LAB_SCENES;

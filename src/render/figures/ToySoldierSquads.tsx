@@ -5,8 +5,9 @@ import type { FactionId } from "../../game/engine/types";
 import { useLook } from "../look/LookContext";
 import { createFigureMaterial, createOutlineMaterial } from "../materials";
 import { MAX_FIGURES, type SquadAnimator } from "./squadAnimation";
-import { buildToySoldier } from "./toySoldier";
+import { buildCart, buildRefugee, buildToySoldier } from "./toySoldier";
 import { slotToWorld, type PlacedSquad } from "./types";
+import { useDisposable } from "../dispose";
 
 const FACTIONS: FactionId[] = ["free_banners", "ashen_host"];
 
@@ -32,6 +33,7 @@ export function ToySoldierSquads({
       {FACTIONS.map((faction) => (
         <FactionInstances key={faction} faction={faction} placed={placed} animator={animator} {...handlers} />
       ))}
+      <ColumnInstances placed={placed} animator={animator} {...handlers} />
     </>
   );
 }
@@ -58,10 +60,11 @@ function FactionInstances({
   onSquadClick,
   onSquadHover,
 }: { faction: FactionId; placed: PlacedSquad[]; animator: SquadAnimator } & FigurePickHandlers) {
-  const { skin } = useLook();
+  const { skin, motion } = useLook();
   const style = skin.factions[faction];
-  const live = useMemo(() => placed.filter((p) => p.squad.faction === faction && !p.squad.lastKnown), [placed, faction]);
-  const ghosts = useMemo(() => placed.filter((p) => p.squad.faction === faction && p.squad.lastKnown), [placed, faction]);
+  const soldiers = useMemo(() => placed.filter((p) => p.squad.faction === faction && p.squad.kind !== "column"), [placed, faction]);
+  const live = useMemo(() => soldiers.filter((p) => !p.squad.lastKnown), [soldiers]);
+  const ghosts = useMemo(() => soldiers.filter((p) => p.squad.lastKnown), [soldiers]);
 
   const base = useMemo(() => buildToySoldier(faction, style, skin.figures.height), [faction, style, skin.figures.height]);
   useEffect(() => () => base.dispose(), [base]);
@@ -90,7 +93,7 @@ function FactionInstances({
   );
   useEffect(() => () => material.dispose(), [material]);
   useEffect(() => () => ghostMaterial.dispose(), [ghostMaterial]);
-  const outlineMaterial = useMemo(
+  const outlineMaterial = useDisposable(
     () => (skin.material.outline ? createOutlineMaterial(skin.material.outlineColor, 0.006) : null),
     [skin.material.outline, skin.material.outlineColor],
   );
@@ -103,7 +106,8 @@ function FactionInstances({
         material={material}
         outline={outlineMaterial}
         animator={animator}
-        amp={skin.figures.bobAmplitude}
+        amp={skin.figures.bobAmplitude * motion}
+        sway={motion}
         castShadow
         onSquadClick={onSquadClick}
         onSquadHover={onSquadHover}
@@ -132,6 +136,8 @@ function InstanceGroup({
   outline,
   animator,
   amp,
+  sway: swayScale = 0,
+  slots: slotFilter,
   ghost = false,
   castShadow = false,
   onSquadClick,
@@ -143,6 +149,10 @@ function InstanceGroup({
   outline: THREE.Material | null;
   animator: SquadAnimator;
   amp: number;
+  /** Idle sway multiplier (0 = none, 1 = full; reduced motion scales it down). */
+  sway?: number;
+  /** Only draw formation slots for which this returns true (split variants across groups). */
+  slots?: (index: number) => boolean;
   ghost?: boolean;
   castShadow?: boolean;
 } & FigurePickHandlers) {
@@ -173,7 +183,7 @@ function InstanceGroup({
         const index = s * MAX_FIGURES + i;
         const slot = p.slots[i];
         const f = animator.figurePose(p.squad.id, i);
-        const visible = i < p.alive && (f?.fade ?? 1) > 0;
+        const visible = i < p.alive && (f?.fade ?? 1) > 0 && (!slotFilter || slotFilter(i));
         if (!visible) {
           dummy.position.set(ax, -50, az);
           dummy.scale.setScalar(0);
@@ -182,7 +192,7 @@ function InstanceGroup({
           const [ox, oz] = slotToWorld(slot, facing, f?.spread ?? 1);
           const idle = f?.still ? 0 : 1;
           const bob = Math.max(0, Math.sin(t * 2.2 + slot.phase)) * amp * idle;
-          const sway = ghost ? 0 : Math.sin(t * 1.3 + slot.phase) * 0.04 * idle;
+          const sway = Math.sin(t * 1.3 + slot.phase) * 0.04 * idle * swayScale;
           dummy.position.set(ax + ox + (f?.dx ?? 0), ay + bob + (f?.dy ?? 0), az + oz + (f?.dz ?? 0));
           // Yaw first, then lean (about local z) and roll (about local x).
           dummy.rotation.set(f?.roll ?? 0, facing + slot.yaw + (f?.yaw ?? 0) + sway, -(f?.lean ?? 0) + sway * 0.3, "YXZ");
@@ -234,4 +244,100 @@ function InstanceGroup({
       {outline && <instancedMesh key={`o-${capacity}`} ref={outlineMesh} args={[geometry, outline, capacity]} frustumCulled={false} />}
     </>
   );
+}
+
+/**
+ * The refugee Column (noncombatant squads): lantern-bearers and staff-walkers
+ * on alternating formation slots (so strength loss and every animation work as
+ * for soldiers), plus two covered carts that follow the squad's anchor.
+ */
+function ColumnInstances({
+  placed,
+  animator,
+  onSquadClick,
+  onSquadHover,
+}: { placed: PlacedSquad[]; animator: SquadAnimator } & FigurePickHandlers) {
+  const { skin, motion } = useLook();
+  const columns = useMemo(() => placed.filter((p) => p.squad.kind === "column" && !p.squad.lastKnown), [placed]);
+  const lantern = useDisposable(() => buildRefugee(skin.figures.height * 0.92, 0), [skin.figures.height]);
+  const staff = useDisposable(() => buildRefugee(skin.figures.height * 0.92, 1), [skin.figures.height]);
+  const material = useDisposable(
+    () =>
+      createFigureMaterial({
+        shading: skin.material.shading,
+        rimColor: "#e8dcc4",
+        rimStrength: skin.figures.rimStrength * 0.4,
+        glintColor: "#ffb060",
+        cacheKey: `column-${skin.material.shading}`,
+      }),
+    [skin.material.shading, skin.figures.rimStrength],
+  );
+  if (columns.length === 0) return null;
+  const common = { squads: columns, material, outline: null, animator, amp: skin.figures.bobAmplitude * motion, sway: motion, castShadow: true, onSquadClick, onSquadHover };
+  return (
+    <>
+      <InstanceGroup {...common} base={lantern} slots={(i) => i % 2 === 0} />
+      <InstanceGroup {...common} base={staff} slots={(i) => i % 2 === 1} />
+      <Carts columns={columns} animator={animator} />
+    </>
+  );
+}
+
+/** Carts sit at the head and tail of the Column, turning and moving with it. */
+function Carts({ columns, animator }: { columns: PlacedSquad[]; animator: SquadAnimator }) {
+  const { skin, motion } = useLook();
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const capacity = Math.max(1, columns.length * 2);
+  const geometry = useDisposable(() => {
+    const g = buildCart(skin.figures.height);
+    // The figure material reads a per-instance fade; carts are always fully shown.
+    g.setAttribute("aFade", new THREE.InstancedBufferAttribute(new Float32Array(capacity).fill(1), 1));
+    return g;
+  }, [skin.figures.height, capacity]);
+  const material = useDisposable(
+    () =>
+      createFigureMaterial({
+        shading: skin.material.shading,
+        rimColor: "#e8dcc4",
+        rimStrength: 0.1,
+        glintColor: "#ffb060",
+        cacheKey: `cart-${skin.material.shading}`,
+      }),
+    [skin.material.shading],
+  );
+  const offsets: Array<[number, number]> = [
+    [0.12, 0.32],
+    [-0.28, -0.3],
+  ];
+
+  useFrame(({ clock }) => {
+    const m = mesh.current;
+    if (!m) return;
+    const t = clock.elapsedTime;
+    columns.forEach((p, s) => {
+      const pose = animator.squadPose(p.squad.id);
+      const facing = pose?.facing ?? p.squad.facing;
+      const gone = (pose?.ringFade ?? 1) <= 0.01 || p.alive === 0;
+      const cos = Math.cos(facing);
+      const sin = Math.sin(facing);
+      offsets.forEach(([fwd, side], k) => {
+        const idx = s * offsets.length + k;
+        if (gone || (k === 1 && p.alive < 4)) {
+          dummy.scale.setScalar(0);
+        } else {
+          const ax = pose?.anchor?.x ?? p.x;
+          const ay = pose?.anchor?.y ?? p.y;
+          const az = pose?.anchor?.z ?? p.z;
+          dummy.position.set(ax + fwd * cos + side * sin, ay + Math.abs(Math.sin(t * 3 + k)) * 0.004 * motion, az - fwd * sin + side * cos);
+          dummy.rotation.set(0, facing, Math.sin(t * 2.1 + k) * 0.01 * motion);
+          dummy.scale.setScalar(1);
+        }
+        dummy.updateMatrix();
+        m.setMatrixAt(idx, dummy.matrix);
+      });
+    });
+    m.count = capacity;
+    m.instanceMatrix.needsUpdate = true;
+  });
+  return <instancedMesh key={capacity} ref={mesh} args={[geometry, material, capacity]} castShadow receiveShadow frustumCulled={false} />;
 }

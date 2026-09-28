@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { mulberry32 } from "../hexWorld";
 import { useLook } from "../look/LookContext";
 import type { Anchor, IslandBuild } from "../terrain/buildIsland";
+import { useDisposable } from "../dispose";
 
 /**
  * Fires by anchor kind: burning bridge wreckage (the Ember Ford key lights,
@@ -40,7 +41,7 @@ const FLAMES: Record<NonNullable<Anchor["kind"]>, Array<[number, number, number,
 };
 
 export function Fires({ island }: { island: IslandBuild }) {
-  const { preset, quality } = useLook();
+  const { preset, quality, motion } = useLook();
   const lights = useRef<Array<THREE.PointLight | null>>([]);
   const flames = useRef<Array<THREE.Group | null>>([]);
   const riverLight = useRef<THREE.PointLight>(null);
@@ -55,11 +56,11 @@ export function Fires({ island }: { island: IslandBuild }) {
     return new Set(ranked.slice(0, MAX_LIGHTS).map((a) => a.index));
   }, [anchors]);
 
-  const flameMaterial = useMemo(
+  const flameMaterial = useDisposable(
     () => new THREE.MeshBasicMaterial({ color: new THREE.Color(preset.fires.color).multiplyScalar(6), toneMapped: true }),
     [preset.fires.color],
   );
-  const coreMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffd28a").multiplyScalar(8) }), []);
+  const coreMaterial = useDisposable(() => new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffd28a").multiplyScalar(8) }), []);
 
   const river = useMemo(() => {
     if (island.water.length === 0) return null;
@@ -72,19 +73,20 @@ export function Fires({ island }: { island: IslandBuild }) {
     const t = clock.elapsedTime;
     anchors.forEach((a) => {
       const i = a.index;
-      const flick = 0.72 + 0.28 * Math.sin(t * 9 + i * 3.1) * Math.sin(t * 5.3 + i) + 0.08 * Math.sin(t * 23 + i);
+      // Reduced motion: a steady glow instead of a flicker.
+      const flick = 0.85 + motion * (-0.13 + 0.28 * Math.sin(t * 9 + i * 3.1) * Math.sin(t * 5.3 + i) + 0.08 * Math.sin(t * 23 + i));
       const light = lights.current[i];
       if (light) light.intensity = on * flick * LIGHT[a.kind].intensity;
       const group = flames.current[i];
       if (group) {
         group.children.forEach((flame, k) => {
-          const f = 0.75 + 0.35 * Math.sin(t * (8 + k * 2.3) + i + k * 1.7);
+          const f = 0.95 + motion * (-0.2 + 0.35 * Math.sin(t * (8 + k * 2.3) + i + k * 1.7));
           flame.scale.set(1, f, 1);
         });
       }
     });
     if (riverLight.current) {
-      riverLight.current.intensity = preset.waterGlow * 6 * (0.8 + 0.2 * Math.sin(t * 2.3));
+      riverLight.current.intensity = preset.waterGlow * 6 * (0.8 + 0.2 * motion * Math.sin(t * 2.3));
     }
   });
 
@@ -125,7 +127,7 @@ export function Fires({ island }: { island: IslandBuild }) {
           )}
         </group>
       ))}
-      {on > 0 && bridges.length > 0 && <SmokeAndEmbers sources={bridges} quality={quality} />}
+      {on > 0 && bridges.length > 0 && <SmokeAndEmbers sources={bridges} quality={quality} motion={motion} />}
       {river && (
         <pointLight ref={riverLight} position={river} color={preset.fires.color} intensity={0} distance={5} decay={1.4} />
       )}
@@ -134,10 +136,10 @@ export function Fires({ island }: { island: IslandBuild }) {
 }
 
 /** Rising smoke columns (normal blend) and sparks (additive) from each source. */
-function SmokeAndEmbers({ sources, quality }: { sources: Anchor[]; quality: "high" | "low" }) {
+function SmokeAndEmbers({ sources, quality, motion }: { sources: Anchor[]; quality: "high" | "low"; motion: number }) {
   const dpr = useThree((s) => s.viewport.dpr);
   const perSource = quality === "high" ? 70 : 28;
-  const geometry = useMemo(() => {
+  const geometry = useDisposable(() => {
     const n = sources.length * perSource;
     const rand = mulberry32(777);
     const seed = new Float32Array(n * 4);
@@ -197,12 +199,12 @@ function SmokeAndEmbers({ sources, quality }: { sources: Anchor[]; quality: "hig
         }
       `,
     });
-  const smoke = useMemo(() => make(false), [dpr]); // eslint-disable-line react-hooks/exhaustive-deps
-  const sparks = useMemo(() => make(true), [dpr]); // eslint-disable-line react-hooks/exhaustive-deps
+  const smoke = useDisposable(() => make(false), [dpr]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sparks = useDisposable(() => make(true), [dpr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((_, dt) => {
-    smoke.uniforms.uTime.value += dt;
-    sparks.uniforms.uTime.value += dt;
+    smoke.uniforms.uTime.value += dt * motion;
+    sparks.uniforms.uTime.value += dt * motion;
   });
   return (
     <>

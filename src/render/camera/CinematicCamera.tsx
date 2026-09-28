@@ -1,7 +1,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
-import { sampleCameraPath, type CameraPath } from "./cameraPath";
+import { sampleCameraPathInto, type CameraPath, type CameraSample } from "./cameraPath";
 
 /**
  * Drives the default camera along a CameraPath using the R3F clock, so it is
@@ -21,10 +21,12 @@ export function CinematicCamera({
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const origin = useRef<number | null>(null);
+  // One sample reused every frame: no per-frame allocation.
+  const sample = useMemo<CameraSample>(() => ({ position: new THREE.Vector3(), target: new THREE.Vector3(), fov: 30 }), []);
   useFrame(({ clock }) => {
     if (origin.current === null) origin.current = clock.elapsedTime;
     const t = reducedMotion ? 0 : (clock.elapsedTime - origin.current) * speed + startAt;
-    const s = sampleCameraPath(path, t);
+    const s = sampleCameraPathInto(path, t, sample);
     camera.position.copy(s.position);
     camera.lookAt(s.target);
     if (Math.abs(camera.fov - s.fov) > 1e-3) {

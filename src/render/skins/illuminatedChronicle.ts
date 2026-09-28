@@ -60,6 +60,8 @@ export const illuminatedChronicle: Skin = {
     road: { top: C.field, height: 0.3, accent: C.road },
     ford: { top: C.earth, height: 0.08, accent: C.water },
     river: { top: C.earth, height: -0.12, accent: C.water },
+    marsh: { top: "#7c8454", height: 0.14, accent: C.water },
+    reeds: { top: "#98a860", height: 0.2, accent: "#d8c070" },
     ridge: { top: "#c4b894", height: 0.72, accent: C.stone },
     wall: { top: C.stone, height: 0.38, accent: C.stone },
     ruin: { top: "#b8b48a", height: 0.36, accent: C.stone },

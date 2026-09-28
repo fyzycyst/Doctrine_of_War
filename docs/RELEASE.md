@@ -43,7 +43,6 @@ export APPLE_API_KEY="$HOME/.private_keys/AuthKey_XXXXXXXXXX.p8"
 export APPLE_API_KEY_ID="XXXXXXXXXX"
 export APPLE_API_ISSUER="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 npm ci
-npm run fetch:cc0        # the CC0 KayKit figures are gitignored; the 3D board needs them
 npm run build:mac        # logs "macOS build mode: notarized"; notarization takes a few minutes
 ```
 
@@ -65,7 +64,8 @@ open it, drag the app to Applications, launch. There must be no Gatekeeper warni
 
 1. vercel.com → **Add New… → Project** → import `fyzycyst/Doctrine_of_War`.
 2. Framework preset: **Other**. Leave the build settings empty: `vercel.json` sets
-   `npm ci`, `npm run fetch:cc0 && npm run build` and the output folder `dist`.
+   `npm ci`, `npm run build` and the output folder `dist`. (The CC0 KayKit figures are lab-only and
+   never part of a build; `npm run fetch:cc0` is only for the dev Look Lab.)
 3. Deploy. Check that the tutorial plays, and check the headers:
    `curl -sI https://<project>.vercel.app | grep -iE "content-security|x-content-type|referrer|permissions"`.
 

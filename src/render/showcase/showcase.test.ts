@@ -27,3 +27,33 @@ describe("showcase", () => {
     useCaptureStore.getState().setCaptureMode(false);
   });
 });
+
+describe("reduced motion setting", () => {
+  it("resolves the app override against the OS preference and persists", async () => {
+    const { resolveReducedMotion, useMotionStore, MOTION_STORAGE_KEY } = await import("../../app/motionStore");
+    expect(resolveReducedMotion("system", true)).toBe(true);
+    expect(resolveReducedMotion("system", false)).toBe(false);
+    expect(resolveReducedMotion("on", false)).toBe(true);
+    expect(resolveReducedMotion("off", true)).toBe(false);
+    useMotionStore.getState().setReducedMotion("on");
+    expect(JSON.parse(localStorage.getItem(MOTION_STORAGE_KEY) ?? "{}").state).toEqual({ reducedMotion: "on" });
+    useMotionStore.getState().setReducedMotion("system");
+  });
+});
+
+describe("time-of-day blend", () => {
+  it("blends presets continuously and switches discrete fields at the midpoint", async () => {
+    const { blendPresets } = await import("../look/blendPresets");
+    const { emberDusk } = await import("../skins");
+    const a = emberDusk.lighting.predawn;
+    const b = emberDusk.lighting.sunrise;
+    expect(blendPresets(a, b, 0)).toBe(a);
+    expect(blendPresets(a, b, 1)).toBe(b);
+    const mid = blendPresets(a, b, 0.5);
+    expect(mid.sun.intensity).toBeCloseTo((a.sun.intensity + b.sun.intensity) / 2);
+    expect(mid.exposure).toBeCloseTo((a.exposure + b.exposure) / 2);
+    expect(mid.id).toBe("sunrise");
+    expect(blendPresets(a, b, 0.25).id).toBe("predawn");
+    expect(mid.sky.horizon).toMatch(/^#[0-9a-f]{6}$/);
+  });
+});

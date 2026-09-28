@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import * as THREE from "three";
 import { useCaptureStore } from "../../app/captureStore";
 import { useAppStore } from "../../app/store";
@@ -16,8 +16,10 @@ import { canvasDpr } from "../quality";
 import { emberDusk } from "../skins";
 import type { TimeOfDay } from "../skins/types";
 import { buildIsland, type IslandBuild } from "../terrain/buildIsland";
+import { Reeds } from "../terrain/Reeds";
 import { Water } from "../terrain/Water";
 import { placeholderBoard, type PlaceholderKind } from "./placeholderBoards";
+import { useDisposable } from "../dispose";
 
 /**
  * Campaign map (T09/T13): the war as an archipelago of small floating islands in
@@ -48,6 +50,15 @@ export interface CampaignMapProps {
   frameloop?: "always" | "demand" | "never";
   /** Overlay content (buttons, briefing), hidden in capture mode. */
   children?: ReactNode;
+  /**
+   * Click-to-zoom. Clicking a non-locked island dollies the camera in on it.
+   * Controlled with `focusedId` (null = the whole map), or uncontrolled if omitted;
+   * `onFocusChange` fires on every change, including "back".
+   */
+  focusedId?: string | null;
+  onFocusChange?: (battleId: string | null) => void;
+  /** Show the built-in "Back to the map" button (and Escape) while zoomed in. Default true. */
+  showBackButton?: boolean;
 }
 
 const STATUS_LABEL: Record<CampaignIslandStatus, string> = {
@@ -78,14 +89,39 @@ export function islandPlacement(i: number, n: number): THREE.Vector3 {
   return new THREE.Vector3(x, y, z);
 }
 
-export function CampaignMap({ battles, onSelect, inCanvas, frameloop = "always", children }: CampaignMapProps) {
+export function CampaignMap({
+  battles,
+  onSelect,
+  inCanvas,
+  frameloop = "always",
+  children,
+  focusedId,
+  onFocusChange,
+  showBackButton = true,
+}: CampaignMapProps) {
+  const [innerFocus, setInnerFocus] = useState<string | null>(null);
+  const focus = focusedId !== undefined ? focusedId : innerFocus;
+  const setFocus = useCallback(
+    (id: string | null) => {
+      if (focusedId === undefined) setInnerFocus(id);
+      onFocusChange?.(id);
+    },
+    [focusedId, onFocusChange],
+  );
   const quality = useAppStore((s) => s.quality);
   const captureMode = useCaptureStore((s) => s.captureMode);
   const [hovered, setHovered] = useState<string | null>(null);
   // 3D label anchors (written by the islands) and their DOM labels (positioned per frame).
   const anchors = useRef(new Map<string, THREE.Vector3>());
   const labelEls = useRef(new Map<string, HTMLDivElement>());
-  const labelled = captureMode ? [] : battles.filter((b) => b.id === hovered || b.status === "current");
+  const labelled = captureMode ? [] : battles.filter((b) => b.id === hovered || b.id === focus || b.status === "current");
+
+  useEffect(() => {
+    if (!focus || !showBackButton) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setFocus(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focus, showBackButton, setFocus]);
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", background: "#0d0c12" }}>
       <Canvas
@@ -100,7 +136,17 @@ export function CampaignMap({ battles, onSelect, inCanvas, frameloop = "always",
           <AtmosphereTicker />
           <SkyDome />
           <LightRig shadowRadius={22} />
-          <Archipelago battles={battles} onSelect={onSelect} hovered={hovered} setHovered={setHovered} anchors={anchors.current} />
+          <Archipelago
+            battles={battles}
+            onSelect={(id) => {
+              setFocus(id);
+              onSelect?.(id);
+            }}
+            focus={focus}
+            hovered={hovered}
+            setHovered={setHovered}
+            anchors={anchors.current}
+          />
           <LabelProjector anchors={anchors.current} labels={labelEls.current} />
           <Particles extent={18} />
           <PostFX focusY={0.5} />
@@ -124,10 +170,30 @@ export function CampaignMap({ battles, onSelect, inCanvas, frameloop = "always",
           </div>
         </div>
       ))}
+      {!captureMode && focus && showBackButton && (
+        <button type="button" onClick={() => setFocus(null)} style={backButton}>
+          ← Back to the map
+        </button>
+      )}
       {!captureMode && children}
     </div>
   );
 }
+
+const backButton: CSSProperties = {
+  position: "absolute",
+  left: 20,
+  bottom: 20,
+  zIndex: 6,
+  padding: "8px 16px",
+  border: "1px solid rgba(212,166,74,0.7)",
+  background: "rgba(20,16,22,0.78)",
+  color: "#efe3c8",
+  font: "600 14px/1 Cinzel, Georgia, serif",
+  letterSpacing: "0.08em",
+  borderRadius: 3,
+  cursor: "pointer",
+};
 
 /** Projects each island's label anchor to the screen and moves its DOM label there. */
 function LabelProjector({ anchors, labels }: { anchors: Map<string, THREE.Vector3>; labels: Map<string, HTMLDivElement> }) {
@@ -151,12 +217,14 @@ function LabelProjector({ anchors, labels }: { anchors: Map<string, THREE.Vector
 function Archipelago({
   battles,
   onSelect,
+  focus,
   hovered,
   setHovered,
   anchors,
 }: {
   battles: CampaignMapBattle[];
   onSelect?: (id: string) => void;
+  focus: string | null;
   hovered: string | null;
   setHovered: (id: string | null) => void;
   anchors: Map<string, THREE.Vector3>;
@@ -173,7 +241,15 @@ function Archipelago({
       }),
     [battles, skin],
   );
-  useEffect(() => () => islands.forEach((i) => i.island.geometry.dispose()), [islands]);
+  useEffect(
+    () => () =>
+      islands.forEach((i) => {
+        i.island.geometry.dispose();
+        i.island.wallGeometry?.dispose();
+        i.island.reedGeometry?.dispose();
+      }),
+    [islands],
+  );
 
   const current = Math.max(
     0,
@@ -189,7 +265,12 @@ function Archipelago({
 
   return (
     <>
-      <MapCamera points={islands.map((i) => i.position)} focus={current} reduced={reduced} />
+      <MapCamera
+        points={islands.map((i) => i.position)}
+        current={current}
+        zoom={islands.find((i) => i.battle.id === focus)?.position ?? null}
+        reduced={reduced}
+      />
       <MarchPath points={islands.map((i) => i.position)} reached={current} />
       {islands.map(({ battle, island, position, scale }) => (
         <MiniIsland
@@ -212,30 +293,70 @@ function Archipelago({
  * Frames the whole archipelago and pans gently along it (a slow drift biased
  * toward the current battle). Reduced motion holds still.
  */
-function MapCamera({ points, focus, reduced }: { points: THREE.Vector3[]; focus: number; reduced: boolean }) {
+function MapCamera({
+  points,
+  current,
+  zoom,
+  reduced,
+}: {
+  points: THREE.Vector3[];
+  current: number;
+  /** Island to dolly in on, or null for the whole archipelago. */
+  zoom: THREE.Vector3 | null;
+  reduced: boolean;
+}) {
   const camera = useThree((s) => s.camera);
   const aspect = useThree((s) => s.size.width / Math.max(1, s.size.height));
   const center = useMemo(() => points.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / points.length), [points]);
   const span = useMemo(() => Math.max(8, ...points.map((p) => p.distanceTo(center) * 2)), [points, center]);
-  const target = useMemo(() => new THREE.Vector3(), []);
-  useFrame(({ clock }) => {
-    const bias = points[focus] ? points[focus].clone().sub(center).multiplyScalar(0.1) : new THREE.Vector3();
-    const pan = reduced ? 0 : Math.sin(clock.elapsedTime * 0.07) * span * 0.06;
-    target.copy(center).add(bias).add(new THREE.Vector3(pan, 0, 0));
-    // Fit the span (plus an island on each end) horizontally for this aspect.
-    const fov = THREE.MathUtils.degToRad((camera as THREE.PerspectiveCamera).fov);
-    const width = span + ISLAND_RADIUS * 3;
-    const dist = width / 2 / Math.tan(fov / 2) / Math.min(aspect, 2);
-    camera.position.set(target.x + dist * 0.06, target.y + dist * 0.55, target.z + dist * 0.84);
-    // Aim above the islands so they sit in the middle band, not the top.
-    camera.lookAt(target.x, target.y + dist * 0.08, target.z);
+  // Scratch vectors (no per-frame allocation); the eased pose persists between frames.
+  const s = useMemo(
+    () => ({ target: new THREE.Vector3(), pos: new THREE.Vector3(), look: new THREE.Vector3(), curPos: new THREE.Vector3(), curLook: new THREE.Vector3(), bias: new THREE.Vector3(), init: false }),
+    [],
+  );
+  useFrame(({ clock }, dt) => {
+    if (zoom) {
+      // Dolly in: close, a little higher, the island centred.
+      s.look.set(zoom.x, zoom.y + 0.3, zoom.z);
+      s.pos.set(zoom.x + 0.8, zoom.y + ISLAND_RADIUS * 1.7, zoom.z + ISLAND_RADIUS * 2.7);
+    } else {
+      s.bias.set(0, 0, 0);
+      if (points[current]) s.bias.copy(points[current]).sub(center).multiplyScalar(0.1);
+      const pan = reduced ? 0 : Math.sin(clock.elapsedTime * 0.07) * span * 0.06;
+      s.target.copy(center).add(s.bias);
+      s.target.x += pan;
+      // Fit the span (plus an island on each end) horizontally for this aspect.
+      const fov = THREE.MathUtils.degToRad((camera as THREE.PerspectiveCamera).fov);
+      const width = span + ISLAND_RADIUS * 3;
+      const dist = width / 2 / Math.tan(fov / 2) / Math.min(aspect, 2);
+      s.pos.set(s.target.x + dist * 0.06, s.target.y + dist * 0.55, s.target.z + dist * 0.84);
+      // Aim above the islands so they sit in the middle band, not the top.
+      s.look.set(s.target.x, s.target.y + dist * 0.08, s.target.z);
+    }
+    // Gentle dolly between poses (a cut under reduced motion).
+    const k = !s.init || reduced ? 1 : 1 - Math.exp(-dt * 2.2);
+    s.curPos.lerp(s.pos, k);
+    s.curLook.lerp(s.look, k);
+    if (!s.init) {
+      s.curPos.copy(s.pos);
+      s.curLook.copy(s.look);
+      s.init = true;
+    }
+    camera.position.copy(s.curPos);
+    camera.lookAt(s.curLook);
   });
   return null;
 }
 
-/** A dotted march line between islands: gold up to the current battle, grey after. */
+/**
+ * The march route as a dotted ink trail between islands (small, dark, unlit
+ * dots), with small glowing pips only along the road already travelled (up to
+ * the current battle), where a slow ripple runs toward it.
+ */
 function MarchPath({ points, reached }: { points: THREE.Vector3[]; reached: number }) {
-  const mesh = useRef<THREE.InstancedMesh>(null);
+  const { motion } = useLook();
+  const ink = useRef<THREE.InstancedMesh>(null);
+  const pips = useRef<THREE.InstancedMesh>(null);
   const dots = useMemo(() => {
     const out: Array<{ p: THREE.Vector3; seg: number; u: number }> = [];
     for (let i = 0; i < points.length - 1; i += 1) {
@@ -244,44 +365,55 @@ function MarchPath({ points, reached }: { points: THREE.Vector3[]; reached: numb
       const mid = a.clone().lerp(b, 0.5).add(new THREE.Vector3(0, 1.2, 0));
       const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
       // Leave a gap near each island so the line reads as a road between them.
-      const n = Math.max(6, Math.round(a.distanceTo(b) / 0.42));
+      const n = Math.max(10, Math.round(a.distanceTo(b) / 0.22));
       for (let k = 0; k <= n; k += 1) {
         const u = k / n;
-        if (u > 0.27 && u < 0.73) out.push({ p: curve.getPoint(u), seg: i, u });
+        if (u > 0.26 && u < 0.74) out.push({ p: curve.getPoint(u), seg: i, u });
       }
     }
     return out;
   }, [points]);
-  const gold = useMemo(() => new THREE.Color("#ffcf6e").multiplyScalar(2.2), []);
-  const grey = useMemo(() => new THREE.Color("#8a8a96").multiplyScalar(0.7), []);
+  // Every third travelled dot carries a glowing pip.
+  const travelled = useMemo(() => dots.filter((d, i) => d.seg < reached && i % 3 === 0), [dots, reached]);
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const inkMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: "#1c1512", transparent: true, opacity: 0.8 }), []);
+  const pipMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffcf6e").multiplyScalar(2) }), []);
+  const geometry = useMemo(() => new THREE.SphereGeometry(1, 8, 6), []);
+  useEffect(() => () => [inkMaterial, pipMaterial, geometry].forEach((r) => r.dispose()), [inkMaterial, pipMaterial, geometry]);
 
   useEffect(() => {
-    const m = mesh.current;
-    if (!m) return;
-    dots.forEach((d, i) => m.setColorAt(i, d.seg < reached ? gold : grey));
-    if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  }, [dots, reached, gold, grey]);
-
-  useFrame(({ clock }) => {
-    const m = mesh.current;
+    const m = ink.current;
     if (!m) return;
     dots.forEach((d, i) => {
-      // A slow ripple marches along the traversed road.
-      const pulse = d.seg < reached ? 1 + 0.35 * Math.max(0, Math.sin(clock.elapsedTime * 2.2 - (d.seg + d.u) * 6)) : 1;
       dummy.position.copy(d.p);
-      dummy.scale.setScalar(0.07 * pulse);
+      dummy.scale.setScalar(0.03);
       dummy.updateMatrix();
       m.setMatrixAt(i, dummy.matrix);
     });
     m.instanceMatrix.needsUpdate = true;
+  }, [dots, dummy]);
+
+  useFrame(({ clock }) => {
+    const m = pips.current;
+    if (!m) return;
+    travelled.forEach((d, i) => {
+      const pulse = 1 + 0.4 * motion * Math.max(0, Math.sin(clock.elapsedTime * 2.2 - (d.seg + d.u) * 6));
+      dummy.position.copy(d.p).y += 0.01;
+      dummy.scale.setScalar(0.042 * pulse);
+      dummy.updateMatrix();
+      m.setMatrixAt(i, dummy.matrix);
+    });
+    m.count = travelled.length;
+    m.instanceMatrix.needsUpdate = true;
   });
 
   return (
-    <instancedMesh ref={mesh} args={[undefined, undefined, Math.max(1, dots.length)]} frustumCulled={false}>
-      <sphereGeometry args={[1, 8, 6]} />
-      <meshBasicMaterial toneMapped />
-    </instancedMesh>
+    <>
+      <instancedMesh ref={ink} args={[geometry, inkMaterial, Math.max(1, dots.length)]} frustumCulled={false} />
+      {travelled.length > 0 && (
+        <instancedMesh key={travelled.length} ref={pips} args={[geometry, pipMaterial, travelled.length]} frustumCulled={false} />
+      )}
+    </>
   );
 }
 
@@ -304,7 +436,7 @@ function MiniIsland({
   onHover: (on: boolean) => void;
   onSelect: () => void;
 }) {
-  const { skin } = useLook();
+  const { skin, motion } = useLook();
   const status = battle.status;
   const material = useMemo(() => {
     const m = createIslandMaterial(skin.material);
@@ -320,7 +452,7 @@ function MiniIsland({
     const g = group.current;
     if (!g) return;
     const t = clock.elapsedTime;
-    g.position.set(position.x, position.y + Math.sin(t * 0.4 + bob) * 0.08, position.z);
+    g.position.set(position.x, position.y + Math.sin(t * 0.4 + bob) * 0.08 * motion, position.z);
     const target = hovered && status !== "locked" ? 1.06 : 1;
     const s = THREE.MathUtils.lerp(g.scale.x / scale, target, 0.12) * scale;
     g.scale.setScalar(s);
@@ -348,6 +480,7 @@ function MiniIsland({
         }}
       />
       {status !== "locked" && <Water island={island} />}
+      <Reeds island={island} />
       <StatusDressing status={status} island={island} />
     </group>
   );
@@ -395,14 +528,12 @@ function Flag({
   scale: number;
 }) {
   const { skin } = useLook();
-  const texture = useMemo(() => makeBannerTexture(faction, skin.factions[faction]), [faction, skin]);
+  const { motion } = useLook();
+  const texture = useDisposable(() => makeBannerTexture(faction, skin.factions[faction]), [faction, skin]);
   const cloth = useMemo(() => makeClothMaterial(texture, 1.3), [texture]);
-  useEffect(() => () => {
-    texture.dispose();
-    cloth.dispose();
-  }, [texture, cloth]);
+  useEffect(() => () => cloth.dispose(), [cloth]);
   useFrame((_, dt) => {
-    cloth.userData.uniforms.uTime.value += dt;
+    cloth.userData.uniforms.uTime.value += dt * (motion < 1 ? 0.3 : 1);
   });
   const s = 3.2 * scale;
   return (
@@ -437,12 +568,13 @@ function getGlowTexture(): THREE.Texture {
 
 /** The next battle glows: warm light, a soft halo beneath the island and lit braziers. */
 function CurrentGlow({ radius }: { radius: number }) {
+  const { motion } = useLook();
   const light = useRef<THREE.PointLight>(null);
   const halo = useRef<THREE.MeshBasicMaterial>(null);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    if (light.current) light.current.intensity = 9 + Math.sin(t * 3.1) * 1.5;
-    if (halo.current) halo.current.opacity = 0.35 + 0.15 * Math.sin(t * 1.6);
+    if (light.current) light.current.intensity = 9 + Math.sin(t * 3.1) * 1.5 * motion;
+    if (halo.current) halo.current.opacity = 0.35 + 0.15 * motion * Math.sin(t * 1.6);
   });
   return (
     <>
@@ -465,10 +597,11 @@ function CurrentGlow({ radius }: { radius: number }) {
 }
 
 function Braziers({ radius, count }: { radius: number; count: number }) {
-  const flame = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color("#ff8a3d").multiplyScalar(6) }), []);
+  const { motion } = useLook();
+  const flame = useDisposable(() => new THREE.MeshBasicMaterial({ color: new THREE.Color("#ff8a3d").multiplyScalar(6) }), []);
   const group = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
-    group.current?.children.forEach((c, i) => c.scale.set(1, 0.8 + 0.35 * Math.sin(clock.elapsedTime * 9 + i * 2), 1));
+    group.current?.children.forEach((c, i) => c.scale.set(1, 0.95 + motion * (-0.15 + 0.35 * Math.sin(clock.elapsedTime * 9 + i * 2)), 1));
   });
   return (
     <group ref={group}>
@@ -486,7 +619,8 @@ function Braziers({ radius, count }: { radius: number; count: number }) {
 
 /** Locked: soft mist billboards hugging the island. Lost: drifting ash-smoke. */
 function MistVeil({ radius, ash = false }: { radius: number; ash?: boolean }) {
-  const texture = useMemo(() => {
+  const { motion } = useLook();
+  const texture = useDisposable(() => {
     const c = document.createElement("canvas");
     c.width = c.height = 64;
     const g = c.getContext("2d")!;
@@ -509,7 +643,7 @@ function MistVeil({ radius, ash = false }: { radius: number; ash?: boolean }) {
   );
   const group = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
-    if (group.current) group.current.rotation.y = clock.elapsedTime * (ash ? 0.05 : 0.025);
+    if (group.current) group.current.rotation.y = clock.elapsedTime * (ash ? 0.05 : 0.025) * motion;
   });
   return (
     <group ref={group}>

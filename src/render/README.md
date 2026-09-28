@@ -32,6 +32,13 @@ imported (see `fromEngine.ts`); engine logic may not.
   - `brace(id, { hold })`: crouch, tighten ranks and lean into the shields, then release.
   - `reveal(id)`: fog of war. The squad resolves out of the mist (see Fog of war below).
   - `reset(id?)` clears persistent animation state.
+  - **Playback controls:** `setTimeScale(n)` sets tween speed (1 is normal, 0.5 is half, 0 is
+    frozen), and `pause()` / `resume()` freeze every tween and restore the previous speed. There
+    are no casts needed; they are on `SquadAnimationApi`.
+  - `shakeObjective(hex, intensity = 1)`: an objective takes a hit. The walls and gatehouse (their
+    own mesh, `island.wallGeometry`) jolt with a damped shudder, which is skipped under reduced
+    motion. A dust cloud billows from the gate's outer face and a few stones fall. It resolves when
+    the effect ends, and it follows the animator clock, so pause and time scale apply to it.
 - **Weather (T08):** `<LookProvider weather="clear|rain|mist|ashWind">` (use `weatherFor(view.weather)`).
   Each skin owns `weather: Record<WeatherKind, WeatherPreset>` overlays that are layered on the
   time-of-day preset: mist, particles (rain streaks, ash flurries blowing east), wetness (darker,
@@ -66,13 +73,32 @@ imported (see `fromEngine.ts`); engine logic may not.
       Banner flag. `stalemate`: half-lit, flag at half height. `lost`: ashen, Host flag.
     - A dotted march path runs between the islands, gold up to the current battle.
     - Hover shows a DOM label projected from 3D (the current battle is always labelled).
-    - Clicking a non-locked island calls `onSelect(id)`. The camera fits the whole archipelago
-      and pans gently.
+    - Clicking a non-locked island calls `onSelect(id)` and dollies in on it (click-to-zoom).
+      Focus is controlled with `focusedId` / `onFocusChange(id | null)`, or left uncontrolled. The
+      built-in "← Back to the map" button and Escape return to the overview; hide them with
+      `showBackButton={false}` to use your own. The overview fits the whole archipelago and pans
+      gently.
+    - The march route is a dotted ink trail with small glowing pips only up to the current battle.
   - **Capture mode:** `useCaptureStore` (`src/app/captureStore.ts`), on with `?capture=1`.
   - **Cinematic paths:** `camera/cameraPath.ts` has keyframed `CameraPath`s with a pure
     `sampleCameraPath`, and `cinematicPaths(board)` returns `craneInGate`, `bannerDolly`,
     `riverPush` (river boards) and `titleFlyover`. `<CinematicCamera path>` drives the camera from
     the R3F clock, so it is deterministic under `advance(t)`.
+- **Saltmarsh and Hold for Dawn (built ahead of the engine):**
+  - `RenderTerrain` (skins/types.ts) is `TerrainType | "marsh" | "reeds"`, and both skins style
+    all of these, so the engine adding them can't break a `Record<TerrainType, …>`.
+  - Marsh is dark wet peat, set low, with dark pools (small water patches), sedge tussocks and
+    stumps. Reeds are dense clumps taller than the figures (they screen what's behind), in their
+    own mesh (`island.reedGeometry`) with a wind-sway shader.
+  - `DioramaSquad.kind = "column"` is the noncombatant refugee Column: hooded walkers with lanterns
+    or staffs (no weapons), two covered carts and a small pale lantern banner. `dioramaSquads()`
+    maps it from the engine's noncombatant flag (`noncombatant: true` or
+    `role: "noncombatant"`, whichever lands).
+  - **Time of day cross-fades:** when `<LookProvider timeOfDay>` changes (e.g. predawn → sunrise
+    on Hold for Dawn's last phase), the lighting blends over 3 s (`look/blendPresets.ts`, pure and
+    tested). Under reduced motion it cuts.
+  - Lab mocks until the scenarios exist: `&scenario=saltmarsh` and `&scenario=holdForDawn`
+    (`&fadeTo=sunrise&fadeAt=0.8` shows the fade).
 - `terrain/buildIsland.ts`: a pure builder from a `BoardLayout` to one merged vertex-coloured
   geometry: tiles, a continuous jagged rock underside, props, roads, walls/gate, town, and sunken
   `river` channels that run off the board into a waterfall. It also returns anchors (water, flow,

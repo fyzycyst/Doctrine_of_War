@@ -19,9 +19,9 @@ const header = (source: string, key: string) =>
   config.headers.find((rule) => rule.source === source)?.headers.find((item) => item.key === key)?.value;
 
 describe("vercel.json", () => {
-  it("serves the static build with an SPA fallback, fetching the CC0 figures first", () => {
+  it("serves the static build with an SPA fallback (no lab-only CC0 figures needed)", () => {
     expect(config.outputDirectory).toBe("dist");
-    expect(config.buildCommand).toBe("npm run fetch:cc0 && npm run build");
+    expect(config.buildCommand).toBe("npm run build");
     expect(config.rewrites).toEqual([{ source: "/(.*)", destination: "/index.html" }]);
   });
 
