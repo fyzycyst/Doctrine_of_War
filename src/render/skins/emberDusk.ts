@@ -209,6 +209,9 @@ export const emberDusk: Skin = {
     ford: { top: "#4a4636", height: 0.08, accent: P.water },
     // Sunken channel: dark silt bed well below the banks; the water sits above it.
     river: { top: "#2e2a24", height: -0.12, accent: P.water },
+    // Saltmarsh: dark wet peat with pools (accent = pool water), and reed banks (accent = reed colour).
+    marsh: { top: "#3d3a2a", height: 0.14, accent: "#26333a" },
+    reeds: { top: "#4f5433", height: 0.2, accent: "#a8995c" },
     ridge: { top: "#8a8670", height: 0.72, accent: P.stone },
     wall: { top: "#7e7a68", height: 0.38, accent: P.stone },
     ruin: { top: "#7d7b5e", height: 0.36, accent: P.stone },

@@ -15,6 +15,15 @@ export const TIME_OF_DAY_KEYS: TimeOfDay[] = ["dusk", "nightFires", "rainGrey", 
 
 export type Hex = string; // "#rrggbb"
 
+/**
+ * The engine's TerrainType plus the terrains it is adding for The Saltmarsh
+ * Column (marsh, reeds). Skins style all of them so the engine change can't
+ * break a `Record<TerrainType, …>`; once TerrainType includes them this is
+ * simply equal to it.
+ */
+export type RenderTerrain = TerrainType | "marsh" | "reeds";
+export const RENDER_TERRAINS: RenderTerrain[] = ["road", "ridge", "ford", "wall", "field", "ruin", "river", "marsh", "reeds"];
+
 export interface TerrainStyle {
   /** Top-surface colour of the tile. */
   top: Hex;
@@ -151,7 +160,7 @@ export interface WeatherPreset {
 export interface Skin {
   id: string;
   label: string;
-  terrain: Record<TerrainType, TerrainStyle>;
+  terrain: Record<RenderTerrain, TerrainStyle>;
   factions: Record<FactionId, FactionStyle>;
   island: IslandStyle;
   material: MaterialStyle;

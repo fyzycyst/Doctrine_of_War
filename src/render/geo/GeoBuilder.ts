@@ -28,7 +28,18 @@ export class GeoBuilder {
   }
 
   /** Merges any three geometry (e.g. a ConeGeometry) with a transform and colour. */
-  add(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4, color: THREE.Color, jitter = 0, rand?: () => number, glow = 0) {
+  /**
+   * `glow` is a per-vertex float channel: a constant, or a function of the
+   * transformed vertex's y (e.g. a sway weight from base to tip).
+   */
+  add(
+    geometry: THREE.BufferGeometry,
+    matrix: THREE.Matrix4,
+    color: THREE.Color,
+    jitter = 0,
+    rand?: () => number,
+    glow: number | ((y: number) => number) = 0,
+  ) {
     const g = geometry.index ? geometry.toNonIndexed() : geometry.clone();
     g.applyMatrix4(matrix);
     const pos = g.getAttribute("position");
@@ -37,7 +48,7 @@ export class GeoBuilder {
       for (let k = 0; k < 3; k += 1) {
         this.positions.push(pos.getX(i + k), pos.getY(i + k), pos.getZ(i + k));
         this.colors.push(color.r * shade, color.g * shade, color.b * shade);
-        this.glows.push(glow);
+        this.glows.push(typeof glow === "number" ? glow : glow(pos.getY(i + k)));
       }
     }
     g.dispose();

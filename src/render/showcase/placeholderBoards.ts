@@ -1,4 +1,5 @@
 import type { BoardHex, BoardLayout, TerrainType } from "../../game/board";
+import type { RenderTerrain } from "../skins/types";
 
 /**
  * Placeholder boards for campaign battles whose scenarios are not built yet
@@ -7,21 +8,23 @@ import type { BoardHex, BoardLayout, TerrainType } from "../../game/board";
  */
 export type PlaceholderKind = "saltmarsh" | "holdForDawn";
 
-function layout(width: number, height: number, terrainAt: (q: number, r: number) => TerrainType): BoardLayout {
+function layout(width: number, height: number, terrainAt: (q: number, r: number) => RenderTerrain): BoardLayout {
   const hexes: BoardHex[] = [];
   for (let q = 0; q < width; q += 1) {
-    for (let r = 0; r < height; r += 1) hexes.push({ coord: { q, r }, terrain: terrainAt(q, r) });
+    // marsh/reeds are render terrains the engine is adding; cast until TerrainType has them.
+    for (let r = 0; r < height; r += 1) hexes.push({ coord: { q, r }, terrain: terrainAt(q, r) as TerrainType });
   }
   return { width, height, hexes };
 }
 
 export function placeholderBoard(kind: PlaceholderKind): BoardLayout {
   if (kind === "saltmarsh") {
-    // Marsh channels and fords with a causeway road running through.
-    return layout(6, 5, (q, r) => {
-      if (r === 2) return q === 2 || q === 4 ? "ford" : "road";
-      if ((q + r) % 4 === 0) return "ford";
-      if (q === 5 && r === 0) return "ruin";
+    // A causeway road across the marsh, fords at the channels, reed banks either side.
+    return layout(7, 5, (q, r) => {
+      if (r === 2) return q === 2 || q === 5 ? "ford" : "road";
+      if ((q === 1 || q === 4) && r !== 2) return "reeds";
+      if ((q + r) % 3 === 0) return "marsh";
+      if (q === 6 && r === 0) return "ruin";
       return "field";
     });
   }

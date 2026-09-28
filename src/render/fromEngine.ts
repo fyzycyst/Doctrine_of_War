@@ -27,7 +27,18 @@ export function facingFor(faction: SquadSetup["faction"]): number {
 type SquadLike = Pick<SquadSetup, "id" | "faction" | "hex" | "strength" | "cohesion" | "renown"> & {
   /** VisibleSquad.lastKnown: an enemy drawn where it was last seen (a ghost). */
   lastKnown?: boolean;
+  /**
+   * The engine's noncombatant flag (the refugee Column). Accepted as either a
+   * boolean `noncombatant` or `role: "noncombatant"` until the engine type lands.
+   */
+  noncombatant?: boolean;
+  role?: string;
 };
+
+/** True for the engine's noncombatant squads (the Column). */
+export function isNoncombatant(s: { noncombatant?: boolean; role?: string }): boolean {
+  return s.noncombatant === true || s.role === "noncombatant";
+}
 
 export function dioramaSquads(squads: SquadLike[]): DioramaSquad[] {
   return squads.map((s) => ({
@@ -39,6 +50,7 @@ export function dioramaSquads(squads: SquadLike[]): DioramaSquad[] {
     facing: facingFor(s.faction),
     renowned: !!s.renown,
     lastKnown: !!s.lastKnown,
+    kind: isNoncombatant(s) ? "column" : "combat",
   }));
 }
 

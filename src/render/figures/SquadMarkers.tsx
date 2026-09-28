@@ -28,6 +28,7 @@ export function SquadMarkers({ placed, animator }: { placed: PlacedSquad[]; anim
   );
   useEffect(() => () => Object.values(clothTextures).forEach((t) => t.dispose()), [clothTextures]);
   const shadowTexture = useDisposable(() => makeShadowTexture(), []);
+  const columnTexture = useDisposable(() => makeColumnTexture(), []);
 
   return (
     <>
@@ -36,7 +37,7 @@ export function SquadMarkers({ placed, animator }: { placed: PlacedSquad[]; anim
           key={p.squad.id}
           placed={p}
           animator={animator}
-          texture={clothTextures[p.squad.faction]}
+          texture={p.squad.kind === "column" ? columnTexture : clothTextures[p.squad.faction]}
           shadow={shadowTexture}
           phase={i * 1.7}
         />
@@ -71,11 +72,18 @@ function SquadMarker({
   const crest = useRef<THREE.Group>(null);
 
   const ghost = !!squad.lastKnown;
+  // The refugee Column: a small pale banner and a bone-white ring.
+  const column = squad.kind === "column";
   const { lit } = cohesionArc(squad.cohesion);
   const thetaLength = Math.max(0.001, lit * Math.PI * 2);
   // Rings are kept below the figures in brightness (look-lock #7).
   const ringBase = useMemo(
-    () => (ghost ? new THREE.Color("#8a94a8").multiplyScalar(0.9) : new THREE.Color(style.glow).multiplyScalar(1.05)),
+    () =>
+      ghost
+        ? new THREE.Color("#8a94a8").multiplyScalar(0.9)
+        : column
+          ? new THREE.Color("#e8dcc4").multiplyScalar(0.95)
+          : new THREE.Color(style.glow).multiplyScalar(1.05),
     [style.glow, ghost],
   );
   const ringMat = useMemo(
@@ -125,9 +133,9 @@ function SquadMarker({
     if (crest.current) crest.current.rotation.y = t * 0.8 * motion;
   });
 
-  const poleHeight = 0.78;
-  const w = 0.34;
-  const h = 0.22;
+  const poleHeight = column ? 0.6 : 0.78;
+  const w = column ? 0.24 : 0.34;
+  const h = column ? 0.16 : 0.22;
   return (
     <group ref={root} position={[placed.x, placed.y, placed.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
@@ -236,6 +244,32 @@ export function makeClothMaterial(texture: THREE.Texture, phase: number, ghost =
   m.customProgramCacheKey = () => (ghost ? "banner-cloth-ghost" : "banner-cloth");
   m.userData.uniforms = uniforms;
   return m;
+}
+
+/** The Column's pale banner: undyed linen with a small lantern mark. */
+function makeColumnTexture(): THREE.Texture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 192;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#e6dcc6";
+  ctx.fillRect(0, 0, 192, 128);
+  ctx.fillStyle = "#cfc2a4";
+  ctx.fillRect(0, 0, 18, 128);
+  // Lantern: a small hooded frame with a warm heart.
+  ctx.strokeStyle = "#6a5a44";
+  ctx.lineWidth = 6;
+  ctx.strokeRect(84, 40, 34, 44);
+  ctx.beginPath();
+  ctx.moveTo(84, 40);
+  ctx.lineTo(101, 24);
+  ctx.lineTo(118, 40);
+  ctx.stroke();
+  ctx.fillStyle = "#e0a050";
+  ctx.fillRect(92, 50, 18, 24);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
 
 export function makeBannerTexture(faction: FactionId, style: FactionStyle): THREE.Texture {

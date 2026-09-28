@@ -64,7 +64,7 @@ describe("skins", () => {
       for (const key of TIME_OF_DAY_KEYS) {
         expect(skin.lighting[key].id).toBe(key);
       }
-      for (const terrain of ["road", "ridge", "ford", "wall", "field", "ruin", "river"] as const) {
+      for (const terrain of ["road", "ridge", "ford", "wall", "field", "ruin", "river", "marsh", "reeds"] as const) {
         expect(skin.terrain[terrain].top).toMatch(/^#[0-9a-f]{6}$/i);
       }
     }
@@ -114,5 +114,31 @@ describe("fog adapter", () => {
     expect(visibilityFromView({ ...view, fortune: "off" }, { board })).toBeUndefined();
     // Ghost flag survives the squad mapper.
     expect(dioramaSquads(view.squads.map((s) => ({ ...s, hex: s.hex! }))).find((s) => s.id === "g")?.lastKnown).toBe(true);
+  });
+});
+
+describe("saltmarsh terrain and the Column", () => {
+  it("maps the engine's noncombatant flag to the Column figure kind", async () => {
+    const { dioramaSquads, isNoncombatant } = await import("./fromEngine");
+    const base = { id: "c", faction: "free_banners" as const, hex: { q: 0, r: 0 }, strength: 80, cohesion: 60 };
+    expect(isNoncombatant({ noncombatant: true })).toBe(true);
+    expect(isNoncombatant({ role: "noncombatant" })).toBe(true);
+    expect(isNoncombatant({ role: "frontline" })).toBe(false);
+    expect(dioramaSquads([{ ...base, noncombatant: true }])[0].kind).toBe("column");
+    expect(dioramaSquads([base])[0].kind).toBe("combat");
+  });
+
+  it("builds marsh pools and swaying reed banks", async () => {
+    const { buildIsland } = await import("./terrain/buildIsland");
+    const { placeholderBoard } = await import("./showcase/placeholderBoards");
+    const { emberDusk } = await import("./skins");
+    const island = buildIsland(placeholderBoard("saltmarsh"), emberDusk);
+    expect(island.reedGeometry).not.toBeNull();
+    expect(island.water.some((w) => w.radius !== undefined)).toBe(true);
+    // Sway weights run from 0 at the root toward 1 at the tip.
+    const glow = island.reedGeometry!.getAttribute("glow");
+    let max = 0;
+    for (let i = 0; i < glow.count; i += 1) max = Math.max(max, glow.getX(i));
+    expect(max).toBeGreaterThan(0.9);
   });
 });

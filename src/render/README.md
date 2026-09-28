@@ -84,6 +84,21 @@ imported (see `fromEngine.ts`); engine logic may not.
     `sampleCameraPath`, and `cinematicPaths(board)` returns `craneInGate`, `bannerDolly`,
     `riverPush` (river boards) and `titleFlyover`. `<CinematicCamera path>` drives the camera from
     the R3F clock, so it is deterministic under `advance(t)`.
+- **Saltmarsh and Hold for Dawn (built ahead of the engine):**
+  - `RenderTerrain` (skins/types.ts) is `TerrainType | "marsh" | "reeds"`, and both skins style
+    all of these, so the engine adding them can't break a `Record<TerrainType, …>`.
+  - Marsh is dark wet peat, set low, with dark pools (small water patches), sedge tussocks and
+    stumps. Reeds are dense clumps taller than the figures (they screen what's behind), in their
+    own mesh (`island.reedGeometry`) with a wind-sway shader.
+  - `DioramaSquad.kind = "column"` is the noncombatant refugee Column: hooded walkers with lanterns
+    or staffs (no weapons), two covered carts and a small pale lantern banner. `dioramaSquads()`
+    maps it from the engine's noncombatant flag (`noncombatant: true` or
+    `role: "noncombatant"`, whichever lands).
+  - **Time of day cross-fades:** when `<LookProvider timeOfDay>` changes (e.g. predawn → sunrise
+    on Hold for Dawn's last phase), the lighting blends over 3 s (`look/blendPresets.ts`, pure and
+    tested). Under reduced motion it cuts.
+  - Lab mocks until the scenarios exist: `&scenario=saltmarsh` and `&scenario=holdForDawn`
+    (`&fadeTo=sunrise&fadeAt=0.8` shows the fade).
 - `terrain/buildIsland.ts`: a pure builder from a `BoardLayout` to one merged vertex-coloured
   geometry: tiles, a continuous jagged rock underside, props, roads, walls/gate, town, and sunken
   `river` channels that run off the board into a waterfall. It also returns anchors (water, flow,

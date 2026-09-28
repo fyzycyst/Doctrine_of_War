@@ -21,6 +21,11 @@ export interface DioramaSquad {
    * translucent silhouette with no banner colour and a dashed ring.
    */
   lastKnown?: boolean;
+  /**
+   * "column" = the noncombatant refugee Column (Saltmarsh): walkers with
+   * lanterns and covered carts under a small pale banner. Default "combat".
+   */
+  kind?: "combat" | "column";
 }
 
 export type FigureApproach = "toy" | "kaykit";

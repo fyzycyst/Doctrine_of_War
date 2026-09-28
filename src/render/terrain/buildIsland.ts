@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { hexKey, hexNeighbors, hexDistance, type BoardHex, type BoardLayout, type HexCoord } from "../../game/board";
 import { GeoBuilder, color, jitterColor, trs } from "../geo/GeoBuilder";
 import { boardCenter, hexCorner, hexRandom, hexToWorld, islandShore, mulberry32 } from "../hexWorld";
-import type { Skin } from "../skins/types";
+import type { RenderTerrain, Skin } from "../skins/types";
 
 /**
  * Builds the floating-island diorama from a BoardLayout: extruded hex columns
@@ -16,7 +16,7 @@ export interface IslandHex {
   z: number;
   top: number;
   kind: "board" | "shore" | "river";
-  terrain?: BoardHex["terrain"];
+  terrain?: RenderTerrain;
 }
 
 export interface WaterHex {
@@ -25,6 +25,8 @@ export interface WaterHex {
   level: number;
   /** Deep river channel (1) vs shallow ford (0). */
   deep: number;
+  /** Pool radius (marsh pools); omitted = a full hex of water. */
+  radius?: number;
 }
 
 export interface Waterfall {
@@ -50,6 +52,8 @@ export interface IslandBuild {
   geometry: THREE.BufferGeometry;
   /** Walls, towers and gatehouse as their own mesh (so an objective hit can jolt them); null if none. */
   wallGeometry: THREE.BufferGeometry | null;
+  /** Reed banks as their own mesh (a wind-sway material); `glow` = sway weight, 0 at the root. */
+  reedGeometry: THREE.BufferGeometry | null;
   hexes: IslandHex[];
   water: WaterHex[];
   waterLevel: number;
@@ -164,7 +168,8 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   const hexes: IslandHex[] = [];
   for (const hex of layout.hexes) {
     const [x, z] = hexToWorld(hex.coord, center);
-    hexes.push({ coord: hex.coord, x, z, top: T[hex.terrain].height, kind: "board", terrain: hex.terrain });
+    const terrain = hex.terrain as RenderTerrain;
+    hexes.push({ coord: hex.coord, x, z, top: T[terrain].height, kind: "board", terrain });
   }
   for (const s of shore) {
     const [x, z] = hexToWorld(s.coord, center);
@@ -232,6 +237,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   }
 
   // --- Terrain dressing -----------------------------------------------------
+  const rb = new GeoBuilder();
   const roadColor = color(T.road.accent ?? T.road.top);
   const stone = color(T.ridge.accent ?? "#a8a296");
   const foliage = color(I.foliage);
@@ -241,7 +247,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   for (const hex of hexes) {
     const hr = mulberry32(hex.coord.q * 7349 + hex.coord.r * 3181 + 11);
     if (hex.kind === "board") {
-      switch (hex.terrain) {
+      switch (hex.terrain as RenderTerrain) {
         case "field":
           dressField(b, hex, hr, foliage, foliageDark);
           break;
@@ -250,6 +256,12 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
           break;
         case "ford":
           dressFord(b, hex, hr, stone, foliage);
+          break;
+        case "marsh":
+          water.push(...dressMarsh(b, hex, hr, foliageDark, trunk));
+          break;
+        case "reeds":
+          dressReeds(rb, hex, hr, color(T.reeds.accent ?? "#a8995c"), foliageDark);
           break;
         case "river":
           dressRiver(b, hex, hr, stone, foliage);
@@ -316,6 +328,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   return {
     geometry: b.build(),
     wallGeometry: wb.vertexCount > 0 ? wb.build() : null,
+    reedGeometry: rb.vertexCount > 0 ? rb.build() : null,
     hexes,
     water,
     waterLevel,
@@ -589,6 +602,55 @@ function dressRidge(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: TH
   for (let i = 0; i < 3; i += 1) {
     const [x, z] = edgePoint(hex, rand, 0.3, 0.8);
     tuft(b, x, hex.top, z, dark, rand);
+  }
+}
+
+/**
+ * Marsh: dark wet peat with a few dark pools (returned as water patches),
+ * sedge tussocks and the odd dead stump.
+ */
+function dressMarsh(b: GeoBuilder, hex: IslandHex, rand: () => number, sedge: THREE.Color, wood: THREE.Color): WaterHex[] {
+  const pools: WaterHex[] = [];
+  const n = 2 + Math.floor(rand() * 2);
+  for (let i = 0; i < n; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.15, 0.55);
+    pools.push({ x, z, level: hex.top + 0.012, deep: 0.8, radius: 0.18 + rand() * 0.14 });
+  }
+  const tussock = sedge.clone().multiplyScalar(0.9);
+  for (let i = 0; i < 9; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.2, 0.88);
+    tuft(b, x, hex.top, z, rand() > 0.4 ? tussock : sedge.clone().lerp(new THREE.Color("#8a7a4a"), 0.4), rand, 1.3);
+  }
+  if (rand() > 0.5) {
+    const [x, z] = edgePoint(hex, rand, 0.5, 0.8);
+    b.add(PRIM.cyl6, trs(x, hex.top + 0.06, z, (rand() - 0.5) * 0.4, rand() * 3, (rand() - 0.5) * 0.4, 0.03, 0.12, 0.03), wood.clone().multiplyScalar(0.6));
+  }
+  return pools;
+}
+
+/**
+ * Reed banks: dense clumps of tall stalks with seed heads, taller than the
+ * figures so they screen what stands behind them. Written into their own
+ * builder; the per-vertex `glow` channel carries the sway weight (0 at root).
+ */
+function dressReeds(rb: GeoBuilder, hex: IslandHex, rand: () => number, reed: THREE.Color, dark: THREE.Color) {
+  const clumps = 7 + Math.floor(rand() * 3);
+  for (let c = 0; c < clumps; c += 1) {
+    const [cx, cz] = edgePoint(hex, rand, 0.22, 0.82);
+    const stalks = 9 + Math.floor(rand() * 7);
+    for (let i = 0; i < stalks; i += 1) {
+      const x = cx + (rand() - 0.5) * 0.18;
+      const z = cz + (rand() - 0.5) * 0.18;
+      const h = 0.45 + rand() * 0.35;
+      const base = hex.top;
+      const weight = (y: number) => Math.max(0, Math.min(1, (y - base) / h));
+      const col = reed.clone().lerp(dark, rand() * 0.45);
+      const lean = (rand() - 0.5) * 0.25;
+      rb.add(PRIM.cone6, trs(x, base + h / 2, z, lean, rand() * 3, (rand() - 0.5) * 0.25, 0.012, h, 0.012), col, 0.2, rand, weight);
+      if (rand() > 0.45) {
+        rb.add(PRIM.ico, trs(x + lean * 0.3 * h, base + h * 0.92, z, 0, 0, 0, 0.018, 0.05, 0.018), color("#6a4a2a"), 0, undefined, weight);
+      }
+    }
   }
 }
 

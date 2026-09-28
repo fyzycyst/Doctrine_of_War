@@ -20,6 +20,7 @@ import { BoardHighlights } from "./terrain/BoardHighlights";
 import { buildIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
 import { WallsAndObjectiveFX } from "./terrain/ObjectiveFX";
+import { Reeds } from "./terrain/Reeds";
 import { Water } from "./terrain/Water";
 import { useDisposable } from "./dispose";
 
@@ -89,6 +90,7 @@ export function Diorama({
     () => () => {
       island.geometry.dispose();
       island.wallGeometry?.dispose();
+      island.reedGeometry?.dispose();
     },
     [island],
   );
@@ -221,6 +223,7 @@ export function Diorama({
       />
       {outline && <mesh geometry={island.geometry} material={outline} />}
       <Water island={island} />
+      <Reeds island={island} />
       <Fires island={island} />
       {island.gateBanner && <GateBanner anchor={island.gateBanner} />}
       <BoardHighlights island={island} deploymentHexes={deploymentHexes} />

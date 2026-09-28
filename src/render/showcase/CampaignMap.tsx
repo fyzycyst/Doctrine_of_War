@@ -16,6 +16,7 @@ import { canvasDpr } from "../quality";
 import { emberDusk } from "../skins";
 import type { TimeOfDay } from "../skins/types";
 import { buildIsland, type IslandBuild } from "../terrain/buildIsland";
+import { Reeds } from "../terrain/Reeds";
 import { Water } from "../terrain/Water";
 import { placeholderBoard, type PlaceholderKind } from "./placeholderBoards";
 import { useDisposable } from "../dispose";
@@ -245,6 +246,7 @@ function Archipelago({
       islands.forEach((i) => {
         i.island.geometry.dispose();
         i.island.wallGeometry?.dispose();
+        i.island.reedGeometry?.dispose();
       }),
     [islands],
   );
@@ -478,6 +480,7 @@ function MiniIsland({
         }}
       />
       {status !== "locked" && <Water island={island} />}
+      <Reeds island={island} />
       <StatusDressing status={status} island={island} />
     </group>
   );

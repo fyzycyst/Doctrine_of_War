@@ -16,7 +16,7 @@ import { closeShot, DioramaCamera, wideShot, type CameraShot } from "../camera/D
 import { Diorama } from "../Diorama";
 import type { SquadAnimationApi, SquadAnimator } from "../figures/squadAnimation";
 import type { FigureApproach } from "../figures/types";
-import { boardRadius } from "../hexWorld";
+import { boardCenter, boardRadius, hexToWorld } from "../hexWorld";
 import { LookProvider, useLook } from "../look/LookContext";
 import { canvasDpr } from "../quality";
 import { PostFX } from "../post/PostFX";
@@ -68,8 +68,13 @@ function readParams() {
   const figures = p.get("figures");
   const num = (k: string) => (p.get(k) === null ? undefined : Number(p.get(k)));
   const anim = p.get("anim");
+  const scenarioParam = p.get("scenario");
   const board: LabSceneId =
-    p.get("board") === "stress" ? "stress" : p.get("scenario") === "emberFord" ? "emberFord" : "firstBreach";
+    p.get("board") === "stress"
+      ? "stress"
+      : scenarioParam === "emberFord" || scenarioParam === "saltmarsh" || scenarioParam === "holdForDawn"
+        ? scenarioParam
+        : "firstBreach";
   return {
     state: {
       preset: isTimeOfDay(preset) ? preset : LAB_SCENES[board].timeOfDay,
@@ -96,6 +101,9 @@ function readParams() {
     campaignMock: p.get("campaignMock") === "b" ? "b" : "a",
     path: p.get("path") as CinematicPathId | null,
     seq: p.get("seq") === "1",
+    fadeTo: isTimeOfDay(p.get("fadeTo")) ? (p.get("fadeTo") as TimeOfDay) : null,
+    fadeAt: num("fadeAt") ?? 1,
+    focusHex: p.get("focusHex"),
     fogFreeze: num("fogFreeze"),
   };
 }
@@ -248,7 +256,15 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
   const scene = LAB_SCENES[state.board];
   const skin = getSkin(state.skin);
   const shot = useMemo<CameraShot>(() => {
-    const base = state.cam === "close" ? closeShot(scene.focus) : wideShot(boardRadius(scene.board));
+    const [fq, fr] = (initial.focusHex ?? "").split(",").map(Number);
+    const focus: [number, number, number] =
+      initial.focusHex && Number.isFinite(fq) && Number.isFinite(fr)
+        ? (() => {
+            const [x, z] = hexToWorld({ q: fq, r: fr }, boardCenter(scene.board));
+            return [x + 0.9, 0.4, z + 0.6] as [number, number, number];
+          })()
+        : scene.focus;
+    const base = state.cam === "close" ? closeShot(focus) : wideShot(boardRadius(scene.board));
     return {
       ...base,
       azimuth: initial.shot.azimuth ?? base.azimuth,
@@ -348,6 +364,9 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
           )}
           {revealed && initial.fogFreeze !== undefined && (
             <After seconds={initial.fogFreeze} run={() => freezeAll(animations.current)} />
+          )}
+          {initial.fadeTo && figuresReady && (
+            <After seconds={initial.fadeAt} run={() => setState((st) => ({ ...st, preset: initial.fadeTo! }))} />
           )}
           {initial.anim && figuresReady && (
             <AutoAnimation

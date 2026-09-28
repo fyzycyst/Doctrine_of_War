@@ -19,7 +19,8 @@ export function Water({ island }: { island: IslandBuild }) {
   const geometry = useDisposable(() => {
     if (island.water.length === 0) return null;
     const parts = island.water.map((w) => {
-      const g = new THREE.CircleGeometry(1.0, 6);
+      // Full hexes for fords/rivers; small round pools for marsh.
+      const g = w.radius ? new THREE.CircleGeometry(w.radius, 10) : new THREE.CircleGeometry(1.0, 6);
       g.rotateX(-Math.PI / 2);
       g.translate(w.x, w.level, w.z);
       g.setAttribute("aDeep", new THREE.Float32BufferAttribute(new Array(g.getAttribute("position").count).fill(w.deep), 1));
