@@ -82,3 +82,13 @@ describe("buildChronicle", () => {
     expect(fired.every((group) => group.rules.every((rule) => rule.count >= 1))).toBe(true);
   });
 });
+
+describe("the Column in the chronicle", () => {
+  it("is The Column, as everywhere else", async () => {
+    const { saltmarshColumn } = await import("../../game/engine");
+    const view = visibleState(createInitialState(saltmarshColumn, { fortune: "off" }), "free_banners");
+    const names = namesFor([view]);
+    expect(names.name("saltmarsh_column")).toBe("The Column");
+    expect(firedOrders([{ ...base, beat: 1, kind: "ruleFired", squadId: "saltmarsh_column", doctrineId: "keep_the_column_moving", ruleId: "kcm", label: "Always → keep moving toward safety" }], names)[0].squadName).toBe("The Column");
+  });
+});

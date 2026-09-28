@@ -1,4 +1,5 @@
-import { Castle, CloudRain, Crown, Eye, Flag, RotateCcw, Skull, Sparkles, Swords, Wind, type LucideIcon } from "lucide-react";
+import { Castle, CloudRain, Crown, Eye, Flag, RotateCcw, Skull, Sparkles, Sunrise, Swords, Wind, type LucideIcon } from "lucide-react";
+import { stageTurn } from "../game/goal";
 import { useMemo, useRef } from "react";
 import { useGame } from "../game/gameStore";
 import {
@@ -57,6 +58,7 @@ export function PhaseReport() {
   const view = useGame((s) => s.view);
   const nextPhase = useGame((s) => s.nextPhase);
   const replay = useGame((s) => s.replayPhase);
+  const scenario = useGame((s) => s.scenario);
   const chronicleStep = useGuide((s) => s.coach === "active" && s.step === "chronicle");
   const firstBattle = useFirstBattle();
   const teaching = chronicleStep && firstBattle;
@@ -71,6 +73,7 @@ export function PhaseReport() {
     return null;
   }
 
+  const turn = entry.status === "command" ? stageTurn(scenario, entry.phase) : null;
   const ours = fired.filter((group) => group.mine);
   const theirs = fired.filter((group) => !group.mine);
   const over = entry.status !== "command";
@@ -127,6 +130,14 @@ export function PhaseReport() {
                 )}
               </div>
             ))}
+            {turn && (
+              <p className="stage-turn">
+                <Sunrise size={16} aria-hidden="true" />
+                <span>
+                  <strong>{turn.title}.</strong> The line held through the night. Now: {turn.goal.text}.
+                </span>
+              </p>
+            )}
           </section>
         </div>
 

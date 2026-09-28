@@ -56,6 +56,14 @@ function capitalize(text: string) {
   return text ? text[0].toUpperCase() + text.slice(1) : text;
 }
 
+/**
+ * The name a company goes by in the UI. The refugee column is a noncombatant charge,
+ * not a company: it is simply "The Column".
+ */
+export function rosterName(squad: { name: string; noncombatant?: boolean }): string {
+  return squad.noncombatant ? "The Column" : squad.name;
+}
+
 export function isOnField(squad: VisibleSquad): squad is VisibleSquad & { hex: NonNullable<VisibleSquad["hex"]> } {
   return squad.status === "active" && squad.hex !== null;
 }

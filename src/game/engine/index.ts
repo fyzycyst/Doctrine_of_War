@@ -9,7 +9,7 @@ export {
   type BattleOptions,
   type ResolveOptions,
 } from "./resolvePhase";
-export { eventsFor, sightRangeAt, visibleHexes, visibleState, type VisibleSquad, type VisibleState } from "./fog";
+export { eventsFor, sightRangeAt, timeOfDayAt, visibleHexes, visibleState, type VisibleSquad, type VisibleState } from "./fog";
 export {
   applyDeployment,
   checkPlacement,

@@ -240,7 +240,7 @@ export const useGame = create<GameState>((set, get) => ({
   defaultedSquads: () => {
     const { view, scenario, orders } = get();
     return view.squads
-      .filter((squad) => squad.faction === scenario.playerFaction && squad.status === "active" && !orders[squad.id])
+      .filter((squad) => squad.faction === scenario.playerFaction && squad.status === "active" && !squad.noncombatant && !orders[squad.id])
       .map((squad) => squad.id);
   },
 

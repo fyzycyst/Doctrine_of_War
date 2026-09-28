@@ -2818,3 +2818,260 @@ h3 {
 .order-arrow {
   color: var(--muted);
 }
+
+/* ------------------------------------------------------- goals and stages */
+
+.goal-chip {
+  border-color: var(--gold-line);
+  color: var(--gold-hi);
+  font-family: var(--display);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.goal-chip.goal-escape {
+  border-color: rgba(143, 176, 232, 0.45);
+  color: var(--lapis-text);
+}
+
+.goal-progress {
+  padding-left: 6px;
+  border-left: 1px solid rgba(239, 227, 200, 0.2);
+  font-family: var(--body);
+  color: var(--bone);
+}
+
+/* Dawn breaks: rises from the playback bar at the end of the last night phase. */
+/* The playback bar and the dawn banner above it share one grid cell. */
+.playback-dock {
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: center;
+  position: relative;
+  margin-bottom: 18px;
+}
+
+.playback-dock .playback-bar {
+  margin-bottom: 0;
+}
+
+.stage-banner {
+  /* Out of the flow, so it neither hides behind nor stretches the playback bar. */
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 14px);
+  z-index: 5;
+  /* translate, not transform: the unfurl animation owns transform. */
+  translate: -50% 0;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 26px;
+  border: 1px solid var(--gold-hi);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(60, 42, 18, 0.95), rgba(26, 18, 10, 0.95));
+  box-shadow: 0 0 40px rgba(240, 198, 107, 0.35), 0 12px 30px rgba(0, 0, 0, 0.5);
+  color: var(--gold-hi);
+  animation: unfurl 0.6s var(--ease) both;
+}
+
+.stage-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.08em;
+}
+
+.stage-goal {
+  font-size: 17px;
+  color: var(--bone);
+}
+
+.stage-turn {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 12px 0 2px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--gold-hi);
+  border-radius: 0 4px 4px 0;
+  background: rgba(212, 166, 74, 0.12);
+  font-size: 14.5px;
+}
+
+.stage-turn svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--gold-hi);
+}
+
+.stage-turn strong {
+  font-family: var(--display);
+  color: var(--gold-hi);
+}
+
+/* ----------------------------------------------------- the Column (ward) */
+
+.banner-tab.ward .banner-glyph,
+.insp-glyph.ward {
+  background: linear-gradient(180deg, #8a7250, #4a3a24);
+  color: var(--bone);
+}
+
+.must-escape {
+  padding: 0 7px;
+  border: 1px solid var(--gold-line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-style: normal;
+  color: var(--gold-hi);
+}
+
+.must-escape.safe {
+  border-color: rgba(143, 176, 232, 0.45);
+  color: var(--lapis-text);
+}
+
+.ward-marker {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 4px 10px 5px;
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  background: rgba(40, 30, 16, 0.9);
+  color: var(--bone);
+  white-space: nowrap;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+}
+
+.ward-must {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-hi);
+}
+
+/* Long rules wrap instead of stretching a banner across the board; short ones stay on
+   one line (max-content, or the absolutely placed wrapper would shrink them narrow). */
+.callout-rule .callout-line {
+  display: block;
+  width: max-content;
+  max-width: 300px;
+  white-space: normal;
+}
+
+/* Compact roster for big musters: one tight tab per company. */
+.roster.dense .roster-group {
+  gap: 3px;
+}
+
+.roster.dense .banner-tab {
+  min-height: 0;
+  grid-template-columns: 28px 1fr;
+}
+
+.roster.dense .banner-glyph {
+  padding-top: 7px;
+}
+
+.roster.dense .banner-glyph .glyph {
+  width: 15px;
+  height: 15px;
+}
+
+.roster.dense .banner-body {
+  gap: 1px;
+  padding: 4px 20px 5px 8px;
+}
+
+.roster.dense .banner-name {
+  font-size: 12px;
+}
+
+.roster.dense .banner-sub {
+  font-size: 11.5px;
+}
+
+.roster.dense .banner-meters {
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.roster.dense .meter {
+  height: 3px;
+}
+
+/* The war's results fold away late in the campaign; the ledger tightens for a big army. */
+.campaign-screen .results summary {
+  margin: 14px 0 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ledger.dense .ledger-row {
+  grid-template-columns: 18px 1fr;
+  gap: 6px;
+  padding: 3px 0;
+}
+
+.ledger.dense .ledger-glyph {
+  height: 20px;
+}
+
+.ledger.dense .ledger-glyph .glyph {
+  width: 12px;
+  height: 12px;
+}
+
+.ledger.dense .ledger-body {
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  column-gap: 8px;
+}
+
+.ledger.dense .ledger-name {
+  font-size: 12px;
+}
+
+.ledger.dense .ledger-sub {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ledger.dense .ledger-stats {
+  display: none;
+}
+
+/* The ending's ledger runs in two columns so a full army fits without scrolling. */
+.end-ledger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.end-ledger .ledger-row:nth-child(2) {
+  border-top: 0;
+}
+
+.end-screen .epilogue-columns {
+  grid-template-columns: 2.4fr 1fr;
+}
+
+@media (max-height: 880px) {
+  .end-screen .epilogue {
+    bottom: 16px;
+    max-height: calc(100% - 240px);
+    padding-top: 14px;
+  }
+}

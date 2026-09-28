@@ -35,7 +35,8 @@ export const DoctrineHand = forwardRef<HandHandle>(function DoctrineHand(_, ref)
 
   useImperativeHandle(ref, () => ({ focus: () => focusCard(currentIndex) }));
 
-  if (!squad || squad.faction !== view.viewer || squad.status !== "active") {
+  // Noncombatants (the Column) keep their own orders: there is nothing to assign.
+  if (!squad || squad.faction !== view.viewer || squad.status !== "active" || squad.noncombatant) {
     return null;
   }
 

@@ -1,29 +1,38 @@
 import { useEffect, useRef } from "react";
 import type { EngineScenario, FortuneMode } from "../../game/engine";
 import { useGame } from "../game/gameStore";
-import { WEATHER_NAME } from "../game/view";
+import { rosterName, WEATHER_NAME } from "../game/view";
 
 /** The win and loss conditions in plain words. */
 export function conditionsInWords(scenario: EngineScenario): { win: string; lose: string[] } {
   const win = scenario.winCondition;
   const objective = (id: string) => scenario.objectives.find((item) => item.id === id)?.name ?? "the objective";
+  // Mid-sentence, "The Last Gate" reads as "the Last Gate".
+  const inline = (name: string) => name.replace(/^The /, "the ");
+  const squadNames = (ids: string[]) =>
+    ids
+      .map((id) => {
+        const squad = scenario.squads.find((item) => item.id === id);
+        return inline(squad ? rosterName(squad) : id);
+      })
+      .join(" and ");
   const phases = `${scenario.maxPhases} phase${scenario.maxPhases === 1 ? "" : "s"}`;
   const lose: string[] = [];
   let winText: string;
 
   switch (win.kind) {
     case "holdObjective":
-      winText = `Keep ${objective(win.objectiveId)} standing through all ${phases}.`;
+      winText = `Keep ${inline(objective(win.objectiveId))} standing through all ${phases}.`;
       lose.push(`${objective(win.objectiveId)} is battered down.`);
       break;
     case "escapeEdge":
-      winText = `Get ${win.count} companies off the field through the far edge within ${phases}.`;
+      winText = win.mustEscape?.length
+        ? `Get ${squadNames(win.mustEscape)} and ${win.count - win.mustEscape.length} more off the field through the far edge within ${phases}.`
+        : `Get ${win.count} companies off the field through the far edge within ${phases}.`;
       lose.push("Time runs out before enough companies escape.");
       break;
     case "holdThenBreak":
-      winText = `Keep ${objective(win.objectiveId)} standing until dawn (phase ${win.dawnPhase}), then break ${
-        win.squadIds.length === 1 ? "the marked enemy company" : `the ${win.squadIds.length} marked enemy companies`
-      } before ${phases} are out.`;
+      winText = `Keep ${inline(objective(win.objectiveId))} standing until dawn (phase ${win.dawnPhase}), then break ${squadNames(win.squadIds)} before ${phases} are out.`;
       lose.push(`${objective(win.objectiveId)} is battered down.`);
       break;
     case "destroySquads":

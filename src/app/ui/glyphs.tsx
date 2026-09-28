@@ -64,3 +64,20 @@ export function SealMark({ size = 44 }: { size?: number }) {
     </svg>
   );
 }
+
+/** The refugee Column: a lantern on a staff, a light carried to safety. */
+export function ColumnGlyph({ size = 18 }: { size?: number }) {
+  return (
+    <svg className="glyph" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12 2v3M8 5h8M9 5l-1 3h8l-1-3M8 8h8v8a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2zM12 18v4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M12 10.5c1.3 1.3 1.6 2.3 1.1 3.2a1.3 1.3 0 0 1-2.3-.2c-.3-1 .3-2 1.2-3z" fill="var(--gold-hi)" />
+    </svg>
+  );
+}

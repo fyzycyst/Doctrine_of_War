@@ -11,7 +11,7 @@ import {
   type FactionId,
 } from "../../game/engine";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
-import { applyStep, buildTimeline, PHASE_BUDGET_MS, routDirection, snapshotBefore, STEP_MS, visibleRuns, type Step } from "./timeline";
+import { applyStep, buildTimeline, sightingSnapshot, PHASE_BUDGET_MS, routDirection, snapshotBefore, STEP_MS, visibleRuns, type Step } from "./timeline";
 
 const PLAYER: FactionId = "free_banners";
 const factionOf = (id: string) => firstBreach.squads.find((squad) => squad.id === id)?.faction;
@@ -305,5 +305,61 @@ describe("moves through unseen hexes", () => {
     ).steps;
     expect(step.runs).toHaveLength(2);
     expect(step.duration).toBe(STEP_MS.movePerHex * 2 + STEP_MS.fogGap);
+  });
+});
+
+describe("sighting snapshots", () => {
+  it("places an emerging squad exactly as the engine saw it, ahead of the reconstruction", () => {
+    const final = visibleState(createInitialState(firstBreach, { fortune: "off" }), PLAYER);
+    const start = { ...final, squads: final.squads.filter((squad) => squad.id !== "ember_runners") };
+    const runners = final.squads.find((squad) => squad.id === "ember_runners")!;
+    const path = [
+      { q: 1, r: 1 },
+      { q: 2, r: 1 },
+    ];
+    const snapshot = { ...runners, hex: path[0], strength: 77, cohesion: 55, doctrineId: "terror_push" };
+    const move: EngineEvent = {
+      ...base,
+      beat: 1,
+      kind: "move",
+      squadId: "ember_runners",
+      path,
+      from: null,
+      to: path[1],
+      reason: "advance",
+      introduces: [snapshot],
+    };
+    const [, step] = buildTimeline([move], "readable", ctx).steps;
+    expect(sightingSnapshot(step, "ember_runners")).toMatchObject({ strength: 77, cohesion: 55, lastKnown: false });
+    // The fallback would say 99; the snapshot wins.
+    const shown = applyStep(start, step, () => ({ ...runners, strength: 99 }));
+    expect(shown.squads.find((squad) => squad.id === "ember_runners")).toMatchObject({ strength: 77, cohesion: 55, hex: path[1] });
+  });
+
+  it("refreshes a ghost's stale numbers from a sighted event", () => {
+    const final = visibleState(createInitialState(firstBreach, { fortune: "off" }), PLAYER);
+    const ghostly = {
+      ...final,
+      squads: final.squads.map((squad) => (squad.id === "cinder_vanguard" ? { ...squad, lastKnown: true, strength: 100, doctrineId: null } : squad)),
+    };
+    const vanguard = final.squads.find((squad) => squad.id === "cinder_vanguard")!;
+    const sighted: EngineEvent = {
+      ...base,
+      beat: 2,
+      kind: "sighted",
+      faction: PLAYER,
+      squadId: "cinder_vanguard",
+      byId: "greyford_shields",
+      hex: { q: 2, r: 2 },
+      snapshot: { ...vanguard, hex: { q: 2, r: 2 }, strength: 64, doctrineId: "iron_tide" },
+    };
+    const step: Step = { ...buildTimeline([sighted], "readable", ctx).steps[1] };
+    const shown = applyStep(ghostly, step, () => undefined);
+    expect(shown.squads.find((squad) => squad.id === "cinder_vanguard")).toMatchObject({
+      strength: 64,
+      lastKnown: false,
+      doctrineId: "iron_tide",
+      hex: { q: 2, r: 2 },
+    });
   });
 });

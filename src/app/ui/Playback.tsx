@@ -1,4 +1,4 @@
-import { FastForward } from "lucide-react";
+import { FastForward, Sunrise } from "lucide-react";
 import { useEffect, useRef, type RefObject } from "react";
 import { playSfx } from "../../audio";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
@@ -9,6 +9,10 @@ import { FIRST_BATTLE } from "../guide/coach";
 import { useGuide } from "../guide/guideStore";
 import { PlaybackDirector } from "../playback/director";
 import { buildTimeline, snapshotBefore } from "../playback/timeline";
+import { stageTurn } from "../game/goal";
+
+/** How long the "dawn breaks" moment holds at the end of the last night phase (ms). */
+const STAGE_TURN_MS = 2600;
 
 declare global {
   interface Window {
@@ -34,6 +38,8 @@ export function Playback({
 }) {
   const runId = useGame((s) => s.runId);
   const director = useRef<PlaybackDirector | null>(null);
+  /** Ends the "dawn breaks" moment early (Skip). */
+  const endTurn = useRef<(() => void) | null>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -110,10 +116,26 @@ export function Playback({
     skipButton.current?.focus({ preventScroll: true });
     void boardReady(Boolean(import.meta.env.DEV && pauseAt))
       .then(() => (alive ? run.run() : "skipped"))
-      .then(() => {
-        if (alive) {
-          useGame.getState().finishPlayback();
+      .then(async (result) => {
+        if (!alive) return;
+        // A staged win turns at the end of this phase (dawn breaks): show the new light and the new aim.
+        const turn = entry.status === "command" ? stageTurn(game.scenario, entry.phase) : null;
+        if (turn && result === "done") {
+          const store = useGame.getState();
+          store.setPlayback({ display: final, caption: `${turn.title}: ${turn.goal.text}` });
+          store.pushCallout({ kind: "stage", hex: null, faction: null, title: turn.title, text: turn.goal.text, repeat: false, linger: 0 });
+          await new Promise<void>((resolve) => {
+            endTurn.current = resolve;
+            if (import.meta.env.DEV && pauseAt === "stage") {
+              // Dev capture: hold the dawn moment for the still.
+              later(700, () => (window.__playbackFrozen = { ready: true, frames: 9999 }));
+              return;
+            }
+            later(STAGE_TURN_MS, resolve);
+          });
+          endTurn.current = null;
         }
+        if (alive) useGame.getState().finishPlayback();
       });
 
     // When the "watch" mark is answered (or the guide skipped), carry on and let its banner go.
@@ -142,13 +164,22 @@ export function Playback({
       if (event.key === " " || event.key === "Escape") {
         event.preventDefault();
         director.current?.skip();
+        endTurn.current?.();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  return headless ? null : <PlaybackBar skipRef={skipButton} onSkip={() => director.current?.skip()} />;
+  return headless ? null : (
+    <PlaybackBar
+      skipRef={skipButton}
+      onSkip={() => {
+        director.current?.skip();
+        endTurn.current?.();
+      }}
+    />
+  );
 }
 
 /** Dev capture boots straight into playback; wait for the board so the still has figures. */
@@ -173,7 +204,8 @@ function PlaybackBar({ skipRef, onSkip }: { skipRef: RefObject<HTMLButtonElement
   const beat = useGame((s) => s.beat);
   const caption = useGame((s) => s.caption);
   const callouts = useGame((s) => s.callouts);
-  const weather = callouts.filter((callout) => callout.hex === null);
+  const weather = callouts.filter((callout) => callout.hex === null && callout.kind === "weather");
+  const turn = callouts.find((callout) => callout.kind === "stage");
 
   return (
     <>
@@ -183,6 +215,14 @@ function PlaybackBar({ skipRef, onSkip }: { skipRef: RefObject<HTMLButtonElement
           <span className="callout-text">{callout.text}</span>
         </div>
       ))}
+      <div className="playback-dock">
+      {turn && (
+          <div className="stage-banner" role="status">
+            <Sunrise size={20} aria-hidden="true" />
+            <span className="stage-title">{turn.title}</span>
+            <span className="stage-goal">{turn.text}</span>
+          </div>
+        )}
       <div className="playback-bar">
         <div className="beat-indicator" role="img" aria-label={beat > 0 ? `Beat ${beat} of 3` : "The phase begins"}>
           <span className="beat-label" aria-hidden="true">
@@ -201,6 +241,7 @@ function PlaybackBar({ skipRef, onSkip }: { skipRef: RefObject<HTMLButtonElement
           <FastForward size={14} aria-hidden="true" /> Skip
           <kbd>Space</kbd>
         </button>
+      </div>
       </div>
     </>
   );
