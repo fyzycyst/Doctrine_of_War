@@ -213,6 +213,26 @@ describe("unseen attackers", () => {
   });
 });
 
+describe("unseen rallies", () => {
+  it("shows the rallied squad but not an unseen rallying standard", () => {
+    const mender = doctrine("mender", AH, [[{ kind: "always" }, { kind: "rally" }]]);
+    const scen = scenario({
+      squads: [
+        squad("p", FB, { q: 0, r: 2 }),
+        squad("T", AH, { q: 2, r: 2 }, { cohesion: 50 }),
+        squad("S", AH, { q: 3, r: 2 }, { doctrineId: "mender" }),
+      ],
+      maxPhases: 2,
+    });
+    const { events, report } = resolvePhase(createInitialState(scen, on), {}, scen, { doctrines: library(mender) });
+    expect(events.find((event) => event.kind === "rally")).toMatchObject({ sourceId: "S", targetId: "T" });
+    const seen = eventsFor(events, FB).find((event) => event.kind === "rally");
+    expect(seen).toMatchObject({ sourceId: null, targetId: "T" });
+    expect(report.lines.join("\n")).toMatch(/T was rallied by an unseen standard/);
+    expect(report.lines.join("\n")).not.toMatch(/\bS\b/);
+  });
+});
+
 describe("visibleState", () => {
   const field = scenario({
     squads: [

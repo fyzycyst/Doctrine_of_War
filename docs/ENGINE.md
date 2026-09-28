@@ -46,6 +46,19 @@ resolvePhase(state, orders, scenario, { doctrines? }) → { state, events, repor
   - `visibleTo` is reduced to the viewer, and the raw-only `redactions` field is
     removed.
 
+  Audit of actor fields by event kind:
+  - `ruleFired`, `blocked`, `fortune`, `move`, `rout` and `exit` have a single actor
+    and are witnessed only by a side that saw it.
+  - `engagement` is always between neighbours, who always see each other.
+  - `sighted` belongs to the observer.
+  - `objectiveDamage.attackerId`, `rally.sourceId`/`targetId` and `dread.sourceId` can
+    be redacted.
+
+  `fogProjection.test.ts` checks this as a property: over random seeds and plans on
+  every scenario, each squad id and hex in `eventsFor(…, "free_banners")` was visible
+  to the Banners when the event happened, judged by the true state through the
+  `onEmit` debug hook.
+
   `report.lines` is already built from the player's projected stream. The raw `events`
   array is for tests, the balance harness and a debug/capture mode, never for normal
   playback. With fortune off, every event is visible to everyone.

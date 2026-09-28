@@ -36,7 +36,9 @@ export function narrateEvent(event: EngineEvent, state: EngineState): string | n
       return `${name(event.attackerId)} ${verb} ${name(event.defenderId)} (${name(event.defenderId)} lost ${lost(event.defenderId)}; ${name(event.attackerId)} lost ${lost(event.attackerId)}).`;
     }
     case "rally":
-      return `${name(event.sourceId)} rallied ${name(event.targetId)} (+${event.restored} cohesion).`;
+      return event.sourceId === null
+        ? `${event.targetId === null ? "An unseen company" : name(event.targetId)} was rallied by an unseen standard (+${event.restored} cohesion).`
+        : `${name(event.sourceId)} rallied ${event.targetId === null ? "an unseen company" : name(event.targetId)} (+${event.restored} cohesion).`;
     case "rout":
       return event.cause === "strength"
         ? `${name(event.squadId)} was destroyed.`
@@ -54,7 +56,7 @@ export function narrateEvent(event: EngineEvent, state: EngineState): string | n
         ? `Heroic stand! ${name(event.squadId)} surges forward.`
         : `Wavering… ${name(event.squadId)} hesitates and its order fails.`;
     case "dread": {
-      const source = name(event.sourceId);
+      const source = event.sourceId === null ? "an unseen banner" : name(event.sourceId);
       return `They know that banner… ${name(event.squadId)} falters before ${source}, "${event.title}" (-${event.shock} cohesion).`;
     }
     case "weatherShift":

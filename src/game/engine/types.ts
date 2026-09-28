@@ -304,7 +304,7 @@ export interface Redaction {
   hidden?: RedactedActor[];
 }
 
-export type RedactedActor = "attackerId";
+export type RedactedActor = "attackerId" | "sourceId" | "targetId";
 
 export type EngineEvent =
   | (EventBase & {
@@ -338,7 +338,8 @@ export type EngineEvent =
       strengthChanges: Record<string, number>;
       cohesionChanges: Record<string, number>;
     })
-  | (EventBase & { kind: "rally"; sourceId: string; targetId: string; restored: number })
+  /** sourceId/targetId are null in a projection that did not see that squad. */
+  | (EventBase & { kind: "rally"; sourceId: string | null; targetId: string | null; restored: number })
   | (EventBase & {
       kind: "rout";
       squadId: string;
@@ -357,7 +358,8 @@ export type EngineEvent =
     })
   | (EventBase & { kind: "outcome"; status: BattleOutcome; reason: string })
   | (EventBase & { kind: "fortune"; squadId: string; outcome: "surge" | "waver"; ruleId: string })
-  | (EventBase & { kind: "dread"; squadId: string; sourceId: string; title: string; shock: number })
+  /** sourceId is null in a projection that did not see the renowned squad. */
+  | (EventBase & { kind: "dread"; squadId: string; sourceId: string | null; title: string; shock: number })
   | (EventBase & { kind: "weatherShift"; from: Weather; to: Weather })
   | (EventBase & {
       kind: "sighted";

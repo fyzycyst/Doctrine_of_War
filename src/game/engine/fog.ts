@@ -277,8 +277,19 @@ export function witnessEvent(
     redactions[faction] = { ...current, hidden: [...(current.hidden ?? []), actor] };
   };
   for (const faction of visibleTo) {
+    // Audit of actor fields by kind. ruleFired/blocked/fortune/move/rout/exit are only
+    // witnessed by a side that saw their one actor; engagements are between neighbours,
+    // who always see each other; sightings belong to the observer. The rest can be
+    // witnessed while an actor stays hidden:
     if (event.kind === "objectiveDamage" && !actorSeen(faction, event.attackerId)) {
       hide(faction, "attackerId");
+    }
+    if (event.kind === "rally") {
+      if (!actorSeen(faction, event.sourceId)) hide(faction, "sourceId");
+      if (!actorSeen(faction, event.targetId)) hide(faction, "targetId");
+    }
+    if (event.kind === "dread" && !actorSeen(faction, event.sourceId)) {
+      hide(faction, "sourceId");
     }
     if (event.kind === "move" && factionOf(event.squadId) !== faction) {
       const pathSeen = event.path.map((hex) => factionSees(ctx, faction, hex));
@@ -298,6 +309,12 @@ export function projectEvent(event: EngineEvent, faction: FactionId): EngineEven
   for (const actor of redaction?.hidden ?? []) {
     if (actor === "attackerId" && projected.kind === "objectiveDamage") {
       projected.attackerId = null;
+    }
+    if (actor === "sourceId" && (projected.kind === "rally" || projected.kind === "dread")) {
+      projected.sourceId = null;
+    }
+    if (actor === "targetId" && projected.kind === "rally") {
+      projected.targetId = null;
     }
   }
   if (redaction?.pathSeen && projected.kind === "move") {
