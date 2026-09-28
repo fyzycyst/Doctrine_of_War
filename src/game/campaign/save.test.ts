@@ -149,3 +149,25 @@ describe("campaign saves", () => {
     expect(() => saveCampaign(huge)).toThrow(CampaignSaveError);
   });
 });
+
+describe("custom orders in the history (T16)", () => {
+  it("records that a battle was fought with a doctrine variant, and keeps it through a save", () => {
+    const state = startCampaign(ashAndBanner);
+    const scenario = applyCampaign(ashAndBanner, state, firstBreach);
+    const final = playBattle(scenario, firstBreach.referencePlans!.intended, firstBreach.curatedSeed!, "on");
+    const custom = recordBattle(ashAndBanner, state, final, { customOrders: true });
+    expect(custom.history[0].customOrders).toBe(true);
+    expect(custom.battleIndex).toBe(recordBattle(ashAndBanner, state, final).battleIndex); // no penalty
+    expect(loadCampaign(saveCampaign(custom), ashAndBanner).history[0].customOrders).toBe(true);
+    // Absent when standard orders were used; older saves load unchanged.
+    expect("customOrders" in afterTutorial().history[0]).toBe(false);
+  });
+
+  it("refuses anything but true", () => {
+    const saved = JSON.parse(saveCampaign(afterTutorial())).campaign;
+    for (const value of ["yes", 1, false, null]) {
+      saved.history[0].customOrders = value;
+      expect(() => loadCampaign(envelope(saved), ashAndBanner)).toThrow(CampaignSaveError);
+    }
+  });
+});

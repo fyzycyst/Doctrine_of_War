@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { currentBattle, type CampaignCompany } from "../../game/campaign";
 import { CampaignMap } from "../../render/showcase/CampaignMap";
 import { resolveRank } from "../game/view";
+import { ExperimentalBadge } from "../ui/DoctrineCard";
 import { FrameProbe } from "../ui/FrameProbe";
 import { RoleGlyph, ROLE_NAME } from "../ui/glyphs";
 import { battleTitle, isPlayable, ledger, mapBattles, OUTCOME_WORD, scenarioFor } from "./campaignView";
@@ -81,6 +82,7 @@ export function CampaignScreen({ onSettings }: { onSettings?: () => void }) {
                     <span className="history-title">
                       {battleTitle(definition, record.battleId)}
                       {record.attempt > 1 && <span className="attempt"> · attempt {record.attempt}</span>}
+                      {record.customOrders && <ExperimentalBadge small />}
                     </span>
                     <span className="history-line">
                       <strong>{OUTCOME_WORD[record.outcome]}</strong> · {record.companiesBroken} of yours broken · {record.enemyBroken} of theirs ·

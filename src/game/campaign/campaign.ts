@@ -199,7 +199,12 @@ export function settleCompany(
 }
 
 /** Records a finished battle and returns the new campaign state (advance, or retry after a defeat). */
-export function recordBattle(def: CampaignDefinition, state: CampaignState, final: EngineState): CampaignState {
+export function recordBattle(
+  def: CampaignDefinition,
+  state: CampaignState,
+  final: EngineState,
+  options: { customOrders?: boolean } = {},
+): CampaignState {
   const battle = playableBattle(def, state, final.scenarioId);
   if (final.status === "command") {
     throw new Error(`Battle ${battle.id} is not over yet`);
@@ -233,6 +238,7 @@ export function recordBattle(def: CampaignDefinition, state: CampaignState, fina
     enemyBroken: enemies.filter((squad) => squad.status === "routed" || squad.status === "destroyed").length,
     objectiveIntegrity: defended ? defended.integrity : null,
     companies: results,
+    ...(options.customOrders ? { customOrders: true as const } : {}),
   };
 
   const battleIndex = outcome === "defeat" ? state.battleIndex : state.battleIndex + 1;

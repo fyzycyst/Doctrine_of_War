@@ -157,7 +157,7 @@ export const useFlow = create<FlowState>((set, get) => ({
     if (!campaign || !game.campaign || game.campaign.state !== campaign || game.engine.status === "command") {
       return;
     }
-    const next = recordBattle(definition, campaign, game.engine);
+    const next = recordBattle(definition, campaign, game.engine, { customOrders: game.customOrders });
     set({ lastRecord: next.history[next.history.length - 1] ?? null });
     await get().commitCampaign(next);
   },
