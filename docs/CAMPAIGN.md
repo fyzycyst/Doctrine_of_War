@@ -52,7 +52,14 @@ Code: `src/game/campaign/` (pure TypeScript; the campaign-map UI lives in the ap
   - wrong type, bad JSON, the wrong version or an oversized save;
   - any malformed field (ids, ranges, enums, duplicates);
   - a campaign id, battle, company or status/battleIndex mismatch against the
-    definition.
+    definition;
+  - a history that could not have been played: the history is replayed from a fresh
+    start with the campaign rules, and the battle order, scenario ids, attempt numbers,
+    one result per slot with the slot's company, Resolve before/after, renown earned,
+    `companiesBroken`, `battleIndex` and the whole roster (name, role, Resolve, renown and
+    every counter) must match the replay.
+
+  JSON `-0` is normalized to `0`.
 
   It rebuilds the state field by field, so unknown keys are dropped.
 - **Stores** (`storage.ts`): `defaultStore()` uses Electron's bridge when present, else
