@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { doctrineLibrary, doctrines } from "./doctrines";
 import { createInitialState, resolvePhase } from "./resolvePhase";
-import { createRng } from "./rng";
 import { firstBreach } from "./scenarios/firstBreach";
 import { library, scenario, squad } from "./testKit";
 import type { Doctrine, FactionId } from "./types";
@@ -70,7 +69,7 @@ describe("doctrine library", () => {
           squad("lone", enemy, { q: 1, r: 4 }, { cohesion: 40 }),
         ],
       });
-      const { events, state } = resolvePhase(createInitialState(scen), {}, scen, createRng(1), { fortune: "off", doctrines: library() });
+      const { events, state } = resolvePhase(createInitialState(scen), {}, scen, { doctrines: library() });
       const actions = events.flatMap((event): string[] => {
         switch (event.kind) {
           case "move":

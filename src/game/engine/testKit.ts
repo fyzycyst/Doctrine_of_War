@@ -1,9 +1,9 @@
 // Small builders for engine unit tests: an open field board, one-line squads and
 // single-purpose doctrines. Not used by the game itself.
 import type { BoardLayout, HexCoord, TerrainType } from "../board";
-import type { ActionContext, EventBody } from "./actions";
+import type { EngineContext, EventBody } from "./context";
 import { doctrineLibrary } from "./doctrines";
-import { createInitialState } from "./resolvePhase";
+import { createInitialState, type BattleOptions } from "./resolvePhase";
 import { createRng } from "./rng";
 import type {
   Action,
@@ -98,14 +98,20 @@ export function scenario(overrides: Partial<EngineScenario> & { squads: SquadSet
 }
 
 /** A live ActionContext over a fresh state, collecting emitted events. */
-export function actionContext(scen: EngineScenario, doctrines: DoctrineLibrary = library()) {
-  const state: EngineState = createInitialState(scen);
+export function actionContext(
+  scen: EngineScenario,
+  doctrines: DoctrineLibrary = library(),
+  battle: BattleOptions = {},
+) {
+  const state: EngineState = createInitialState(scen, battle);
   const events: EventBody[] = [];
-  const ctx: ActionContext = {
+  const ctx: EngineContext = {
     state,
     scenario: scen,
     doctrines,
-    fortune: { state, scenario: scen, options: { fortune: "off" }, rng: createRng(1), phase: 1, beat: 1 },
+    rng: createRng(state.rngState),
+    phase: 1,
+    beat: 1,
     emit: (event) => events.push(event),
   };
   const get = (id: string) => state.squads.find((item) => item.id === id) as ActiveSquad;

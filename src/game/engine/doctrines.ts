@@ -10,7 +10,7 @@ export const doctrines: Doctrine[] = [
     faction: "free_banners",
     name: "Shield the Line",
     flavor: "Hold formation, protect the gate, and absorb pressure.",
-    passives: { defense: 4, cohesion: 2, counter: 1 },
+    passives: { defense: 3, cohesion: 2, counter: 1 },
     rules: [
       {
         id: "stl_break",
@@ -64,7 +64,7 @@ export const doctrines: Doctrine[] = [
     faction: "free_banners",
     name: "Rescue Standard",
     flavor: "Stabilize wounded allies and keep banners standing.",
-    passives: { defense: 0, cohesion: 4, counter: 0 },
+    passives: { defense: 0, cohesion: 3, counter: 0 },
     rules: [
       {
         id: "rs_rally",
@@ -130,7 +130,7 @@ export const doctrines: Doctrine[] = [
     faction: "free_banners",
     name: "Hold for Dawn",
     flavor: "Conserve strength, refuse panic, and delay the breach.",
-    passives: { defense: 3, cohesion: 5, counter: 0 },
+    passives: { defense: 1, cohesion: 4, counter: 0 },
     rules: [
       {
         id: "hfd_endure",
@@ -178,7 +178,13 @@ export const doctrines: Doctrine[] = [
     rules: [
       {
         id: "btg_batter",
-        label: "Always → drive on the gate and batter it",
+        label: "If at the gate → batter it",
+        when: { kind: "atObjective" },
+        then: { kind: "attack", target: { kind: "objective", side: "enemy" } },
+      },
+      {
+        id: "btg_drive",
+        label: "Otherwise → drive on the gate, ramming anyone in the way",
         when: { kind: "always" },
         then: { kind: "attack", target: { kind: "objective", side: "enemy" } },
       },

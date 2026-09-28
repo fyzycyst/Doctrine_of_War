@@ -1,36 +1,62 @@
 // Action execution and combat math. Mutates the working copy of state that
 // resolvePhase owns, and reports everything that happened through `emit`.
 import { boardNeighbors, getHex, hexDistance, terrainDefenseBonus, type HexCoord } from "../board";
-import { firstContact, type FortuneContext } from "./fortune";
+import { checkRout, clamp, type EngineContext } from "./context";
+import { firstContact } from "./fortune";
 import { planAdvance, planFallBack } from "./movement";
-import { resolveTarget, type ResolvedTarget, type RuleContext } from "./rules";
-import type { Action, DoctrineLibrary, DoctrinePassives, EngineEvent, EngineSquad } from "./types";
-import { adjacentEnemies, alliesOf, speedOf, type ActiveSquad } from "./world";
+import { resolveTarget, type ResolvedTarget } from "./rules";
+import type { Action, DoctrinePassives, EngineSquad, SquadRole } from "./types";
+import { adjacentEnemies, alliesOf, byDistance, speedOf, type ActiveSquad } from "./world";
 
-/** An event without its phase/beat stamp; resolvePhase adds those. */
-export type EventBody<E = EngineEvent> = E extends EngineEvent ? Omit<E, "phase" | "beat"> : never;
+export type ActionContext = EngineContext;
 
-export interface ActionContext extends RuleContext {
-  doctrines: DoctrineLibrary;
-  fortune: FortuneContext;
-  emit: (event: EventBody) => void;
-}
-
-// Tuning constants. Kept together so the balance harness (T04+) can find them.
-export const BRACE_DEFENSE = 3;
-export const BRACE_RIPOSTE = 2;
+// Tuning constants. Kept together so the balance harness can find them.
+export const BRACE_DEFENSE = 2;
+export const BRACE_RIPOSTE = 1.5;
 export const CHARGE_BONUS = 2;
-export const SIEGE_OBJECTIVE_DAMAGE = 30;
-export const BASE_OBJECTIVE_DAMAGE = 10;
-export const RALLY_BASE = 6;
+export const SURGE_BONUS = 3;
+/** Each neighbour of a supported charge target adds (strength/20 + this) to the riposte. */
+export const RECKLESS_SUPPORT_RIPOSTE = 2;
+/** Base defender losses per blow, before the attack/defense margin. Battles turn on cohesion. */
+export const STRENGTH_LOSS_BASE = 3;
+export const COHESION_LOSS_BASE = 13;
+/** Ripostes are softened so the Host can sustain pressure on a braced line. */
+export const RIPOSTE_SCALE = 0.5;
+export const SIEGE_OBJECTIVE_DAMAGE = 40;
+export const BASE_OBJECTIVE_DAMAGE = 12;
+export const RALLY_BASE = 12;
+export const ASH_WIND_HOST_COHESION = 1;
 
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+/** Role fit: support and skirmish companies are poor at holding a line or brawling. */
+export const ROLE_ATTACK: Record<SquadRole, number> = {
+  frontline: 0,
+  skirmish: -1,
+  support: -3,
+  cavalry: 0,
+  siege: 0,
+};
+export const ROLE_DEFENSE: Record<SquadRole, number> = {
+  frontline: 1,
+  skirmish: -1,
+  support: -2,
+  cavalry: -1,
+  siege: -2,
+};
+/** Extra punch for cavalry on a clean charge. */
+export const CAVALRY_CHARGE_BONUS = 2;
 
-function passivesOf(ctx: ActionContext, squad: EngineSquad): DoctrinePassives {
-  return ctx.doctrines[squad.doctrineId].passives;
+/** Doctrine passives after weather: rain halves counter; ash-wind steadies the Host. */
+export function effectivePassives(ctx: EngineContext, squad: EngineSquad): DoctrinePassives {
+  const base = ctx.doctrines[squad.doctrineId].passives;
+  const ashWind = ctx.state.weather === "ashWind" && squad.faction === "ashen_host";
+  return {
+    defense: base.defense,
+    cohesion: base.cohesion + (ashWind ? ASH_WIND_HOST_COHESION : 0),
+    counter: ctx.state.weather === "rain" ? base.counter / 2 : base.counter,
+  };
 }
 
-function terrainBonus(ctx: ActionContext, hex: HexCoord): number {
+function terrainBonus(ctx: EngineContext, hex: HexCoord): number {
   const boardHex = getHex(ctx.scenario.board, hex);
   return boardHex ? terrainDefenseBonus(boardHex.terrain) : 0;
 }
@@ -40,56 +66,63 @@ export interface EngagementLosses {
   defenderCohesion: number;
   attackerStrength: number;
   attackerCohesion: number;
+  /** A charge into a supported enemy: no charge bonus, and its neighbours join the riposte. */
+  reckless: boolean;
 }
 
 /** Pure combat math: losses (positive numbers) for one strike and its riposte. */
 export function engagementLosses(
-  ctx: ActionContext,
+  ctx: EngineContext,
   attacker: ActiveSquad,
   defender: ActiveSquad,
   charge: boolean,
 ): EngagementLosses {
-  const atkPassives = passivesOf(ctx, attacker);
-  const defPassives = passivesOf(ctx, defender);
+  const atkPassives = effectivePassives(ctx, attacker);
+  const defPassives = effectivePassives(ctx, defender);
+  // A clean counterstroke hits an exposed enemy. Charging into a supported one is reckless.
+  const supporters = charge
+    ? alliesOf(ctx.state, defender).filter((ally) => hexDistance(ally.hex, defender.hex) === 1)
+    : [];
+  const reckless = supporters.length > 0;
   const attack =
-    attacker.strength / 10 + attacker.resolve * 1.5 + (charge ? CHARGE_BONUS + atkPassives.counter : 0);
+    attacker.strength / 10 +
+    attacker.resolve +
+    ROLE_ATTACK[attacker.role] +
+    (charge && !reckless ? CHARGE_BONUS + atkPassives.counter + (attacker.role === "cavalry" ? CAVALRY_CHARGE_BONUS : 0) : 0) +
+    (attacker.surging ? SURGE_BONUS : 0);
   const defense =
     defender.cohesion / 25 +
     terrainBonus(ctx, defender.hex) +
+    ROLE_DEFENSE[defender.role] +
     defPassives.defense +
     (defender.braced ? BRACE_DEFENSE : 0) +
-    defender.resolve * 1.5;
+    (defender.surging ? SURGE_BONUS : 0) +
+    defender.resolve;
   const margin = attack - defense;
-  const riposte = defender.strength / 20 + (defender.braced ? BRACE_RIPOSTE : 0) + defPassives.counter;
+  const riposte =
+    defender.strength / 25 +
+    (defender.braced ? BRACE_RIPOSTE : 0) +
+    defPassives.counter +
+    supporters.reduce((sum, ally) => sum + ally.strength / 20 + RECKLESS_SUPPORT_RIPOSTE, 0);
+  const cap = reckless ? 20 : 12;
 
   return {
-    defenderStrength: clamp(Math.round(5 + margin), 1, 20),
-    defenderCohesion: clamp(Math.round(7 + margin - defPassives.cohesion), 1, 25),
-    attackerStrength: clamp(Math.round(1 + riposte - atkPassives.defense / 2), 0, 12),
-    attackerCohesion: clamp(Math.round(2 + riposte / 2 - atkPassives.cohesion), 0, 10),
+    defenderStrength: clamp(Math.round(STRENGTH_LOSS_BASE + margin), 1, 20),
+    defenderCohesion: clamp(Math.round(COHESION_LOSS_BASE + margin - defPassives.cohesion), 2, 25),
+    attackerStrength: clamp(Math.round(RIPOSTE_SCALE * riposte - atkPassives.defense / 2), 0, cap),
+    attackerCohesion: clamp(Math.round(1 + (RIPOSTE_SCALE * riposte) / 2 - atkPassives.cohesion), 0, cap),
+    reckless,
   };
 }
 
-function checkRout(ctx: ActionContext, squad: EngineSquad) {
-  if (squad.status !== "active" || !squad.hex) {
-    return;
-  }
-  const cause = squad.strength <= 0 ? "strength" : squad.cohesion <= 0 ? "cohesion" : null;
-  if (!cause) {
-    return;
-  }
-  ctx.emit({ kind: "rout", squadId: squad.id, hex: squad.hex, cause });
-  squad.status = cause === "strength" ? "destroyed" : "routed";
-  squad.hex = null;
-  squad.braced = false;
-}
-
-function engage(ctx: ActionContext, attacker: ActiveSquad, defender: ActiveSquad, charge: boolean) {
+function engage(ctx: EngineContext, attacker: ActiveSquad, defender: ActiveSquad, charge: boolean) {
   const pair = [attacker.id, defender.id].sort().join("|");
   if (!ctx.state.contacts.includes(pair)) {
     ctx.state.contacts.push(pair);
-    for (const event of firstContact(ctx.fortune, attacker, defender)) {
-      ctx.emit(event as EventBody);
+    firstContact(ctx, attacker, defender);
+    // Dread can rout either side before the blow lands.
+    if (attacker.status !== "active" || defender.status !== "active") {
+      return;
     }
   }
 
@@ -108,6 +141,7 @@ function engage(ctx: ActionContext, attacker: ActiveSquad, defender: ActiveSquad
     attackerHex,
     defenderHex,
     charge,
+    reckless: losses.reckless,
     strengthChanges: { [attacker.id]: -losses.attackerStrength, [defender.id]: -losses.defenderStrength },
     cohesionChanges: { [attacker.id]: -losses.attackerCohesion, [defender.id]: -losses.defenderCohesion },
   });
@@ -116,7 +150,7 @@ function engage(ctx: ActionContext, attacker: ActiveSquad, defender: ActiveSquad
   checkRout(ctx, attacker);
 }
 
-function strikeObjective(ctx: ActionContext, attacker: ActiveSquad, target: Extract<ResolvedTarget, { kind: "objective" }>) {
+function strikeObjective(ctx: EngineContext, attacker: ActiveSquad, target: Extract<ResolvedTarget, { kind: "objective" }>) {
   const objective = target.objective;
   const base = attacker.role === "siege" ? SIEGE_OBJECTIVE_DAMAGE : BASE_OBJECTIVE_DAMAGE;
   // Enemies pressing on the attacker halve the blow.
@@ -135,7 +169,7 @@ function strikeObjective(ctx: ActionContext, attacker: ActiveSquad, target: Extr
   });
 }
 
-function goalsFor(ctx: ActionContext, target: ResolvedTarget): HexCoord[] {
+function goalsFor(ctx: EngineContext, target: ResolvedTarget): HexCoord[] {
   switch (target.kind) {
     case "squad":
       return boardNeighbors(ctx.scenario.board, target.squad.hex).map((hex) => hex.coord);
@@ -163,7 +197,7 @@ function hold(squad: ActiveSquad) {
 
 /** Moves along the planned path. Returns false if the squad could not move at all. */
 function moveToward(
-  ctx: ActionContext,
+  ctx: EngineContext,
   squad: ActiveSquad,
   target: ResolvedTarget,
   steps: number,
@@ -178,7 +212,7 @@ function moveToward(
   return true;
 }
 
-function strike(ctx: ActionContext, squad: ActiveSquad, target: ResolvedTarget, charge: boolean) {
+function strike(ctx: EngineContext, squad: ActiveSquad, target: ResolvedTarget, charge: boolean) {
   if (target.kind === "squad") {
     engage(ctx, squad, target.squad, charge);
   } else if (target.kind === "objective") {
@@ -186,7 +220,7 @@ function strike(ctx: ActionContext, squad: ActiveSquad, target: ResolvedTarget, 
   }
 }
 
-export function executeAction(ctx: ActionContext, squad: ActiveSquad, action: Action) {
+export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Action) {
   switch (action.kind) {
     case "hold":
       hold(squad);
@@ -218,7 +252,14 @@ export function executeAction(ctx: ActionContext, squad: ActiveSquad, action: Ac
         strike(ctx, squad, target, false);
         return;
       }
-      if (!moveToward(ctx, squad, target, speedOf(squad), "advance")) {
+      if (moveToward(ctx, squad, target, speedOf(squad), "advance")) {
+        return;
+      }
+      // No way through: fight whoever bars the way instead.
+      const blocker = byDistance(adjacentEnemies(ctx.state, squad), squad.hex)[0];
+      if (blocker) {
+        engage(ctx, squad, blocker, false);
+      } else {
         ctx.emit({ kind: "blocked", squadId: squad.id, reason: "path blocked" });
       }
       return;
@@ -262,7 +303,7 @@ export function executeAction(ctx: ActionContext, squad: ActiveSquad, action: Ac
         ctx.emit({ kind: "blocked", squadId: squad.id, reason: "no ally to rally" });
         return;
       }
-      const amount = clamp(Math.round(RALLY_BASE + passivesOf(ctx, squad).cohesion + squad.resolve), 2, 15);
+      const amount = clamp(Math.round(RALLY_BASE + effectivePassives(ctx, squad).cohesion + squad.resolve), 2, 20);
       const restored = Math.min(amount, 100 - target.cohesion);
       target.cohesion += restored;
       ctx.emit({ kind: "rally", sourceId: squad.id, targetId: target.id, restored });

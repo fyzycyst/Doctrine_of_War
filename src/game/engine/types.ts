@@ -8,6 +8,28 @@ export type { FactionId, SquadRole };
 
 export type Stat = "cohesion" | "strength";
 
+/** "off" = no chance, no fog: the battle is fully deterministic and omniscient. */
+export type FortuneMode = "on" | "off";
+
+/** Resolve band as a record key: -3 Broken … 0 Green … +3 Veteran. */
+export type Resolve = "-3" | "-2" | "-1" | "0" | "1" | "2" | "3";
+
+export type Weather = "clear" | "rain" | "mist" | "ashWind";
+
+export interface Forecast {
+  /** Weather for phase 1 (and for the whole battle when fortune is off). */
+  start: Weather;
+  /** Chance (0..1) at the start of each later phase that the weather shifts. */
+  shiftChance: number;
+  /** What it can shift to (the current weather is skipped). */
+  shifts: Weather[];
+}
+
+export interface Renown {
+  /** e.g. "The Gatebreakers". */
+  title: string;
+}
+
 // ---------------------------------------------------------------------------
 // Doctrine rules
 // ---------------------------------------------------------------------------
@@ -26,7 +48,9 @@ export type Condition =
   /** An enemy within `range` (default 3) with no active allies adjacent to it. */
   | { kind: "enemyOverextended"; range?: number }
   /** An enemy is within 2 hexes of an objective this squad's faction defends. */
-  | { kind: "objectiveThreatened"; objectiveId?: string };
+  | { kind: "objectiveThreatened"; objectiveId?: string }
+  /** This squad stands adjacent to a standing objective its faction assaults. */
+  | { kind: "atObjective"; objectiveId?: string };
 
 export type TargetSelector =
   | { kind: "nearestEnemy" }
@@ -94,6 +118,7 @@ export interface SquadSetup {
   cohesion: number;
   resolve: number;
   doctrineId: string;
+  renown?: Renown;
 }
 
 export interface ObjectiveSetup {
@@ -139,6 +164,10 @@ export interface EngineScenario {
   /** The opponent (non-player) side's doctrine assignments per phase. */
   hostSchedule: HostPhaseOrders[];
   winCondition: WinCondition;
+  /** Defaults to clear skies that never shift. */
+  forecast?: Forecast;
+  /** Reference plans for the balance harness and tutorial hints. */
+  referencePlans?: { intended: Orders; bad: Orders };
 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +190,22 @@ export interface EngineSquad {
   status: SquadStatus;
   /** Set by a hold; cleared at the squad's next activation. */
   braced: boolean;
+  /** Set by a courage surge; cleared at the squad's next activation. */
+  surging: boolean;
+  renown?: Renown;
+}
+
+/** What one faction last saw of one enemy squad (fog of war). */
+export interface Intel {
+  /** In sight right now. */
+  visible: boolean;
+  /** Snapshot taken the last time the squad was in sight. */
+  hex: HexCoord | null;
+  strength: number;
+  cohesion: number;
+  status: SquadStatus;
+  phase: number;
+  beat: number;
 }
 
 export interface EngineObjective {
@@ -183,6 +228,16 @@ export interface EngineState {
   objectives: EngineObjective[];
   /** Sorted "a|b" squad-id pairs that have engaged at least once (first-contact seam bookkeeping). */
   contacts: string[];
+  /** Fixed at battle start. */
+  fortune: FortuneMode;
+  /** The battle's seed (shown in reports) and the current mulberry32 state. */
+  seed: number;
+  rngState: number;
+  weather: Weather;
+  /** faction -> enemy squadId -> last sighting. Empty when fortune is off. */
+  intel: Partial<Record<FactionId, Record<string, Intel>>>;
+  /** "viewerId>renownedId" pairs whose dread check has already happened. */
+  dreaded: string[];
 }
 
 /** squadId -> doctrineId for the player's squads. */
@@ -221,6 +276,8 @@ export type EngineEvent =
       attackerHex: HexCoord;
       defenderHex: HexCoord;
       charge: boolean;
+      /** A charge into a supported (not overextended) enemy: no charge bonus, and its neighbours join the riposte. */
+      reckless: boolean;
       strengthChanges: Record<string, number>;
       cohesionChanges: Record<string, number>;
     })
@@ -240,11 +297,24 @@ export type EngineEvent =
       oldIntegrity: number;
       newIntegrity: number;
     })
-  | (EventBase & { kind: "outcome"; status: "victory" | "defeat"; reason: string });
+  | (EventBase & { kind: "outcome"; status: "victory" | "defeat"; reason: string })
+  | (EventBase & { kind: "fortune"; squadId: string; outcome: "surge" | "waver"; ruleId: string })
+  | (EventBase & { kind: "dread"; squadId: string; sourceId: string; title: string; shock: number })
+  | (EventBase & { kind: "weatherShift"; from: Weather; to: Weather })
+  | (EventBase & {
+      kind: "sighted";
+      /** The side that now sees the squad. */
+      faction: FactionId;
+      squadId: string;
+      byId: string;
+      hex: HexCoord;
+    });
 
 export interface PhaseReport {
   phase: number;
   title: string;
+  seed: number;
+  weather: Weather;
   lines: string[];
   status: EngineStatus;
 }

@@ -25,6 +25,11 @@ export function canEnter(state: EngineState, board: BoardLayout, hex: HexCoord):
   );
 }
 
+/** In rain, entering a ford hex ends the move. */
+function slowedByWeather(state: EngineState, board: BoardLayout, hex: HexCoord): boolean {
+  return state.weather === "rain" && getHex(board, hex)?.terrain === "ford";
+}
+
 function inEnemyZone(state: EngineState, squad: ActiveSquad, hex: HexCoord): boolean {
   return enemiesOf(state, squad).some((enemy) => hexDistance(enemy.hex, hex) === 1);
 }
@@ -86,7 +91,7 @@ export function planAdvance(
   const path: HexCoord[] = [start];
   for (const hex of fullPath.slice(1, maxSteps + 1)) {
     path.push(hex);
-    if (inEnemyZone(state, squad, hex)) {
+    if (inEnemyZone(state, squad, hex) || slowedByWeather(state, board, hex)) {
       break;
     }
   }
@@ -135,6 +140,9 @@ export function planFallBack(
       break;
     }
     path.push(best);
+    if (slowedByWeather(state, board, best)) {
+      break;
+    }
   }
   return path;
 }

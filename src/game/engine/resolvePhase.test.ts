@@ -1,18 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState, resolvePhase } from "./resolvePhase";
-import { createRng } from "./rng";
 import { doctrine, library, scenario, squad } from "./testKit";
 import type { EngineEvent, EngineScenario, ObjectiveSetup } from "./types";
 
 const FB = "free_banners" as const;
 const AH = "ashen_host" as const;
-const off = { fortune: "off" } as const;
 
 const fired = (events: EngineEvent[]) =>
   events.filter((event) => event.kind === "ruleFired").map((event) => `${event.beat}:${"squadId" in event ? event.squadId : ""}`);
 
 function run(scen: EngineScenario, orders: Record<string, string> = {}, doctrines = library()) {
-  return resolvePhase(createInitialState(scen), orders, scen, createRng(7), { ...off, doctrines });
+  return resolvePhase(createInitialState(scen), orders, scen, { doctrines });
 }
 
 describe("beat model", () => {
@@ -85,7 +83,7 @@ describe("resolvePhase contract", () => {
   it("does not mutate its input state", () => {
     const input = createInitialState(scen);
     const snapshot = structuredClone(input);
-    resolvePhase(input, {}, scen, createRng(1), { ...off, doctrines: library() });
+    resolvePhase(input, {}, scen, { doctrines: library() });
     expect(input).toEqual(snapshot);
   });
 
@@ -95,20 +93,22 @@ describe("resolvePhase contract", () => {
     expect(a).toEqual(b);
   });
 
-  it("with fortune off, never touches the rng (seed does not matter)", () => {
-    const rng = createRng(12345);
-    const before = rng.state;
-    const withSeedA = resolvePhase(createInitialState(scen), {}, scen, rng, { ...off, doctrines: library() });
-    expect(rng.state).toBe(before);
-    const withSeedB = resolvePhase(createInitialState(scen), {}, scen, createRng(999), { ...off, doctrines: library() });
-    expect(withSeedA).toEqual(withSeedB);
+  it("with fortune off, never advances the rng and the seed does not matter", () => {
+    const seeded = (seed: number) => createInitialState(scen, { seed, fortune: "off" });
+    const withSeedA = resolvePhase(seeded(12345), {}, scen, { doctrines: library() });
+    expect(withSeedA.state.rngState).toBe(12345);
+    const withSeedB = resolvePhase(seeded(999), {}, scen, { doctrines: library() });
+    const strip = (result: typeof withSeedA) => ({
+      ...result,
+      state: { ...result.state, seed: 0, rngState: 0 },
+      report: { ...result.report, seed: 0 },
+    });
+    expect(strip(withSeedA)).toEqual(strip(withSeedB));
   });
 
-  it("defaults to fortune off", () => {
-    const rng = createRng(3);
-    const before = rng.state;
-    resolvePhase(createInitialState(scen), {}, scen, rng, { doctrines: library() });
-    expect(rng.state).toBe(before);
+  it("defaults to fortune off with seed 1", () => {
+    const state = createInitialState(scen);
+    expect(state).toMatchObject({ fortune: "off", seed: 1, rngState: 1, weather: "clear", intel: {} });
   });
 
   it("applies player orders and rejects invalid ones", () => {
@@ -133,7 +133,7 @@ describe("resolvePhase contract", () => {
     expect(first.state.squads.find((item) => item.id === "h")?.doctrineId).toBe("cull_the_weak");
     expect(first.state.squads.find((item) => item.id === "h2")?.doctrineId).toBe("no_step_back");
     expect(first.report.title).toBe("Phase 1: Test intent.");
-    const second = resolvePhase(first.state, {}, scheduled, createRng(1), { ...off, doctrines: library() });
+    const second = resolvePhase(first.state, {}, scheduled, { doctrines: library() });
     expect(second.state.squads.find((item) => item.id === "h")?.doctrineId).toBe("terror_push");
     expect(() =>
       run(scenario({ ...scheduled, hostSchedule: [{ phase: 1, intent: "", orders: { h: "shield_the_line" } }] })),
@@ -142,7 +142,7 @@ describe("resolvePhase contract", () => {
 
   it("refuses to resolve a battle that is already over", () => {
     const over = { ...createInitialState(scen), status: "defeat" as const };
-    expect(() => resolvePhase(over, {}, scen, createRng(1))).toThrow(/already over/);
+    expect(() => resolvePhase(over, {}, scen)).toThrow(/already over/);
   });
 
   it("produces prose report lines from the events", () => {

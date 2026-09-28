@@ -1,65 +1,101 @@
-// Friction & fortune seams (tech plan §4a). T03 ships these as no-ops; T04 fills
-// them in. Every seam receives the engine options and the rng. With
-// `fortune: "off"` a seam MUST return its neutral outcome and must not consume
-// the rng, so the engine stays fully deterministic regardless of seed.
-import type { Rng } from "./rng";
-import type { DoctrineRule, EngineEvent, EngineSquad, EngineState, EngineScenario } from "./types";
+// Friction & fortune (tech plan §4a): courage & cowardice, weather, and the
+// first-contact hook for renown & dread (fog and dread live in fog.ts).
+// Rule: with state.fortune "off" every function here returns its neutral outcome
+// and never draws from ctx.rng, so the battle is fully deterministic.
+import { fortuneOn, type EngineContext } from "./context";
+import { applyDread } from "./fog";
+import type { DoctrineRule, EngineSquad, Resolve, Weather } from "./types";
+import { adjacentEnemies, isActive } from "./world";
 
-export type FortuneMode = "on" | "off";
+/** A squad is under stress when it is engaged (enemy adjacent) or its cohesion is below this. */
+export const STRESS_COHESION = 50;
 
-export interface EngineOptions {
-  /** Default "off". "on" enables the chance systems once T04 implements them. */
-  fortune: FortuneMode;
+/** Chance to waver (rule fails to fire) when under stress, by Resolve -3..+3. */
+export const WAVER_CHANCE: Record<Resolve, number> = {
+  "-3": 0.3,
+  "-2": 0.24,
+  "-1": 0.18,
+  "0": 0.13,
+  "1": 0.09,
+  "2": 0.06,
+  "3": 0.03,
+};
+
+/** Chance to surge (heroic stand) when under stress, by Resolve -3..+3. */
+export const SURGE_CHANCE: Record<Resolve, number> = {
+  "-3": 0.02,
+  "-2": 0.03,
+  "-1": 0.04,
+  "0": 0.06,
+  "1": 0.08,
+  "2": 0.1,
+  "3": 0.13,
+};
+
+/** Cohesion regained on a surge. */
+export const SURGE_COHESION = 5;
+
+export function resolveBand(resolve: number): Resolve {
+  return String(Math.max(-3, Math.min(3, Math.round(resolve)))) as Resolve;
 }
 
-export interface FortuneContext {
-  state: EngineState;
-  scenario: EngineScenario;
-  options: EngineOptions;
-  rng: Rng;
-  phase: number;
-  beat: number;
+export function isStressed(ctx: EngineContext, squad: EngineSquad): boolean {
+  return isActive(squad) && (squad.cohesion < STRESS_COHESION || adjacentEnemies(ctx.state, squad).length > 0);
+}
+
+const heroicStand = (rule: DoctrineRule): DoctrineRule => ({
+  id: rule.id,
+  label: "Heroic stand! → hold and strike harder",
+  when: { kind: "always" },
+  then: { kind: "hold" },
+});
+
+/**
+ * Courage & cowardice: called after a squad picks its rule, before the action runs.
+ * Returns the rule to execute, or null when the squad wavers (the rule fails to fire).
+ * On a surge the squad regains cohesion, hits and defends harder until its next
+ * activation, and ignores a fall-back rule to stand its ground instead.
+ */
+export function stressCheck(ctx: EngineContext, squad: EngineSquad, rule: DoctrineRule): DoctrineRule | null {
+  if (!fortuneOn(ctx) || !isStressed(ctx, squad)) {
+    return rule;
+  }
+  const band = resolveBand(squad.resolve);
+  const roll = ctx.rng.next();
+
+  if (roll < WAVER_CHANCE[band]) {
+    ctx.emit({ kind: "fortune", squadId: squad.id, outcome: "waver", ruleId: rule.id });
+    return null;
+  }
+  if (roll > 1 - SURGE_CHANCE[band]) {
+    ctx.emit({ kind: "fortune", squadId: squad.id, outcome: "surge", ruleId: rule.id });
+    squad.surging = true;
+    squad.cohesion = Math.min(100, squad.cohesion + SURGE_COHESION);
+    return rule.then.kind === "fallBack" ? heroicStand(rule) : rule;
+  }
+  return rule;
 }
 
 /**
- * Phase-start weather seam: called once before beat 1.
- * T04: roll a weather shift and return `weatherShift` events.
+ * Weather: called once at the start of each phase. Phase 1 uses the forecast's
+ * starting weather; later phases may shift (seeded). Fortune off: never shifts.
  */
-export function phaseStartWeather(ctx: FortuneContext): EngineEvent[] {
-  if (ctx.options.fortune === "off") {
-    return [];
+export function phaseStartWeather(ctx: EngineContext) {
+  const forecast = ctx.scenario.forecast;
+  if (!fortuneOn(ctx) || !forecast || ctx.phase === 1) {
+    return;
   }
-  return [];
+  const options = forecast.shifts.filter((weather) => weather !== ctx.state.weather);
+  if (options.length === 0 || ctx.rng.next() >= forecast.shiftChance) {
+    return;
+  }
+  const to: Weather = options[Math.floor(ctx.rng.next() * options.length)];
+  ctx.emit({ kind: "weatherShift", from: ctx.state.weather, to });
+  ctx.state.weather = to;
 }
 
-/**
- * Stress-check seam: called after a squad picks its rule and before the action runs.
- * Return the rule to execute (possibly a substitute, e.g. a heroic hold), or null
- * for "wavered: the rule does not fire this beat".
- * T04: courage & cowardice checks for squads that are engaged or below 50 cohesion.
- */
-export function stressCheck(
-  ctx: FortuneContext,
-  _squad: EngineSquad,
-  rule: DoctrineRule,
-): { rule: DoctrineRule | null; events: EngineEvent[] } {
-  if (ctx.options.fortune === "off") {
-    return { rule, events: [] };
-  }
-  return { rule, events: [] };
-}
-
-/**
- * First-contact seam: called the first time two opposing squads engage.
- * T04: renown & dread shocks and fog-of-war `sighted` events hang off this point.
- */
-export function firstContact(
-  ctx: FortuneContext,
-  _a: EngineSquad,
-  _b: EngineSquad,
-): EngineEvent[] {
-  if (ctx.options.fortune === "off") {
-    return [];
-  }
-  return [];
+/** First contact: the first time two opposing squads engage. Renown & dread both ways. */
+export function firstContact(ctx: EngineContext, a: EngineSquad, b: EngineSquad) {
+  applyDread(ctx, a, b);
+  applyDread(ctx, b, a);
 }

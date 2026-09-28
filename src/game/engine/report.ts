@@ -1,7 +1,14 @@
 // Prose report lines generated purely from events. The UI shows these after
 // playback; the renderer ignores them and plays the events themselves.
 import { hexKey } from "../board";
-import type { EngineEvent, EngineState, PhaseReport } from "./types";
+import type { EngineEvent, EngineState, PhaseReport, Weather } from "./types";
+
+const weatherName: Record<Weather, string> = {
+  clear: "clear skies",
+  rain: "rain",
+  mist: "mist",
+  ashWind: "ash-wind",
+};
 
 export function narrateEvent(event: EngineEvent, state: EngineState): string | null {
   const name = (id: string) => state.squads.find((squad) => squad.id === id)?.name ?? id;
@@ -35,6 +42,18 @@ export function narrateEvent(event: EngineEvent, state: EngineState): string | n
       return `${name(event.attackerId)} battered ${objectiveName(event.objectiveId)} (${event.oldIntegrity} → ${event.newIntegrity}).`;
     case "outcome":
       return `${event.status === "victory" ? "Victory" : "Defeat"}: ${event.reason}`;
+    case "fortune":
+      return event.outcome === "surge"
+        ? `Heroic stand! ${name(event.squadId)} surges forward.`
+        : `Wavering… ${name(event.squadId)} hesitates and its order fails.`;
+    case "dread": {
+      const source = name(event.sourceId);
+      return `They know that banner… ${name(event.squadId)} falters before ${source}, "${event.title}" (-${event.shock} cohesion).`;
+    }
+    case "weatherShift":
+      return `The weather turns: ${weatherName[event.from]} gives way to ${weatherName[event.to]}.`;
+    case "sighted":
+      return `${name(event.byId)} sighted ${name(event.squadId)} at ${hexKey(event.hex)}.`;
   }
 }
 
@@ -46,5 +65,5 @@ export function buildReport(phase: number, title: string, events: EngineEvent[],
     })
     .filter((line): line is string => line !== null);
 
-  return { phase, title, lines, status: state.status };
+  return { phase, title, lines, status: state.status, seed: state.seed, weather: state.weather };
 }

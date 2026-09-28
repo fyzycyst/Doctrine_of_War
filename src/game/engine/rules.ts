@@ -5,22 +5,13 @@ import type {
   Doctrine,
   DoctrineRule,
   EngineObjective,
-  EngineScenario,
-  EngineState,
   TargetSelector,
 } from "./types";
-import {
-  alliesOf,
-  byDistance,
-  enemiesOf,
-  isOverextended,
-  type ActiveSquad,
-} from "./world";
+import type { RuleContext } from "./context";
+import { perceivedEnemies } from "./fog";
+import { alliesOf, byDistance, isOverextended, type ActiveSquad } from "./world";
 
-export interface RuleContext {
-  state: EngineState;
-  scenario: EngineScenario;
-}
+export type { RuleContext };
 
 export type ResolvedTarget =
   | { kind: "squad"; squad: ActiveSquad }
@@ -43,8 +34,10 @@ function defendedObjectives(ctx: RuleContext, squad: ActiveSquad, objectiveId?: 
   );
 }
 
+// Enemy lists below come from perceivedEnemies: under fog, the player's squads
+// only react to enemies their side can currently see.
 export function evaluateCondition(ctx: RuleContext, squad: ActiveSquad, condition: Condition): boolean {
-  const enemies = enemiesOf(ctx.state, squad);
+  const enemies = perceivedEnemies(ctx, squad);
   const allies = alliesOf(ctx.state, squad);
 
   switch (condition.kind) {
@@ -70,6 +63,14 @@ export function evaluateCondition(ctx: RuleContext, squad: ActiveSquad, conditio
       return within(enemies, squad.hex, condition.range ?? DEFAULT_OVEREXTENDED_RANGE).some((enemy) =>
         isOverextended(ctx.state, enemy),
       );
+    case "atObjective":
+      return ctx.state.objectives.some(
+        (objective) =>
+          objective.defender !== squad.faction &&
+          objective.integrity > 0 &&
+          (condition.objectiveId === undefined || objective.id === condition.objectiveId) &&
+          hexDistance(objective.hex, squad.hex) === 1,
+      );
     case "objectiveThreatened":
       return defendedObjectives(ctx, squad, condition.objectiveId).some((objective) =>
         enemies.some((enemy) => hexDistance(enemy.hex, objective.hex) <= OBJECTIVE_THREAT_RANGE),
@@ -91,7 +92,7 @@ export function resolveTarget(
   squad: ActiveSquad,
   selector: TargetSelector,
 ): ResolvedTarget | null {
-  const enemies = enemiesOf(ctx.state, squad);
+  const enemies = perceivedEnemies(ctx, squad);
   let chosen: ActiveSquad | undefined;
 
   switch (selector.kind) {

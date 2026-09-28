@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { engagementLosses, executeAction, SIEGE_OBJECTIVE_DAMAGE } from "./actions";
+import { engagementLosses, executeAction, RALLY_BASE, SIEGE_OBJECTIVE_DAMAGE } from "./actions";
 import { actionContext, kinds, scenario, squad } from "./testKit";
 import type { ObjectiveSetup } from "./types";
 
@@ -17,14 +17,18 @@ const gate: ObjectiveSetup = {
 
 describe("actions", () => {
   it("hold braces the squad, and bracing reduces losses when struck", () => {
-    const kit = actionContext(scenario({ squads: [squad("a", AH, { q: 1, r: 2 }), squad("d", FB, { q: 2, r: 2 })] }));
+    const kit = actionContext(
+      scenario({ squads: [squad("a", AH, { q: 1, r: 2 }), squad("d", FB, { q: 2, r: 2 }, { strength: 100 })] }),
+    );
     const unbraced = engagementLosses(kit.ctx, kit.get("a"), kit.get("d"), false);
     executeAction(kit.ctx, kit.get("d"), { kind: "hold" });
     expect(kit.get("d").braced).toBe(true);
     expect(kit.events).toEqual([]);
     const braced = engagementLosses(kit.ctx, kit.get("a"), kit.get("d"), false);
-    expect(braced.defenderStrength).toBeLessThan(unbraced.defenderStrength);
-    expect(braced.attackerStrength).toBeGreaterThan(unbraced.attackerStrength);
+    expect(braced.defenderCohesion).toBeLessThan(unbraced.defenderCohesion);
+    expect(braced.attackerStrength + braced.attackerCohesion).toBeGreaterThan(
+      unbraced.attackerStrength + unbraced.attackerCohesion,
+    );
   });
 
   it("advance moves toward the target, and braces instead once in position", () => {
@@ -110,8 +114,8 @@ describe("actions", () => {
       }),
     );
     executeAction(kit.ctx, kit.get("r"), { kind: "rally" });
-    expect(kit.events).toEqual([{ kind: "rally", sourceId: "r", targetId: "low", restored: 6 }]);
-    expect(kit.get("low").cohesion).toBe(36);
+    expect(kit.events).toEqual([{ kind: "rally", sourceId: "r", targetId: "low", restored: RALLY_BASE }]);
+    expect(kit.get("low").cohesion).toBe(30 + RALLY_BASE);
 
     kit.get("low").cohesion = 100;
     executeAction(kit.ctx, kit.get("r"), { kind: "rally" });
