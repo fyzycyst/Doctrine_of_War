@@ -72,7 +72,8 @@ imported (see `fromEngine.ts`); engine logic may not.
     mode). It holds still under prefers-reduced-motion and follows the quality setting.
   - `<CampaignMap battles={[{ id, title, timeOfDay, status, board?, placeholder? }]} onSelect>`:
     the war as an archipelago, one miniature island per battle (`buildIsland` at a small scale;
-    battles without a board get `placeholderBoard("saltmarsh" | "holdForDawn")`).
+    a battle without a board gets `placeholderBoard("saltmarsh" | "holdForDawn")`; the real
+    campaign passes every scenario's board, and the placeholders remain for unbuilt battles).
     - Status `locked`: misty and dim. `current`: glows, flies the banner, lit braziers. `won`:
       Banner flag. `stalemate`: half-lit, flag at half height. `lost`: ashen, Host flag.
     - A dotted march path runs between the islands, gold up to the current battle.
@@ -88,20 +89,25 @@ imported (see `fromEngine.ts`); engine logic may not.
     `sampleCameraPath`, and `cinematicPaths(board)` returns `craneInGate`, `bannerDolly`,
     `riverPush` (river boards) and `titleFlyover`. `<CinematicCamera path>` drives the camera from
     the R3F clock, so it is deterministic under `advance(t)`.
-- **Saltmarsh and Hold for Dawn (built ahead of the engine):**
-  - `RenderTerrain` (skins/types.ts) is `TerrainType | "marsh" | "reeds"`, and both skins style
-    all of these, so the engine adding them can't break a `Record<TerrainType, …>`.
+- **Saltmarsh and Hold for Dawn:**
+  - Both skins style every `TerrainType`, including `marsh` and `reeds`.
   - Marsh is dark wet peat, set low, with dark pools (small water patches), sedge tussocks and
     stumps. Reeds are dense clumps taller than the figures (they screen what's behind), in their
     own mesh (`island.reedGeometry`) with a wind-sway shader.
   - `DioramaSquad.kind = "column"` is the noncombatant refugee Column: hooded walkers with lanterns
     or staffs (no weapons), two covered carts and a small pale lantern banner. `dioramaSquads()`
-    maps it from the engine's noncombatant flag (`noncombatant: true` or
-    `role: "noncombatant"`, whichever lands).
+    maps it from the engine's `noncombatant: true`.
+  - `DioramaSquad.kind = "siege"` (engine `role: "siege"`, e.g. the Cinderram): a wheeled ram
+    shed under wet hides with a smouldering ridge and an ember-hot ram head, crew on the flank
+    files. At `sunrise` the hides are gone and the rafters stand bare.
+  - Renowned squads (the champion, "The Last Cinder") carry a larger crest and a thin gold outer
+    ring that reads at the wide shot.
+  - Boards bigger than Ember Ford push the scene fog back (`LightRig fogOffset`), so their wider
+    wide shot isn't buried in fog.
   - **Time of day cross-fades:** when `<LookProvider timeOfDay>` changes (e.g. predawn → sunrise
     on Hold for Dawn's last phase), the lighting blends over 3 s (`look/blendPresets.ts`, pure and
     tested). Under reduced motion it cuts.
-  - Lab mocks until the scenarios exist: `&scenario=saltmarsh` and `&scenario=holdForDawn`
+  - Lab: `&scenario=saltmarsh` and `&scenario=holdForDawn` load the real scenarios
     (`&fadeTo=sunrise&fadeAt=0.8` shows the fade).
 - `terrain/buildIsland.ts`: a pure builder from a `BoardLayout` to one merged vertex-coloured
   geometry: tiles, a continuous jagged rock underside, props, roads, walls/gate, town, and sunken
