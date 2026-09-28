@@ -1,6 +1,9 @@
 // Property test for fog of war in playback: everything the Banners' projected event
 // stream mentions (squad ids and hexes) must have been visible to the Banners at the
 // moment the event happened. Checked against the true state via the onEmit hook.
+// The player's prose report (title and lines) and every string in the projected
+// events (labels, titles, reasons) must also never name an enemy squad, by name or
+// id, that the projected stream did not legitimately mention in that phase.
 import { describe, expect, it } from "vitest";
 import type { HexCoord } from "../board";
 import { eventsFor, factionSees } from "./fog";
@@ -36,15 +39,26 @@ function hexesIn(value: unknown, found: HexCoord[] = []): HexCoord[] {
   return found;
 }
 
-function checkBattle(scenario: EngineScenario, orders: Orders, seed: number): { checked: number; leaks: string[] } {
+function stringsIn(value: unknown, found: string[] = []): string[] {
+  if (typeof value === "string") found.push(value);
+  else if (value && typeof value === "object") for (const child of Object.values(value)) stringsIn(child, found);
+  return found;
+}
+
+function checkBattle(scenario: EngineScenario, orders: Orders, seed: number): { checked: number; prose: number; leaks: string[] } {
   const leaks: string[] = [];
   let checked = 0;
+  let prose = 0;
+  // Per phase: enemy squads the projected stream mentioned while seen, and the projected events.
+  let mentioned = new Set<string>();
+  let projectedThisPhase: EngineEvent[] = [];
   const onEmit = (event: EngineEvent, state: EngineState) => {
     const [projected] = eventsFor([event], VIEWER);
     if (!projected) {
       return;
     }
     checked += 1;
+    projectedThisPhase.push(projected);
     const ctx = { state, scenario };
     const seen = (hex: HexCoord) =>
       factionSees(ctx, VIEWER, hex) || state.objectives.some((objective) => objective.hex.q === hex.q && objective.hex.r === hex.r);
@@ -53,10 +67,15 @@ function checkBattle(scenario: EngineScenario, orders: Orders, seed: number): { 
       if (!squad || squad.faction === VIEWER) continue;
       // A mover counts as seen if it was seen anywhere along its (projected) path:
       // watched walking into the dark is still watched.
-      if (projected.kind === "move" && projected.squadId === id && projected.path.some(seen)) continue;
+      if (projected.kind === "move" && projected.squadId === id && projected.path.some(seen)) {
+        mentioned.add(id);
+        continue;
+      }
       const hex = squad.hex ?? ("hex" in event && "squadId" in event && event.squadId === id ? event.hex : null);
       if (!hex || !seen(hex)) {
         leaks.push(`${scenario.id}#${seed} phase ${event.phase} beat ${event.beat} ${event.kind}: unseen squad ${id}`);
+      } else {
+        mentioned.add(id);
       }
     }
     for (const hex of hexesIn(projected)) {
@@ -66,11 +85,29 @@ function checkBattle(scenario: EngineScenario, orders: Orders, seed: number): { 
     }
   };
 
+  const enemies = scenario.squads.filter((squad) => squad.faction !== VIEWER);
   let state = createInitialState(scenario, { seed, fortune: "on" });
   while (state.status === "command") {
-    state = resolvePhase(state, orders, scenario, { onEmit }).state;
+    mentioned = new Set();
+    projectedThisPhase = [];
+    const result = resolvePhase(state, orders, scenario, { onEmit });
+    const texts = [
+      ...[result.report.title, ...result.report.lines].map((text) => ["report", text] as const),
+      ...projectedThisPhase.flatMap((event) => stringsIn(event).map((text) => [`${event.kind} event`, text] as const)),
+    ];
+    prose += texts.length;
+    for (const squad of enemies) {
+      if (mentioned.has(squad.id)) continue;
+      const name = result.state.squads.find((item) => item.id === squad.id)?.name ?? squad.name;
+      for (const [where, text] of texts) {
+        if (text.includes(squad.name) || text.includes(name) || new RegExp(`\\b${squad.id}\\b`).test(text)) {
+          leaks.push(`${scenario.id}#${seed} phase ${state.phase} ${where}: unseen squad ${squad.id} named in "${text}"`);
+        }
+      }
+    }
+    state = result.state;
   }
-  return { checked, leaks };
+  return { checked, prose, leaks };
 }
 
 describe("fog projection property", () => {
@@ -87,13 +124,16 @@ describe("fog projection property", () => {
     for (const [planName, orders] of Object.entries(plans)) {
       it(`${scenario.title} (${planName}): the Banners' projected stream only mentions what they could see`, () => {
         let checked = 0;
+        let prose = 0;
         const leaks: string[] = [];
         for (const seed of seeds) {
           const result = checkBattle(scenario, orders, seed);
           checked += result.checked;
+          prose += result.prose;
           leaks.push(...result.leaks);
         }
         expect(checked).toBeGreaterThan(100);
+        expect(prose).toBeGreaterThan(100);
         expect(leaks).toEqual([]);
       });
     }

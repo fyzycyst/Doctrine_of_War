@@ -119,6 +119,35 @@ function nextResolve(resolve: number, ended: CompanyResult["ended"], outcome: "v
   }
 }
 
+/**
+ * Applies one company's battle result to it in place (a member of `roster`, which is
+ * consulted for titles already taken) and returns the renown title earned, if any.
+ * Shared by recordBattle and save validation, which replays history with it.
+ */
+export function settleCompany(
+  roster: CampaignCompany[],
+  company: CampaignCompany,
+  ended: CompanyResult["ended"],
+  outcome: BattleRecord["outcome"],
+): string | null {
+  company.battlesFought += 1;
+  if (ended === "routed") company.casualties.routed += 1;
+  if (ended === "destroyed") company.casualties.destroyed += 1;
+  if (outcome === "defeat") {
+    return null;
+  }
+  company.resolve = nextResolve(company.resolve, ended, outcome);
+  if (ended === "destroyed") {
+    company.renown = null;
+    company.reformed += 1;
+  } else if (company.resolve === RESOLVE_MAX && !company.renown) {
+    const taken = roster.flatMap((item) => (item.renown ? [item.renown.title] : []));
+    company.renown = { title: renownTitle(company.id, taken) };
+    return company.renown.title;
+  }
+  return null;
+}
+
 /** Records a finished battle and returns the new campaign state (advance, or retry after a defeat). */
 export function recordBattle(def: CampaignDefinition, state: CampaignState, final: EngineState): CampaignState {
   const battle = playableBattle(def, state, final.scenarioId);
@@ -136,22 +165,7 @@ export function recordBattle(def: CampaignDefinition, state: CampaignState, fina
       throw new Error(`Battle ${battle.id}: squad ${squadId} or company ${companyId} is missing`);
     }
     const before = company.resolve;
-    let renownEarned: string | null = null;
-    company.battlesFought += 1;
-    if (squad.status === "routed") company.casualties.routed += 1;
-    if (squad.status === "destroyed") company.casualties.destroyed += 1;
-
-    if (outcome !== "defeat") {
-      company.resolve = nextResolve(company.resolve, squad.status, outcome);
-      if (squad.status === "destroyed") {
-        company.renown = null;
-        company.reformed += 1;
-      } else if (company.resolve === RESOLVE_MAX && !company.renown) {
-        const taken = roster.flatMap((item) => (item.renown ? [item.renown.title] : []));
-        company.renown = { title: renownTitle(company.id, taken) };
-        renownEarned = company.renown.title;
-      }
-    }
+    const renownEarned = settleCompany(roster, company, squad.status, outcome);
     results.push({ companyId, squadId, ended: squad.status, resolveBefore: before, resolveAfter: company.resolve, renownEarned });
   }
 

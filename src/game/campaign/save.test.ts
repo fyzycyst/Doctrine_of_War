@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { playBattle } from "../engine/balance";
+import { scenarios } from "../engine/scenarios";
 import { firstBreach } from "../engine/scenarios/firstBreach";
-import { applyCampaign, recordBattle, startCampaign } from "./campaign";
+import { applyCampaign, currentBattle, recordBattle, startCampaign } from "./campaign";
 import { ashAndBanner } from "./definition";
 import { CampaignSaveError, loadCampaign, MAX_SAVE_BYTES, saveCampaign, SAVE_VERSION } from "./save";
 import type { CampaignState } from "./types";
@@ -11,6 +12,19 @@ function afterTutorial(): CampaignState {
   const scenario = applyCampaign(ashAndBanner, state, firstBreach);
   const final = playBattle(scenario, firstBreach.referencePlans!.intended, firstBreach.curatedSeed!, "on");
   return recordBattle(ashAndBanner, state, final);
+}
+
+/** Plays on from `state` with the given plan names, one battle per plan, whatever the outcomes. */
+function playOn(state: CampaignState, plans: ("intended" | "bad")[], seed = 11): CampaignState {
+  for (const plan of plans) {
+    const battle = currentBattle(ashAndBanner, state);
+    if (!battle || battle.placeholder) break;
+    const base = scenarios.find((item) => item.id === battle.scenarioId)!;
+    const final = playBattle(applyCampaign(ashAndBanner, state, base), base.referencePlans![plan], seed, "on");
+    state = recordBattle(ashAndBanner, state, final);
+    seed += 1;
+  }
+  return state;
 }
 
 const envelope = (campaign: unknown) => JSON.stringify({ version: SAVE_VERSION, campaign });
@@ -63,6 +77,62 @@ describe("campaign saves", () => {
       expect(() => loadCampaign(envelope({ ...good, companies: [...good.companies, stranger] }), ashAndBanner)).toThrow(/unknown company/);
       expect(() => loadCampaign(envelope({ ...good, history: [{ ...good.history[0], battleId: "battle_9" }] }), ashAndBanner)).toThrow(/unknown battle/);
     });
+  });
+
+  it("round-trips a longer real campaign, retries included", () => {
+    const outcomes = new Set<string>();
+    for (const seed of [3, 11, 29]) {
+      const state = playOn(startCampaign(ashAndBanner), ["bad", "intended", "bad", "bad", "intended", "intended"], seed);
+      expect(state.history.length).toBeGreaterThan(1);
+      state.history.forEach((entry) => outcomes.add(entry.outcome));
+      expect(loadCampaign(saveCampaign(state), ashAndBanner)).toEqual(state);
+    }
+    expect(outcomes).toContain("defeat");
+  });
+
+  describe("rejects saves that could not have been played", () => {
+    const good = afterTutorial();
+    const fresh = startCampaign(ashAndBanner);
+    const tutorial = good.history[0];
+    const shields = good.companies.find((item) => item.id === "greyford_shields")!;
+    const withCompany = (patch: Partial<CampaignState["companies"][number]>) =>
+      envelope({ ...good, companies: good.companies.map((item) => (item.id === shields.id ? { ...item, ...patch } : item)) });
+    const withLines = (lines: unknown[]) => envelope({ ...good, history: [{ ...tutorial, companies: lines }] });
+    const cases: [string, string, RegExp][] = [
+      // Review probe: a fresh campaign carrying a tutorial victory fought on Ember Ford's map.
+      ["a result on the wrong scenario", envelope({ ...fresh, history: [{ ...tutorial, scenarioId: "ember_ford" }] }), /scenarioId/],
+      ["a result for a future battle", envelope({ ...good, history: [{ ...tutorial, battleId: "battle_1", scenarioId: "ember_ford" }] }), /battleId/],
+      ["a result for a placeholder battle", envelope({ ...good, battleIndex: 2, history: [...good.history, { ...tutorial, battleId: "battle_1", scenarioId: "ember_ford" }, { ...tutorial, battleId: "battle_2", scenarioId: "saltmarsh_column" }] }), /battle|companies/],
+      ["an attempt number out of sequence", envelope({ ...good, history: [{ ...tutorial, attempt: 2 }] }), /attempt/],
+      ["a battleIndex the history does not reach", envelope({ ...fresh, battleIndex: 1 }), /battleIndex/],
+      ["a roster with no history", envelope({ ...fresh, companies: good.companies }), /companies/],
+      ["a company missing from the roster", envelope({ ...good, companies: good.companies.slice(1) }), /companies/],
+      // Review probe: the Greyford Shields cannot be siege engineers.
+      ["a company with the wrong role", withCompany({ role: "siege" }), /companies\[0\]/],
+      ["a renamed company", withCompany({ name: "Hired Blades" }), /companies\[0\]/],
+      ["a Resolve the history does not produce", withCompany({ resolve: shields.resolve === 3 ? 2 : 3 }), /companies\[0\]/],
+      ["an invented renown title", withCompany({ renown: { title: "The Invincible" } }), /companies\[0\]/],
+      ["inflated counters", withCompany({ battlesFought: 5 }), /companies\[0\]/],
+      ["duplicate company results", withLines([tutorial.companies[0], ...tutorial.companies.slice(0, -1)]), /companies/],
+      ["a company in the wrong slot", withLines(tutorial.companies.map((line, index) => ({ ...line, companyId: tutorial.companies[(index + 1) % 4].companyId }))), /slot/],
+      ["a doctored Resolve change", withLines(tutorial.companies.map((line, index) => (index === 0 ? { ...line, resolveAfter: line.resolveAfter === 3 ? 2 : 3 } : line))), /Resolve after/],
+      ["a miscounted companiesBroken", envelope({ ...good, history: [{ ...tutorial, companiesBroken: (tutorial.companiesBroken + 1) % 4 }] }), /companiesBroken/],
+    ];
+    for (const [label, input, message] of cases) {
+      it(`rejects ${label}`, () => {
+        expect(() => loadCampaign(input, ashAndBanner)).toThrow(CampaignSaveError);
+        expect(() => loadCampaign(input, ashAndBanner)).toThrow(message);
+      });
+    }
+  });
+
+  it("normalizes JSON -0 to 0", () => {
+    const good = afterTutorial();
+    const json = saveCampaign(good).replace('"reformed":0', '"reformed":-0');
+    expect(json).toContain("-0");
+    const loaded = loadCampaign(json, ashAndBanner);
+    expect(Object.is(loaded.companies[0].reformed, 0)).toBe(true);
+    expect(loaded).toEqual(good);
   });
 
   it("drops unknown keys and cannot be used for prototype pollution", () => {
