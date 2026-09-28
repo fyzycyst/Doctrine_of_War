@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createInitialState, eventsFor, firstBreach, resolvePhase, visibleState, type VisibleState } from "../../game/engine";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
-import { PlaybackDirector, type CalloutSpec, type DirectorHooks } from "./director";
+import { PlaybackDirector, WAIT_SLICE_MS, type CalloutSpec, type DirectorHooks } from "./director";
 import { buildTimeline, type Pace } from "./timeline";
 
 const PLAYER = "free_banners" as const;
@@ -162,5 +162,32 @@ describe("PlaybackDirector: moves through the fog", () => {
     expect(shown).toContainEqual({ hex: seen[1], lastKnown: true });
     expect(shown).toContainEqual({ hex: seen[2], lastKnown: false });
     expect(run.display().squads.find((squad) => squad.id === "ford_reavers")).toMatchObject({ hex: seen[2], lastKnown: false });
+  });
+});
+
+describe("PlaybackDirector: pace inside a step", () => {
+  it("rescales the rest of the current step when the pace changes, and speeds animations with it", async () => {
+    const run = setup();
+    const surge = run.events.find((event) => event.kind === "fortune" && event.outcome === "surge")!;
+    const timeline = buildTimeline([{ ...surge, beat: 0 }], "readable", { playerFaction: PLAYER, factionOf: () => PLAYER });
+    const [step] = timeline.steps;
+    expect(step.kind).toBe("fortune");
+
+    let pace: Pace = "readable";
+    run.hooks.pace = () => pace;
+    const timeScales: number[] = [];
+    (run.hooks.animator() as unknown as { setTimeScale: (k: number) => void }).setTimeScale = (k) => timeScales.push(k);
+    const slept: number[] = [];
+    run.hooks.sleep = (ms) => {
+      slept.push(ms);
+      pace = "fast"; // the player switches to Fast during the first slice
+      return Promise.resolve();
+    };
+    await new PlaybackDirector(timeline, run.hooks).run();
+
+    expect(slept[0]).toBe(WAIT_SLICE_MS);
+    expect(slept.slice(1).every((ms) => ms <= WAIT_SLICE_MS / 2)).toBe(true);
+    expect(slept.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(WAIT_SLICE_MS + (step.duration - WAIT_SLICE_MS) / 2, 5);
+    expect(timeScales).toEqual([2, 1]);
   });
 });

@@ -72,9 +72,13 @@ const splitLabel = (label: string) => {
   return then === undefined ? { when: "", then: capitalize(when) } : { when, then: capitalize(then) };
 };
 
+/** Waits re-read the pace this often (timeline ms), so a pace switch applies within a slice. */
+export const WAIT_SLICE_MS = 120;
+
 export class PlaybackDirector {
   private cancelled = false;
   private held = false;
+  private animationScale = 1;
   private wakers = new Set<() => void>();
 
   constructor(
@@ -98,23 +102,51 @@ export class PlaybackDirector {
     this.held = true;
   }
 
-  /** A pace-aware, cancellable wait. Step times were built at the timeline's pace. */
-  private wait(ms: number): Promise<void> {
-    if (this.cancelled || (ms <= 0 && !this.held)) {
-      return Promise.resolve();
-    }
-    if (this.held) {
-      return new Promise((resolve) => this.wakers.add(resolve));
-    }
-    const scaled = ms * (PACE_SCALE[this.hooks.pace()] / PACE_SCALE[this.timeline.pace]);
+  /** Real time per timeline millisecond at the current pace (steps were built at the timeline's pace). */
+  private scale(): number {
+    return PACE_SCALE[this.hooks.pace()] / PACE_SCALE[this.timeline.pace];
+  }
+
+  /**
+   * Keeps running animations in step with the pace: they were started with timeline-pace
+   * durations, so they play at 1/scale speed. Uses the animator's setTimeScale where the
+   * renderer provides it (render agent, pending); a no-op until then.
+   */
+  private syncAnimations(scale: number) {
+    if (scale === this.animationScale) return;
+    this.animationScale = scale;
+    const animator = this.hooks.animator() as (SquadAnimationApi & { setTimeScale?: (k: number) => void }) | null;
+    animator?.setTimeScale?.(1 / scale);
+  }
+
+  private sleepOnce(ms: number): Promise<void> {
     return new Promise((resolve) => {
       const done = () => {
         this.wakers.delete(done);
         resolve();
       };
       this.wakers.add(done);
-      void this.hooks.sleep(scaled).then(done);
+      void this.hooks.sleep(ms).then(done);
     });
+  }
+
+  /**
+   * A pace-aware, cancellable wait of `ms` timeline milliseconds. It runs in short
+   * slices and re-reads the pace for each, so switching pace mid-step rescales the
+   * rest of the current step, not just the next one.
+   */
+  private async wait(ms: number): Promise<void> {
+    let remaining = ms;
+    while (remaining > 0 && !this.cancelled && !this.held) {
+      const slice = Math.min(remaining, WAIT_SLICE_MS);
+      const scale = this.scale();
+      this.syncAnimations(scale);
+      await this.sleepOnce(slice * scale);
+      remaining -= slice;
+    }
+    if (this.held && !this.cancelled) {
+      await new Promise<void>((resolve) => this.wakers.add(resolve));
+    }
   }
 
   /** Waits for an animation, but never longer than `cap` ms (a lost promise cannot stall playback). */
@@ -139,6 +171,7 @@ export class PlaybackDirector {
       await this.play(step);
     }
     this.hooks.focus(null);
+    this.syncAnimations(1);
     return this.cancelled ? "skipped" : "done";
   }
 
