@@ -32,19 +32,30 @@ describe("Hold for Dawn: the staged goal", () => {
     // Eleven companies: the roster turns compact so every tab fits.
     expect(screen.getByRole("navigation", { name: "Companies" })).toHaveClass("dense");
 
+    // Note the board and the HUD at the instant the dawn banner goes up (the moment is
+    // short at test speed, so read it as it happens rather than after).
+    let dawnPhase: number | undefined;
+    let dawnGoal: string | null = null;
+    const unsubscribe = useGame.subscribe((state) => {
+      if (dawnPhase === undefined && state.callouts.some((callout) => callout.kind === "stage")) {
+        dawnPhase = state.display?.phase;
+      }
+    });
     act(() => {
-      useGame.setState({ playbackSpeed: 400 });
+      useGame.setState({ playbackSpeed: 40 });
       game().sealOrders();
     });
-    const banner = await screen.findByText("Dawn breaks", {}, { timeout: 5000 });
+    const banner = await screen.findByText("Dawn breaks", {}, { timeout: 8000 });
     expect(banner.closest(".stage-banner")).toHaveTextContent("Break the Cinderram");
+    dawnGoal = screen.queryByRole("status", { name: /Goal:/ })?.getAttribute("aria-label") ?? null;
+    unsubscribe();
     // The aim turns with the light, during the moment itself.
-    expect(screen.getByRole("status", { name: "Goal: Break the Cinderram" })).toBeInTheDocument();
+    expect(dawnGoal).toBe("Goal: Break the Cinderram");
     // The dawn light arrives with the banner: the board shows the next phase (sunrise).
-    expect(game().display?.phase).toBe(5);
-    expect(timeOfDayAt(holdForDawn, game().display!.phase)).toBe("sunrise");
+    expect(dawnPhase).toBe(5);
+    expect(timeOfDayAt(holdForDawn, dawnPhase!)).toBe("sunrise");
 
-    await waitFor(() => expect(game().stage).toBe("report"), { timeout: 5000 });
+    await waitFor(() => expect(game().stage).toBe("report"), { timeout: 8000 });
     const report = screen.getByRole("dialog", { name: /./ });
     expect(within(report).getByText(/The line held through the night/)).toHaveTextContent("Now: Break the Cinderram.");
 
