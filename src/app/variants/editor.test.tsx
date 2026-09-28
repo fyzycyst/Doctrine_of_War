@@ -118,6 +118,19 @@ describe("the doctrine editor", () => {
     expect(screen.getAllByRole("group", { name: /^Cohesion below/ })).toHaveLength(1);
   });
 
+  it("says so, and keeps the variant and its draft, when a delete cannot be saved", async () => {
+    const user = userEvent.setup();
+    render(<DoctrineEditor target={{ baseId: "shield_the_line" }} onClose={() => {}} />);
+    await user.click(screen.getByRole("button", { name: "Move order 2 up" }));
+    await user.click(screen.getByRole("button", { name: "Save variant" }));
+    await waitFor(() => expect(useVariants.getState().variants).toHaveLength(1));
+    useVariants.setState({ store: { read: async () => null, write: () => Promise.reject(new Error("disk full")) } });
+    await user.click(screen.getByRole("button", { name: /Delete/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Not deleted. Your variants could not be saved (disk full).");
+    expect(useVariants.getState().variants).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument(); // still editing it
+  });
+
   it("opens from the hand on the doctrine in focus", async () => {
     const user = userEvent.setup();
     useAppStore.getState().selectSquad("greyford_shields");

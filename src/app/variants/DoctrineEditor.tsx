@@ -313,8 +313,14 @@ export function DoctrineEditor({ target, onClose }: { target: EditorTarget; onCl
                 type="button"
                 className="btn-quiet"
                 onClick={async () => {
-                  await removeVariant(draft.id!);
+                  // Storage refused: keep the draft (the variant is still saved) and say why.
+                  if (!(await removeVariant(draft.id!))) {
+                    setErrors([`Not deleted. ${useVariants.getState().notice ?? "Your variants could not be saved."}`]);
+                    return;
+                  }
                   setDraft(fresh(draft.baseId));
+                  setErrors([]);
+                  setSavedNote(null);
                 }}
               >
                 <Trash2 size={14} aria-hidden="true" /> Delete

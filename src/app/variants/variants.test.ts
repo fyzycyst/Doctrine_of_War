@@ -87,6 +87,17 @@ describe("variants in battle", () => {
     expect(useGame.getState().assignDoctrine("greyford_shields", cut.id)).toBe(false);
   });
 
+  it("keeps the variant and the battle's order when a delete cannot be written", async () => {
+    expect(useGame.getState().assignDoctrine("greyford_shields", cut.id)).toBe(true);
+    const failing = { read: async () => null, write: async () => Promise.reject(new Error("disk full")) };
+    useVariants.setState({ store: failing });
+    const removed = await act(() => useVariants.getState().remove(cut.id));
+    expect(removed).toBe(false);
+    expect(useVariants.getState().variants.map((item) => item.variant.id)).toEqual([cut.id]);
+    expect(useGame.getState().orders.greyford_shields).toBe(cut.id);
+    expect(useVariants.getState().notice).toMatch(/could not be saved \(disk full\)/);
+  });
+
   it("falls back to the standing doctrine when a variant is deleted mid-battle", async () => {
     useGame.getState().assignDoctrine("greyford_shields", cut.id);
     await act(() => useVariants.getState().remove(cut.id));
