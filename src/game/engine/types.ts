@@ -378,7 +378,10 @@ export type EngineEvent =
 
 export interface PhaseReport {
   phase: number;
+  /** "Phase N: <intent>". */
   title: string;
+  /** The Host's intent for the phase on its own (the host schedule's line). */
+  intent: string;
   seed: number;
   weather: Weather;
   lines: string[];

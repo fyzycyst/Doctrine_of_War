@@ -371,6 +371,8 @@ export interface VisibleSquad {
   renown?: { title: string };
   /** true: an enemy shown where it was last seen, with the stats it had then. */
   lastKnown: boolean;
+  /** For enemies under fog: when they were last in sight. null for own squads, or with fortune off. */
+  lastSeen: { phase: number; beat: number } | null;
 }
 
 /** The UI-safe view of a battle. An explicit allowlist: no rng, intel, contacts or dread bookkeeping. */
@@ -403,8 +405,20 @@ function showSquad(squad: EngineSquad, overrides: Partial<VisibleSquad> = {}): V
     surging: squad.surging,
     ...(squad.renown ? { renown: { title: squad.renown.title } } : {}),
     lastKnown: false,
+    lastSeen: null,
     ...overrides,
   };
+}
+
+/**
+ * The hexes `faction` can see right now (for the fog-mist renderer). With fortune
+ * off there is no fog, so every hex is visible.
+ */
+export function visibleHexes(state: EngineState, scenario: EngineScenario, faction: FactionId): HexCoord[] {
+  const ctx = { state, scenario };
+  return scenario.board.hexes
+    .filter((hex) => state.fortune === "off" || factionSees(ctx, faction, hex.coord))
+    .map((hex) => ({ ...hex.coord }));
 }
 
 /**
@@ -426,10 +440,12 @@ export function visibleState(state: EngineState, viewer: FactionId): VisibleStat
     if (!known) {
       continue;
     }
+    const lastSeen = { phase: known.phase, beat: known.beat };
     squads.push(
       known.visible
-        ? showSquad(squad)
+        ? showSquad(squad, { lastSeen })
         : showSquad(squad, {
+            lastSeen,
             hex: known.hex ? { ...known.hex } : null,
             strength: known.strength,
             cohesion: known.cohesion,

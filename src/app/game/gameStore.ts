@@ -19,6 +19,7 @@ import {
   type Orders,
   type VisibleState,
   type Weather,
+  isOrderAllowed,
 } from "../../game/engine";
 import { ashAndBanner, applyCampaign, startCampaign, type CampaignDefinition, type CampaignState } from "../../game/campaign";
 import { useAppStore } from "../store";
@@ -42,6 +43,8 @@ export interface CampaignContext {
 export interface PhaseLog {
   phase: number;
   title: string;
+  /** The Host's intent for the phase (the headline, without "Phase N:"). */
+  intent: string;
   seed: number;
   weather: Weather;
   status: EngineState["status"];
@@ -171,7 +174,7 @@ export const useGame = create<GameState>((set, get) => ({
       !squad ||
       squad.faction !== scenario.playerFaction ||
       squad.status !== "active" ||
-      !scenario.playerDoctrineIds.includes(doctrineId)
+      !isOrderAllowed(scenario, squadId, doctrineId)
     ) {
       return false;
     }
@@ -195,6 +198,7 @@ export const useGame = create<GameState>((set, get) => ({
     const entry: PhaseLog = {
       phase: result.report.phase,
       title: result.report.title,
+      intent: result.report.intent,
       seed: result.report.seed,
       weather: result.report.weather,
       status: result.state.status,

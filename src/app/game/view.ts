@@ -5,7 +5,7 @@ import {
   narrateEvent,
   type Doctrine,
   type EngineEvent,
-  type EngineState,
+  type NameSource,
   type VisibleSquad,
   type VisibleState,
   type Weather,
@@ -123,10 +123,10 @@ function toneOf(event: EngineEvent): ChronicleTone | null {
 }
 
 /**
- * The key events of a phase, from the player's filtered stream. `names` is the state
- * used only to name the companies an event mentions (narrateEvent's lookup).
+ * The key events of a phase, from the player's filtered stream. `names` (the player's
+ * visibleState) is used only to name the companies an event mentions.
  */
-export function buildChronicle(events: EngineEvent[], names: EngineState): ChronicleEntry[] {
+export function buildChronicle(events: EngineEvent[], names: NameSource): ChronicleEntry[] {
   const entries: ChronicleEntry[] = [];
   events.forEach((event, index) => {
     const tone = toneOf(event);
@@ -139,7 +139,7 @@ export function buildChronicle(events: EngineEvent[], names: EngineState): Chron
 }
 
 /** Which standing orders fired this phase, grouped by company, player companies first. */
-export function firedOrders(events: EngineEvent[], names: EngineState, playerFaction: string): FiredOrders[] {
+export function firedOrders(events: EngineEvent[], names: VisibleState, playerFaction: string): FiredOrders[] {
   const bySquad = new Map<string, FiredOrders>();
   for (const event of events) {
     if (event.kind !== "ruleFired" || !event.squadId) {

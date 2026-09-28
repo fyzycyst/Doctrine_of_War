@@ -260,7 +260,7 @@ describe("visibleState", () => {
       ["fortune", "maxPhases", "objectives", "phase", "scenarioId", "seed", "squads", "status", "viewer", "weather"].sort(),
     );
     expect(Object.keys(view.squads[0]).sort()).toEqual(
-      ["braced", "cohesion", "doctrineId", "faction", "hex", "id", "lastKnown", "name", "resolve", "role", "status", "strength", "surging"].sort(),
+      ["braced", "cohesion", "doctrineId", "faction", "hex", "id", "lastKnown", "lastSeen", "name", "resolve", "role", "status", "strength", "surging"].sort(),
     );
     expect(JSON.stringify(view)).not.toMatch(/contacts|dreaded|rngState|intel/);
   });

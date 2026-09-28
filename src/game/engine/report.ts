@@ -10,9 +10,18 @@ const weatherName: Record<Weather, string> = {
   ashWind: "ash-wind",
 };
 
-export function narrateEvent(event: EngineEvent, state: EngineState): string | null {
-  const name = (id: string) => state.squads.find((squad) => squad.id === id)?.name ?? id;
-  const objectiveName = (id: string) => state.objectives.find((item) => item.id === id)?.name ?? id;
+/**
+ * Where narration looks up names. A VisibleState satisfies it, so the UI never needs
+ * raw engine state; an id it cannot resolve is narrated as unseen, never printed.
+ */
+export interface NameSource {
+  squads: { id: string; name: string }[];
+  objectives: { id: string; name: string }[];
+}
+
+export function narrateEvent(event: EngineEvent, names: NameSource): string | null {
+  const name = (id: string) => names.squads.find((squad) => squad.id === id)?.name ?? "an unseen company";
+  const objectiveName = (id: string) => names.objectives.find((item) => item.id === id)?.name ?? "the objective";
 
   switch (event.kind) {
     case "ruleFired":
@@ -66,7 +75,8 @@ export function narrateEvent(event: EngineEvent, state: EngineState): string | n
   }
 }
 
-export function buildReport(phase: number, title: string, events: EngineEvent[], state: EngineState): PhaseReport {
+export function buildReport(phase: number, intent: string, events: EngineEvent[], state: EngineState): PhaseReport {
+  const title = `Phase ${phase}: ${intent}`;
   const lines = events
     .map((event) => {
       const text = narrateEvent(event, state);
@@ -74,5 +84,5 @@ export function buildReport(phase: number, title: string, events: EngineEvent[],
     })
     .filter((line): line is string => line !== null);
 
-  return { phase, title, lines, status: state.status, seed: state.seed, weather: state.weather };
+  return { phase, title, intent, lines, status: state.status, seed: state.seed, weather: state.weather };
 }

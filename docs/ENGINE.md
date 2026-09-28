@@ -222,3 +222,22 @@ scenario in `scenarios/index.ts` must pass. The scenarios so far:
 - *The First Breach*: the tutorial, which teaches holding and rallying.
 - *Ember Ford*: battle 1, which teaches Clean Counterstroke against overextension, kept
   steady by a rally banner.
+
+## UI surface
+
+- **Deployment** (`deployment.ts`):
+  - `deploymentHexes(scenario)` lists the player's deployment zone.
+  - `checkPlacement` and `validateDeployment(scenario, placements)` return a
+    plain-language reason for each squad whose placement is illegal.
+  - `applyDeployment` returns a copy of the scenario with the placements applied, and
+    throws on an illegal one.
+- **Narration** reads names from a `NameSource`, which the player's `VisibleState`
+  satisfies, so the UI never touches raw state. An unknown id is narrated as "an unseen
+  company".
+- **Reports:** `report.intent` is the Host's line for the phase on its own; `title` is
+  "Phase N: intent".
+- **`VisibleSquad.lastSeen`** is `{phase, beat}` of the last sighting (null for own
+  squads, or with fortune off). `visibleHexes(state, scenario, faction)` lists the hexes
+  in sight (every hex with fortune off), for the fog-mist renderer.
+- **Orders:** `isOrderAllowed(scenario, squadId, doctrineId)` accepts any doctrine in
+  `playerDoctrineIds`, and always the squad's own scenario default.
