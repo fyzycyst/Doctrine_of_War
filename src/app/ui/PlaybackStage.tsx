@@ -5,7 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import type { BoardLayout } from "../../game/board";
+import { hexDistance, type BoardLayout } from "../../game/board";
 import type { CameraShot } from "../../render/camera/DioramaCamera";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
 import { useCaptureStore } from "../captureStore";
@@ -33,8 +33,8 @@ export function PlaybackStage({ board, shot, reducedMotion }: { board: BoardLayo
         .filter((callout) => callout.hex)
         .map((callout) => {
           const [x, z] = hexToWorld(callout.hex!, center);
-          // Stack callouts that share a hex so they never overprint.
-          const stacked = callouts.filter((other) => other.hex && other.id < callout.id && other.hex.q === callout.hex!.q && other.hex.r === callout.hex!.r).length;
+          // Stack callouts on the same or neighbouring hexes so they never overprint.
+          const stacked = calloutStack(callouts, callout);
           return (
             <Html
               key={callout.id}
@@ -50,6 +50,11 @@ export function PlaybackStage({ board, shot, reducedMotion }: { board: BoardLayo
         })}
     </>
   );
+}
+
+/** How many older callouts sit on this callout's hex or a neighbouring one (its stack height). */
+export function calloutStack(callouts: Callout[], callout: Callout): number {
+  return callouts.filter((other) => other.hex && callout.hex && other.id < callout.id && hexDistance(other.hex, callout.hex) <= 1).length;
 }
 
 function CalloutCard({ callout }: { callout: Callout }) {

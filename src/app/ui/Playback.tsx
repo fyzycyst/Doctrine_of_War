@@ -126,6 +126,11 @@ export function Playback({
           store.pushCallout({ kind: "stage", hex: null, faction: null, title: turn.title, text: turn.goal.text, repeat: false, linger: 0 });
           await new Promise<void>((resolve) => {
             endTurn.current = resolve;
+            if (import.meta.env.DEV && pauseAt === "stage") {
+              // Dev capture: hold the dawn moment for the still.
+              later(700, () => (window.__playbackFrozen = { ready: true, frames: 9999 }));
+              return;
+            }
             later(STAGE_TURN_MS, resolve);
           });
           endTurn.current = null;

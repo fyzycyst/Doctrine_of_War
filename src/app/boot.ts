@@ -5,7 +5,8 @@
 //   &fortune=off &seed=7   battle setup
 //   &stage=deploy|command|resolving|report|outcome   fast-forward (orders: &plan=intended|bad)
 //   &phase=2               which phase to stop in (command, resolving, report)
-//   &pauseAt=rule|rule-mine|surge|rout|…   freeze playback on the first callout of that kind
+//   &pauseAt=rule|rule-mine|surge|rout|…|stage   freeze playback on that callout (stage: the dawn moment)
+//   &speed=N               fast-forward playback
 //   &select=<squadId>      select a squad
 //   &still=1               no idle camera drift (captures)
 //   &guide=reset | &coach=select|read|assign|seal|watch|chronicle | &howto=1   guidance
@@ -64,6 +65,10 @@ export function bootFromUrl(search: string): BootOptions {
   if (params.get("howto") === "1") {
     useFlow.getState().setHowToOpen(true);
   }
+
+  // `&speed=N`: fast-forward playback timers (captures of late moments).
+  const speed = Number(params.get("speed"));
+  if (speed > 0) useGame.setState({ playbackSpeed: speed });
 
   const stage = params.get("stage") as Stage | null;
   const goal = stage ? ORDER.indexOf(stage) : -1;

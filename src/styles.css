@@ -2939,9 +2939,11 @@ h3 {
   color: var(--gold-hi);
 }
 
-/* Long rules (the escort's) wrap instead of stretching a banner across the board. */
+/* Long rules wrap instead of stretching a banner across the board; short ones stay on
+   one line (max-content, or the absolutely placed wrapper would shrink them narrow). */
 .callout-rule .callout-line {
   display: block;
+  width: max-content;
   max-width: 300px;
   white-space: normal;
 }
