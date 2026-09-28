@@ -2895,3 +2895,53 @@ h3 {
   font-family: var(--display);
   color: var(--gold-hi);
 }
+
+/* ----------------------------------------------------- the Column (ward) */
+
+.banner-tab.ward .banner-glyph,
+.insp-glyph.ward {
+  background: linear-gradient(180deg, #8a7250, #4a3a24);
+  color: var(--bone);
+}
+
+.must-escape {
+  padding: 0 7px;
+  border: 1px solid var(--gold-line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-style: normal;
+  color: var(--gold-hi);
+}
+
+.must-escape.safe {
+  border-color: rgba(143, 176, 232, 0.45);
+  color: var(--lapis-text);
+}
+
+.ward-marker {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 4px 10px 5px;
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  background: rgba(40, 30, 16, 0.9);
+  color: var(--bone);
+  white-space: nowrap;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+}
+
+.ward-must {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-hi);
+}
+
+/* Long rules (the escort's) wrap instead of stretching a banner across the board. */
+.callout-rule .callout-line {
+  display: block;
+  max-width: 300px;
+  white-space: normal;
+}

@@ -5,6 +5,7 @@ import type { BoardLayout, HexCoord } from "../../game/board";
 import { doctrineLibrary, type EngineEvent, type FactionId, type VisibleSquad, type VisibleState } from "../../game/engine";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { figureCount } from "../../render/squadLayout";
+import { rosterName } from "../game/view";
 import {
   applyStep,
   comeIntoView,
@@ -214,7 +215,7 @@ export class PlaybackDirector {
             kind: "rule",
             hex: squad.hex,
             faction: squad.faction,
-            title: squad.name,
+            title: rosterName(squad),
             text: when ? `${when} → ${then}` : then,
             repeat: step.repeat,
             linger: step.linger,

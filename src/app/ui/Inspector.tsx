@@ -3,10 +3,10 @@ import { getHex, hexKey, sameHex, terrainDefenseBonus } from "../../game/board";
 import { sightRangeAt, type VisibleSquad } from "../../game/engine";
 import { deploymentHexes, hexName } from "../game/deploy";
 import { useGame } from "../game/gameStore";
-import { getDoctrine, resolveRank } from "../game/view";
+import { getDoctrine, resolveRank, rosterName } from "../game/view";
 import { useAppStore } from "../store";
 import { DoctrineCardFace, SealedCard } from "./DoctrineCard";
-import { ROLE_NAME, RoleGlyph } from "./glyphs";
+import { ColumnGlyph, ROLE_NAME, RoleGlyph } from "./glyphs";
 
 const signed = (value: number) => (value >= 0 ? `+${value}` : `${value}`);
 
@@ -31,30 +31,31 @@ export function Inspector() {
   }
 
   const own = squad.faction === view.viewer;
+  const ward = Boolean(squad.noncombatant);
   const boardHex = squad.hex ? getHex(scenario.board, squad.hex) : undefined;
   const doctrine = getDoctrine(own ? (orders[squad.id] ?? squad.doctrineId) : squad.doctrineId);
 
   return (
     <aside
       className={`inspector ${own ? "own" : "enemy"} ${previewing ? "previewing" : ""}`}
-      aria-label={`Inspector: ${squad.name}`}
+      aria-label={`Inspector: ${rosterName(squad)}`}
     >
       <header className="insp-head">
-        <span className="insp-glyph">
-          <RoleGlyph role={squad.role} size={22} />
-        </span>
+        <span className={`insp-glyph ${ward ? "ward" : ""}`}>{ward ? <ColumnGlyph size={22} /> : <RoleGlyph role={squad.role} size={22} />}</span>
         <div>
-          <h2>{squad.name}</h2>
+          <h2>{rosterName(squad)}</h2>
           <p className="insp-sub">
-            {ROLE_NAME[squad.role]} ·{" "}
-            {own
+            {ward ? "Refugees in your care · they must escape" : <>{ROLE_NAME[squad.role]} · </>}
+            {ward
+              ? null
+              : own
               ? resolveRank(squad.resolve)
               : squad.lastKnown
                 ? squad.lastSeen
                   ? `last seen phase ${squad.lastSeen.phase}${squad.lastSeen.beat ? `, beat ${squad.lastSeen.beat}` : ""}`
                   : "last seen"
                 : "in sight"}
-            {squad.renown && <span className="renown"> · “{squad.renown.title}”</span>}
+            {!ward && squad.renown && <span className="renown"> · “{squad.renown.title}”</span>}
           </p>
         </div>
       </header>
@@ -125,7 +126,9 @@ export function Inspector() {
         <DeployChoices squad={squad} />
       ) : doctrine ? (
         <div className="insp-doctrine">
-          <p className="insp-label">{own ? (orders[squad.id] ? "Orders for this phase" : "Standing doctrine") : "Their doctrine"}</p>
+          <p className="insp-label">
+            {ward ? "Its own orders · cannot be changed" : own ? (orders[squad.id] ? "Orders for this phase" : "Standing doctrine") : "Their doctrine"}
+          </p>
           <div className="doctrine-card flat">
             <DoctrineCardFace doctrine={doctrine} compact />
           </div>

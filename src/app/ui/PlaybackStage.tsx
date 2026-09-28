@@ -9,7 +9,8 @@ import type { BoardLayout } from "../../game/board";
 import type { CameraShot } from "../../render/camera/DioramaCamera";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
 import { useCaptureStore } from "../captureStore";
-import { useGame, type Callout } from "../game/gameStore";
+import { useGame, useShownView, type Callout } from "../game/gameStore";
+import { rosterName } from "../game/view";
 import { Sigil } from "./glyphs";
 
 /** Height above the board at which callouts float (over the squad's banner). */
@@ -27,6 +28,7 @@ export function PlaybackStage({ board, shot, reducedMotion }: { board: BoardLayo
   return (
     <>
       {!reducedMotion && <CameraEmphasis center={center} shot={shot} />}
+      <WardMarkers center={center} />
       {callouts
         .filter((callout) => callout.hex)
         .map((callout) => {
@@ -75,6 +77,31 @@ function CalloutCard({ callout }: { callout: Callout }) {
       <span className="callout-title">{callout.title}</span>
       <span className="callout-text">{callout.text}</span>
     </div>
+  );
+}
+
+/** While you plan, a pennant over each charge you must bring out (the Saltmarsh Column). */
+function WardMarkers({ center }: { center: { x: number; z: number } }) {
+  const stage = useGame((s) => s.stage);
+  const view = useShownView();
+  const captureMode = useCaptureStore((s) => s.captureMode);
+  if (captureMode || (stage !== "command" && stage !== "deploy")) return null;
+  return (
+    <>
+      {view.squads
+        .filter((squad) => squad.noncombatant && squad.status === "active" && squad.hex)
+        .map((squad) => {
+          const [x, z] = hexToWorld(squad.hex!, center);
+          return (
+            <Html key={squad.id} position={[x, CALLOUT_Y, z]} center zIndexRange={[20, 20]} style={{ pointerEvents: "none" }}>
+              <div className="ward-marker">
+                <span className="callout-title">{rosterName(squad)}</span>
+                <span className="ward-must">Must escape</span>
+              </div>
+            </Html>
+          );
+        })}
+    </>
   );
 }
 
