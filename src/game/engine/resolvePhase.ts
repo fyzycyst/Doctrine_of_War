@@ -247,7 +247,19 @@ export function resolvePhase(
     } else {
       state.phase = phase + 1;
       // The hour turns with the phase, so the next command window sees by the next hour.
+      const hour = state.timeOfDay;
       state.timeOfDay = timeOfDayAt(scenario, state.phase);
+      if (state.timeOfDay !== hour) {
+        // New light: sightings (and any first-sight dread) land now, in this phase's
+        // closing events, so the command window's intel matches what can be seen.
+        const standing = state.squads.filter(isActive).length;
+        afterChange(ctx);
+        // Only a rout from dread can change the outcome here; otherwise the next phase's
+        // start decides, as before.
+        if (state.squads.filter(isActive).length < standing) {
+          outcome = evaluateOutcome(state, scenario, false);
+        }
+      }
     }
   }
   if (outcome) {

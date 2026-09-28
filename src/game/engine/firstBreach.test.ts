@@ -85,6 +85,47 @@ describe("The First Breach (v2)", () => {
     expect(ralliedRate - unralliedRate).toBeGreaterThanOrEqual(0.2);
   });
 
+  it("defaults to the intended plan minus one lesson: the riders' Counterstroke", () => {
+    const defaults: Orders = Object.fromEntries(
+      firstBreach.squads.filter((item) => item.faction === "free_banners").map((item) => [item.id, item.doctrineId]),
+    );
+    const changed = Object.keys(intendedPlan).filter((id) => defaults[id] !== intendedPlan[id]);
+    expect(changed).toEqual(["stoneford_riders"]);
+    expect([defaults.stoneford_riders, intendedPlan.stoneford_riders]).toEqual(["hold_for_dawn", "clean_counterstroke"]);
+
+    // The first campaign play (curated seed, fortune on): the defaults lose in the last beat;
+    // the one change is the clean win.
+    const play = (orders: Orders) => {
+      let state = createInitialState(firstBreach, { seed: firstBreach.curatedSeed, fortune: "on" });
+      while (state.status === "command") {
+        state = resolvePhase(state, orders, firstBreach).state;
+      }
+      return state;
+    };
+    const asIs = play(defaults);
+    expect(asIs.status).toBe("defeat");
+    expect(asIs.phase).toBe(firstBreach.maxPhases);
+    const taught = play({ ...defaults, stoneford_riders: "clean_counterstroke" });
+    expect(taught.status).toBe("victory");
+    expect(taught.squads.filter((item) => item.faction === "free_banners" && item.status !== "active").length).toBeLessThanOrEqual(1);
+    expect(taught.objectives[0].integrity).toBeGreaterThanOrEqual(85);
+
+    // Over many nights the defaults are a coin flip; the lesson makes it a solid win.
+    const rate = (orders: Orders) => {
+      let wins = 0;
+      for (let seed = 1; seed <= 100; seed += 1) {
+        let state = createInitialState(firstBreach, { seed, fortune: "on" });
+        while (state.status === "command") state = resolvePhase(state, orders, firstBreach).state;
+        wins += state.status === "victory" ? 1 : 0;
+      }
+      return wins / 100;
+    };
+    const defaultRate = rate(defaults);
+    expect(defaultRate).toBeGreaterThanOrEqual(0.3);
+    expect(defaultRate).toBeLessThanOrEqual(0.6);
+    expect(rate(intendedPlan) - defaultRate).toBeGreaterThanOrEqual(0.3);
+  });
+
   it("loses the gate when every company uses Fighting Withdrawal", () => {
     const { state, gate, events } = playBattle(everyone("fighting_withdrawal"));
     expect(state.status).toBe("defeat");
