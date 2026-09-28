@@ -42,7 +42,7 @@ export function BattleBoard({ still = false }: { still?: boolean }) {
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         onPointerMissed={() => clearSelection()}
       >
-        <LookProvider skin={emberDusk} timeOfDay={lightingFor(scenario.timeOfDay)}>
+        <LookProvider skin={emberDusk} timeOfDay={lightingFor(view.timeOfDay)}>
           <DioramaCamera shot={shot} drift={!still} />
           <Diorama
             key={scenario.id}

@@ -51,6 +51,9 @@ export function forecastInWords(scenario: EngineScenario, fortune: FortuneMode):
 export const TIME_OF_DAY_NAME = {
   day: "Dusk, the last light of the day",
   nightFires: "Night, lit by the burning river",
+  rainGrey: "Grey rain over the saltmarsh",
+  predawn: "The dark hour before dawn",
+  sunrise: "Sunrise",
 } as const;
 
 export function Briefing() {

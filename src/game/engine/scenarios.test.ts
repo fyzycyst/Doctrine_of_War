@@ -11,7 +11,7 @@ describe("every scenario", () => {
         for (const id of scenario.playerDoctrineIds) {
           expect(doctrineLibrary[id]?.faction).toBe(scenario.playerFaction);
         }
-        for (const setup of scenario.squads.filter((squad) => squad.faction === scenario.playerFaction)) {
+        for (const setup of scenario.squads.filter((squad) => squad.faction === scenario.playerFaction && !squad.noncombatant)) {
           expect(scenario.playerDoctrineIds).toContain(setup.doctrineId);
         }
       });
@@ -21,7 +21,7 @@ describe("every scenario", () => {
         const final = playBattle(scenario, scenario.referencePlans!.intended, scenario.curatedSeed!, "on");
         expect(final.status).toBe("victory");
         const broken = final.squads.filter(
-          (squad) => squad.faction === scenario.playerFaction && squad.status !== "active",
+          (squad) => squad.faction === scenario.playerFaction && (squad.status === "routed" || squad.status === "destroyed"),
         );
         expect(broken.length).toBeLessThanOrEqual(1);
         for (const objective of final.objectives.filter((item) => item.defender === scenario.playerFaction)) {

@@ -4,6 +4,7 @@ import { boardNeighbors, getHex, hexDistance, terrainDefenseBonus, type HexCoord
 import { checkRout, clamp, type EngineContext } from "./context";
 import { firstContact } from "./fortune";
 import { planAdvance, planFallBack } from "./movement";
+import { exitHexesFor } from "./outcome";
 import { perceive, perceivedAdjacentEnemies } from "./perception";
 import { resolveTarget, type ResolvedTarget } from "./rules";
 import type { Action, DoctrinePassives, EngineSquad, SquadRole } from "./types";
@@ -26,6 +27,8 @@ export const RIPOSTE_SCALE = 0.5;
 export const SIEGE_OBJECTIVE_DAMAGE = 40;
 export const BASE_OBJECTIVE_DAMAGE = 12;
 export const RALLY_BASE = 12;
+/** A ward (noncombatant) below this cohesion is rallied before any other adjacent ally. */
+export const RALLY_WARD_BELOW = 75;
 export const ASH_WIND_HOST_COHESION = 1;
 
 /** Role fit: support and skirmish companies are poor at holding a line or brawling. */
@@ -192,8 +195,9 @@ function isAdjacentTo(squad: ActiveSquad, target: ResolvedTarget): boolean {
   }
 }
 
-function hold(squad: ActiveSquad) {
-  squad.braced = true;
+/** Brace in place, except in marsh: there is no firm footing to brace on. */
+function hold(ctx: EngineContext, squad: ActiveSquad) {
+  squad.braced = getHex(ctx.scenario.board, squad.hex)?.terrain !== "marsh";
 }
 
 /** Moves along the planned path. Returns false if the squad could not move at all. */
@@ -226,6 +230,10 @@ function isHostile(squad: ActiveSquad, target: ResolvedTarget): boolean {
 }
 
 function strike(ctx: EngineContext, squad: ActiveSquad, target: ResolvedTarget, charge: boolean) {
+  if (squad.noncombatant) {
+    ctx.emit({ kind: "blocked", squadId: squad.id, reason: "does not fight" });
+    return;
+  }
   // Types keep offensive actions on enemy selectors, but editor JSON can bypass them.
   if (!isHostile(squad, target)) {
     ctx.emit({ kind: "blocked", squadId: squad.id, reason: "will not strike its own side" });
@@ -241,7 +249,7 @@ function strike(ctx: EngineContext, squad: ActiveSquad, target: ResolvedTarget, 
 export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Action) {
   switch (action.kind) {
     case "hold":
-      hold(squad);
+      hold(ctx, squad);
       return;
 
     case "advance": {
@@ -251,7 +259,7 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
         return;
       }
       if (target.kind !== "hexes" && isAdjacentTo(squad, target)) {
-        hold(squad); // already in position: brace there
+        hold(ctx, squad); // already in position: brace there
         return;
       }
       if (!moveToward(ctx, squad, target, speedOf(squad), "advance")) {
@@ -309,10 +317,11 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
     }
 
     case "fallBack": {
-      const path = planFallBack(ctx.state, ctx.scenario.board, squad, action.hexes, perceive(ctx, squad).enemies);
+      const homeward = exitHexesFor(ctx.scenario, squad.faction) ?? [];
+      const path = planFallBack(ctx.state, ctx.scenario.board, squad, action.hexes, perceive(ctx, squad).enemies, homeward);
       if (path.length < 2) {
         // Cornered: nowhere to go, so the squad stands and braces.
-        hold(squad);
+        hold(ctx, squad);
         ctx.emit({ kind: "blocked", squadId: squad.id, reason: "cornered, bracing instead" });
         return;
       }
@@ -322,9 +331,11 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
     }
 
     case "rally": {
+      // Weakest adjacent ally first; a shaken ward (a column under escort) comes before everyone.
+      const shakenWard = (ally: ActiveSquad) => (ally.noncombatant && ally.cohesion < RALLY_WARD_BELOW ? 0 : 1);
       const target = alliesOf(ctx.state, squad)
         .filter((ally) => hexDistance(ally.hex, squad.hex) === 1 && ally.cohesion < 100)
-        .sort((a, b) => a.cohesion - b.cohesion)[0];
+        .sort((a, b) => shakenWard(a) - shakenWard(b) || a.cohesion - b.cohesion)[0];
       if (!target) {
         ctx.emit({ kind: "blocked", squadId: squad.id, reason: "no ally to rally" });
         return;

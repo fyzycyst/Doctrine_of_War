@@ -25,9 +25,10 @@ export function canEnter(state: EngineState, board: BoardLayout, hex: HexCoord):
   );
 }
 
-/** In rain, entering a ford hex ends the move. */
+/** Entering marsh ends the move; so does entering a ford in rain. */
 function slowedByWeather(state: EngineState, board: BoardLayout, hex: HexCoord): boolean {
-  return state.weather === "rain" && getHex(board, hex)?.terrain === "ford";
+  const terrain = getHex(board, hex)?.terrain;
+  return terrain === "marsh" || (state.weather === "rain" && terrain === "ford");
 }
 
 function inEnemyZone(state: EngineState, squad: ActiveSquad, hex: HexCoord): boolean {
@@ -98,9 +99,13 @@ export function planAdvance(
   return path;
 }
 
-function fallBackScore(threats: ActiveSquad[], hex: HexCoord): number {
+/** How strongly a withdrawal pulls toward the line of retreat (per hex closer to it). */
+export const HOMEWARD_PULL = 60;
+
+function fallBackScore(threats: ActiveSquad[], hex: HexCoord, homeward: HexCoord[]): number {
   const distances = threats.map((enemy) => hexDistance(enemy.hex, hex));
-  return Math.min(...distances) * 100 + distances.reduce((sum, value) => sum + value, 0);
+  const retreat = homeward.length > 0 ? Math.min(...homeward.map((home) => hexDistance(home, hex))) * HOMEWARD_PULL : 0;
+  return Math.min(...distances) * 100 + distances.reduce((sum, value) => sum + value, 0) - retreat;
 }
 
 /**
@@ -115,6 +120,8 @@ export function planFallBack(
   hexes: number,
   /** The enemies the squad is falling back from: what it perceives, not the true state. */
   threats: ActiveSquad[],
+  /** The side's line of retreat (its exit hexes, if it has any): a withdrawal leans toward it. */
+  homeward: HexCoord[] = [],
 ): HexCoord[] {
   const path: HexCoord[] = [{ ...squad.hex }];
   if (threats.length === 0) {
@@ -124,14 +131,14 @@ export function planFallBack(
   for (let step = 0; step < hexes; step += 1) {
     const current = path[path.length - 1];
     let best: HexCoord | undefined;
-    let bestScore = fallBackScore(threats, current);
+    let bestScore = fallBackScore(threats, current, homeward);
 
     for (const neighbor of boardNeighbors(board, current)) {
       const visitedAlready = path.some((hex) => sameHex(hex, neighbor.coord));
       if (visitedAlready || !canEnter(state, board, neighbor.coord)) {
         continue;
       }
-      const score = fallBackScore(threats, neighbor.coord);
+      const score = fallBackScore(threats, neighbor.coord, homeward);
       if (score > bestScore) {
         best = { ...neighbor.coord };
         bestScore = score;

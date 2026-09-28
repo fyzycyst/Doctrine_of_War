@@ -96,8 +96,8 @@ export function Inspector() {
             <div>
               <dt>Sight</dt>
               <dd>
-                {sightRangeAt(scenario, view.weather, squad.hex)}
-                <span className="unit"> {sightRangeAt(scenario, view.weather, squad.hex) === 1 ? "hex" : "hexes"}</span>
+                {sightRangeAt(scenario, view.weather, squad.hex, view.timeOfDay)}
+                <span className="unit"> {sightRangeAt(scenario, view.weather, squad.hex, view.timeOfDay) === 1 ? "hex" : "hexes"}</span>
               </dd>
             </div>
           </>

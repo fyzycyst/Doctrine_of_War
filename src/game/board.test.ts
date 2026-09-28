@@ -73,6 +73,8 @@ describe("hex board model", () => {
       field: 0,
       ruin: 2,
       river: 0,
+      marsh: -1,
+      reeds: 1,
     };
 
     for (const [terrain, bonus] of Object.entries(expectedBonuses) as [TerrainType, number][]) {

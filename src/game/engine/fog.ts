@@ -15,6 +15,7 @@ import type {
   RedactedActor,
   SquadStatus,
   Weather,
+  TimeOfDay,
 } from "./types";
 import { isActive, type ActiveSquad } from "./world";
 
@@ -54,21 +55,41 @@ export function hexLine(a: HexCoord, b: HexCoord): HexCoord[] {
   return line;
 }
 
-/** Sight range of a squad standing on `hex` in this weather (also used by the UI inspector). */
-export function sightRangeAt(scenario: EngineScenario, weather: Weather, hex: HexCoord): number {
+/** Ruins and reed banks hide what lies behind them. */
+export function blocksSight(terrain: string | undefined): boolean {
+  return terrain === "ruin" || terrain === "reeds";
+}
+
+/** The hour in a given phase: `timeOfDayByPhase` overrides `timeOfDay` (default "day"). */
+export function timeOfDayAt(scenario: EngineScenario, phase: number): TimeOfDay {
+  return scenario.timeOfDayByPhase?.[phase] ?? scenario.timeOfDay ?? "day";
+}
+
+/** Dark hours close in the horizon: night, grey rain and the hour before dawn. */
+function darkHour(timeOfDay: TimeOfDay): boolean {
+  return timeOfDay === "nightFires" || timeOfDay === "rainGrey" || timeOfDay === "predawn";
+}
+
+/** Sight range of a squad standing on `hex` in this weather and hour (also used by the UI inspector). */
+export function sightRangeAt(
+  scenario: EngineScenario,
+  weather: Weather,
+  hex: HexCoord,
+  timeOfDay: TimeOfDay = scenario.timeOfDay ?? "day",
+): number {
   const ridge = getHex(scenario.board, hex)?.terrain === "ridge" ? RIDGE_SIGHT_BONUS : 0;
   const mist = weather === "mist" ? MIST_SIGHT_PENALTY : 0;
-  const night = scenario.timeOfDay === "nightFires" ? NIGHT_SIGHT_PENALTY : 0;
-  return Math.max(1, BASE_SIGHT + ridge - mist - night);
+  const dark = darkHour(timeOfDay) ? NIGHT_SIGHT_PENALTY : 0;
+  return Math.max(1, BASE_SIGHT + ridge - mist - dark);
 }
 
 export function sightRange(ctx: RuleContext, observer: ActiveSquad): number {
-  return sightRangeAt(ctx.scenario, ctx.state.weather, observer.hex);
+  return sightRangeAt(ctx.scenario, ctx.state.weather, observer.hex, ctx.state.timeOfDay);
 }
 
 /** At night, a squad on a ford or beside the burning river is lit and seen from 1 hex further. */
 export function isLit(ctx: RuleContext, hex: HexCoord): boolean {
-  if (ctx.scenario.timeOfDay !== "nightFires") {
+  if (ctx.state.timeOfDay !== "nightFires") {
     return false;
   }
   const here = getHex(ctx.scenario.board, hex)?.terrain;
@@ -86,7 +107,7 @@ export function canSeeHex(ctx: RuleContext, observer: ActiveSquad, hex: HexCoord
   }
   return hexLine(observer.hex, hex)
     .slice(1, -1)
-    .every((between) => getHex(ctx.scenario.board, between)?.terrain !== "ruin");
+    .every((between) => !blocksSight(getHex(ctx.scenario.board, between)?.terrain));
 }
 
 export function canSee(ctx: RuleContext, observer: ActiveSquad, target: ActiveSquad): boolean {
@@ -369,6 +390,7 @@ export interface VisibleSquad {
   braced: boolean;
   surging: boolean;
   renown?: { title: string };
+  noncombatant?: boolean;
   /** true: an enemy shown where it was last seen, with the stats it had then. */
   lastKnown: boolean;
   /** For enemies under fog: when they were last in sight. null for own squads, or with fortune off. */
@@ -385,6 +407,7 @@ export interface VisibleState {
   fortune: EngineState["fortune"];
   seed: number;
   weather: EngineState["weather"];
+  timeOfDay: EngineState["timeOfDay"];
   objectives: EngineState["objectives"];
   squads: VisibleSquad[];
 }
@@ -404,6 +427,7 @@ function showSquad(squad: EngineSquad, overrides: Partial<VisibleSquad> = {}): V
     braced: squad.braced,
     surging: squad.surging,
     ...(squad.renown ? { renown: { title: squad.renown.title } } : {}),
+    ...(squad.noncombatant ? { noncombatant: true } : {}),
     lastKnown: false,
     lastSeen: null,
     ...overrides,
@@ -467,6 +491,7 @@ export function visibleState(state: EngineState, viewer: FactionId): VisibleStat
     fortune: state.fortune,
     seed: state.seed,
     weather: state.weather,
+    timeOfDay: state.timeOfDay,
     objectives: state.objectives.map((objective) => ({ ...objective, hex: { ...objective.hex } })),
     squads,
   };

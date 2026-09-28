@@ -168,6 +168,9 @@ export const emberDusk: Skin = {
     ridge: { top: "#8a8670", height: 0.72, accent: P.stone },
     wall: { top: "#7e7a68", height: 0.38, accent: P.stone },
     ruin: { top: "#7d7b5e", height: 0.36, accent: P.stone },
+    // Saltmarsh: sodden ground just above the water line; reed banks stand taller.
+    marsh: { top: "#5c6446", height: 0.14, accent: P.water },
+    reeds: { top: "#8c8a4e", height: 0.34 },
   },
   factions: {
     free_banners: {

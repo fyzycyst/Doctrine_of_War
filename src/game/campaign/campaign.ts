@@ -258,7 +258,8 @@ export function validateCampaignDefinition(def: CampaignDefinition, scenarios: E
       problems.push(`${battle.id}: unknown scenario ${battle.scenarioId}`);
       continue;
     }
-    const playerSquads = scenario.squads.filter((squad) => squad.faction === scenario.playerFaction);
+    // Noncombatants (a refugee column) are not campaign companies.
+    const playerSquads = scenario.squads.filter((squad) => squad.faction === scenario.playerFaction && !squad.noncombatant);
     for (const squad of playerSquads) {
       const companyId = battle.slots[squad.id];
       const company = def.companies.find((item) => item.id === companyId);

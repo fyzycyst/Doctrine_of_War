@@ -22,4 +22,5 @@ export { evaluateOutcome } from "./outcome";
 export { narrateEvent, type NameSource } from "./report";
 export { firstBreach } from "./scenarios/firstBreach";
 export { emberFord } from "./scenarios/emberFord";
+export { saltmarshColumn } from "./scenarios/saltmarshColumn";
 export { scenarios } from "./scenarios";

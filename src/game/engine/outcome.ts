@@ -22,6 +22,19 @@ export function validateWinCondition(scenario: EngineScenario) {
       throw new Error(`Scenario ${scenario.id}: invalid ${condition.kind} defeat condition`);
     }
   }
+  for (const squad of scenario.squads.filter((item) => item.noncombatant)) {
+    if (squad.faction !== scenario.playerFaction) {
+      throw new Error(`Scenario ${scenario.id}: noncombatant ${squad.id} must be a player squad`);
+    }
+  }
+  if (scenario.winCondition.kind === "escapeEdge") {
+    for (const id of scenario.winCondition.mustEscape ?? []) {
+      const squad = scenario.squads.find((item) => item.id === id);
+      if (!squad || squad.faction !== scenario.playerFaction) {
+        throw new Error(`Scenario ${scenario.id}: mustEscape squad ${id} must be a player squad`);
+      }
+    }
+  }
   const win = scenario.winCondition;
   if (win.kind !== "destroySquads") {
     return;
@@ -65,11 +78,17 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
       }
       break;
     }
-    case "escapeEdge":
-      if (escaped >= win.count) {
+    case "escapeEdge": {
+      const must = (win.mustEscape ?? []).map((id) => state.squads.find((squad) => squad.id === id));
+      const lost = must.find((squad) => squad && (squad.status === "routed" || squad.status === "destroyed"));
+      if (lost) {
+        return { status: "defeat", reason: `${lost.name} was lost.` };
+      }
+      if (escaped >= win.count && must.every((squad) => squad?.status === "escaped")) {
         return { status: "victory", reason: `${escaped} companies escaped the field.` };
       }
       break;
+    }
     case "destroySquads": {
       const broken = (id: string) => {
         const squad = state.squads.find((item) => item.id === id);
@@ -92,7 +111,9 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
         return { status: "defeat", reason: `${through} enemy companies broke through behind the line.` };
       }
     } else {
-      const lost = playerSquads.filter((squad) => squad.status === "routed" || squad.status === "destroyed").length;
+      const lost = playerSquads.filter(
+        (squad) => !squad.noncombatant && (squad.status === "routed" || squad.status === "destroyed"),
+      ).length;
       if (lost >= condition.count) {
         return { status: "defeat", reason: `The line broke: ${lost} companies are lost.` };
       }
@@ -106,6 +127,15 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
   if (final) {
     if (win.kind === "holdObjective") {
       return { status: "victory", reason: "The line held until dawn." };
+    }
+    if (scenario.timeoutOutcome === "stalemate" && win.kind === "escapeEdge") {
+      // Everything that had to be saved got out, and all but one of the companies needed: a stalemate.
+      const must = win.mustEscape ?? [];
+      const saved =
+        must.every((id) => state.squads.find((squad) => squad.id === id)?.status === "escaped") && escaped >= win.count - 1;
+      return saved
+        ? { status: "stalemate", reason: "The column is safe, but one company too few got out with it." }
+        : { status: "defeat", reason: "Night fell with the column still in the marsh." };
     }
     if (scenario.timeoutOutcome === "stalemate") {
       const needed = scenario.stalemateRequires;

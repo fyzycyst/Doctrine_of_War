@@ -63,6 +63,8 @@ export const illuminatedChronicle: Skin = {
     ridge: { top: "#c4b894", height: 0.72, accent: C.stone },
     wall: { top: C.stone, height: 0.38, accent: C.stone },
     ruin: { top: "#b8b48a", height: 0.36, accent: C.stone },
+    marsh: { top: C.earth, height: 0.14, accent: C.water },
+    reeds: { top: C.field, height: 0.34 },
   },
   factions: {
     free_banners: {

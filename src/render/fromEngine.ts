@@ -9,7 +9,7 @@ import type { TimeOfDay } from "./skins/types";
 
 /** The engine's semantic time of day → the skin's lighting preset key. */
 export function lightingFor(timeOfDay: EngineTimeOfDay | undefined): TimeOfDay {
-  return timeOfDay === "nightFires" ? "nightFires" : "dusk";
+  return timeOfDay === undefined || timeOfDay === "day" ? "dusk" : timeOfDay;
 }
 
 /** Squads face the enemy: the Banners west, the Host east. */

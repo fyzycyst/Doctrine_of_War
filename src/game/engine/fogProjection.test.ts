@@ -59,7 +59,9 @@ function checkBattle(scenario: EngineScenario, orders: Orders, seed: number): { 
         leaks.push(`${scenario.id}#${seed} phase ${event.phase} beat ${event.beat} ${event.kind}: unseen squad ${id}`);
       }
     }
-    for (const hex of hexesIn(projected)) {
+    // A squad knows its own path; the property is about what the Banners learn of the enemy.
+    const ownMove = projected.kind === "move" && state.squads.find((squad) => squad.id === projected.squadId)?.faction === VIEWER;
+    for (const hex of ownMove ? [] : hexesIn(projected)) {
       if (!seen(hex)) {
         leaks.push(`${scenario.id}#${seed} phase ${event.phase} beat ${event.beat} ${event.kind}: unseen hex ${hex.q},${hex.r}`);
       }
@@ -78,7 +80,7 @@ describe("fog projection property", () => {
   const seeds = Array.from({ length: 10 }, () => 1 + Math.floor(pick.next() * 100000));
 
   for (const scenario of scenarios) {
-    const playerSquads = scenario.squads.filter((squad) => squad.faction === scenario.playerFaction);
+    const playerSquads = scenario.squads.filter((squad) => squad.faction === scenario.playerFaction && !squad.noncombatant);
     const plans: Record<string, Orders> = {
       intended: scenario.referencePlans!.intended,
       bad: scenario.referencePlans!.bad,

@@ -5,7 +5,9 @@ import { firstBreach } from "./scenarios/firstBreach";
 import { library, scenario, squad } from "./testKit";
 import type { Doctrine, FactionId } from "./types";
 
-const byFaction = (faction: FactionId) => doctrines.filter((item) => item.faction === faction);
+/** Doctrines only non-combat squads carry: never offered to the player. */
+const SPECIAL = ["keep_the_column_moving", "lie_in_wait"];
+const byFaction = (faction: FactionId) => doctrines.filter((item) => item.faction === faction && !SPECIAL.includes(item.id));
 
 describe("doctrine library", () => {
   it("has the five Free Banners doctrines and the Ashen Host doctrines", () => {
@@ -25,7 +27,8 @@ describe("doctrine library", () => {
       "Through the Embers",
       "Slip the Leash",
     ]);
-    expect(Object.keys(doctrineLibrary)).toHaveLength(12);
+    expect(Object.keys(doctrineLibrary)).toHaveLength(14);
+    expect(doctrineLibrary.keep_the_column_moving.faction).toBe("free_banners");
   });
 
   it("survives a JSON round trip unchanged (data only, no functions)", () => {
@@ -64,7 +67,8 @@ describe("doctrine library", () => {
           { id: "target", name: "Target", description: "", hex: { q: 0, r: 2 }, integrity: 100, defender: enemy },
         ],
         // An exit beyond the foe, for doctrines that run for an edge.
-        winCondition: { kind: "escapeEdge", edgeHexes: [{ q: 6, r: 2 }], count: 99 },
+        // Banner subjects retreat south; Host subjects run east past the sentry.
+        winCondition: { kind: "escapeEdge", edgeHexes: [subject.faction === "free_banners" ? { q: 3, r: 4 } : { q: 6, r: 2 }], count: 99 },
         squads: [
           squad("subject", subject.faction, { q: 3, r: 2 }, { doctrineId: subject.id }),
           squad("friend", subject.faction, { q: 4, r: 3 }, { cohesion: 45 }),

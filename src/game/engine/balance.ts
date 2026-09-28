@@ -41,7 +41,8 @@ export function playBattle(scenario: EngineScenario, orders: Orders, seed: numbe
 }
 
 export function balancePlans(scenario: EngineScenario): BalancePlan[] {
-  const playerSquads = scenario.squads.filter((squad) => squad.faction === scenario.playerFaction);
+  // Noncombatants keep their fixed doctrine; the player never orders them.
+  const playerSquads = scenario.squads.filter((squad) => squad.faction === scenario.playerFaction && !squad.noncombatant);
   if (!scenario.referencePlans) {
     throw new Error(`Scenario ${scenario.id} has no referencePlans; the balance guardrails need intended and bad plans`);
   }

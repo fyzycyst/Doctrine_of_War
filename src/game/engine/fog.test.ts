@@ -257,7 +257,7 @@ describe("visibleState", () => {
     state.dreaded.push("scout>close");
     const view = visibleState(state, FB);
     expect(Object.keys(view).sort()).toEqual(
-      ["fortune", "maxPhases", "objectives", "phase", "scenarioId", "seed", "squads", "status", "viewer", "weather"].sort(),
+      ["fortune", "maxPhases", "objectives", "phase", "scenarioId", "seed", "squads", "status", "timeOfDay", "viewer", "weather"].sort(),
     );
     expect(Object.keys(view.squads[0]).sort()).toEqual(
       ["braced", "cohesion", "doctrineId", "faction", "hex", "id", "lastKnown", "lastSeen", "name", "resolve", "role", "status", "strength", "surging"].sort(),

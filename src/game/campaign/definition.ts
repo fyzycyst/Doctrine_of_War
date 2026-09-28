@@ -43,7 +43,20 @@ export const ashAndBanner: CampaignDefinition = {
         reedmarsh_levy: "reedmarsh_levy",
       },
     },
-    { id: "battle_2", title: "The Saltmarsh Column", scenarioId: "saltmarsh_column", placeholder: true, slots: {} },
+    {
+      id: "battle_2",
+      title: "The Saltmarsh Column",
+      scenarioId: "saltmarsh_column",
+      // The Reedmarsh Levy stays behind at the ford; the refugee column is not a company.
+      slots: {
+        greyford_shields: "greyford_shields",
+        dawnwatch_archers: "dawnwatch_archers",
+        mercy_standard: "mercy_standard",
+        stoneford_riders: "stoneford_riders",
+        kestrel_lancers: "kestrel_lancers",
+        mill_lane_guard: "mill_lane_guard",
+      },
+    },
     { id: "battle_3", title: "Hold for Dawn", scenarioId: "hold_for_dawn", placeholder: true, slots: {} },
   ],
 };
