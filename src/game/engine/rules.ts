@@ -68,6 +68,13 @@ export function evaluateCondition(
       return within(enemies, squad.hex, condition.range ?? DEFAULT_OVEREXTENDED_RANGE).some((enemy) =>
         looksOverextended(world, enemy),
       );
+    case "wardNear":
+      return allies.some((ally) => {
+        const distance = hexDistance(ally.hex, squad.hex);
+        return ally.noncombatant && distance >= (condition.minRange ?? 1) && distance <= condition.range;
+      });
+    case "retreatOpen":
+      return (exitHexesFor(ctx.scenario, squad.faction) ?? []).length > 0;
     case "atObjective":
       return ctx.state.objectives.some(
         (objective) =>
@@ -117,6 +124,9 @@ export function resolveTarget(
       chosen = byDistance(pool, squad.hex)[0];
       break;
     }
+    case "ward":
+      chosen = byDistance(allies.filter((ally) => ally.noncombatant), squad.hex)[0];
+      break;
     case "weakestAlly":
       chosen = sortByStat(allies, selector.stat, squad.hex)[0];
       break;

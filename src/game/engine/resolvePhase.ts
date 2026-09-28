@@ -6,7 +6,7 @@ import { sameHex } from "../board";
 import { executeAction } from "./actions";
 import type { EngineContext, EventBody } from "./context";
 import { doctrineLibrary } from "./doctrines";
-import { dreadFromSight, eventsFor, observeDeparture, refreshIntel, witnessEvent } from "./fog";
+import { dreadFromSight, eventsFor, observeDeparture, refreshIntel, timeOfDayAt, witnessEvent } from "./fog";
 import { phaseStartWeather, stressCheck } from "./fortune";
 import { evaluateOutcome, exitHexesFor, validateWinCondition } from "./outcome";
 import { buildReport } from "./report";
@@ -66,6 +66,7 @@ export function createInitialState(scenario: EngineScenario, options: BattleOpti
       braced: false,
       surging: false,
       ...(squad.renown ? { renown: { ...squad.renown } } : {}),
+      ...(squad.noncombatant ? { noncombatant: true } : {}),
     })),
     objectives: scenario.objectives.map((objective) => ({
       id: objective.id,
@@ -79,6 +80,7 @@ export function createInitialState(scenario: EngineScenario, options: BattleOpti
     seed,
     rngState: seed,
     weather: scenario.forecast?.start ?? "clear",
+    timeOfDay: timeOfDayAt(scenario, 1),
     intel: {},
     dreaded: [],
   };
@@ -97,6 +99,7 @@ export function isOrderAllowed(scenario: EngineScenario, squadId: string, doctri
   return Boolean(
     squad &&
       squad.faction === scenario.playerFaction &&
+      !squad.noncombatant &&
       (scenario.playerDoctrineIds.includes(doctrineId) || squad.doctrineId === doctrineId),
   );
 }
@@ -188,7 +191,8 @@ export function resolvePhase(
     },
   };
 
-  // Phase start (beat 0): weather, then sightings and dread at the new positions.
+  // Phase start (beat 0): the hour, weather, then sightings and dread at the new positions.
+  state.timeOfDay = timeOfDayAt(scenario, phase);
   phaseStartWeather(ctx);
   afterChange(ctx);
 

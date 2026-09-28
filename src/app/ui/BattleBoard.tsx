@@ -46,7 +46,7 @@ export function BattleBoard({
   const shaking = useGateShake(reducedMotion);
   const water = useMemo(() => scenario.board.hexes.some((hex) => hex.terrain === "river" || hex.terrain === "ford"), [scenario.board]);
   useAmbience({
-    timeOfDay: lightingFor(scenario.timeOfDay),
+    timeOfDay: lightingFor(view.timeOfDay),
     weather: weatherFor(view.weather),
     water,
     hostDrums: view.squads.some((squad) => squad.faction !== view.viewer && squad.status === "active"),
@@ -62,7 +62,7 @@ export function BattleBoard({
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         onPointerMissed={() => clearSelection()}
       >
-        <LookProvider skin={emberDusk} timeOfDay={lightingFor(scenario.timeOfDay)} weather={weatherFor(view.weather)}>
+        <LookProvider skin={emberDusk} timeOfDay={lightingFor(view.timeOfDay)} weather={weatherFor(view.weather)}>
           <DioramaCamera shot={shot} drift={!still && !reducedMotion} />
           <Diorama
             key={scenario.id}

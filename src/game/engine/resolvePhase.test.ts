@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateOutcome } from "./outcome";
+import { evaluateOutcome, winStage } from "./outcome";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { firstBreach } from "./scenarios/firstBreach";
 import { doctrine, library, scenario, squad } from "./testKit";
@@ -295,6 +295,71 @@ describe("win conditions", () => {
       squads: [squad("h", AH, { q: 0, r: 0 }), squad("p", FB, { q: 3, r: 0 })],
     });
     expect(run(gateScen).state.status).toBe("victory");
+  });
+
+  describe("holdThenBreak", () => {
+    const keep: ObjectiveSetup = { id: "keep", name: "The Keep", description: "", hex: { q: 6, r: 2 }, integrity: 50, defender: FB };
+    const staged = (overrides: Partial<EngineScenario> = {}) =>
+      scenario({
+        maxPhases: 3,
+        objectives: [keep],
+        winCondition: { kind: "holdThenBreak", objectiveId: "keep", dawnPhase: 2, squadIds: ["ram"] },
+        squads: [squad("p", FB, { q: 5, r: 2 }), squad("ram", AH, { q: 0, r: 0 }), squad("h", AH, { q: 0, r: 4 })],
+        ...overrides,
+      });
+    const at = (scen: EngineScenario, phase: number, patch: (state: ReturnType<typeof createInitialState>) => void = () => {}) => {
+      const state = createInitialState(scen);
+      state.phase = phase;
+      patch(state);
+      return state;
+    };
+    const breakRam = (state: ReturnType<typeof createInitialState>) => {
+      state.squads.find((item) => item.id === "ram")!.status = "routed";
+    };
+
+    it("is lost the moment the objective falls, before or after dawn", () => {
+      const fallen = (state: ReturnType<typeof createInitialState>) => {
+        state.objectives[0].integrity = 0;
+        breakRam(state);
+      };
+      expect(evaluateOutcome(at(staged(), 1, fallen), staged(), false)?.status).toBe("defeat");
+      expect(evaluateOutcome(at(staged(), 2, fallen), staged(), false)?.status).toBe("defeat");
+    });
+
+    it("breaking the targets before dawn does not end the battle; at dawn it is a victory", () => {
+      expect(evaluateOutcome(at(staged(), 1, breakRam), staged(), false)).toBeNull();
+      expect(evaluateOutcome(at(staged(), 2), staged(), false)).toBeNull();
+      expect(evaluateOutcome(at(staged(), 2, breakRam), staged(), false)).toMatchObject({
+        status: "victory",
+        reason: "Dawn: The Keep held, and the siege is broken.",
+      });
+    });
+
+    it("time out with the targets standing: defeat, or an earned stalemate", () => {
+      expect(evaluateOutcome(at(staged(), 3), staged(), true)?.status).toBe("defeat");
+      const earned = staged({ timeoutOutcome: "stalemate", stalemateRequires: { minEnemyBroken: 1 } });
+      expect(evaluateOutcome(at(earned, 3), earned, true)?.status).toBe("defeat");
+      const bled = at(earned, 3, (state) => {
+        state.squads.find((item) => item.id === "h")!.status = "routed";
+      });
+      expect(evaluateOutcome(bled, earned, true)).toMatchObject({
+        status: "stalemate",
+        reason: "The wall held until dawn, but the siege was not broken.",
+      });
+      expect(winStage(earned, 1)).toBe("hold");
+      expect(winStage(earned, 2)).toBe("break");
+      expect(winStage(firstBreach, 1)).toBeNull();
+    });
+
+    it("rejects a missing objective, a bad dawn phase and player targets at battle start", () => {
+      const win = (patch: object) => staged({ winCondition: { kind: "holdThenBreak", objectiveId: "keep", dawnPhase: 2, squadIds: ["ram"], ...patch } });
+      expect(() => createInitialState(win({ objectiveId: "moat" }))).toThrow(/player-defended objective moat/);
+      expect(() => createInitialState(win({ dawnPhase: 4 }))).toThrow(/dawnPhase must be 1..3/);
+      expect(() => createInitialState(win({ squadIds: ["p"] }))).toThrow(/target p must be an enemy squad/);
+      expect(() => createInitialState(win({ squadIds: [] }))).toThrow(/needs 1..0 targets/);
+      expect(() => createInitialState(win({ count: 2 }))).toThrow(/needs 1..1 targets/);
+      expect(() => createInitialState(staged())).not.toThrow();
+    });
   });
 
   it("destroySquads: defeat when time runs out", () => {

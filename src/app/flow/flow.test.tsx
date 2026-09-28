@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ashAndBanner, startCampaign } from "../../game/campaign";
+import { ashAndBanner, startCampaign, type CampaignDefinition } from "../../game/campaign";
 import { useGame } from "../game/gameStore";
 import { Root } from "../Root";
 import { useFlow } from "./flowStore";
@@ -12,8 +12,14 @@ vi.mock("../../render/showcase/TitleScene", async () => ({ TitleScene: (await im
 vi.mock("../../render/showcase/CampaignMap", async () => ({ CampaignMap: (await import("./testKit")).FakeCampaignMap }));
 vi.mock("../ui/BattleBoard", () => ({ BattleBoard: () => null }));
 
+/** The same campaign with its last two battles still being built. */
+const unbuilt: CampaignDefinition = {
+  ...ashAndBanner,
+  battles: ashAndBanner.battles.map((battle, index) => (index >= 2 ? { ...battle, slots: {}, placeholder: true } : battle)),
+};
+
 function reset(store = memoryStore()) {
-  useFlow.setState({ screen: "title", campaign: null, save: "checking", saved: null, store, saveError: null });
+  useFlow.setState({ screen: "title", definition: ashAndBanner, campaign: null, save: "checking", saved: null, store, saveError: null });
   return store;
 }
 
@@ -110,7 +116,8 @@ describe("campaign map", () => {
 
   it("says a battle is still being forged instead of opening it", async () => {
     const user = userEvent.setup();
-    onMap(campaignAfter(ashAndBanner, 2));
+    useFlow.setState({ definition: unbuilt });
+    onMap(campaignAfter(unbuilt, 2));
     await user.click(screen.getByRole("button", { name: /The Saltmarsh Column/ }));
     expect(useFlow.getState().screen).toBe("campaign");
     expect(screen.getByRole("status")).toHaveTextContent("still being forged");
@@ -221,7 +228,7 @@ describe("the campaign loop", () => {
 describe("the ending", () => {
   it("shows the chronicle so far while the next battle is still being built", async () => {
     const user = userEvent.setup();
-    useFlow.setState({ campaign: campaignAfter(ashAndBanner, 2), screen: "campaign" });
+    useFlow.setState({ definition: unbuilt, campaign: campaignAfter(unbuilt, 2), screen: "campaign" });
     render(<Root />);
     await user.click(screen.getByRole("button", { name: "Read the chronicle so far" }));
     expect(screen.getByRole("heading", { name: "The chronicle so far" })).toBeInTheDocument();

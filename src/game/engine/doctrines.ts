@@ -52,6 +52,12 @@ export const doctrines: Doctrine[] = [
         then: { kind: "fallBack", hexes: 1 },
       },
       {
+        id: "fw_retreat",
+        label: "If there is a line of retreat → withdraw along it",
+        when: { kind: "retreatOpen" },
+        then: { kind: "advance", toward: { kind: "exitEdge" } },
+      },
+      {
         id: "fw_ready",
         label: "Otherwise → hold, ready to withdraw",
         when: { kind: "always" },
@@ -66,6 +72,12 @@ export const doctrines: Doctrine[] = [
     flavor: "Stabilize wounded allies and keep banners standing.",
     passives: { defense: 0, cohesion: 3, counter: 0 },
     rules: [
+      {
+        id: "rs_escort",
+        label: "If the column pulls ahead → march at its side",
+        when: { kind: "wardNear", minRange: 2, range: 3 },
+        then: { kind: "advance", toward: { kind: "ward" } },
+      },
       {
         id: "rs_rally",
         label: "If an adjacent ally's cohesion < 75 → rally them",
@@ -260,6 +272,21 @@ export const doctrines: Doctrine[] = [
     ],
   },
   {
+    id: "keep_the_column_moving",
+    faction: "free_banners",
+    name: "Keep the Column Moving",
+    flavor: "Carts, children and the old: they do not stop, and they do not fight.",
+    passives: { defense: 0, cohesion: 2, counter: 0 },
+    rules: [
+      {
+        id: "kcm_move",
+        label: "Always → keep moving toward safety",
+        when: { kind: "always" },
+        then: { kind: "advance", toward: { kind: "exitEdge" } },
+      },
+    ],
+  },
+  {
     id: "through_the_embers",
     faction: "ashen_host",
     name: "Through the Embers",
@@ -281,6 +308,21 @@ export const doctrines: Doctrine[] = [
     ],
   },
   {
+    id: "lie_in_wait",
+    faction: "ashen_host",
+    name: "Lie in Wait",
+    flavor: "Lie flat in the reeds. Let them come close. Not yet.",
+    passives: { defense: 2, cohesion: 1, counter: 0 },
+    rules: [
+      {
+        id: "liw_wait",
+        label: "Always → lie hidden and wait for the signal",
+        when: { kind: "always" },
+        then: { kind: "hold" },
+      },
+    ],
+  },
+  {
     id: "slip_the_leash",
     faction: "ashen_host",
     name: "Slip the Leash",
@@ -292,6 +334,48 @@ export const doctrines: Doctrine[] = [
         label: "Always → run for the roads behind the line",
         when: { kind: "always" },
         then: { kind: "advance", toward: { kind: "exitEdge" } },
+      },
+    ],
+  },
+  {
+    id: "under_wet_hides",
+    faction: "ashen_host",
+    name: "Under Wet Hides",
+    flavor: "The ram crawls on under soaked ox-hides. Nothing thrown from the wall bites until they burn away.",
+    passives: { defense: 6, cohesion: 12, counter: 2 },
+    rules: [
+      {
+        id: "uwh_batter",
+        label: "If at the gate → batter it",
+        when: { kind: "atObjective" },
+        then: { kind: "attack", target: { kind: "objective", side: "enemy" } },
+      },
+      {
+        id: "uwh_ram",
+        label: "If an enemy bars the way → ram it",
+        when: { kind: "enemyAdjacent" },
+        then: { kind: "attack", target: { kind: "nearestEnemy" } },
+      },
+      {
+        id: "uwh_drive",
+        label: "Otherwise → drive on the gate",
+        when: { kind: "always" },
+        then: { kind: "attack", target: { kind: "objective", side: "enemy" } },
+      },
+    ],
+  },
+  {
+    id: "the_nerve_fails",
+    faction: "ashen_host",
+    name: "The Nerve Fails",
+    flavor: "The sun is up and the wall still stands. No one wants to be the last to die at it.",
+    passives: { defense: 0, cohesion: -2, counter: 0 },
+    rules: [
+      {
+        id: "tnf_recoil",
+        label: "Always → recoil 2 hexes from the wall",
+        when: { kind: "always" },
+        then: { kind: "fallBack", hexes: 2 },
       },
     ],
   },

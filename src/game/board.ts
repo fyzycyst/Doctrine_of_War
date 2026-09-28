@@ -10,7 +10,7 @@ export interface PixelPoint {
   y: number;
 }
 
-export type TerrainType = "road" | "ridge" | "ford" | "wall" | "field" | "ruin" | "river";
+export type TerrainType = "road" | "ridge" | "ford" | "wall" | "field" | "ruin" | "river" | "marsh" | "reeds";
 
 export interface BoardHex {
   coord: HexCoord;
@@ -117,6 +117,10 @@ export function terrainDefenseBonus(terrain: TerrainType): number {
       return 4;
     case "ruin":
       return 2;
+    case "reeds":
+      return 1;
+    case "marsh":
+      return -1;
     case "field":
     case "road":
     case "river":

@@ -44,7 +44,11 @@ resolvePhase(state, orders, scenario, { doctrines? }) → { state, events, repor
     is null when the defender could not see who struck, and the report reads
     "Greyford Gate took 12 damage from an unseen company";
   - `visibleTo` is reduced to the viewer, and the raw-only `redactions` field is
-    removed.
+    removed;
+  - an event that first brings an enemy into the viewer's sight carries `introduces`: a
+    `SquadSnapshot` of each such squad at that moment. `sighted` events carry a
+    `snapshot`. Both use the same field allowlist as `VisibleSquad`, so playback can
+    place emerging squads exactly.
 
   Audit of actor fields by event kind:
   - `ruleFired`, `blocked`, `fortune`, `move`, `rout` and `exit` have a single actor
@@ -105,7 +109,9 @@ report title is the schedule entry's `intent`.
 | `rally` | +`12 + passives.cohesion + resolve` cohesion to the weakest adjacent ally (capped at 100). |
 
 **Movement.** Speed is 1 hex (cavalry 2). In rain, entering a ford ends the move.
-Deep `river` hexes, like walls, cannot be entered; `ford` hexes can. Squads cannot enter walls, objective hexes,
+Deep `river` hexes, like walls, cannot be entered; `ford` hexes can. Entering `marsh`
+ends a move, a squad cannot brace in marsh, and marsh gives −1 defense. `reeds` give +1
+defense and, like ruins, block sight. Squads cannot enter walls, objective hexes,
 off-board hexes or occupied hexes. Paths are found by BFS in `hexNeighbors` order, so
 tie-breaks are deterministic. If no goal hex is reachable, the squad moves to the
 reachable hex closest to the goal, and never further away. **Zone of control:** a move
@@ -136,10 +142,13 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
 - `Condition`: `always`, `selfCohesionBelow`, `selfStrengthBelow`, `enemyAdjacent`,
   `enemyWithin`, `enemyBelow`, `allyAdjacentBelow`, `allyBelow`, `enemyOverextended`,
   `objectiveThreatened` (an enemy within 2 of an objective the squad's faction defends),
-  `atObjective` (the squad is adjacent to an objective it assaults).
+  `atObjective` (the squad is adjacent to an objective it assaults), `retreatOpen` (its
+  side has exit hexes on this field), and `wardNear {range, minRange?}` (an allied
+  noncombatant is within range).
 - `TargetSelector`: `nearestEnemy`, `weakestEnemy {stat, range?}`,
   `overextendedEnemy {range?}`, `weakestAlly {stat}`, `objective {side: own|enemy, objectiveId?}`,
-  `exitEdge`. Ties always fall back to distance, then squad-list order. `attack` and
+  `exitEdge`, `ward` (the nearest allied noncombatant). Ties always fall back to distance,
+  then squad-list order. `attack` and
   `counterCharge` take only an `EnemySelector` (the three enemy selectors, or
   `objective {side: "enemy"}`). At runtime, a strike at an ally or at the squad's own
   objective is refused with `blocked`, because editor JSON can bypass the types.
@@ -148,17 +157,38 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   `winCondition`, optional `forecast {start, shiftChance, shifts}`, and optional
   `referencePlans {intended, bad}` (used by the balance harness and tutorial hints),
   optional `timeOfDay` (`"nightFires"`: sight −1, but a squad on a ford or beside the
-  river is lit and seen from 1 hex further), and `curatedSeed` (a fortune-on seed that
+  river is lit and seen from 1 hex further), `timeOfDayByPhase` (per-phase overrides;
+  the current hour is `state.timeOfDay`; the dark hours `nightFires`, `rainGrey` and
+  `predawn` cut sight by 1, and `sunrise` does not), and `curatedSeed` (a fortune-on
+  seed that
   plays the intended plan to a clean win, used for the first playthrough and for video
   capture; `scenarios.test.ts` asserts it).
 - `WinCondition` (from the player's side):
   - `holdObjective`: defeat at integrity 0, victory after `maxPhases`.
-  - `escapeEdge {edgeHexes, count}`: a player squad standing on an edge hex after its
-    activation exits; victory at `count` exits.
+  - `escapeEdge {edgeHexes, count, mustEscape?}`: a player squad standing on an edge hex
+    after its activation exits; victory at `count` exits once every `mustEscape` squad is
+    out. Losing a must-escape squad is an immediate defeat.
+- **Noncombatant squads** (`noncombatant: true`, for example a refugee column):
+  - they keep their scenario doctrine (the player's orders for them are rejected);
+  - they never strike;
+  - they are not campaign companies and don't count toward `squadsLost`.
+
+  In escape battles, *Fighting Withdrawal* walks toward the line of retreat when not
+  pressed and leans toward it when falling back. *Rescue Standard* marches at a
+  column's side when it pulls ahead and rallies a shaken column first. Both rules are
+  inert where there is no exit or no column.
   - `destroySquads {squadIds, count?}`: victory once `count` of them (default: all) are
     routed or destroyed. The
     list must be non-empty and name only existing, non-player squads; otherwise
     `createInitialState` throws.
+  - `holdThenBreak {objectiveId, dawnPhase, squadIds, count?}`: a staged win. Before
+    `dawnPhase` the player holds (losing the player-defended objective is an immediate
+    defeat, before or after dawn); from `dawnPhase` on it is a victory once `count`
+    (default: all) of the target squads are routed or destroyed. Breaking them earlier
+    does not end the battle early. `winStage(scenario, phase)` returns `"hold"`,
+    `"break"` or null (other win kinds) for the UI. Bad data (an objective the player
+    does not defend, a dawn phase outside 1..`maxPhases`, player or missing targets)
+    throws at `createInitialState`.
   - Optional `defeatConditions` add more ways to lose:
     - `enemyEscape {edgeHexes, count}`: the opposing side gets `count` squads off
       through those hexes. Its `exitEdge` selector points at them, and a Host squad
@@ -166,14 +196,16 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
     - `squadsLost {count}`: that many player squads are routed or destroyed ("the line
       breaks").
   - `timeoutOutcome: "defeat" | "stalemate"` (default `"defeat"`) decides what running out
-    of phases means for `escapeEdge` and `destroySquads`. A stalemate must be earned:
+    of phases means for `escapeEdge`, `destroySquads` and `holdThenBreak`. A stalemate must be earned:
     `stalemateRequires {minEnemyBroken, targetsOnly?}` turns a timeout with too few
-    enemies broken into a defeat. With `"stalemate"`, the battle
+    enemies broken into a defeat. For `escapeEdge` with `mustEscape`, the timeout is a
+    stalemate only if every must-escape squad got out and at most one short of `count`. With `"stalemate"`, the battle
     ends with `status: "stalemate"`: neither side met its goal. The campaign treats it as
     "advance, with a Resolve penalty". `holdObjective` always wins on time. The balance
     harness reports stalemates as their own column; they never count as wins.
   - In every mode it is defeat when no player squad is left on the field. For
-    `escapeEdge` and `destroySquads`, reaching the end of `maxPhases` is also defeat.
+    `escapeEdge`, `destroySquads` and `holdThenBreak`, reaching the end of `maxPhases` is
+    also defeat.
 - Events (`phase`, `beat` on each, where beat 0 means phase-level): `ruleFired`, `move {path, reason}`,
   `blocked`, `engagement {charge, reckless}`, `rally`, `rout`, `exit`, `objectiveDamage`,
   `outcome`, `fortune {outcome: surge|waver}`, `dread {title, shock}`, `weatherShift {from, to}`,
@@ -183,8 +215,13 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
 The library (`doctrines.ts`) holds the Free Banners doctrines *Shield the Line*,
 *Fighting Withdrawal*, *Rescue Standard*, *Clean Counterstroke* and *Hold for Dawn*, and
 the Ashen Host doctrines *Iron Tide*, *Break the Gate*, *No Step Back*, *Cull the Weak*,
-*Terror Push*, *Through the Embers* (cross and cut through blockers toward the exits)
-and *Slip the Leash* (outriders: never fight, run for the exits). Every rule list ends with an `always` catch-all.
+*Terror Push*, *Through the Embers* (cross and cut through blockers toward the exits),
+*Slip the Leash* (outriders: never fight, run for the exits), *Lie in Wait* (hold
+hidden until the schedule springs the ambush), *Under Wet Hides* (a ram's night
+doctrine: batter the gate, ram whoever is adjacent, else drive on the gate; passives
+defense +6 and cohesion +12, so blows glance off) and *The Nerve Fails* (always fall
+back 2 hexes; the schedule hands it out at dawn). *Keep the Column Moving* is the
+noncombatant column's own doctrine and is never offered to the player. Every rule list ends with an `always` catch-all.
 
 ## Friction & fortune (`fortune.ts`, `fog.ts`)
 
@@ -224,6 +261,14 @@ scenario in `scenarios/index.ts` must pass. The scenarios so far:
 - *Ember Ford*: battle 1, which teaches Clean Counterstroke against overextension, kept
   steady by a rally banner. Crossers climb out right beside the two roads, and Host
   outriders lurk by both roads.
+
+- *The Saltmarsh Column*: battle 2, which teaches Fighting Withdrawal with a Rescue
+  Standard escorting the refugee column, while the hunters come out of the mist in
+  waves.
+- *Hold for Dawn*: battle 3, the finale (`holdThenBreak`). Shields hold the front line
+  against the Cinderram under its hides, the standards behind them keep them standing,
+  and the counterstroke companies wait for sunrise, when the Host falls back and the ram
+  is exposed. Losing three companies breaks the line.
 
 **Scenario design principle.** Every battle's intended plan uses at least two doctrine
 families in meaningful roles. Its scenario test ablates each family (swapping it for

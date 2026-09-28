@@ -6,8 +6,9 @@ Code: `src/game/campaign/` (pure TypeScript; the campaign-map UI lives in the ap
 
 - **`CampaignDefinition`** (authored data, `definition.ts`): the companies and an ordered
   list of battles. *Ash & Banner* is *The First Breach* → *Ember Ford* →
-  *The Saltmarsh Column* → *Hold for Dawn*; the last two are `placeholder` battles until
-  T12 builds them. The campaign shows placeholders but cannot play them.
+  *The Saltmarsh Column* → *Hold for Dawn*. A battle can be marked `placeholder` while it
+  is being built: the campaign shows it but cannot play it (none are left in *Ash &
+  Banner*).
 - **Roster continuity.** Each battle maps every player squad of its scenario to a campaign
   company (`slots: {scenarioSquadId: companyId}`). Roles must match, and a company fills at
   most one slot per battle. `validateCampaignDefinition()` checks this against the

@@ -1,18 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { ashAndBanner, recordBattle, startCampaign } from "../../game/campaign";
+import { ashAndBanner, recordBattle, startCampaign, type CampaignDefinition } from "../../game/campaign";
 import { isPlayable, islandStatus, ledger, mapBattles } from "./campaignView";
 import { campaignAfter, playCurrentBattle } from "./devCampaign";
 
 const def = ashAndBanner;
+/** The same campaign with its last two battles still being built. */
+const unbuilt: CampaignDefinition = {
+  ...def,
+  battles: def.battles.map((battle, index) => (index >= 2 ? { ...battle, slots: {}, placeholder: true } : battle)),
+};
 
 describe("campaign map statuses", () => {
   it("starts with the tutorial current and everything after it locked", () => {
     const battles = mapBattles(def, startCampaign(def));
     expect(battles.map((battle) => battle.status)).toEqual(["current", "locked", "locked", "locked"]);
-    expect(battles[0].board).toBeDefined();
+    expect(battles.every((battle) => battle.board !== undefined && battle.placeholder === undefined)).toBe(true);
     // Unbuilt battles get placeholder islands and say so.
-    expect(battles[2]).toMatchObject({ placeholder: "saltmarsh", title: "The Saltmarsh Column (coming soon)" });
-    expect(battles[3]).toMatchObject({ placeholder: "holdForDawn" });
+    const shown = mapBattles(unbuilt, startCampaign(unbuilt));
+    expect(shown[2]).toMatchObject({ placeholder: "saltmarsh", title: "The Saltmarsh Column (coming soon)" });
+    expect(shown[3]).toMatchObject({ placeholder: "holdForDawn" });
   });
 
   it("marks a won battle and moves the current island on", () => {
@@ -31,10 +37,11 @@ describe("campaign map statuses", () => {
   });
 
   it("stops at an unbuilt battle: current, but not playable", () => {
-    const state = campaignAfter(def, 2);
+    const state = campaignAfter(unbuilt, 2);
     expect(state.battleIndex).toBe(2);
-    expect(islandStatus(def, state, 2)).toBe("current");
-    expect(isPlayable(def, state, "battle_2")).toBe(false);
+    expect(islandStatus(unbuilt, state, 2)).toBe("current");
+    expect(isPlayable(unbuilt, state, "battle_2")).toBe(false);
+    expect(isPlayable(def, campaignAfter(def, 2), "battle_2")).toBe(true);
   });
 });
 

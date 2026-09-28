@@ -65,7 +65,16 @@ describe("intel and sighting", () => {
 
     kit.get("hidden").hex = { q: 1, r: 3 };
     refreshIntel(kit.ctx, (event) => events.push(event));
-    expect(events).toEqual([{ kind: "sighted", faction: FB, squadId: "hidden", byId: "scout", hex: { q: 1, r: 3 } }]);
+    expect(events).toEqual([
+      {
+        kind: "sighted",
+        faction: FB,
+        squadId: "hidden",
+        byId: "scout",
+        hex: { q: 1, r: 3 },
+        snapshot: expect.objectContaining({ id: "hidden", hex: { q: 1, r: 3 }, strength: 80, cohesion: 80, status: "active" }),
+      },
+    ]);
   });
 
   it("does not learn of a rout it could not see: the silhouette keeps its last-known state", () => {
@@ -192,6 +201,23 @@ describe("event projection", () => {
   });
 });
 
+describe("introductions", () => {
+  it("a move that brings an enemy out of the dark introduces it with an exact snapshot", () => {
+    const walker = doctrine("walker_ah2", AH, [[{ kind: "always" }, { kind: "advance", toward: { kind: "nearestEnemy" } }]]);
+    const scen = scenario({ squads: [squad("watch", FB, { q: 0, r: 2 }), squad("m", AH, { q: 4, r: 2 }, { doctrineId: "walker_ah2", strength: 61 })], maxPhases: 2 });
+    const { events } = resolvePhase(createInitialState(scen, on), {}, scen, { doctrines: library(walker) });
+    const emerging = eventsFor(events, FB).find((event) => event.kind === "move" && event.from === null);
+    expect(emerging?.introduces).toEqual([
+      expect.objectContaining({ id: "m", hex: { q: 2, r: 2 }, strength: 61, doctrineId: "walker_ah2", status: "active" }),
+    ]);
+    // The Host's own view of the same move introduces nothing.
+    const own = eventsFor(events, AH).find((event) => event.kind === "move" && event.beat === emerging?.beat);
+    expect(own?.introduces).toBeUndefined();
+    // The raw stream keeps the notes per faction, never as a top-level introduction.
+    expect(events.every((event) => event.introduces === undefined)).toBe(true);
+  });
+});
+
 describe("unseen attackers", () => {
   it("tells the defender its objective was hit, but not by whom, when the attacker is out of sight", () => {
     const scen = scenario({
@@ -257,7 +283,7 @@ describe("visibleState", () => {
     state.dreaded.push("scout>close");
     const view = visibleState(state, FB);
     expect(Object.keys(view).sort()).toEqual(
-      ["fortune", "maxPhases", "objectives", "phase", "scenarioId", "seed", "squads", "status", "viewer", "weather"].sort(),
+      ["fortune", "maxPhases", "objectives", "phase", "scenarioId", "seed", "squads", "status", "timeOfDay", "viewer", "weather"].sort(),
     );
     expect(Object.keys(view.squads[0]).sort()).toEqual(
       ["braced", "cohesion", "doctrineId", "faction", "hex", "id", "lastKnown", "lastSeen", "name", "resolve", "role", "status", "strength", "surging"].sort(),

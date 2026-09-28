@@ -56,10 +56,10 @@ const everyone = (doctrineId: string) => (scenario: EngineScenario): Orders =>
   Object.fromEntries(scenario.squads.filter((squad) => squad.faction === scenario.playerFaction).map((squad) => [squad.id, doctrineId]));
 
 describe("campaign definition", () => {
-  it("is valid against the scenarios it uses (placeholders are allowed)", () => {
+  it("is valid against the scenarios it uses, and every battle is playable", () => {
     expect(validateCampaignDefinition(def, scenarios)).toEqual([]);
     expect(def.battles.map((battle) => battle.scenarioId)).toEqual(["first_breach", "ember_ford", "saltmarsh_column", "hold_for_dawn"]);
-    expect(def.battles.slice(2).every((battle) => battle.placeholder)).toBe(true);
+    expect(def.battles.some((battle) => battle.placeholder)).toBe(false);
     expect(JSON.parse(JSON.stringify(def))).toEqual(def);
   });
 
@@ -126,8 +126,9 @@ describe("roster and scenario injection", () => {
 
   it("refuses the wrong scenario, placeholders and a finished campaign", () => {
     expect(() => applyCampaign(def, startCampaign(def), emberFord)).toThrow(/is first_breach, not ember_ford/);
-    const atPlaceholder: CampaignState = { ...startCampaign(def), battleIndex: 2 };
-    expect(() => applyCampaign(def, atPlaceholder, emberFord)).toThrow(/not playable yet/);
+    const unbuilt: CampaignDefinition = { ...def, battles: [...def.battles.slice(0, 3), { ...def.battles[3], slots: {}, placeholder: true }] };
+    const atPlaceholder: CampaignState = { ...startCampaign(unbuilt), battleIndex: 3 };
+    expect(() => applyCampaign(unbuilt, atPlaceholder, emberFord)).toThrow(/not playable yet/);
     const done: CampaignState = { ...startCampaign(def), battleIndex: 4, status: "complete" };
     expect(currentBattle(def, done)).toBeNull();
     expect(() => applyCampaign(def, done, firstBreach)).toThrow(/complete/);
@@ -227,7 +228,7 @@ describe("campaign flow with the real engine", () => {
     expect(applied.squads.find((squad) => squad.id === "tollbridge_pikes")?.renown?.title).toBe(shields.renown?.title);
   });
 
-  it("a stalemate at Ember Ford advances to the (placeholder) next battle; a defeat is retried", () => {
+  it("a stalemate at Ember Ford advances to the Saltmarsh Column; a defeat is retried", () => {
     const afterTutorial = play(startCampaign(def), firstBreach.referencePlans!.intended, "on", firstBreach.curatedSeed).next;
 
     // Rally banners alone never test the vanguard: that timeout is a defeat now.
@@ -239,7 +240,7 @@ describe("campaign flow with the real engine", () => {
     }
     expect(stalemate.final.status).toBe("stalemate");
     expect(stalemate.next.battleIndex).toBe(2);
-    expect(currentBattle(def, stalemate.next)).toMatchObject({ id: "battle_2", placeholder: true });
+    expect(currentBattle(def, stalemate.next)).toMatchObject({ id: "battle_2", scenarioId: "saltmarsh_column" });
 
     const defeat = play(afterTutorial, everyone("shield_the_line"));
     expect(defeat.final.status).toBe("defeat");

@@ -21,7 +21,7 @@ export type Weather = "clear" | "rain" | "mist" | "ashWind";
  * squad on a ford or next to the river can be seen from 1 hex further. Also a
  * lighting cue for the renderer.
  */
-export type TimeOfDay = "day" | "nightFires";
+export type TimeOfDay = "day" | "nightFires" | "rainGrey" | "predawn" | "sunrise";
 
 export interface Forecast {
   /** Weather for phase 1 (and for the whole battle when fortune is off). */
@@ -57,7 +57,11 @@ export type Condition =
   /** An enemy is within 2 hexes of an objective this squad's faction defends. */
   | { kind: "objectiveThreatened"; objectiveId?: string }
   /** This squad stands adjacent to a standing objective its faction assaults. */
-  | { kind: "atObjective"; objectiveId?: string };
+  | { kind: "atObjective"; objectiveId?: string }
+  /** This squad's side has a line of retreat on this field (exit hexes it may leave by). */
+  | { kind: "retreatOpen" }
+  /** An allied noncombatant (a column to escort) is within `minRange` (default 1)..`range` hexes. */
+  | { kind: "wardNear"; range: number; minRange?: number };
 
 /** Targets an offensive action (attack, counterCharge) may strike. */
 export type EnemySelector =
@@ -70,6 +74,8 @@ export type EnemySelector =
 export type TargetSelector =
   | EnemySelector
   | { kind: "weakestAlly"; stat: Stat }
+  /** The nearest allied noncombatant (the column this squad escorts). */
+  | { kind: "ward" }
   /** "own" = an objective this squad's faction defends; "enemy" = one it assaults. */
   | { kind: "objective"; side: "own" | "enemy"; objectiveId?: string }
   | { kind: "exitEdge" };
@@ -132,6 +138,12 @@ export interface SquadSetup {
   resolve: number;
   doctrineId: string;
   renown?: Renown;
+  /**
+   * A non-combat squad (e.g. a refugee column): it keeps its scenario doctrine (the
+   * player cannot order it), never strikes, is not a campaign company, and does not
+   * count as a company lost.
+   */
+  noncombatant?: boolean;
 }
 
 export interface ObjectiveSetup {
@@ -149,12 +161,18 @@ export type WinCondition =
   /** Victory if the objective's integrity is > 0 at the end of maxPhases; defeat the moment it hits 0. */
   | { kind: "holdObjective"; objectiveId: string }
   /** Victory once `count` player squads leave the board via `edgeHexes`; defeat at the end of maxPhases. */
-  | { kind: "escapeEdge"; edgeHexes: HexCoord[]; count: number }
+  | { kind: "escapeEdge"; edgeHexes: HexCoord[]; count: number; mustEscape?: string[] }
   /**
    * Victory once `count` (default: all) of the listed squads are routed or destroyed;
    * otherwise the timeout rules apply at the end of maxPhases.
    */
-  | { kind: "destroySquads"; squadIds: string[]; count?: number };
+  | { kind: "destroySquads"; squadIds: string[]; count?: number }
+  /**
+   * Two stages: hold `objectiveId` (defeat the moment it falls); from `dawnPhase` on,
+   * breaking `count` (default all) of `squadIds` wins. Holding to the end without
+   * breaking them falls to the timeout rules.
+   */
+  | { kind: "holdThenBreak"; objectiveId: string; dawnPhase: number; squadIds: string[]; count?: number };
 
 /** Extra ways the player can lose, on top of the win condition's own defeat rules. */
 export type DefeatCondition =
@@ -201,6 +219,8 @@ export interface EngineScenario {
   stalemateRequires?: { minEnemyBroken: number; targetsOnly?: boolean };
   /** Defaults to "day". */
   timeOfDay?: TimeOfDay;
+  /** Per-phase overrides of the hour, e.g. { 5: "sunrise" } for dawn on the last phase. */
+  timeOfDayByPhase?: Record<number, TimeOfDay>;
   /** A fortune-on seed that plays the intended plan to a clean win (first playthrough, video capture). */
   curatedSeed?: number;
   /** Defaults to clear skies that never shift. */
@@ -232,6 +252,7 @@ export interface EngineSquad {
   /** Set by a courage surge; cleared at the squad's next activation. */
   surging: boolean;
   renown?: Renown;
+  noncombatant?: boolean;
 }
 
 /** What one faction last saw of one enemy squad (fog of war). */
@@ -276,6 +297,8 @@ export interface EngineState {
   seed: number;
   rngState: number;
   weather: Weather;
+  /** The hour of the phase being fought (scenario timeOfDay / timeOfDayByPhase). */
+  timeOfDay: TimeOfDay;
   /** faction -> enemy squadId -> last sighting. Empty when fortune is off. */
   intel: Partial<Record<FactionId, Record<string, Intel>>>;
   /** "viewerId>renownedId" pairs whose dread check has already happened. */
@@ -303,6 +326,11 @@ interface EventBase {
    * eventsFor() applies these and strips the field, so projections never carry it.
    */
   redactions?: Partial<Record<FactionId, Redaction>>;
+  /**
+   * Projections only: enemies this event brings into the viewer's sight for the first
+   * time (they were not in view before it), as they are at that moment.
+   */
+  introduces?: SquadSnapshot[];
 }
 
 /** Parts of an event a witnessing faction did not see. */
@@ -311,6 +339,8 @@ export interface Redaction {
   pathSeen?: boolean[];
   /** Actor ids the faction could not see; eventsFor() sets them to null. */
   hidden?: RedactedActor[];
+  /** Enemies this event first brings into the faction's view (see EventBase.introduces). */
+  introduces?: SquadSnapshot[];
 }
 
 export type RedactedActor = "attackerId" | "sourceId" | "targetId";
@@ -377,7 +407,31 @@ export type EngineEvent =
       squadId: string;
       byId: string;
       hex: HexCoord;
+      /** What the sighting side can now see of the squad, at that moment. */
+      snapshot: SquadSnapshot;
     });
+
+/**
+ * A squad as a watching side sees it at one moment: the in-sight fields of
+ * VisibleSquad. Carried by `sighted` events, and by projected events that first
+ * bring an enemy into view (`introduces`), so playback can place emerging squads exactly.
+ */
+export interface SquadSnapshot {
+  id: string;
+  name: string;
+  faction: FactionId;
+  role: SquadRole;
+  hex: HexCoord | null;
+  strength: number;
+  cohesion: number;
+  resolve: number;
+  doctrineId: string;
+  status: SquadStatus;
+  braced: boolean;
+  surging: boolean;
+  renown?: Renown;
+  noncombatant?: boolean;
+}
 
 export interface PhaseReport {
   phase: number;

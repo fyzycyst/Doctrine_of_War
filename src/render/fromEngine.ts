@@ -11,7 +11,7 @@ import type { TimeOfDay, WeatherKind } from "./skins/types";
 
 /** The engine's semantic time of day → the skin's lighting preset key. */
 export function lightingFor(timeOfDay: EngineTimeOfDay | undefined): TimeOfDay {
-  return timeOfDay === "nightFires" ? "nightFires" : "dusk";
+  return timeOfDay === undefined || timeOfDay === "day" ? "dusk" : timeOfDay;
 }
 
 /** Engine weather → skin weather overlay (same names today; kept as a seam). */
