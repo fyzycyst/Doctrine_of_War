@@ -25,6 +25,8 @@ export interface Look {
   reducedMotion: boolean;
   /** Multiplier for ambient animation time: 1, or REDUCED_MOTION_SCALE when reduced. */
   motion: number;
+  /** Seconds a time-of-day change cross-fades over (0 under reduced motion). */
+  timeOfDayFade: number;
 }
 
 const LookContext = createContext<Look | null>(null);
@@ -33,12 +35,18 @@ export function LookProvider({
   skin,
   timeOfDay,
   weather = "clear",
+  timeOfDayFade = TIME_OF_DAY_FADE,
   children,
 }: {
   skin: Skin;
   timeOfDay: TimeOfDay;
   /** Engine weather; shifts cross-fade over `WEATHER_FADE` seconds. */
   weather?: WeatherKind;
+  /**
+   * Seconds a `timeOfDay` change cross-fades over (default TIME_OF_DAY_FADE).
+   * Stage moments pass a shorter one (Hold for Dawn's dawn turn: ~2 s).
+   */
+  timeOfDayFade?: number;
   children: ReactNode;
 }) {
   const quality = useAppStore((state) => state.quality);
@@ -50,7 +58,8 @@ export function LookProvider({
   useEffect(() => atmosphere.setPresets(skin.weather), [atmosphere, skin.weather]);
   useEffect(() => atmosphere.setWeather(weather), [atmosphere, weather]);
 
-  const preset = useTimeOfDayFade(skin, timeOfDay, reducedMotion);
+  const fade = reducedMotion ? 0 : Math.max(0, timeOfDayFade);
+  const preset = useTimeOfDayFade(skin, timeOfDay, fade);
 
   const value = useMemo<Look>(
     () => ({
@@ -62,47 +71,55 @@ export function LookProvider({
       atmosphere,
       reducedMotion,
       motion: reducedMotion ? REDUCED_MOTION_SCALE : 1,
+      timeOfDayFade: fade,
     }),
-    [skin, timeOfDay, weather, preset, quality, atmosphere, reducedMotion],
+    [skin, timeOfDay, weather, preset, quality, atmosphere, reducedMotion, fade],
   );
 
   return <LookContext.Provider value={value}>{children}</LookContext.Provider>;
 }
 
-/** Time-of-day cross-fade length (e.g. Hold for Dawn's predawn → sunrise between phases). */
+/** Default time-of-day cross-fade length (e.g. Hold for Dawn's predawn → sunrise between phases). */
 export const TIME_OF_DAY_FADE = 3;
-const FADE_STEPS_PER_SECOND = 12;
+const FADE_STEP = 1 / 12;
 
 /**
  * The lighting preset in effect: when `timeOfDay` changes, it blends from the
- * preset on screen to the new one over TIME_OF_DAY_FADE seconds (stepped, so
- * dependants re-render ~12×/s during the fade only). Instant under reduced
- * motion or on a skin change.
+ * preset on screen to the new one over `duration` seconds of the R3F clock (so
+ * lab sequence captures are deterministic), stepped at ~12/s so dependants only
+ * re-render during the fade. Instant when `duration` is 0 (reduced motion) or
+ * on a skin change.
  */
-function useTimeOfDayFade(skin: Skin, timeOfDay: TimeOfDay, reducedMotion: boolean): LightingPreset {
+function useTimeOfDayFade(skin: Skin, timeOfDay: TimeOfDay, duration: number): LightingPreset {
   const target = skin.lighting[timeOfDay];
   const [shown, setShown] = useState(target);
+  const fade = useRef<{ from: LightingPreset; to: LightingPreset; start: number | null; step: number } | null>(null);
   const shownRef = useRef(target);
   const skinRef = useRef(skin);
   useEffect(() => {
-    if (skinRef.current !== skin || reducedMotion) {
+    if (skinRef.current !== skin || duration <= 0) {
       skinRef.current = skin;
+      fade.current = null;
       shownRef.current = target;
       setShown(target);
       return;
     }
-    const from = shownRef.current;
-    if (from === target) return;
-    const start = performance.now();
-    const timer = window.setInterval(() => {
-      const t = Math.min(1, (performance.now() - start) / 1000 / TIME_OF_DAY_FADE);
-      const next = t >= 1 ? target : blendPresets(from, target, t);
-      shownRef.current = next;
-      setShown(next);
-      if (t >= 1) window.clearInterval(timer);
-    }, 1000 / FADE_STEPS_PER_SECOND);
-    return () => window.clearInterval(timer);
-  }, [skin, target, reducedMotion]);
+    if (shownRef.current === target) return;
+    fade.current = { from: shownRef.current, to: target, start: null, step: -1 };
+  }, [skin, target, duration]);
+  useFrame(({ clock }) => {
+    const f = fade.current;
+    if (!f) return;
+    if (f.start === null) f.start = clock.elapsedTime;
+    const t = Math.min(1, (clock.elapsedTime - f.start) / duration);
+    const step = t >= 1 ? Infinity : Math.floor(t / (FADE_STEP / duration));
+    if (step === f.step) return;
+    f.step = step;
+    const next = t >= 1 ? f.to : blendPresets(f.from, f.to, t);
+    shownRef.current = next;
+    setShown(next);
+    if (t >= 1) fade.current = null;
+  });
   return shown;
 }
 
@@ -121,6 +138,7 @@ export function useLook(): Look {
     atmosphere: fallbackAtmosphere,
     reducedMotion: false,
     motion: 1,
+    timeOfDayFade: TIME_OF_DAY_FADE,
   };
 }
 

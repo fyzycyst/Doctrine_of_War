@@ -56,6 +56,7 @@ type LabState = {
   fog: "off" | "on" | "reveal";
   weather: WeatherKind;
   deploy: boolean;
+  exit: boolean;
 };
 
 declare global {
@@ -87,6 +88,7 @@ function readParams() {
       fog: p.get("fog") === "reveal" ? "reveal" : p.get("fog") === "1" ? "on" : "off",
       weather: (WEATHER_KINDS as string[]).includes(p.get("weather") ?? "") ? (p.get("weather") as WeatherKind) : "clear",
       deploy: p.get("deploy") === "1",
+      exit: p.get("exit") === "1",
     } as LabState,
     quality: (p.get("quality") === "low" ? "low" : "high") as RenderQuality,
     ui: p.get("ui") !== "0",
@@ -105,6 +107,7 @@ function readParams() {
     seq: p.get("seq") === "1",
     fadeTo: isTimeOfDay(p.get("fadeTo")) ? (p.get("fadeTo") as TimeOfDay) : null,
     fadeAt: num("fadeAt") ?? 1,
+    fadeDur: num("fadeDur"),
     focusHex: p.get("focusHex"),
     fogFreeze: num("fogFreeze"),
   };
@@ -341,7 +344,7 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         onPointerMissed={() => clearSelection()}
       >
-        <LookProvider skin={skin} timeOfDay={state.preset} weather={state.weather}>
+        <LookProvider skin={skin} timeOfDay={state.preset} weather={state.weather} timeOfDayFade={initial.fadeDur}>
           {cinematic ? (
             <CinematicCamera path={cinematic} />
           ) : (
@@ -355,6 +358,7 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
             onReveal={onReveal}
             figures={state.figures}
             deploymentHexes={state.deploy ? scene.deployment : undefined}
+            exitHexes={state.exit ? scene.exits : undefined}
             animationRef={animations}
             onFiguresReady={onFiguresReady}
           />

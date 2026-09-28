@@ -108,8 +108,12 @@ imported (see `fromEngine.ts`); engine logic may not.
   - Boards bigger than Ember Ford push the scene fog back (`LightRig fogOffset`), so their wider
     wide shot isn't buried in fog.
   - **Time of day cross-fades:** when `<LookProvider timeOfDay>` changes (e.g. predawn → sunrise
-    on Hold for Dawn's last phase), the lighting blends over 3 s (`look/blendPresets.ts`, pure and
-    tested). Under reduced motion it cuts.
+    on Hold for Dawn's last phase), the lighting blends over `timeOfDayFade` seconds (default 3;
+    pass ~2 for a staged turn) on the R3F clock (`look/blendPresets.ts`, pure and tested). The
+    Cinderram's hide burn runs over the first half of it. Under reduced motion it cuts.
+  - **Exit edge:** `<Diorama exitHexes={edgeHexes}>` marks an escape edge (Saltmarsh's southern
+    row): a faint pale glow brightest toward the off-board side and chevrons drifting off the
+    board (`terrain/ExitMarkers.tsx`; static under reduced motion, not pickable).
   - Lab: `&scenario=saltmarsh` and `&scenario=holdForDawn` load the real scenarios
     (`&fadeTo=sunrise&fadeAt=0.8` shows the fade).
 - `terrain/buildIsland.ts`: a pure builder from a `BoardLayout` to one merged vertex-coloured

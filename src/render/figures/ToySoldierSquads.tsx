@@ -419,7 +419,7 @@ function createLanternGlowMaterial() {
  * when the squad is destroyed or routs. Last-known rams draw as ghosts.
  */
 function SiegeRams({ placed, animator, ...handlers }: { placed: PlacedSquad[]; animator: SquadAnimator } & FigurePickHandlers) {
-  const { skin, timeOfDay, reducedMotion } = useLook();
+  const { skin, timeOfDay, reducedMotion, timeOfDayFade } = useLook();
   const sieges = useMemo(() => placed.filter((p) => p.squad.kind === "siege"), [placed]);
   const live = useMemo(() => sieges.filter((p) => !p.squad.lastKnown), [sieges]);
   const ghosts = useMemo(() => sieges.filter((p) => p.squad.lastKnown), [sieges]);
@@ -436,14 +436,15 @@ function SiegeRams({ placed, animator, ...handlers }: { placed: PlacedSquad[]; a
   );
 
   // The hides burn away at sunrise: 0 = on, 1 = gone. Arriving at sunrise
-  // starts them gone; the switch plays a ~1 s burn (steam, sink, fade), cut
-  // under reduced motion. Going back (a lab fade) snaps them on again.
+  // starts them gone; the switch plays a burn (steam, sink, fade) over the
+  // first half of the time-of-day cross-fade, so it lands as the light turns;
+  // cut under reduced motion. Going back (a lab fade) snaps them on again.
   const hidesOn = timeOfDay !== "sunrise";
   const burn = useRef(hidesOn ? 0 : 1);
   useFrame((_, dt) => {
     const target = hidesOn ? 0 : 1;
     if (target === 0 || reducedMotion) burn.current = target;
-    else burn.current = Math.min(1, burn.current + dt / HIDE_BURN_TIME);
+    else burn.current = Math.min(1, burn.current + dt / hideBurnTime(timeOfDayFade));
   });
 
   if (sieges.length === 0) return null;
@@ -467,8 +468,8 @@ function SiegeRams({ placed, animator, ...handlers }: { placed: PlacedSquad[]; a
   );
 }
 
-/** Seconds for the Cinderram's hides to burn away when the sun comes up. */
-const HIDE_BURN_TIME = 1;
+/** Seconds for the Cinderram's hides to burn away: half the dawn cross-fade (1 s for a 2 s turn). */
+export const hideBurnTime = (timeOfDayFade: number) => Math.min(1.5, Math.max(0.6, timeOfDayFade * 0.5));
 const STEAM_PUFFS = 18;
 
 /**
