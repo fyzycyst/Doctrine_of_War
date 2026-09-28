@@ -55,8 +55,12 @@ describe("marsh and reeds", () => {
     const start = createInitialState(dawn);
     expect(start.timeOfDay).toBe("predawn");
     const first = resolvePhase(start, {}, dawn, { doctrines: library() });
+    // The hour turns with the phase: the command window for phase 2 already sees by sunrise.
+    expect(first.state.phase).toBe(2);
+    expect(first.state.timeOfDay).toBe("sunrise");
     const second = resolvePhase(first.state, {}, dawn, { doctrines: library() });
-    expect(second.state.timeOfDay).toBe("sunrise");
+    // Phase 3 has no override, so it is back to the scenario's hour.
+    expect([second.state.phase, second.state.timeOfDay]).toEqual([3, "predawn"]);
   });
 });
 
