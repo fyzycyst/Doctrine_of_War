@@ -77,6 +77,12 @@ describe("Ember Ford", () => {
     expect(emberFord.playerDoctrineIds).toHaveLength(5);
   });
 
+  it("ends in a stalemate, not a defeat, when the night runs out with nobody through", () => {
+    expect(emberFord.timeoutOutcome).toBe("stalemate");
+    // A line of rally banners never breaks the vanguard, but never lets it through either.
+    expect(battle(everyone("rescue_standard"), 1, "off").state.status).toBe("stalemate");
+  });
+
   it("fields exactly one renowned Host champion", () => {
     const renowned = host.filter((squad) => squad.renown);
     expect(renowned.map((squad) => squad.id)).toEqual(["pyre_sworn"]);

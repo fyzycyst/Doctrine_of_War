@@ -257,6 +257,29 @@ describe("win conditions", () => {
     expect(evaluateOutcome(state, { ...scen, winCondition: { kind: "destroySquads", squadIds: [] } }, false)).toBeNull();
   });
 
+  it("timeoutOutcome stalemate: running out of phases is a stalemate, not a defeat", () => {
+    const scen = scenario({
+      winCondition: { kind: "destroySquads", squadIds: ["h"] },
+      timeoutOutcome: "stalemate",
+      squads: [squad("p", FB, { q: 6, r: 4 }), squad("h", AH, { q: 0, r: 0 })],
+    });
+    const { state, events, report } = run(scen);
+    expect(state.status).toBe("stalemate");
+    expect(events.at(-1)).toMatchObject({ kind: "outcome", status: "stalemate", beat: 0 });
+    expect(report.lines.at(-1)).toMatch(/^Stalemate/);
+    expect(() => resolvePhase(state, {}, scen)).toThrow(/already over/);
+  });
+
+  it("timeoutOutcome never softens a real defeat or a hold-the-line victory", () => {
+    const gateScen = scenario({
+      objectives: [gate],
+      winCondition: { kind: "holdObjective", objectiveId: "gate" },
+      timeoutOutcome: "stalemate",
+      squads: [squad("h", AH, { q: 0, r: 0 }), squad("p", FB, { q: 3, r: 0 })],
+    });
+    expect(run(gateScen).state.status).toBe("victory");
+  });
+
   it("destroySquads: defeat when time runs out", () => {
     const scen = scenario({
       winCondition: { kind: "destroySquads", squadIds: ["h"] },

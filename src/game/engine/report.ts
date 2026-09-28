@@ -41,7 +41,7 @@ export function narrateEvent(event: EngineEvent, state: EngineState): string | n
     case "objectiveDamage":
       return `${name(event.attackerId)} battered ${objectiveName(event.objectiveId)} (${event.oldIntegrity} → ${event.newIntegrity}).`;
     case "outcome":
-      return `${event.status === "victory" ? "Victory" : "Defeat"}: ${event.reason}`;
+      return `${event.status === "victory" ? "Victory" : event.status === "stalemate" ? "Stalemate" : "Defeat"}: ${event.reason}`;
     case "fortune":
       return event.outcome === "surge"
         ? `Heroic stand! ${name(event.squadId)} surges forward.`

@@ -141,6 +141,11 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
       standing on one after its activation exits.
     - `squadsLost {count}`: that many player squads are routed or destroyed ("the line
       breaks").
+  - `timeoutOutcome: "defeat" | "stalemate"` (default `"defeat"`) decides what running out
+    of phases means for `escapeEdge` and `destroySquads`. With `"stalemate"`, the battle
+    ends with `status: "stalemate"`: neither side met its goal. The campaign treats it as
+    "advance, with a Resolve penalty". `holdObjective` always wins on time. The balance
+    harness reports stalemates as their own column; they never count as wins.
   - In every mode it is defeat when no player squad is left on the field. For
     `escapeEdge` and `destroySquads`, reaching the end of `maxPhases` is also defeat.
 - Events (`phase`, `beat` on each, where beat 0 means phase-level): `ruleFired`, `move {path, reason}`,

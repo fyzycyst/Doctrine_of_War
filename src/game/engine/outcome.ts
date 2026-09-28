@@ -1,7 +1,7 @@
 // Win-condition evaluation. Checked after every activation (so a battle can end
 // mid-beat) and once more, with `final: true`, after the last beat of maxPhases.
 import type { HexCoord } from "../board";
-import type { EngineScenario, EngineState, FactionId } from "./types";
+import type { BattleOutcome, EngineScenario, EngineState, FactionId } from "./types";
 
 /**
  * The hexes through which `faction` may leave the board: the player's escape edge,
@@ -41,7 +41,7 @@ export function validateWinCondition(scenario: EngineScenario) {
 }
 
 export interface Outcome {
-  status: "victory" | "defeat";
+  status: BattleOutcome;
   reason: string;
 }
 
@@ -102,7 +102,9 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
   if (final) {
     return win.kind === "holdObjective"
       ? { status: "victory", reason: "The line held until dawn." }
-      : { status: "defeat", reason: "Time ran out before the task was done." };
+      : scenario.timeoutOutcome === "stalemate"
+        ? { status: "stalemate", reason: "Neither side broke: the Host did not get through, and its vanguard still stands." }
+        : { status: "defeat", reason: "Time ran out before the task was done." };
   }
 
   return null;

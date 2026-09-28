@@ -185,6 +185,11 @@ export interface EngineScenario {
   hostSchedule: HostPhaseOrders[];
   winCondition: WinCondition;
   defeatConditions?: DefeatCondition[];
+  /**
+   * What running out of phases means when the win condition is not "survive"
+   * (holdObjective always wins on time). Default "defeat".
+   */
+  timeoutOutcome?: "defeat" | "stalemate";
   /** Defaults to "day". */
   timeOfDay?: TimeOfDay;
   /** A fortune-on seed that plays the intended plan to a clean win (first playthrough, video capture). */
@@ -241,7 +246,10 @@ export interface EngineObjective {
   defender: FactionId;
 }
 
-export type EngineStatus = "command" | "victory" | "defeat";
+/** "stalemate": time ran out with neither side's goal met (only when the scenario allows it). */
+export type BattleOutcome = "victory" | "defeat" | "stalemate";
+
+export type EngineStatus = "command" | BattleOutcome;
 
 export interface EngineState {
   scenarioId: string;
@@ -327,7 +335,7 @@ export type EngineEvent =
       oldIntegrity: number;
       newIntegrity: number;
     })
-  | (EventBase & { kind: "outcome"; status: "victory" | "defeat"; reason: string })
+  | (EventBase & { kind: "outcome"; status: BattleOutcome; reason: string })
   | (EventBase & { kind: "fortune"; squadId: string; outcome: "surge" | "waver"; ruleId: string })
   | (EventBase & { kind: "dread"; squadId: string; sourceId: string; title: string; shock: number })
   | (EventBase & { kind: "weatherShift"; from: Weather; to: Weather })
