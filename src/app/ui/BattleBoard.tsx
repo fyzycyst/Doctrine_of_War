@@ -14,6 +14,7 @@ import { PostFX } from "../../render/post/PostFX";
 import { useCanvasDpr } from "../../render/quality";
 import { emberDusk } from "../../render/skins";
 import { deploymentHexes } from "../game/deploy";
+import { hasStageTurn } from "../game/goal";
 import { useGame, useShownView } from "../game/gameStore";
 import { toDioramaSquads } from "../game/view";
 import { useAppStore } from "../store";
@@ -48,6 +49,11 @@ export function BattleBoard({
   // resolves, so the orders window of a new hour, e.g. Hold for Dawn's sunrise, would
   // otherwise still be lit for the old one.)
   const hour = timeOfDayAt(scenario, Math.min(view.phase, view.maxPhases));
+  // A battle whose goal turns with the hour (Hold for Dawn) fades its light in ~2 s, so
+  // sunrise and the hide burn land inside the 2.6 s dawn moment (R2). Elsewhere, the default.
+  const dawnFade = useMemo(() => (hasStageTurn(scenario) ? 2 : undefined), [scenario]);
+  // The player's escape edge, marked on the board (R3): Saltmarsh's southern exit row.
+  const exitHexes = scenario.winCondition.kind === "escapeEdge" ? scenario.winCondition.edgeHexes : undefined;
   const shaking = useGateShake(reducedMotion);
   const water = useMemo(() => scenario.board.hexes.some((hex) => hex.terrain === "river" || hex.terrain === "ford"), [scenario.board]);
   useAmbience({
@@ -67,13 +73,14 @@ export function BattleBoard({
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         onPointerMissed={() => clearSelection()}
       >
-        <LookProvider skin={emberDusk} timeOfDay={lightingFor(hour)} weather={weatherFor(view.weather)}>
+        <LookProvider skin={emberDusk} timeOfDay={lightingFor(hour)} weather={weatherFor(view.weather)} timeOfDayFade={dawnFade}>
           <DioramaCamera shot={shot} drift={!still && !reducedMotion} />
           <Diorama
             key={scenario.id}
             board={scenario.board}
             squads={squads}
             deploymentHexes={zone}
+            exitHexes={exitHexes}
             visibility={visibility}
             animationRef={animationRef}
             onFiguresReady={onFiguresReady}

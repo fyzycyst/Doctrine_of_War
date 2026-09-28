@@ -50,3 +50,8 @@ export function stageTurn(scenario: EngineScenario, phase: number): { title: str
   const goal = goalFor(scenario, phase + 1);
   return goal ? { title: "Dawn breaks", goal } : null;
 }
+
+/** Whether the battle's goal turns with the hour at some phase (Hold for Dawn). */
+export function hasStageTurn(scenario: EngineScenario): boolean {
+  return Array.from({ length: scenario.maxPhases }, (_, i) => stageTurn(scenario, i + 1)).some(Boolean);
+}
