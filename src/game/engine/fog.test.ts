@@ -81,6 +81,25 @@ describe("intel and sighting", () => {
   });
 });
 
+describe("dread and sight stay consistent", () => {
+  it("refreshes intel after a phase-start dread rout removes the only spotter, and ends the battle", () => {
+    const scen = scenario({
+      squads: [
+        squad("p", FB, { q: 3, r: 2 }, { resolve: -3, cohesion: 20 }),
+        squad("champ", AH, { q: 1, r: 2 }, { resolve: 3, renown: { title: "The Unquenched" } }),
+      ],
+      maxPhases: 2,
+    });
+    const start = createInitialState(scen, on);
+    expect(start.intel.free_banners?.champ?.visible).toBe(true);
+    const { state, events } = resolvePhase(start, {}, scen, { doctrines: library() });
+    expect(events.map((event) => event.kind)).toEqual(["dread", "rout", "outcome"]);
+    expect(state.status).toBe("defeat");
+    // p saw the champion, broke, and nobody on its side can see it any more.
+    expect(state.intel.free_banners?.champ?.visible).toBe(false);
+  });
+});
+
 describe("visibleState", () => {
   const field = scenario({
     squads: [

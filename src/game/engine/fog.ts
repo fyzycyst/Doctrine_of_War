@@ -131,11 +131,15 @@ export function applyDread(ctx: EngineContext, viewer: EngineSquad, source: Engi
   checkRout(ctx, viewer);
 }
 
-/** Dread for every squad that can personally see a renowned enemy it has not yet faced. */
-export function dreadFromSight(ctx: EngineContext) {
+/**
+ * Dread for every squad that can personally see a renowned enemy it has not yet faced.
+ * Returns true if any squad routed (so the caller must refresh intel).
+ */
+export function dreadFromSight(ctx: EngineContext): boolean {
   if (!fortuneOn(ctx)) {
-    return;
+    return false;
   }
+  const activeBefore = ctx.state.squads.filter(isActive).length;
   const renowned = ctx.state.squads.filter((squad): squad is ActiveSquad => isActive(squad) && Boolean(squad.renown));
   for (const source of renowned) {
     for (const viewer of ctx.state.squads) {
@@ -144,6 +148,7 @@ export function dreadFromSight(ctx: EngineContext) {
       }
     }
   }
+  return ctx.state.squads.filter(isActive).length < activeBefore;
 }
 
 // ---------------------------------------------------------------------------

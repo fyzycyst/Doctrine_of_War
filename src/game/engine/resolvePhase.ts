@@ -111,10 +111,16 @@ function opponentOf(scenario: EngineScenario, faction: FactionId): FactionId {
   return other.faction;
 }
 
-/** After anything that moves or removes squads: update fog, then dread from new sightings. */
+/**
+ * After anything that moves or removes squads: update fog, then dread from new
+ * sightings. Dread can rout an observer, which changes what its side sees, so
+ * refresh again until nothing more routs (each dread pair fires once, so this ends).
+ */
 function afterChange(ctx: EngineContext) {
   refreshIntel(ctx, ctx.emit, ctx.beat, ctx.phase);
-  dreadFromSight(ctx);
+  while (dreadFromSight(ctx)) {
+    refreshIntel(ctx, ctx.emit, ctx.beat, ctx.phase);
+  }
 }
 
 export function resolvePhase(
