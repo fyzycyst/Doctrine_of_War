@@ -106,6 +106,18 @@ describe("the doctrine editor", () => {
     expect(names.indexOf("Shield the Line (Veteran's cut)")).toBe(names.indexOf("Shield the Line") + 1);
   });
 
+  it("offers only the player's doctrines to cut from (never the Host's Hurl Fire)", () => {
+    render(<DoctrineEditor target={{}} onClose={() => {}} />);
+    const options = within(screen.getByRole("combobox", { name: "Cut from" })).getAllByRole("option").map((option) => option.textContent);
+    expect(options).toEqual(["Shield the Line", "Fighting Withdrawal", "Rescue Standard", "Clean Counterstroke", "Hold for Dawn"]);
+  });
+
+  it("shows Counterstroke's strike from guard as it will play", () => {
+    render(<DoctrineEditor target={{ baseId: "clean_counterstroke" }} onClose={() => {}} />);
+    expect(within(screen.getByRole("region", { name: "Preview" })).getByText(/strike back from guard/i)).toBeInTheDocument();
+    expect(screen.getAllByRole("group", { name: /^Cohesion below/ })).toHaveLength(1);
+  });
+
   it("opens from the hand on the doctrine in focus", async () => {
     const user = userEvent.setup();
     useAppStore.getState().selectSquad("greyford_shields");
