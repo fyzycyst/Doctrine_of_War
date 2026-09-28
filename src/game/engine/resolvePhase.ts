@@ -6,7 +6,7 @@ import { sameHex } from "../board";
 import { executeAction } from "./actions";
 import type { EngineContext, EventBody } from "./context";
 import { doctrineLibrary } from "./doctrines";
-import { dreadFromSight, observeDeparture, refreshIntel } from "./fog";
+import { dreadFromSight, eventsFor, eventVisibility, observeDeparture, refreshIntel } from "./fog";
 import { phaseStartWeather, stressCheck } from "./fortune";
 import { evaluateOutcome, validateWinCondition } from "./outcome";
 import { buildReport } from "./report";
@@ -156,7 +156,8 @@ export function resolvePhase(
     beat: 0,
     // Events are deep-copied so playback data never aliases state or scenario coordinates.
     emit: (event: EventBody) => {
-      events.push({ ...structuredClone(event), phase, beat: ctx.beat } as EngineEvent);
+      const visibleTo = eventVisibility(ctx, event);
+      events.push({ ...structuredClone(event), phase, beat: ctx.beat, visibleTo } as EngineEvent);
       if (event.kind === "rout" || event.kind === "exit") {
         const status = event.kind === "exit" ? "escaped" : event.cause === "strength" ? "destroyed" : "routed";
         observeDeparture(ctx, getSquad(state, event.squadId), event.hex, status);
@@ -227,7 +228,9 @@ export function resolvePhase(
 
   state.rngState = rng.state;
   const title = `Phase ${phase}: ${hostPhase?.intent ?? "The armies clash."}`;
-  return { state, events, report: buildReport(phase, title, events, state) };
+  // The report is the player's account: only what the player's side witnessed.
+  const report = buildReport(phase, title, eventsFor(events, scenario.playerFaction), state);
+  return { state, events, report };
 }
 
 /** A player squad standing on an escape-edge hex after its activation leaves the board. */

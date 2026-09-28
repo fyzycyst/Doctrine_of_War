@@ -8,7 +8,7 @@ export {
   type BattleOptions,
   type ResolveOptions,
 } from "./resolvePhase";
-export { visibleState, type VisibleSquad, type VisibleState } from "./fog";
+export { eventsFor, visibleState, type VisibleSquad, type VisibleState } from "./fog";
 export { evaluateOutcome } from "./outcome";
 export { narrateEvent } from "./report";
 export { firstBreach } from "./scenarios/firstBreach";

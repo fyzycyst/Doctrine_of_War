@@ -4,8 +4,8 @@
 // to the UI and renderer. The Host (non-player side) is omniscient for now.
 // Everything here is inert when state.fortune is "off".
 import { getHex, hexDistance, type HexCoord } from "../board";
-import { checkRout, fortuneOn, type EngineContext, type RuleContext } from "./context";
-import type { EngineSquad, EngineState, FactionId, SquadStatus } from "./types";
+import { checkRout, fortuneOn, type EngineContext, type EventBody, type RuleContext } from "./context";
+import type { EngineEvent, EngineSquad, EngineState, FactionId, SquadStatus } from "./types";
 import { isActive, type ActiveSquad } from "./world";
 
 export const BASE_SIGHT = 2;
@@ -182,6 +182,62 @@ export function dreadFromSight(ctx: EngineContext): boolean {
     }
   }
   return ctx.state.squads.filter(isActive).length < activeBefore;
+}
+
+// ---------------------------------------------------------------------------
+// Who witnessed an event
+// ---------------------------------------------------------------------------
+
+/**
+ * The factions that witness `event` at the moment it happens. The acting side always
+ * does; the other side does only if it can see where it happened (for a move, any
+ * hex of the path). Both sides of an engagement witness it. Objective damage is
+ * always known to the defender. Weather and outcomes are public; a sighting belongs
+ * to the side that made it. With fortune off, everyone sees everything.
+ */
+export function eventVisibility(ctx: RuleContext, event: EventBody): FactionId[] {
+  const everyone = factions(ctx.state);
+  if (!fortuneOn(ctx)) {
+    return everyone;
+  }
+  const factionOf = (squadId: string) => ctx.state.squads.find((squad) => squad.id === squadId)?.faction;
+  const hexOf = (squadId: string) => ctx.state.squads.find((squad) => squad.id === squadId)?.hex ?? null;
+  const witnessed = (owners: (FactionId | undefined)[], hexes: (HexCoord | null)[]) =>
+    everyone.filter(
+      (faction) => owners.includes(faction) || hexes.some((hex) => hex !== null && factionSees(ctx, faction, hex)),
+    );
+
+  switch (event.kind) {
+    case "outcome":
+    case "weatherShift":
+      return everyone;
+    case "sighted":
+      return [event.faction];
+    case "ruleFired":
+    case "blocked":
+    case "fortune":
+      return witnessed([factionOf(event.squadId)], [hexOf(event.squadId)]);
+    case "move":
+      return witnessed([factionOf(event.squadId)], event.path);
+    case "rout":
+    case "exit":
+      return witnessed([factionOf(event.squadId)], [event.hex]);
+    case "engagement":
+      return witnessed([factionOf(event.attackerId), factionOf(event.defenderId)], [event.attackerHex, event.defenderHex]);
+    case "rally":
+      return witnessed([factionOf(event.sourceId)], [hexOf(event.sourceId), hexOf(event.targetId)]);
+    case "objectiveDamage": {
+      const defender = ctx.state.objectives.find((objective) => objective.id === event.objectiveId)?.defender;
+      return witnessed([factionOf(event.attackerId), defender], [event.hex]);
+    }
+    case "dread":
+      return witnessed([factionOf(event.squadId)], [hexOf(event.squadId)]);
+  }
+}
+
+/** The event stream as `faction` experienced it. Playback and reports use this, never the raw stream. */
+export function eventsFor(events: EngineEvent[], faction: FactionId): EngineEvent[] {
+  return events.filter((event) => event.visibleTo.includes(faction));
 }
 
 // ---------------------------------------------------------------------------

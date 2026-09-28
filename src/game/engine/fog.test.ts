@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { executeAction } from "./actions";
-import { canSee, hexLine, refreshIntel, sightRange, visibleState } from "./fog";
+import { canSee, eventsFor, hexLine, refreshIntel, sightRange, visibleState } from "./fog";
 import { perceive } from "./perception";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { evaluateCondition } from "./rules";
@@ -119,6 +119,57 @@ describe("dread and sight stay consistent", () => {
     expect(state.status).toBe("defeat");
     // p saw the champion, broke, and nobody on its side can see it any more.
     expect(state.intel.free_banners?.champ?.visible).toBe(false);
+  });
+});
+
+describe("event visibility (fog of war for playback)", () => {
+  // A Host squad marches along the far edge, never within Banner sight (2 hexes).
+  const marcher = doctrine("marcher", AH, [[{ kind: "always" }, { kind: "advance", toward: { kind: "nearestEnemy" } }]]);
+  const lookout = doctrine("lookout", FB, [[{ kind: "always" }, { kind: "hold" }]]);
+  const scen = scenario({
+    board: openBoard(9, 5),
+    squads: [squad("watch", FB, { q: 0, r: 0 }, { doctrineId: "lookout" }), squad("far", AH, { q: 8, r: 4 }, { doctrineId: "marcher" })],
+    maxPhases: 2,
+  });
+  const run = (fortune: "on" | "off") =>
+    resolvePhase(createInitialState(scen, { fortune }), {}, scen, { doctrines: library(marcher, lookout) });
+
+  it("hides an unseen squad's orders and path from the other side, but not from its own", () => {
+    const { events, report } = run("on");
+    const hostOnly = events.filter((event) => "squadId" in event && event.squadId === "far");
+    expect(hostOnly.map((event) => event.kind)).toContain("ruleFired");
+    expect(hostOnly.map((event) => event.kind)).toContain("move");
+    for (const event of hostOnly) {
+      expect(event.visibleTo).toEqual(["ashen_host"]);
+    }
+    expect(eventsFor(events, FB).some((event) => "squadId" in event && event.squadId === "far")).toBe(false);
+    expect(eventsFor(events, AH).length).toBeGreaterThan(eventsFor(events, FB).length);
+    // The player's report is built from what the player saw.
+    expect(report.lines.join("\n")).not.toMatch(/\bfar\b/);
+    expect(report.lines.join("\n")).toMatch(/watch/);
+  });
+
+  it("reveals a move once any hex of its path is in sight, and engagements to both sides", () => {
+    const close = scenario({
+      squads: [squad("watch", FB, { q: 0, r: 2 }, { doctrineId: "lookout" }), squad("near", AH, { q: 3, r: 2 }, { doctrineId: "raider" })],
+      maxPhases: 2,
+    });
+    const raider = doctrine("raider", AH, [[{ kind: "always" }, { kind: "attack", target: { kind: "nearestEnemy" } }]]);
+    const doctrines = library(raider, lookout);
+    const first = resolvePhase(createInitialState(close, on), {}, close, { doctrines });
+    const events = [...first.events, ...resolvePhase(first.state, {}, close, { doctrines }).events];
+    // The Host's opening order was given out of sight, but the move that followed was seen.
+    expect(events[0]).toMatchObject({ kind: "ruleFired", squadId: "near", visibleTo: ["ashen_host"] });
+    const firstMove = events.find((event) => event.kind === "move");
+    expect(firstMove?.visibleTo).toEqual(["free_banners", "ashen_host"]);
+    const engagement = events.find((event) => event.kind === "engagement");
+    expect(engagement?.visibleTo).toEqual(["free_banners", "ashen_host"]);
+  });
+
+  it("shows everything to everyone with fortune off", () => {
+    const { events } = run("off");
+    expect(events.every((event) => event.visibleTo.length === 2)).toBe(true);
+    expect(eventsFor(events, FB)).toEqual(events);
   });
 });
 

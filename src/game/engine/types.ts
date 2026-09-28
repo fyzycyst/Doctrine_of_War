@@ -257,6 +257,11 @@ interface EventBase {
   phase: number;
   /** 1..3; 0 for phase-level events. */
   beat: number;
+  /**
+   * The factions that witnessed this event, fixed when it happened (fog of war).
+   * Playback and reports for a faction must use eventsFor(events, faction).
+   */
+  visibleTo: FactionId[];
 }
 
 export type EngineEvent =

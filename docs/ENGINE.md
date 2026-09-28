@@ -28,6 +28,17 @@ resolvePhase(state, orders, scenario, { doctrines? }) → { state, events, repor
   come from scenario data and are exempt.
 - `options.doctrines`: the doctrine lookup (defaults to the built-in library), so a
   future editor can pass edited doctrines without touching the engine.
+- **Renderer and UI contract: play back `eventsFor(events, scenario.playerFaction)` only.**
+  Every event carries `visibleTo: FactionId[]`, which is fixed when the event happens:
+  - the acting side always sees its own events;
+  - the other side sees an event only if it could see where it happened at that moment
+    (for a `move`, any hex of the path; for a `ruleFired`, the acting squad);
+  - both sides see an engagement, the defender always sees damage to its objective,
+    and weather and outcomes are public.
+
+  `report.lines` is already built from the player's filtered stream. The raw `events`
+  array is for tests, the balance harness and a debug/capture mode, never for normal
+  playback. With fortune off, every event is visible to everyone.
 - Call it once per phase. `state.phase` advances until `state.status` becomes
   `"victory"` or `"defeat"`. Calling it again after that throws.
 
