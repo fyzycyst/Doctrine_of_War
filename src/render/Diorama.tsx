@@ -10,7 +10,7 @@ import { SquadAnimator, type AnimatorScene, type SquadAnimationApi } from "./fig
 import { SquadMarkers } from "./figures/SquadMarkers";
 import { ToySoldierSquads } from "./figures/ToySoldierSquads";
 import { placeSquads, type DioramaSquad, type FigureApproach } from "./figures/types";
-import { wideShot } from "./camera/DioramaCamera";
+import { wideShotFor } from "./camera/DioramaCamera";
 import { boardRadius, hexToWorld } from "./hexWorld";
 import { LightRig } from "./lighting/LightRig";
 import { AtmosphereTicker, useLook } from "./look/LookContext";
@@ -263,5 +263,5 @@ function ReadySignal({ onReady }: { onReady?: () => void }) {
 const FOG_REF_DISTANCE = 26;
 /** Push the fog back on boards bigger than that, so their wide shot isn't buried. */
 function fogOffsetFor(board: BoardLayout): number {
-  return Math.max(0, wideShot(boardRadius(board)).distance - FOG_REF_DISTANCE);
+  return Math.max(0, wideShotFor(board).distance - FOG_REF_DISTANCE);
 }

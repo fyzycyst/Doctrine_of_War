@@ -99,7 +99,10 @@ imported (see `fromEngine.ts`); engine logic may not.
     maps it from the engine's `noncombatant: true`.
   - `DioramaSquad.kind = "siege"` (engine `role: "siege"`, e.g. the Cinderram): a wheeled ram
     shed under wet hides with a smouldering ridge and an ember-hot ram head, crew on the flank
-    files. At `sunrise` the hides are gone and the rafters stand bare.
+    files. When the time of day switches to `sunrise` the hides burn away on screen (~1 s: steam
+    puffs, the hides slump and fade, bare rafters left; instant under reduced motion); arriving
+    at sunrise they are already gone.
+  - The Column's cart lanterns carry a soft additive glow: the warm accent of the rain.
   - Renowned squads (the champion, "The Last Cinder") carry a larger crest and a thin gold outer
     ring that reads at the wide shot.
   - Boards bigger than Ember Ford push the scene fog back (`LightRig fogOffset`), so their wider
@@ -118,7 +121,9 @@ imported (see `fromEngine.ts`); engine logic may not.
 - `figures/`: (a) instanced toy soldiers (with ember glints, a dithered `aFade` and a reveal `aSilhouette`), (b) KayKit
   CC0 figures (fallback only), and shared banners, cohesion rings, renown crests and contact
   shadows (`SquadMarkers`).
-- `camera/`, `post/`, `lighting/`: clamped orbit + idle drift (`wideShot(boardRadius)`,
+- `camera/`, `post/`, `lighting/`: clamped orbit + idle drift (`wideShotFor(board)`: boards bigger
+  than Ember Ford get a tighter frame biased toward the Banners' deployment and objectives; plain
+  `wideShot(boardRadius)` for the rest,
   `closeShot(target)`), the post stack (bloom, separable tilt-shift, tone mapping, grade), and the
   light rig.
 - `lab/`: the dev-only Look Lab at `?lab=1` (`&scenario=firstBreach|emberFord`, `&board=stress`,

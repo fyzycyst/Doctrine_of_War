@@ -5,7 +5,8 @@ import type { FactionId } from "../../game/engine/types";
 import { useLook } from "../look/LookContext";
 import { createFigureMaterial, createOutlineMaterial } from "../materials";
 import { MAX_FIGURES, type SquadAnimator } from "./squadAnimation";
-import { buildCart, buildRam, buildRefugee, buildToySoldier } from "./toySoldier";
+import { buildCart, buildRam, buildRefugee, buildToySoldier, RAM_ROOF_TOP, RAM_SCALE } from "./toySoldier";
+import { mulberry32 } from "../hexWorld";
 import { slotToWorld, type PlacedSquad } from "./types";
 import { useDisposable } from "../dispose";
 
@@ -323,10 +324,25 @@ function Carts({ columns, animator }: { columns: PlacedSquad[]; animator: SquadA
     [-0.28, -0.3],
   ];
 
+  // Each cart's lantern also gets a soft additive glow: the Column's warm
+  // lights are the small warm accent of a grey Saltmarsh frame.
+  const glowGeometry = useDisposable(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(capacity * 3), 3));
+    g.setAttribute("aGlow", new THREE.Float32BufferAttribute(new Float32Array(capacity), 1));
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+    return g;
+  }, [capacity]);
+  const glowMaterial = useDisposable(() => createLanternGlowMaterial(), []);
+  const lanternFwd = 0.13 * (skin.figures.height / 0.34);
+  const lanternUp = 0.19 * (skin.figures.height / 0.34);
+
   useFrame(({ clock }) => {
     const m = mesh.current;
     if (!m) return;
     const t = clock.elapsedTime;
+    const glowPos = glowGeometry.getAttribute("position") as THREE.BufferAttribute;
+    const glowAmt = glowGeometry.getAttribute("aGlow") as THREE.BufferAttribute;
     columns.forEach((p, s) => {
       const pose = animator.squadPose(p.squad.id);
       const facing = pose?.facing ?? p.squad.facing;
@@ -347,12 +363,52 @@ function Carts({ columns, animator }: { columns: PlacedSquad[]; animator: SquadA
         }
         dummy.updateMatrix();
         m.setMatrixAt(idx, dummy.matrix);
+        const lf = fwd + lanternFwd;
+        glowPos.setXYZ(idx, dummy.position.x + (lf - fwd) * cos, dummy.position.y + lanternUp, dummy.position.z - (lf - fwd) * sin);
+        glowAmt.setX(idx, gone || (k === 1 && p.alive < 4) ? 0 : 0.85 + 0.15 * Math.sin(t * 9.1 * motion + idx * 2.3));
       });
     });
     m.count = capacity;
     m.instanceMatrix.needsUpdate = true;
+    glowPos.needsUpdate = true;
+    glowAmt.needsUpdate = true;
   });
-  return <instancedMesh key={capacity} ref={mesh} args={[geometry, material, capacity]} castShadow receiveShadow frustumCulled={false} />;
+  return (
+    <>
+      <instancedMesh key={capacity} ref={mesh} args={[geometry, material, capacity]} castShadow receiveShadow frustumCulled={false} />
+      <points geometry={glowGeometry} material={glowMaterial} renderOrder={7} frustumCulled={false} />
+    </>
+  );
+}
+
+/** Soft warm additive point glows (world-size, so they shrink with distance). */
+function createLanternGlowMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uColor: { value: new THREE.Color("#ffb45a") }, uSize: { value: 0.8 } },
+    vertexShader: /* glsl */ `
+      attribute float aGlow;
+      uniform float uSize;
+      varying float vGlow;
+      void main() {
+        vGlow = aGlow;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = aGlow > 0.0 ? uSize * projectionMatrix[1][1] * 500.0 / -mv.z : 0.0;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      varying float vGlow;
+      void main() {
+        float d = length(gl_PointCoord - 0.5) * 2.0;
+        float a = exp(-d * d * 5.0) * vGlow;
+        gl_FragColor = vec4(uColor * a * 1.2, a);
+      }
+    `,
+  });
 }
 
 /**
@@ -363,12 +419,12 @@ function Carts({ columns, animator }: { columns: PlacedSquad[]; animator: SquadA
  * when the squad is destroyed or routs. Last-known rams draw as ghosts.
  */
 function SiegeRams({ placed, animator, ...handlers }: { placed: PlacedSquad[]; animator: SquadAnimator } & FigurePickHandlers) {
-  const { skin, timeOfDay } = useLook();
+  const { skin, timeOfDay, reducedMotion } = useLook();
   const sieges = useMemo(() => placed.filter((p) => p.squad.kind === "siege"), [placed]);
   const live = useMemo(() => sieges.filter((p) => !p.squad.lastKnown), [sieges]);
   const ghosts = useMemo(() => sieges.filter((p) => p.squad.lastKnown), [sieges]);
-  const hides = timeOfDay !== "sunrise";
-  const base = useDisposable(() => buildRam(skin.figures.height, hides), [skin.figures.height, hides]);
+  const frame = useDisposable(() => buildRam(skin.figures.height, "frame"), [skin.figures.height]);
+  const hides = useDisposable(() => buildRam(skin.figures.height, "hides"), [skin.figures.height]);
   const glow = skin.factions.ashen_host.glow;
   const material = useDisposable(
     () => createFigureMaterial({ shading: skin.material.shading, rimColor: glow, rimStrength: 0.12, glintColor: glow, cacheKey: `ram-${skin.material.shading}` }),
@@ -378,13 +434,120 @@ function SiegeRams({ placed, animator, ...handlers }: { placed: PlacedSquad[]; a
     () => withGhostDraw(createFigureMaterial({ shading: skin.material.shading, rimColor: glow, rimStrength: 0, glintColor: glow, cacheKey: `ram-${skin.material.shading}`, ghost: true })),
     [skin.material.shading, glow],
   );
+
+  // The hides burn away at sunrise: 0 = on, 1 = gone. Arriving at sunrise
+  // starts them gone; the switch plays a ~1 s burn (steam, sink, fade), cut
+  // under reduced motion. Going back (a lab fade) snaps them on again.
+  const hidesOn = timeOfDay !== "sunrise";
+  const burn = useRef(hidesOn ? 0 : 1);
+  useFrame((_, dt) => {
+    const target = hidesOn ? 0 : 1;
+    if (target === 0 || reducedMotion) burn.current = target;
+    else burn.current = Math.min(1, burn.current + dt / HIDE_BURN_TIME);
+  });
+
   if (sieges.length === 0) return null;
+  const common = { animator, ...handlers };
   return (
     <>
-      {live.length > 0 && <RamGroup squads={live} base={base} material={material} animator={animator} {...handlers} />}
-      {ghosts.length > 0 && <RamGroup squads={ghosts} base={base} material={ghostMaterial} animator={animator} ghost {...handlers} />}
+      {live.length > 0 && (
+        <>
+          <RamGroup squads={live} base={frame} material={material} {...common} />
+          <RamGroup squads={live} base={hides} material={material} burn={burn} {...common} />
+          <RamSteam squads={live} animator={animator} burn={burn} />
+        </>
+      )}
+      {ghosts.length > 0 && (
+        <>
+          <RamGroup squads={ghosts} base={frame} material={ghostMaterial} ghost {...common} />
+          <RamGroup squads={ghosts} base={hides} material={ghostMaterial} ghost burn={burn} {...common} />
+        </>
+      )}
     </>
   );
+}
+
+/** Seconds for the Cinderram's hides to burn away when the sun comes up. */
+const HIDE_BURN_TIME = 1;
+const STEAM_PUFFS = 18;
+
+/**
+ * Steam off the burning hides: puffs rise from the roof and swell as `burn`
+ * runs 0 → 1, each on its own delay, and are gone by the end.
+ */
+function RamSteam({ squads, animator, burn }: { squads: PlacedSquad[]; animator: SquadAnimator; burn: { current: number } }) {
+  const { skin } = useLook();
+  const capacity = Math.max(1, squads.length * STEAM_PUFFS);
+  const seedsArr = useMemo(() => {
+    const rand = mulberry32(31);
+    return Array.from({ length: STEAM_PUFFS }, () => ({ x: (rand() - 0.5) * 0.55, z: (rand() - 0.5) * 0.2, delay: rand() * 0.55, drift: (rand() - 0.5) * 0.3 }));
+  }, []);
+  const geometry = useDisposable(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(capacity * 3), 3));
+    g.setAttribute("aPuff", new THREE.Float32BufferAttribute(new Float32Array(capacity * 2), 2));
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+    return g;
+  }, [capacity]);
+  const material = useDisposable(() => createSteamMaterial(), []);
+  const points = useRef<THREE.Points>(null);
+  const scale = (skin.figures.height / 0.34) * RAM_SCALE;
+
+  useFrame(() => {
+    const b = burn.current;
+    if (points.current) points.current.visible = b > 0 && b < 1;
+    if (b <= 0 || b >= 1) return;
+    const pos = geometry.getAttribute("position") as THREE.BufferAttribute;
+    const puff = geometry.getAttribute("aPuff") as THREE.BufferAttribute;
+    squads.forEach((p, s) => {
+      const pose = animator.squadPose(p.squad.id);
+      const facing = pose?.facing ?? p.squad.facing;
+      const cos = Math.cos(facing);
+      const sin = Math.sin(facing);
+      const ax = pose?.anchor?.x ?? p.x;
+      const ay = pose?.anchor?.y ?? p.y;
+      const az = pose?.anchor?.z ?? p.z;
+      seedsArr.forEach((sd, k) => {
+        const i = s * STEAM_PUFFS + k;
+        const age = THREE.MathUtils.clamp((b - sd.delay) / 0.45, 0, 1);
+        const lx = sd.x * scale;
+        const lz = (sd.z + sd.drift * age) * scale;
+        pos.setXYZ(i, ax + lx * cos + lz * sin, ay + (RAM_ROOF_TOP * 0.85 + age * 0.6) * scale, az - lx * sin + lz * cos);
+        puff.setXY(i, age > 0 && age < 1 ? Math.sin(Math.PI * age) : 0, age);
+      });
+    });
+    pos.needsUpdate = true;
+    puff.needsUpdate = true;
+  });
+  return <points ref={points} geometry={geometry} material={material} renderOrder={7} frustumCulled={false} visible={false} />;
+}
+
+/** Soft, swelling grey-white steam puffs (world-size points). */
+function createSteamMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uColor: { value: new THREE.Color("#e8e4e0") } },
+    vertexShader: /* glsl */ `
+      attribute vec2 aPuff;
+      varying float vA;
+      void main() {
+        vA = aPuff.x;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = aPuff.x > 0.0 ? (0.1 + 0.26 * aPuff.y) * projectionMatrix[1][1] * 500.0 / -mv.z : 0.0;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      varying float vA;
+      void main() {
+        float d = length(gl_PointCoord - 0.5) * 2.0;
+        float a = smoothstep(1.0, 0.1, d) * vA * 0.38;
+        gl_FragColor = vec4(uColor, a);
+      }
+    `,
+  });
 }
 
 function RamGroup({
@@ -393,9 +556,18 @@ function RamGroup({
   material,
   animator,
   ghost = false,
+  burn,
   onSquadClick,
   onSquadHover,
-}: { squads: PlacedSquad[]; base: THREE.BufferGeometry; material: THREE.Material; animator: SquadAnimator; ghost?: boolean } & FigurePickHandlers) {
+}: {
+  squads: PlacedSquad[];
+  base: THREE.BufferGeometry;
+  material: THREE.Material;
+  animator: SquadAnimator;
+  ghost?: boolean;
+  /** The hides layer: sinks, squashes and fades out as this runs 0 → 1. */
+  burn?: { current: number };
+} & FigurePickHandlers) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const capacity = Math.max(1, squads.length);
   const geometry = useDisposable(() => {
@@ -414,17 +586,20 @@ function RamGroup({
     squads.forEach((p, s) => {
       const pose = animator.squadPose(p.squad.id);
       const f = animator.figurePose(p.squad.id, 0);
-      const gone = p.alive === 0 || (pose?.ringFade ?? 1) <= 0.01;
+      const b = burn?.current ?? 0;
+      const gone = p.alive === 0 || (pose?.ringFade ?? 1) <= 0.01 || b >= 1;
       if (gone) {
         dummy.scale.setScalar(0);
       } else {
-        dummy.position.set(pose?.anchor?.x ?? p.x, (pose?.anchor?.y ?? p.y) + (f?.dy ?? 0) * 0.3, pose?.anchor?.z ?? p.z);
+        // Burning hides slump onto the frame: sink and squash, fading late.
+        dummy.position.set(pose?.anchor?.x ?? p.x, (pose?.anchor?.y ?? p.y) + (f?.dy ?? 0) * 0.3 - b * 0.06, pose?.anchor?.z ?? p.z);
         dummy.rotation.set(0, pose?.facing ?? p.squad.facing, 0);
-        dummy.scale.setScalar(1);
+        dummy.scale.set(1 + 0.04 * b, 1 - 0.45 * b * b, 1 + 0.06 * b);
       }
       dummy.updateMatrix();
       m.setMatrixAt(s, dummy.matrix);
-      fade.setX(s, gone ? 0 : (f?.fade ?? 1) * (ghost ? ghostBreath(t, s, 0) : 1));
+      const burnFade = 1 - THREE.MathUtils.smoothstep(b, 0.45, 1);
+      fade.setX(s, gone ? 0 : (f?.fade ?? 1) * burnFade * (ghost ? ghostBreath(t, s, 0) : 1));
       silhouette.setX(s, f?.silhouette ?? 0);
     });
     m.count = squads.length;
