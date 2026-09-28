@@ -5,7 +5,7 @@ import type { FactionId } from "../../game/engine/types";
 import { useLook } from "../look/LookContext";
 import { createFigureMaterial, createOutlineMaterial } from "../materials";
 import { MAX_FIGURES, type SquadAnimator } from "./squadAnimation";
-import { buildCart, buildRefugee, buildToySoldier } from "./toySoldier";
+import { buildCart, buildRam, buildRefugee, buildToySoldier } from "./toySoldier";
 import { slotToWorld, type PlacedSquad } from "./types";
 import { useDisposable } from "../dispose";
 
@@ -34,6 +34,7 @@ export function ToySoldierSquads({
         <FactionInstances key={faction} faction={faction} placed={placed} animator={animator} {...handlers} />
       ))}
       <ColumnInstances placed={placed} animator={animator} {...handlers} />
+      <SiegeRams placed={placed} animator={animator} {...handlers} />
     </>
   );
 }
@@ -52,6 +53,11 @@ function withGhostDraw(material: THREE.Material) {
 }
 /** Ghost silhouettes are low-alpha and slowly breathe. */
 const GHOST_FADE = 0.7;
+const ghostBreath = (t: number, s: number, phase: number) => GHOST_FADE * (0.72 + 0.28 * Math.sin(t * 0.9 + s * 1.3 + phase * 0.3));
+
+/** A siege squad's crew stands on the flank files, clear of the ram shed. */
+const CREW_SIDE = 0.13;
+const siegeCrew = (i: number, p: PlacedSquad) => p.squad.kind !== "siege" || Math.abs(p.slots[i].side) > CREW_SIDE;
 
 function FactionInstances({
   faction,
@@ -108,6 +114,7 @@ function FactionInstances({
         animator={animator}
         amp={skin.figures.bobAmplitude * motion}
         sway={motion}
+        slots={siegeCrew}
         castShadow
         onSquadClick={onSquadClick}
         onSquadHover={onSquadHover}
@@ -120,6 +127,7 @@ function FactionInstances({
           outline={null}
           animator={animator}
           amp={0}
+          slots={siegeCrew}
           ghost
           onSquadClick={onSquadClick}
           onSquadHover={onSquadHover}
@@ -152,7 +160,7 @@ function InstanceGroup({
   /** Idle sway multiplier (0 = none, 1 = full; reduced motion scales it down). */
   sway?: number;
   /** Only draw formation slots for which this returns true (split variants across groups). */
-  slots?: (index: number) => boolean;
+  slots?: (index: number, squad: PlacedSquad) => boolean;
   ghost?: boolean;
   castShadow?: boolean;
 } & FigurePickHandlers) {
@@ -185,7 +193,7 @@ function InstanceGroup({
         const index = s * MAX_FIGURES + i;
         const slot = p.slots[i];
         const f = animator.figurePose(p.squad.id, i);
-        const visible = i < p.alive && (f?.fade ?? 1) > 0 && (!slotFilter || slotFilter(i));
+        const visible = i < p.alive && (f?.fade ?? 1) > 0 && (!slotFilter || slotFilter(i, p));
         if (!visible) {
           dummy.position.set(ax, -50, az);
           dummy.scale.setScalar(0);
@@ -203,7 +211,7 @@ function InstanceGroup({
         }
         dummy.updateMatrix();
         for (const m of targets) m.setMatrixAt(index, dummy.matrix);
-        const breathe = ghost ? GHOST_FADE * (0.72 + 0.28 * Math.sin(t * 0.9 + s * 1.3 + slot.phase * 0.3)) : 1;
+        const breathe = ghost ? ghostBreath(t, s, slot.phase) : 1;
         fade.setX(index, visible ? (f?.fade ?? 1) * breathe : 0);
         silhouette.setX(index, f?.silhouette ?? 0);
       }
@@ -345,4 +353,110 @@ function Carts({ columns, animator }: { columns: PlacedSquad[]; animator: SquadA
     m.instanceMatrix.needsUpdate = true;
   });
   return <instancedMesh key={capacity} ref={mesh} args={[geometry, material, capacity]} castShadow receiveShadow frustumCulled={false} />;
+}
+
+/**
+ * Siege engines (the Cinderram): one ram shed per siege squad at its anchor,
+ * turning and moving with it, under wet hides until sunrise burns them off.
+ * The crew are ordinary figures on the flank files (see `siegeCrew`). The ram
+ * follows the squad's first figure for reveal fade/silhouette and vanishes
+ * when the squad is destroyed or routs. Last-known rams draw as ghosts.
+ */
+function SiegeRams({ placed, animator, ...handlers }: { placed: PlacedSquad[]; animator: SquadAnimator } & FigurePickHandlers) {
+  const { skin, timeOfDay } = useLook();
+  const sieges = useMemo(() => placed.filter((p) => p.squad.kind === "siege"), [placed]);
+  const live = useMemo(() => sieges.filter((p) => !p.squad.lastKnown), [sieges]);
+  const ghosts = useMemo(() => sieges.filter((p) => p.squad.lastKnown), [sieges]);
+  const hides = timeOfDay !== "sunrise";
+  const base = useDisposable(() => buildRam(skin.figures.height, hides), [skin.figures.height, hides]);
+  const glow = skin.factions.ashen_host.glow;
+  const material = useDisposable(
+    () => createFigureMaterial({ shading: skin.material.shading, rimColor: glow, rimStrength: 0.12, glintColor: glow, cacheKey: `ram-${skin.material.shading}` }),
+    [skin.material.shading, glow],
+  );
+  const ghostMaterial = useDisposable(
+    () => withGhostDraw(createFigureMaterial({ shading: skin.material.shading, rimColor: glow, rimStrength: 0, glintColor: glow, cacheKey: `ram-${skin.material.shading}`, ghost: true })),
+    [skin.material.shading, glow],
+  );
+  if (sieges.length === 0) return null;
+  return (
+    <>
+      {live.length > 0 && <RamGroup squads={live} base={base} material={material} animator={animator} {...handlers} />}
+      {ghosts.length > 0 && <RamGroup squads={ghosts} base={base} material={ghostMaterial} animator={animator} ghost {...handlers} />}
+    </>
+  );
+}
+
+function RamGroup({
+  squads,
+  base,
+  material,
+  animator,
+  ghost = false,
+  onSquadClick,
+  onSquadHover,
+}: { squads: PlacedSquad[]; base: THREE.BufferGeometry; material: THREE.Material; animator: SquadAnimator; ghost?: boolean } & FigurePickHandlers) {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const capacity = Math.max(1, squads.length);
+  const geometry = useDisposable(() => {
+    const g = base.clone();
+    g.setAttribute("aFade", new THREE.InstancedBufferAttribute(new Float32Array(capacity).fill(1), 1));
+    g.setAttribute("aSilhouette", new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1));
+    return g;
+  }, [base, capacity]);
+
+  useFrame(({ clock }) => {
+    const m = mesh.current;
+    if (!m) return;
+    const t = clock.elapsedTime;
+    const fade = geometry.getAttribute("aFade") as THREE.InstancedBufferAttribute;
+    const silhouette = geometry.getAttribute("aSilhouette") as THREE.InstancedBufferAttribute;
+    squads.forEach((p, s) => {
+      const pose = animator.squadPose(p.squad.id);
+      const f = animator.figurePose(p.squad.id, 0);
+      const gone = p.alive === 0 || (pose?.ringFade ?? 1) <= 0.01;
+      if (gone) {
+        dummy.scale.setScalar(0);
+      } else {
+        dummy.position.set(pose?.anchor?.x ?? p.x, (pose?.anchor?.y ?? p.y) + (f?.dy ?? 0) * 0.3, pose?.anchor?.z ?? p.z);
+        dummy.rotation.set(0, pose?.facing ?? p.squad.facing, 0);
+        dummy.scale.setScalar(1);
+      }
+      dummy.updateMatrix();
+      m.setMatrixAt(s, dummy.matrix);
+      fade.setX(s, gone ? 0 : (f?.fade ?? 1) * (ghost ? ghostBreath(t, s, 0) : 1));
+      silhouette.setX(s, f?.silhouette ?? 0);
+    });
+    m.count = squads.length;
+    m.instanceMatrix.needsUpdate = true;
+    fade.needsUpdate = true;
+    silhouette.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh
+      key={capacity}
+      ref={mesh}
+      renderOrder={ghost ? 6 : 0}
+      args={[geometry, material, capacity]}
+      castShadow={!ghost}
+      receiveShadow={!ghost}
+      frustumCulled={false}
+      onClick={(e) => {
+        const id = e.instanceId === undefined ? null : squads[e.instanceId]?.squad.id;
+        if (id && onSquadClick) {
+          e.stopPropagation();
+          onSquadClick(id);
+        }
+      }}
+      onPointerMove={(e) => {
+        const id = e.instanceId === undefined ? null : squads[e.instanceId]?.squad.id;
+        if (id && onSquadHover) {
+          e.stopPropagation();
+          onSquadHover(id);
+        }
+      }}
+      onPointerOut={() => onSquadHover?.(null)}
+    />
+  );
 }

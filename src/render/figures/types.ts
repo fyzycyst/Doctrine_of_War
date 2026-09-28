@@ -23,9 +23,10 @@ export interface DioramaSquad {
   lastKnown?: boolean;
   /**
    * "column" = the noncombatant refugee Column (Saltmarsh): walkers with
-   * lanterns and covered carts under a small pale banner. Default "combat".
+   * lanterns and covered carts under a small pale banner. "siege" = a siege
+   * engine (the Cinderram): a ram shed with its crew on the flanks. Default "combat".
    */
-  kind?: "combat" | "column";
+  kind?: "combat" | "column" | "siege";
 }
 
 export type FigureApproach = "toy" | "kaykit";

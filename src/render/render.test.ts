@@ -87,6 +87,19 @@ describe("engine mapping", () => {
     expect(squads.find((s) => s.faction === "free_banners")?.facing).toBeCloseTo(Math.PI);
     expect(lightingFor(emberFord.timeOfDay)).toBe("nightFires");
     expect(lightingFor(undefined)).toBe("dusk");
+    // Every engine hour has its own preset (the real battles use them all).
+    expect(lightingFor("day")).toBe("dusk");
+    expect(lightingFor("rainGrey")).toBe("rainGrey");
+    expect(lightingFor("predawn")).toBe("predawn");
+    expect(lightingFor("sunrise")).toBe("sunrise");
+  });
+
+  it("draws siege squads (the Cinderram) as a siege kind", async () => {
+    const { dioramaSquads } = await import("./fromEngine");
+    const { holdForDawn } = await import("../game/engine/scenarios/holdForDawn");
+    const squads = dioramaSquads(holdForDawn.squads);
+    expect(squads.find((s) => s.id === "cinderram")?.kind).toBe("siege");
+    expect(squads.find((s) => s.id === "kiln_born_oathguard")).toMatchObject({ kind: "combat", renowned: true });
   });
 });
 
@@ -122,17 +135,16 @@ describe("saltmarsh terrain and the Column", () => {
     const { dioramaSquads, isNoncombatant } = await import("./fromEngine");
     const base = { id: "c", faction: "free_banners" as const, hex: { q: 0, r: 0 }, strength: 80, cohesion: 60 };
     expect(isNoncombatant({ noncombatant: true })).toBe(true);
-    expect(isNoncombatant({ role: "noncombatant" })).toBe(true);
-    expect(isNoncombatant({ role: "frontline" })).toBe(false);
+    expect(isNoncombatant({})).toBe(false);
     expect(dioramaSquads([{ ...base, noncombatant: true }])[0].kind).toBe("column");
     expect(dioramaSquads([base])[0].kind).toBe("combat");
   });
 
   it("builds marsh pools and swaying reed banks", async () => {
     const { buildIsland } = await import("./terrain/buildIsland");
-    const { placeholderBoard } = await import("./showcase/placeholderBoards");
+    const { saltmarshColumn } = await import("../game/engine/scenarios/saltmarshColumn");
     const { emberDusk } = await import("./skins");
-    const island = buildIsland(placeholderBoard("saltmarsh"), emberDusk);
+    const island = buildIsland(saltmarshColumn.board, emberDusk);
     expect(island.reedGeometry).not.toBeNull();
     expect(island.water.some((w) => w.radius !== undefined)).toBe(true);
     // Sway weights run from 0 at the root toward 1 at the tip.

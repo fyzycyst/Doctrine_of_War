@@ -173,6 +173,13 @@ function SquadMarker({
           <mesh ref={halo} renderOrder={2} material={haloMat}>
             <ringGeometry args={[0.62, 0.66, 64, 1]} />
           </mesh>
+          {/* Renown: a thin gold outer ring, so a champion reads at the wide shot. */}
+          {squad.renowned && !ghost && (
+            <mesh renderOrder={2}>
+              <ringGeometry args={[0.69, 0.715, 64, 1]} />
+              <meshBasicMaterial color="#e8c070" transparent opacity={0.6} depthWrite={false} />
+            </mesh>
+          )}
         </group>
         {/* Banner: pole behind the formation, cloth streaming away from the enemy. */}
         <group position={[-0.34, 0, -0.18]}>
@@ -200,7 +207,7 @@ function SquadMarker({
               </mesh>
             </group>
             {squad.renowned && !ghost && (
-              <group ref={crest} position={[0, poleHeight + 0.13, 0]}>
+              <group ref={crest} position={[0, poleHeight + 0.15, 0]} scale={1.4}>
                 <mesh>
                   <torusGeometry args={[0.055, 0.012, 6, 16]} />
                   <meshStandardMaterial color={style.trim} emissive={style.trim} emissiveIntensity={0.9} metalness={0.7} roughness={0.3} />

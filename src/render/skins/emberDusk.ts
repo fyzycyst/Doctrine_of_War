@@ -47,7 +47,7 @@ const lighting: Record<TimeOfDay, LightingPreset> = {
     fill: { color: "#5a7fb4", intensity: 1.1, azimuth: 200, elevation: 28 },
     hemisphere: { sky: "#9a88a8", ground: "#4a3828", intensity: 1.05 },
     fog: { color: "#4a2f3c", near: 26, far: 62 },
-    mist: { color: "#b8a0a8", density: 0.6, height: 0.55, speed: 0.05 },
+    mist: { color: "#b8a0a8", density: 0.6, height: 0.55, speed: 0.05, fogOfWar: 1.25 },
     particles: { kind: "embers", rate: 1, color: P.ember, speed: 0.55, size: 1 },
     fires: { color: "#ff8a3d", intensity: 0 },
     waterGlow: 0.05,
