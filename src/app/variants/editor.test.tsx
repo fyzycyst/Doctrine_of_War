@@ -128,19 +128,20 @@ describe("test in the field", () => {
     await user.click(within(panel).getByRole("button", { name: "Run the test" }));
     expect(fieldTests).toHaveLength(1);
     const run = fieldTests[0];
-    expect(run.input).toMatchObject({ squadIds: ["greyford_shields"], baseId: "shield_the_line", runs: 60, firstSeed: firstBreach.curatedSeed });
+    expect(run.input).toMatchObject({ squadIds: ["greyford_shields"], baseId: "shield_the_line", firstSeed: firstBreach.curatedSeed });
+    expect(panel).toHaveTextContent(/60 to 300 battles/);
     expect(run.input.scenario.playerDoctrineIds).toContain(run.input.variantId);
     expect(run.input.doctrines[run.input.variantId].rules.map((rule) => rule.id)).toEqual(["stl_break", "stl_hold", "stl_brace"]);
 
-    act(() => run.progress(23, 60));
-    expect(within(panel).getByText("23 of 60")).toBeInTheDocument();
+    act(() => run.progress(23, 300));
+    expect(within(panel).getByText("23 of up to 300")).toBeInTheDocument();
     expect(within(panel).getByRole("progressbar", { name: "Field test progress" })).toHaveAttribute("value", "23");
     await user.click(within(panel).getByRole("button", { name: "Cancel" }));
     expect(run.cancelled).toBe(true);
     expect(within(panel).getByRole("button", { name: "Run the test" })).toBeEnabled();
   });
 
-  it("shows win and advance rates side by side with a verdict", async () => {
+  it("shows an honest verdict, the win rates as bars, and the paired battles behind it", async () => {
     const user = userEvent.setup();
     render(<DoctrineEditor target={{ baseId: "shield_the_line", squadId: "greyford_shields" }} onClose={() => {}} />);
     const panel = screen.getByRole("region", { name: "Test in the field" });
@@ -148,15 +149,20 @@ describe("test in the field", () => {
     await user.click(within(panel).getByRole("button", { name: "Run the test" }));
     await act(async () =>
       fieldTests[0].finish({
-        runs: 60,
-        base: { victories: 30, stalemates: 6, defeats: 24 },
-        variant: { victories: 37, stalemates: 3, defeats: 20 },
+        runs: 240,
+        base: { victories: 120, stalemates: 24, defeats: 96 },
+        variant: { victories: 144, stalemates: 12, defeats: 84 },
+        ahead: 30,
+        behind: 12,
+        stoppedBy: "runs",
       }),
     );
     const result = within(panel).getByRole("status");
-    expect(result).toHaveTextContent(/Holds .+ more often \(\+12%\)/);
-    const rows = within(result).getAllByRole("row").map((row) => row.textContent);
-    expect(rows).toEqual([expect.stringContaining("Shield the Line"), "Wins50%62%", "Advances60%67%"]);
+    expect(within(result).getByText("Clearly better")).toHaveClass("field-test-verdict", "better");
+    expect(result).toHaveTextContent("Holds Greyford Gate in 60% of 240 battles; the original, 50%.");
+    const bars = within(within(result).getByRole("list", { name: "Win rate" }).parentElement!).getAllByRole("listitem").map((bar) => bar.textContent);
+    expect(bars).toEqual(["Shield the Line50% won · 60% advanced", "Shield the Line (my cut)60% won · 65% advanced"]);
+    expect(result).toHaveTextContent("Same fortunes, different results in 42 battles: your cut came out ahead in 30, the original in 12.");
     // A later edit marks the result as stale.
     await user.click(screen.getByRole("button", { name: "Move order 1 down" }));
     expect(result).toHaveTextContent("These results are for your previous cut.");
