@@ -1,8 +1,10 @@
-// npm run balance -- [--seeds 500] [--fortune on|off] [--scenario first_breach]
+// npm run balance -- [--seeds 500] [--fortune on|off] [--scenario first_breach] [--roster all|baseline|strong|rough]
 // Prints win rates for each plan. Fails closed: bad arguments, an unknown scenario,
 // missing reference plans or any guardrail failure all exit non-zero.
 import { formatTable, GUARDRAILS, guardrailFailures, runBalance } from "../src/game/engine/balance";
 import { scenarios } from "../src/game/engine/scenarios";
+import { ashAndBanner } from "../src/game/campaign/definition";
+import { balanceVariantsFor } from "../src/game/campaign/rosters";
 import type { FortuneMode } from "../src/game/engine/types";
 
 function arg(name: string, fallback: string): string {
@@ -18,6 +20,11 @@ function fail(message: string): never {
 const seeds = Number(arg("seeds", "500"));
 const fortune = arg("fortune", "on");
 const only = arg("scenario", "");
+const roster = arg("roster", "all");
+if (!["all", "baseline", "strong", "rough"].includes(roster)) {
+  console.error(`balance: --roster must be all, baseline, strong or rough (got "${roster}")`);
+  process.exit(1);
+}
 
 if (!Number.isInteger(seeds) || seeds < 1) {
   fail(`--seeds must be a positive integer (got "${arg("seeds", "500")}")`);
@@ -38,11 +45,17 @@ console.log(
 let failed = false;
 for (const scenario of selected) {
   try {
-    const rows = runBalance(scenario, seeds, fortune as FortuneMode);
-    console.log(formatTable(scenario, rows));
-    const failures = guardrailFailures(rows);
-    console.log(failures.length === 0 ? "  PASS\n" : failures.map((failure) => `  FAIL ${failure}`).join("\n") + "\n");
-    failed ||= failures.length > 0;
+    // Campaign battles are balanced against three rosters: baseline and strong with the
+    // full guardrails, rough (a bad run) as a winnability floor. See docs/CAMPAIGN.md.
+    for (const variant of balanceVariantsFor(ashAndBanner, scenarios, scenario).filter((item) => roster === "all" || item.kind === roster)) {
+      const rows = runBalance(variant.scenario, seeds, fortune as FortuneMode);
+      const label = { ...variant.scenario, title: `${scenario.title} [${variant.kind} roster${variant.policy === "floor" ? ", floor only" : ""}]` };
+      console.log(formatTable(label, rows));
+      if (variant.roster) console.log(`  roster: ${variant.roster}`);
+      const failures = guardrailFailures(rows, variant.policy);
+      console.log(failures.length === 0 ? "  PASS\n" : failures.map((failure) => `  FAIL ${failure}`).join("\n") + "\n");
+      failed ||= failures.length > 0;
+    }
   } catch (error) {
     console.error(`  FAIL ${scenario.id}: ${(error as Error).message}\n`);
     failed = true;

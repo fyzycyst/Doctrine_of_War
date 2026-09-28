@@ -86,8 +86,15 @@ export function runBalance(scenario: EngineScenario, seeds: number, fortune: For
   });
 }
 
+/**
+ * "full": every guardrail. "floor": a winnability floor only (the intended plan
+ * advances >= intendedMin, the bad plan advances <= badMax, no mono cap), used for
+ * the campaign's "rough" reference roster.
+ */
+export type GuardrailPolicy = "full" | "floor";
+
 /** Human-readable guardrail failures; empty only when the scenario is provably in balance (fails closed). */
-export function guardrailFailures(rows: BalanceRow[]): string[] {
+export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = "full"): string[] {
   const pct = (value: number) => `${Math.round(value * 100)}%`;
   const missing = (["intended", "bad"] as const)
     .filter((kind) => !rows.some((row) => row.kind === kind))
@@ -95,6 +102,16 @@ export function guardrailFailures(rows: BalanceRow[]): string[] {
   return missing.concat(rows.flatMap((row) => {
     if (!Number.isFinite(row.winRate) || row.games < 1) {
       return [`${row.name} has no valid win rate (${row.wins}/${row.games})`];
+    }
+    if (policy === "floor") {
+      const advance = row.winRate + row.stalemateRate;
+      if (row.kind === "intended" && advance < GUARDRAILS.intendedMin) {
+        return [`intended plan advances ${pct(advance)} (< ${pct(GUARDRAILS.intendedMin)})`];
+      }
+      if (row.kind === "bad" && advance > GUARDRAILS.badMax) {
+        return [`bad plan advances ${pct(advance)} (> ${pct(GUARDRAILS.badMax)})`];
+      }
+      return [];
     }
     if (row.kind === "intended" && row.winRate < GUARDRAILS.intendedMin) {
       return [`intended plan wins ${pct(row.winRate)} (< ${pct(GUARDRAILS.intendedMin)})`];

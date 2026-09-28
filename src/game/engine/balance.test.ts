@@ -24,6 +24,17 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
     expect(guardrailFailures([nan])).toContain("intended has no valid win rate (0/0)");
   });
 
+  it("the floor policy only checks that the intended plan advances and the bad plan does not", () => {
+    const row = (kind: BalanceRow["kind"], winRate: number, stalemateRate = 0): BalanceRow => ({
+      name: kind, kind, orders: {}, games: 100, wins: winRate * 100, winRate, stalemates: stalemateRate * 100, stalemateRate, meanObjective: null,
+    });
+    expect(guardrailFailures([row("intended", 0.6, 0.2), row("bad", 0.2), row("mono", 0.9)], "floor")).toEqual([]);
+    expect(guardrailFailures([row("intended", 0.6, 0.1), row("bad", 0.3, 0.1)], "floor")).toEqual([
+      "intended plan advances 70% (< 75%)",
+      "bad plan advances 40% (> 35%)",
+    ]);
+  });
+
   it("flags each kind of guardrail breach", () => {
     const row = (kind: BalanceRow["kind"], winRate: number): BalanceRow => ({
       name: kind,

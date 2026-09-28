@@ -29,6 +29,44 @@ import {
 } from "./types";
 
 export const REFORMED_RESOLVE = -2;
+
+// "The Host has heard of you": the Host scales to the army that takes the field,
+// relative to the roster the scenario was authored and balanced for, in both
+// directions. Fame is the sum of the fielded companies' Resolve plus RENOWN_FAME per
+// renowned company. Each point of fame above (below) the authored roster's adds
+// (removes) HOST_STRENGTH_PER_FAME strength on every Host company, capped at
+// HOST_STRENGTH_CAP either way; every FAME_PER_HOST_RESOLVE points shift Host Resolve
+// by one, capped at HOST_RESOLVE_CAP. A battered army faces a Host that holds its
+// best back; a famous one draws the Host's hardest companies.
+export const RENOWN_FAME = 2;
+export const HOST_STRENGTH_PER_FAME = 2;
+export const HOST_STRENGTH_CAP = 12;
+export const FAME_PER_HOST_RESOLVE = 4;
+export const HOST_RESOLVE_CAP = 1;
+
+export interface HostEscalation {
+  /** Campaign fame minus the scenario's authored fame. */
+  fame: number;
+  strength: number;
+  resolve: number;
+}
+
+export function fameOf(entries: { resolve: number; renown?: { title: string } | null }[]): number {
+  return entries.reduce((sum, entry) => sum + entry.resolve + (entry.renown ? RENOWN_FAME : 0), 0);
+}
+
+/** How much the Host hardens (or eases) against these companies, relative to the authored roster. */
+export function hostEscalation(companies: CampaignCompany[], authoredFame: number): HostEscalation {
+  const fame = fameOf(companies) - authoredFame;
+  const sign = Math.sign(fame);
+  const size = Math.abs(fame);
+  return {
+    fame,
+    strength: sign * Math.min(HOST_STRENGTH_CAP, HOST_STRENGTH_PER_FAME * size) || 0,
+    resolve: sign * Math.min(HOST_RESOLVE_CAP, Math.floor(size / FAME_PER_HOST_RESOLVE)) || 0,
+  };
+}
+
 export const STALEMATE_ROUT_PENALTY = 1;
 
 const clampResolve = (value: number) => Math.max(RESOLVE_MIN, Math.min(RESOLVE_MAX, value));
@@ -83,14 +121,25 @@ function playableBattle(def: CampaignDefinition, state: CampaignState, scenarioI
 
 /**
  * The scenario as this campaign fights it: each mapped player squad takes its
- * company's name, Resolve and renown. Pure; the input scenario is not modified.
+ * company's name, Resolve and renown, and the Host hardens by hostEscalation().
+ * Pure; the input scenario is not modified.
  */
 export function applyCampaign(def: CampaignDefinition, state: CampaignState, scenario: EngineScenario): EngineScenario {
   const battle = playableBattle(def, state, scenario.id);
   const roster = rosterFor(def, state, battle);
+  const fielded = roster.filter((company) => Object.values(battle.slots).includes(company.id));
+  const authored = scenario.squads.filter((squad) => Object.hasOwn(battle.slots, squad.id));
+  const escalation = hostEscalation(fielded, fameOf(authored));
   return {
     ...scenario,
     squads: scenario.squads.map((squad) => {
+      if (squad.faction !== scenario.playerFaction) {
+        return {
+          ...squad,
+          strength: Math.max(10, Math.min(100, squad.strength + escalation.strength)),
+          resolve: Math.max(RESOLVE_MIN, Math.min(RESOLVE_MAX, squad.resolve + escalation.resolve)),
+        };
+      }
       const companyId = battle.slots[squad.id];
       const company = companyId ? roster.find((item) => item.id === companyId) : undefined;
       if (!company) {
