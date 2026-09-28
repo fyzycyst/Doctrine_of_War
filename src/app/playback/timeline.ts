@@ -264,8 +264,8 @@ function mapSquad(view: VisibleState, id: string | null, change: (squad: Visible
 export type Known = (id: string, step: Step) => VisibleSquad | undefined;
 
 /**
- * A squad as it was when event `index` happened: its phase-end view, with every change
- * the player witnessed after that event undone. Exact while the squad stays in sight to
+ * Fallback for a squad the engine gave no sighting snapshot for: its phase-end view, with
+ * every change the player witnessed after event `index` undone. Exact while the squad stays in sight to
  * the end of the phase; losses it took unseen between two sightings are not in the
  * projected stream (see the engine gap in the T14 report).
  */
@@ -307,15 +307,35 @@ export function comeIntoView(view: VisibleState, id: string, hex: HexCoord, step
 
 /** Adds a squad the player just laid eyes on (as it was at this step), or reveals a ghost. */
 function reveal(view: VisibleState, id: string, hex: HexCoord, step: Step, known: Known): VisibleState {
+  // The engine's sighting snapshot is exact; the reconstruction is the fallback.
+  const seen = sightingSnapshot(step, id);
   const existing = view.squads.find((squad) => squad.id === id);
   if (existing) {
-    return mapSquad(view, id, (squad) => ({ ...squad, hex: { ...hex }, lastKnown: false, status: "active" }));
+    return mapSquad(view, id, (squad) => ({ ...squad, ...(seen ?? {}), hex: { ...hex }, lastKnown: false, lastSeen: null, status: "active" }));
   }
-  const info = known(id, step);
+  const info = seen ?? known(id, step);
   if (!info) {
     return view;
   }
-  return { ...view, squads: [...view.squads, { ...info, hex: { ...hex }, status: "active", lastKnown: false }] };
+  return { ...view, squads: [...view.squads, { ...info, hex: { ...hex }, status: "active", lastKnown: false, lastSeen: null }] };
+}
+
+/**
+ * The squad as the player first saw it at this step: a `sighted` event's snapshot, or
+ * the snapshot the projection attaches to an event that brings it into view.
+ */
+export function sightingSnapshot(step: Step, id: string): VisibleSquad | undefined {
+  const event = step.event;
+  if (!event) return undefined;
+  const snapshot = event.kind === "sighted" && event.squadId === id ? event.snapshot : event.introduces?.find((item) => item.id === id);
+  if (!snapshot) return undefined;
+  return {
+    ...snapshot,
+    hex: snapshot.hex ? { ...snapshot.hex } : null,
+    ...(snapshot.renown ? { renown: { title: snapshot.renown.title } } : {}),
+    lastKnown: false,
+    lastSeen: null,
+  };
 }
 
 /**
