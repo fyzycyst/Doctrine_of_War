@@ -114,7 +114,9 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   - `holdObjective`: defeat at integrity 0, victory after `maxPhases`.
   - `escapeEdge {edgeHexes, count}`: a player squad standing on an edge hex after its
     activation exits; victory at `count` exits.
-  - `destroySquads {squadIds}`: victory once all of them are routed or destroyed.
+  - `destroySquads {squadIds}`: victory once all of them are routed or destroyed. The
+    list must be non-empty and name only existing, non-player squads; otherwise
+    `createInitialState` throws.
   - In every mode it is defeat when no player squad is left on the field. For
     `escapeEdge` and `destroySquads`, reaching the end of `maxPhases` is also defeat.
 - Events (`phase`, `beat` on each, where beat 0 means phase-level): `ruleFired`, `move {path, reason}`,

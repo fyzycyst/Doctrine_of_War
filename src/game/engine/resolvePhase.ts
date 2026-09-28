@@ -8,7 +8,7 @@ import type { EngineContext, EventBody } from "./context";
 import { doctrineLibrary } from "./doctrines";
 import { dreadFromSight, refreshIntel } from "./fog";
 import { phaseStartWeather, stressCheck } from "./fortune";
-import { evaluateOutcome } from "./outcome";
+import { evaluateOutcome, validateWinCondition } from "./outcome";
 import { buildReport } from "./report";
 import { createRng } from "./rng";
 import { chooseRule } from "./rules";
@@ -40,6 +40,7 @@ export interface ResolveOptions {
 }
 
 export function createInitialState(scenario: EngineScenario, options: BattleOptions = {}): EngineState {
+  validateWinCondition(scenario);
   const seed = (options.seed ?? 1) >>> 0;
   const state: EngineState = {
     scenarioId: scenario.id,

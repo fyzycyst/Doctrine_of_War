@@ -2,6 +2,26 @@
 // mid-beat) and once more, with `final: true`, after the last beat of maxPhases.
 import type { EngineScenario, EngineState } from "./types";
 
+/** Throws on win-condition data that could never be evaluated correctly. */
+export function validateWinCondition(scenario: EngineScenario) {
+  const win = scenario.winCondition;
+  if (win.kind !== "destroySquads") {
+    return;
+  }
+  if (win.squadIds.length === 0) {
+    throw new Error(`Scenario ${scenario.id}: destroySquads needs at least one target`);
+  }
+  for (const id of win.squadIds) {
+    const target = scenario.squads.find((squad) => squad.id === id);
+    if (!target) {
+      throw new Error(`Scenario ${scenario.id}: destroySquads target ${id} does not exist`);
+    }
+    if (target.faction === scenario.playerFaction) {
+      throw new Error(`Scenario ${scenario.id}: destroySquads target ${id} is a player squad`);
+    }
+  }
+}
+
 export interface Outcome {
   status: "victory" | "defeat";
   reason: string;
@@ -30,8 +50,11 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
       }
       break;
     case "destroySquads": {
-      const targets = state.squads.filter((squad) => win.squadIds.includes(squad.id));
-      if (targets.every((squad) => squad.status === "routed" || squad.status === "destroyed")) {
+      const broken = (id: string) => {
+        const squad = state.squads.find((item) => item.id === id);
+        return squad !== undefined && (squad.status === "routed" || squad.status === "destroyed");
+      };
+      if (win.squadIds.length > 0 && win.squadIds.every(broken)) {
         return { status: "victory", reason: "Every marked enemy company is broken." };
       }
       break;

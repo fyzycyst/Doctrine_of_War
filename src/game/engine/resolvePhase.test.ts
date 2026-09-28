@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { evaluateOutcome } from "./outcome";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { firstBreach } from "./scenarios/firstBreach";
 import { doctrine, library, scenario, squad } from "./testKit";
@@ -225,6 +226,29 @@ describe("win conditions", () => {
     const { state, events } = run(scen, {}, library(striker));
     expect(state.status).toBe("victory");
     expect(events.at(-1)).toMatchObject({ kind: "outcome", status: "victory", beat: 1 });
+  });
+
+  it("destroySquads: rejects empty, missing and mixed target lists at battle start", () => {
+    const withTargets = (squadIds: string[]) =>
+      scenario({
+        winCondition: { kind: "destroySquads", squadIds },
+        squads: [squad("p", FB, { q: 6, r: 4 }), squad("h", AH, { q: 0, r: 0 })],
+      });
+    expect(() => createInitialState(withTargets([]))).toThrow(/at least one target/);
+    expect(() => createInitialState(withTargets(["h", "ghost"]))).toThrow(/ghost does not exist/);
+    expect(() => createInitialState(withTargets(["h", "p"]))).toThrow(/p is a player squad/);
+    expect(() => createInitialState(withTargets(["h"]))).not.toThrow();
+  });
+
+  it("destroySquads: evaluates the requested ids, so a missing id can never count as broken", () => {
+    const scen = scenario({
+      winCondition: { kind: "destroySquads", squadIds: ["h"] },
+      squads: [squad("p", FB, { q: 6, r: 4 }), squad("h", AH, { q: 0, r: 0 })],
+    });
+    const state = createInitialState(scen);
+    const drifted = { ...scen, winCondition: { kind: "destroySquads" as const, squadIds: ["ghost"] } };
+    expect(evaluateOutcome(state, drifted, false)).toBeNull();
+    expect(evaluateOutcome(state, { ...scen, winCondition: { kind: "destroySquads", squadIds: [] } }, false)).toBeNull();
   });
 
   it("destroySquads: defeat when time runs out", () => {
