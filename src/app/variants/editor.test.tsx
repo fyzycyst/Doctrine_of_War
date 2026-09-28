@@ -167,6 +167,7 @@ describe("test in the field", () => {
         ahead: 30,
         behind: 12,
         stoppedBy: "runs",
+        extended: false,
       }),
     );
     const result = within(panel).getByRole("status");
@@ -193,6 +194,7 @@ describe("test in the field", () => {
       ahead: 14,
       behind: 7,
       stoppedBy: "time" as const,
+      extended: false,
     };
     await act(async () => fieldTests[0].finish(leaning));
     expect(within(panel).getByText("Slightly better, not certain")).toBeInTheDocument();
@@ -201,10 +203,12 @@ describe("test in the field", () => {
     // The earlier result stays up while it runs; progress counts on from it.
     expect(within(panel).getByText("Slightly better, not certain")).toBeInTheDocument();
     expect(within(panel).getByText("83 of up to 383")).toBeInTheDocument();
+    // After Run longer the bar is stricter (p < 0.01): 60 vs 35 (p ≈ 0.013) stays not certain, and
+    // there is no second extension.
     await act(async () =>
-      fieldTests[1].finish({ ...leaning, runs: 383, base: { victories: 180, stalemates: 0, defeats: 203 }, variant: { victories: 205, stalemates: 0, defeats: 178 }, ahead: 60, behind: 35 }),
+      fieldTests[1].finish({ ...leaning, extended: true, runs: 383, base: { victories: 180, stalemates: 0, defeats: 203 }, variant: { victories: 205, stalemates: 0, defeats: 178 }, ahead: 60, behind: 35 }),
     );
-    expect(within(panel).getByText("Clearly better")).toBeInTheDocument();
+    expect(within(panel).getByText("Slightly better, not certain")).toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: "Run longer" })).not.toBeInTheDocument();
   });
 
@@ -215,7 +219,7 @@ describe("test in the field", () => {
     await user.click(screen.getByRole("button", { name: "Move order 3 up" }));
     await user.click(within(panel).getByRole("button", { name: "Run the test" }));
     await act(async () =>
-      fieldTests[0].finish({ runs: 120, base: { victories: 47, stalemates: 0, defeats: 73 }, variant: { victories: 75, stalemates: 0, defeats: 45 }, ahead: 47, behind: 19, stoppedBy: "clear" }),
+      fieldTests[0].finish({ runs: 120, base: { victories: 47, stalemates: 0, defeats: 73 }, variant: { victories: 75, stalemates: 0, defeats: 45 }, ahead: 47, behind: 19, stoppedBy: "clear", extended: false }),
     );
     expect(within(panel).getByText("Clearly better")).toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: "Run longer" })).not.toBeInTheDocument();

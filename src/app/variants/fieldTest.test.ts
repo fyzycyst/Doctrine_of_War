@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { doctrineLibrary, firstBreach, holdForDawn, saltmarshColumn, validateVariant, withVariants, type EngineScenario } from "../../game/engine";
-import { runFieldTest, signTestP, verdict, type FieldTestInput, type FieldTestResult, type Outcome } from "./fieldTest";
+import { EARLY_STOP_P, runFieldTest, signTestP, verdict, type FieldTestInput, type FieldTestResult, type Outcome } from "./fieldTest";
 
 function inputFor(scenario: EngineScenario, raw: unknown, squadIds: string[], budget: Partial<FieldTestInput> = {}): FieldTestInput {
   const checked = validateVariant(raw, doctrineLibrary);
@@ -81,7 +81,7 @@ describe("the adaptive stop", () => {
     expect(result.stoppedBy).toBe("clear");
     expect(result.runs % 20).toBe(0);
     expect(result.runs).toBeGreaterThan(60);
-    expect(signTestP(result.ahead, result.behind)).toBeLessThan(0.01);
+    expect(signTestP(result.ahead, result.behind)).toBeLessThan(EARLY_STOP_P);
   });
 
   it("stops on the time budget, but never below the minimum", () => {
@@ -114,7 +114,7 @@ describe("run longer", () => {
     const longer = runFieldTest({ ...input, from: first }, undefined, () => 0, play);
     expect(seeds).toEqual(Array.from({ length: 400 }, (_, i) => i + 1));
     const once = runFieldTest({ ...input, maxRuns: 400 }, undefined, () => 0, lean);
-    expect(longer).toEqual(once);
+    expect(longer).toEqual({ ...once, extended: true });
     expect(first.runs).toBe(100); // the earlier result is not mutated
   });
 
@@ -147,8 +147,9 @@ describe("the sign test", () => {
 });
 
 describe("the verdict", () => {
-  const result = (ahead: number, behind: number, runs = 240, wins: [number, number] = [120, 120], stoppedBy: FieldTestResult["stoppedBy"] = "runs"): FieldTestResult => ({
+  const result = (ahead: number, behind: number, runs = 240, wins: [number, number] = [120, 120], stoppedBy: FieldTestResult["stoppedBy"] = "runs", extended = false): FieldTestResult => ({
     runs,
+    extended,
     base: { victories: wins[0], stalemates: 0, defeats: runs - wins[0] },
     variant: { victories: wins[1], stalemates: 0, defeats: runs - wins[1] },
     ahead,
@@ -164,6 +165,26 @@ describe("the verdict", () => {
     expect(clear.pairs).toBe("Same fortunes, different results in 42 battles: your cut came out ahead in 30, the original in 12.");
     expect(verdict(result(12, 30), holdForDawn)).toMatchObject({ headline: "Clearly worse", tone: "worse" });
     expect(verdict(result(60, 0, 60, [0, 60], "clear"), saltmarshColumn).detail).toBe("Gets the Column out in 100% of 60 battles; the original, 0%.");
+  });
+
+  it("holds 'clearly' to the sequential bars: under 0.045, and under 0.01 after Run longer", () => {
+    /** A split whose sign-test p falls in [low, high). */
+    const splitIn = (low: number, high: number): [number, number] => {
+      for (let n = 60; n <= 300; n += 1) {
+        for (let a = n; a > n / 2; a -= 1) {
+          const q = signTestP(a, n - a);
+          if (q >= low && q < high) return [a, n - a];
+        }
+      }
+      throw new Error(`no split with p in [${low}, ${high})`);
+    };
+    const [a1, b1] = splitIn(0.045, 0.05); // was "clearly" under the old rule
+    expect(verdict(result(a1, b1), firstBreach).headline).toBe("Slightly better, not certain");
+    const [a2, b2] = splitIn(0.01, 0.045);
+    expect(verdict(result(a2, b2), firstBreach).headline).toBe("Clearly better");
+    expect(verdict(result(a2, b2, 240, [120, 120], "runs", true), firstBreach).headline).toBe("Slightly better, not certain");
+    const [a3, b3] = splitIn(0, 0.01);
+    expect(verdict(result(a3, b3, 240, [120, 120], "runs", true), firstBreach).headline).toBe("Clearly better");
   });
 
   it("hedges a borderline lean, and calls noise noise", () => {
