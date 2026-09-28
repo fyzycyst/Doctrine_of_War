@@ -37,6 +37,10 @@ const jobs = [
   { name: "fog-low", query: "preset=dusk&figures=a&fog=1&quality=low" },
   { name: "fog-nightFires", query: "scenario=emberFord&preset=nightFires&figures=a&fog=1" },
   { name: "ghost-close", query: "preset=dusk&figures=a&fog=reveal&revealAt=999&cam=close&focusHex=0,2" },
+  ...[0.2, 0.45, 0.7, 1.1].map((at) => ({
+    name: `reveal-close-${String(Math.round(at * 100)).padStart(3, "0")}`,
+    query: `preset=dusk&figures=a&fog=reveal&revealAt=0.3&fogFreeze=${at}&cam=close&focusHex=0,2`,
+  })),
   { name: "emberFord-dusk", query: "scenario=emberFord&preset=dusk&figures=a" },
   { name: "saltmarsh-rain", query: "scenario=saltmarsh&preset=rainGrey&figures=a&weather=rain" },
   { name: "saltmarsh-column-close", query: "scenario=saltmarsh&preset=dusk&figures=a&cam=close&focusHex=3,2" },

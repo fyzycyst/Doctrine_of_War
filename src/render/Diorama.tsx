@@ -165,9 +165,13 @@ export function Diorama({
     if (!before || !visibility) return;
     const revealed = [...now].filter((id) => !before.has(id));
     if (revealed.length === 0) return;
-    revealed.forEach((id) => void animator.reveal(id));
+    revealed.forEach((id) => {
+      void animator.reveal(id);
+      const p = placed.find((q) => q.squad.id === id);
+      if (p) atmosphere.swirl(p.x, p.z);
+    });
     onReveal?.(revealed);
-  }, [drawn, visibility, animator, onReveal]);
+  }, [drawn, visibility, animator, onReveal, placed, atmosphere]);
 
   const setHoveredHex = useAppStore((s) => s.setHoveredHex);
   const setHoveredSquad = useAppStore((s) => s.setHoveredSquad);

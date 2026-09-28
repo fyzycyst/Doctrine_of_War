@@ -76,6 +76,7 @@ function SquadMarker({
   const crest = useRef<THREE.Group>(null);
   const ground = useRef<THREE.Mesh>(null);
   const ringLift = useRef<THREE.Group>(null);
+  const clothOpen = useRef<THREE.Group>(null);
 
   const ghost = !!squad.lastKnown;
   // The refugee Column: a small pale banner and a bone-white ring.
@@ -139,6 +140,8 @@ function SquadMarker({
     }
     cloth.userData.uniforms.uTime.value += dt * (reducedMotion ? 0.3 : 1);
     cloth.emissiveIntensity = 0.22 + (pose?.bannerFlare ?? 0);
+    cloth.userData.uniforms.uColorMix.value = pose?.bannerColor ?? 1;
+    if (clothOpen.current) clothOpen.current.scale.x = Math.max(0.05, pose?.bannerOpen ?? 1);
     // Ghost banners breathe with their silhouettes.
     if (ghost) cloth.opacity = GHOST_CLOTH_OPACITY * (0.75 + 0.25 * Math.sin(t * 0.9 * motion + phase));
     if (crest.current) crest.current.rotation.y = t * 0.8 * motion;
@@ -190,9 +193,12 @@ function SquadMarker({
                 <meshStandardMaterial color={style.trim} metalness={0.6} roughness={0.35} />
               )}
             </mesh>
-            <mesh castShadow={!ghost} renderOrder={ghost ? 6 : 0} material={cloth} position={[-w / 2, poleHeight - h / 2 - 0.03, 0]} rotation={[0, Math.PI, 0]}>
-              <planeGeometry args={[w, h, 14, 4]} />
-            </mesh>
+            {/* Scaled about the pole so the cloth can furl and snap open (reveal). */}
+            <group ref={clothOpen}>
+              <mesh castShadow={!ghost} renderOrder={ghost ? 6 : 0} material={cloth} position={[-w / 2, poleHeight - h / 2 - 0.03, 0]} rotation={[0, Math.PI, 0]}>
+                <planeGeometry args={[w, h, 14, 4]} />
+              </mesh>
+            </group>
             {squad.renowned && !ghost && (
               <group ref={crest} position={[0, poleHeight + 0.13, 0]}>
                 <mesh>
@@ -245,7 +251,7 @@ export function makeClothMaterial(texture: THREE.Texture, phase: number, ghost =
     emissiveMap: ghost ? null : texture,
     emissiveIntensity: 0.22,
   });
-  const uniforms = { uTime: { value: 0 }, uPhase: { value: phase } };
+  const uniforms = { uTime: { value: 0 }, uPhase: { value: phase }, uColorMix: { value: 1 } };
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
@@ -264,6 +270,15 @@ export function makeClothMaterial(texture: THREE.Texture, phase: number, ghost =
          transformed.z += sin(ang) * 0.035 * wv + sin(uv.y * 5.0 + uTime * 2.3) * 0.008 * wv;
          transformed.y -= wv * wv * 0.02;`,
       );
+    if (!ghost) {
+      // Reveal: the heraldry's colour comes back as the banner snaps open.
+      shader.fragmentShader = shader.fragmentShader
+        .replace("#include <common>", "#include <common>\nuniform float uColorMix;")
+        .replace(
+          "#include <opaque_fragment>",
+          "outgoingLight = mix(vec3(dot(outgoingLight, vec3(0.3, 0.59, 0.11))) * 0.35, outgoingLight, uColorMix);\n#include <opaque_fragment>",
+        );
+    }
     if (ghost) {
       // Tattered: ragged, frayed strips torn from the fly end.
       shader.fragmentShader = shader.fragmentShader

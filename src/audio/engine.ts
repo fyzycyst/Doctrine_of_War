@@ -391,31 +391,82 @@ export class AudioEngine {
   }
 
   /** Reveal: an airy whoosh (the mist parting) and a soft open fifth. */
+  /**
+   * Reveal: timed to the emergence on the board (squadAnimation's reveal).
+   * The mist parts (a breathy noise swell that opens upward) over a low swell,
+   * then at the banner snap (~0.55 s) a double cloth flap and a soft minor
+   * chord that lets the threat settle.
+   */
   private reveal(t: number) {
     const ctx = this.ctx!;
-    const src = this.noiseSource();
+    const bus = this.sfxBus!;
+    const env = (g: GainNode, at: number, peak: number, attack: number, release: number) => {
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(peak, at + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + attack + release);
+    };
+
+    // Mist parting: two noise bands, a low breath and an airy top that opens.
+    const breath = this.noiseSource();
     const bp = ctx.createBiquadFilter();
     bp.type = "bandpass";
-    bp.Q.value = 1.4;
-    bp.frequency.setValueAtTime(350, t);
-    bp.frequency.exponentialRampToValueAtTime(2600, t + 1.1);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.45, t + 0.45);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
-    src.connect(bp).connect(g).connect(this.sfxBus!);
-    src.start(t);
-    src.stop(t + 1.5);
-    for (const f of [329.6, 493.9]) {
-      const osc = ctx.createOscillator();
-      osc.frequency.value = f;
-      const og = ctx.createGain();
-      og.gain.setValueAtTime(0.0001, t + 0.2);
-      og.gain.exponentialRampToValueAtTime(0.08, t + 0.6);
-      og.gain.exponentialRampToValueAtTime(0.0001, t + 1.9);
-      osc.connect(og).connect(this.sfxBus!);
-      osc.start(t + 0.2);
-      osc.stop(t + 2);
+    bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(420, t);
+    bp.frequency.exponentialRampToValueAtTime(1300, t + 0.9);
+    const bg = ctx.createGain();
+    env(bg, t, 0.3, 0.4, 0.9);
+    breath.connect(bp).connect(bg).connect(bus);
+    breath.start(t);
+    breath.stop(t + 1.4);
+    const air = this.noiseSource();
+    const hp = ctx.createBiquadFilter();
+    hp.type = "bandpass";
+    hp.Q.value = 2.2;
+    hp.frequency.setValueAtTime(1800, t);
+    hp.frequency.exponentialRampToValueAtTime(5200, t + 0.7);
+    const ag = ctx.createGain();
+    env(ag, t + 0.05, 0.12, 0.35, 0.6);
+    air.connect(hp).connect(ag).connect(bus);
+    air.start(t);
+    air.stop(t + 1.1);
+
+    // Low swell under it (D2) for weight.
+    const low = ctx.createOscillator();
+    low.frequency.value = 73.4;
+    const lg = ctx.createGain();
+    env(lg, t, 0.16, 0.5, 1.1);
+    low.connect(lg).connect(bus);
+    low.start(t);
+    low.stop(t + 1.7);
+
+    // Banner snap: a double cloth flap.
+    const snap = t + 0.55;
+    [0, 0.07].forEach((dt, i) => {
+      const flap = this.noiseSource();
+      const fb = ctx.createBiquadFilter();
+      fb.type = "bandpass";
+      fb.Q.value = 0.8;
+      fb.frequency.value = 900 + i * 350;
+      const fg = ctx.createGain();
+      env(fg, snap + dt, i === 0 ? 0.5 : 0.3, 0.006, 0.12);
+      flap.connect(fb).connect(fg).connect(bus);
+      flap.start(snap + dt);
+      flap.stop(snap + dt + 0.2);
+    });
+
+    // Resolution: D minor (D4 F4 A4), slightly detuned pairs for a soft chorus.
+    for (const f of [293.7, 349.2, 440]) {
+      for (const detune of [-6, 6]) {
+        const osc = ctx.createOscillator();
+        osc.type = "triangle";
+        osc.frequency.value = f;
+        osc.detune.value = detune;
+        const og = ctx.createGain();
+        env(og, snap, 0.028, 0.06, 1.7);
+        osc.connect(og).connect(bus);
+        osc.start(snap);
+        osc.stop(snap + 1.9);
+      }
     }
   }
 

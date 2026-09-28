@@ -95,6 +95,16 @@ export const WEATHER_FADE = 2.5;
 /** Fog clears fast (a reveal) and closes in slowly. */
 export const FOG_REVEAL_TIME = 1.1;
 export const FOG_CONCEAL_TIME = 1.8;
+/** Reveal swirls: how long the mist eddies around an emerging squad, and how many at once. */
+export const SWIRL_TIME = 1.6;
+export const MAX_SWIRLS = 3;
+
+export interface MistSwirl {
+  x: number;
+  z: number;
+  /** 0..1 through SWIRL_TIME. */
+  age: number;
+}
 
 export class AtmosphereRuntime {
   weights: WeatherWeights;
@@ -107,6 +117,8 @@ export class AtmosphereRuntime {
   fogVersion = 0;
   /** 1 = normal; 0 freezes weather and fog transitions (lab stills). */
   timeScale = 1;
+  /** Recent reveal points (world x/z); the mist parts with a small eddy around each. */
+  swirls: MistSwirl[] = [];
 
   constructor(
     private presets: Record<WeatherKind, WeatherPreset>,
@@ -143,9 +155,19 @@ export class AtmosphereRuntime {
     this.fogVersion += 1;
   }
 
+  /** Start a reveal swirl at a world position (oldest dropped past MAX_SWIRLS). */
+  swirl(x: number, z: number) {
+    this.swirls.push({ x, z, age: 0 });
+    if (this.swirls.length > MAX_SWIRLS) this.swirls.shift();
+  }
+
   tick(dt: number) {
     const step = dt * this.timeScale;
     if (step <= 0) return;
+    if (this.swirls.length) {
+      for (const s of this.swirls) s.age += step / SWIRL_TIME;
+      this.swirls = this.swirls.filter((s) => s.age < 1);
+    }
     let changed = false;
     for (const k of WEATHER_KINDS) {
       const d = this.target[k] - this.weights[k];

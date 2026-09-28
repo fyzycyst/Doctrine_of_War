@@ -38,6 +38,8 @@ export interface FigurePose {
   spread: number;
   /** 0..1 dithered visibility. */
   fade: number;
+  /** 0 = full colour, 1 = the dark last-known silhouette (reveal resolves it). */
+  silhouette: number;
   /** Suppress the idle bob while a tween is driving the figure. */
   still: boolean;
 }
@@ -51,6 +53,10 @@ export interface SquadPose {
   bannerTilt: number;
   bannerFlare: number;
   bannerFade: number;
+  /** Cloth unfurl along the pole (0 = furled, 1 = open; may overshoot). */
+  bannerOpen: number;
+  /** 0 = colourless rag (as a ghost), 1 = full heraldry. */
+  bannerColor: number;
   ringFlash: number;
   ringFade: number;
 }
@@ -142,6 +148,10 @@ interface SquadAnimState {
   routed: boolean;
 }
 
+/** Reveal timing: figures resolve over ~0.8 s; the banner snaps open at 0.55 s. */
+export const REVEAL_DURATION = 1.2;
+export const REVEAL_BANNER_SNAP = 0.55;
+
 const neutralFigure = (): FigurePose => ({
   dx: 0,
   dy: 0,
@@ -153,6 +163,7 @@ const neutralFigure = (): FigurePose => ({
   scaleY: 1,
   spread: 1,
   fade: 1,
+  silhouette: 0,
   still: false,
 });
 
@@ -160,6 +171,7 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const easeOutCubic = (u: number) => 1 - Math.pow(1 - u, 3);
 const easeInOut = (u: number) => (u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2);
 const easeInQuad = (u: number) => u * u;
+const easeOutBack = (u: number) => 1 + 2.2 * Math.pow(u - 1, 3) + 1.2 * Math.pow(u - 1, 2);
 const lerp = (a: number, b: number, u: number) => a + (b - a) * u;
 const lerpAngle = (a: number, b: number, u: number) => {
   let d = b - a;
@@ -213,6 +225,8 @@ export class SquadAnimator implements SquadAnimationApi {
         bannerTilt: 0,
         bannerFlare: 0,
         bannerFade: st.routed ? 0 : 1,
+        bannerOpen: 1,
+        bannerColor: 1,
         ringFlash: 0,
         ringFade: st.routed ? 0 : 1,
       };
@@ -503,23 +517,31 @@ export class SquadAnimator implements SquadAnimationApi {
     const st = this.state(squadId);
     st.routed = false;
     const rand = mulberry32(hashId(squadId) + 83);
-    // Front rank (low survival index ≈ random here) first, with jitter.
-    const delay = Array.from({ length: MAX_FIGURES }, (_, i) => i * 0.06 + rand() * 0.18);
-    const duration = opts.duration ?? 1.5;
+    // The emergence (T13 fog polish): figures step out of the mist as dark
+    // silhouettes and resolve to full colour over ~0.8 s, front rank first;
+    // then the banner snaps open and takes its colour.
+    const delay = Array.from({ length: MAX_FIGURES }, (_, i) => i * 0.035 + rand() * 0.1);
+    const duration = opts.duration ?? REVEAL_DURATION;
+    const snap = REVEAL_BANNER_SNAP;
     return this.add(squadId, duration, (_u, t, s) => {
-      s.pose.ringFade = clamp01((t - 0.2) / 0.6);
-      s.pose.ringFlash = Math.max(s.pose.ringFlash, 1.2 * Math.sin(Math.PI * clamp01((t - 0.2) / 0.9)));
-      const bt = clamp01((t - 0.35) / 0.7);
-      s.pose.bannerFade = easeOutCubic(bt);
-      s.pose.bannerLift = 0.08 * Math.sin(Math.PI * bt);
-      s.pose.bannerFlare = 0.8 * Math.sin(Math.PI * bt);
+      s.pose.ringFade = clamp01((t - 0.15) / 0.5);
+      s.pose.ringFlash = Math.max(s.pose.ringFlash, 1.1 * Math.sin(Math.PI * clamp01((t - snap) / 0.6)));
+      // Pole and furled cloth appear with the figures; the cloth snaps open
+      // (easeOutBack overshoot) with a flare as its colour comes back.
+      s.pose.bannerFade = easeOutCubic(clamp01(t / 0.3));
+      const bt = clamp01((t - snap) / 0.28);
+      s.pose.bannerOpen = t < snap ? 0.18 : 0.18 + 0.82 * easeOutBack(bt);
+      s.pose.bannerColor = easeOutCubic(clamp01((t - snap) / 0.35));
+      s.pose.bannerLift = 0.05 * Math.sin(Math.PI * bt);
+      s.pose.bannerFlare = 0.9 * Math.sin(Math.PI * clamp01((t - snap) / 0.5));
       s.figures.forEach((f, i) => {
-        const v = clamp01((t - delay[i]) / 0.75);
-        const e = easeOutCubic(v);
+        const t0 = t - delay[i];
+        const v = clamp01(t0 / 0.25);
+        const c = clamp01(t0 / 0.8);
         f.fade = Math.min(f.fade, v);
-        f.dy += -0.09 * (1 - e);
-        f.scaleY *= 0.7 + 0.3 * e;
-        f.still = v < 1;
+        f.silhouette = Math.max(f.silhouette, 1 - easeInOut(c));
+        f.dy += -0.05 * (1 - easeOutCubic(v));
+        f.still = c < 1;
       });
     });
   }
@@ -549,6 +571,8 @@ export class SquadAnimator implements SquadAnimationApi {
           bannerTilt: 0,
           bannerFlare: 0,
           bannerFade: 1,
+          bannerOpen: 1,
+          bannerColor: 1,
           ringFlash: 0,
           ringFade: 1,
         },

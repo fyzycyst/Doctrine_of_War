@@ -170,8 +170,10 @@ export function createFigureMaterial(opts: {
 attribute float glow;
 varying float vGlow;
 varying float vFade;
+varying float vSilhouette;
 #ifdef USE_INSTANCING
 attribute float aFade;
+attribute float aSilhouette;
 #endif`,
       )
       .replace(
@@ -180,8 +182,10 @@ attribute float aFade;
 vGlow = glow;
 #ifdef USE_INSTANCING
 vFade = aFade;
+vSilhouette = aSilhouette;
 #else
 vFade = 1.0;
+vSilhouette = 0.0;
 #endif`,
       );
     shader.fragmentShader = shader.fragmentShader
@@ -192,13 +196,15 @@ uniform vec3 uRimColor;
 uniform float uRimStrength;
 uniform vec3 uGlint;
 varying float vGlow;
-varying float vFade;`,
+varying float vFade;
+varying float vSilhouette;`,
       )
       .replace(
         "#include <color_fragment>",
         opts.ghost
           ? "#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.025, 0.03), 0.9);"
-          : "#include <color_fragment>",
+          : // Reveal: resolve from the ghost silhouette to full colour.
+            "#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.025, 0.03), 0.9 * vSilhouette);",
       )
       .replace(
         "#include <clipping_planes_fragment>",
@@ -219,9 +225,9 @@ ${opts.ghost
     ? `  float fres = pow(1.0 - facing, 2.0);
   outgoingLight += uRimColor * fres * uRimStrength;
   diffuseColor.a = min(1.0, vFade * (0.8 + 0.6 * fres));`
-    : `  float fres = pow(1.0 - facing, 3.5);
-  outgoingLight += uRimColor * fres * uRimStrength;
-  outgoingLight += uGlint * vGlow;`}
+    : `  float fres = pow(1.0 - facing, mix(3.5, 2.0, vSilhouette));
+  outgoingLight += mix(uRimColor * uRimStrength, vec3(0.6, 0.65, 0.75) * 0.4, vSilhouette) * fres;
+  outgoingLight += uGlint * vGlow * (1.0 - vSilhouette);`}
 }
 #include <opaque_fragment>`,
       );

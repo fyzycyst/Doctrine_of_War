@@ -164,6 +164,7 @@ function InstanceGroup({
   const geometry = useMemo(() => {
     const g = base.clone();
     g.setAttribute("aFade", new THREE.InstancedBufferAttribute(new Float32Array(capacity).fill(1), 1));
+    g.setAttribute("aSilhouette", new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1));
     return g;
   }, [base, capacity]);
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -173,6 +174,7 @@ function InstanceGroup({
     const targets = [mesh.current, outlineMesh.current].filter((m): m is THREE.InstancedMesh => !!m);
     if (targets.length === 0) return;
     const fade = geometry.getAttribute("aFade") as THREE.InstancedBufferAttribute;
+    const silhouette = geometry.getAttribute("aSilhouette") as THREE.InstancedBufferAttribute;
     squads.forEach((p, s) => {
       const pose = animator.squadPose(p.squad.id);
       const ax = pose?.anchor?.x ?? p.x;
@@ -203,6 +205,7 @@ function InstanceGroup({
         for (const m of targets) m.setMatrixAt(index, dummy.matrix);
         const breathe = ghost ? GHOST_FADE * (0.72 + 0.28 * Math.sin(t * 0.9 + s * 1.3 + slot.phase * 0.3)) : 1;
         fade.setX(index, visible ? (f?.fade ?? 1) * breathe : 0);
+        silhouette.setX(index, f?.silhouette ?? 0);
       }
     });
     for (const m of targets) {
@@ -210,6 +213,7 @@ function InstanceGroup({
       m.instanceMatrix.needsUpdate = true;
     }
     fade.needsUpdate = true;
+    silhouette.needsUpdate = true;
   });
 
   const squadAt = (e: ThreeEvent<PointerEvent | MouseEvent>) =>
@@ -290,8 +294,9 @@ function Carts({ columns, animator }: { columns: PlacedSquad[]; animator: SquadA
   const capacity = Math.max(1, columns.length * 2);
   const geometry = useDisposable(() => {
     const g = buildCart(skin.figures.height);
-    // The figure material reads a per-instance fade; carts are always fully shown.
+    // The figure material reads a per-instance fade and silhouette; carts are always fully shown.
     g.setAttribute("aFade", new THREE.InstancedBufferAttribute(new Float32Array(capacity).fill(1), 1));
+    g.setAttribute("aSilhouette", new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1));
     return g;
   }, [skin.figures.height, capacity]);
   const material = useDisposable(

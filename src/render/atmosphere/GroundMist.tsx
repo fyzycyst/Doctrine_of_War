@@ -5,6 +5,7 @@ import { hexKey } from "../../game/board";
 import { useLook } from "../look/LookContext";
 import { NOISE_GLSL } from "../shaders/noise";
 import { FOG_UNIFORMS } from "../shaders/surface";
+import { MAX_SWIRLS } from "./atmosphereRuntime";
 import type { Anchor, IslandBuild, IslandHex } from "../terrain/buildIsland";
 import { useDisposable } from "../dispose";
 
@@ -182,6 +183,7 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
             uFogLit: { value: new THREE.Color() },
             uFireColor: { value: new THREE.Color() },
             uFires: { value: Array.from({ length: MAX_FIRES }, () => new THREE.Vector4()) },
+            uSwirls: { value: Array.from({ length: MAX_SWIRLS }, () => new THREE.Vector4()) },
             uDensity: { value: 0.5 },
             uSpeed: { value: 0.05 },
             uTop: { value: 0.6 },
@@ -210,9 +212,31 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
           uniform sampler2D uGrid;
           uniform vec3 uColor, uFogColor, uFogLit, uFireColor;
           uniform vec4 uFires[${MAX_FIRES}];
+          uniform vec4 uSwirls[${MAX_SWIRLS}];
           varying vec3 vWorld;
           varying float vLayer;
           ${NOISE_GLSL}
+          // Reveal swirls (x, z, age 0..1, active): the noise lookups are
+          // twisted and pushed outward around an emerging squad, and the mist
+          // there thins (carve) as it parts.
+          vec2 swirlXZ(vec2 xz, out float carve) {
+            carve = 0.0;
+            for (int i = 0; i < ${MAX_SWIRLS}; i++) {
+              vec4 s = uSwirls[i];
+              if (s.w < 0.5) continue;
+              vec2 d = xz - s.xy;
+              float fall = exp(-dot(d, d) * 1.6);
+              float life = 1.0 - s.z;
+              float ang = life * life * 3.4 * fall;
+              float c = cos(ang);
+              float sn = sin(ang);
+              d = mat2(c, -sn, sn, c) * d;
+              d *= 1.0 - 0.35 * fall * sin(3.14159 * s.z);
+              xz = s.xy + d;
+              carve = max(carve, fall * sin(3.14159 * min(1.0, s.z * 1.6)));
+            }
+            return xz;
+          }
           void main() {
             vec2 uv = vWorld.xz / (uExtent * 2.0) + 0.5;
             vec4 g = texture2D(uGrid, uv);
@@ -221,6 +245,8 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
             if (g.r < 0.004 && fog < 0.004) discard;
             float terrain = g.g * 2.0 - 1.0;
             float above = vWorld.y - terrain;
+            float carve;
+            vec2 sxz = swirlXZ(vWorld.xz, carve);
 
             // Firelight from the nearest fires (bridges first), on mist and fog.
             float fire = 0.0;
@@ -233,7 +259,7 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
             // Ground mist.
             float a = 0.0;
             if (g.r > 0.004) {
-              vec2 p = vWorld.xz * 0.55 + vec2(uTime * uSpeed * 6.0, uTime * uSpeed * 1.5) + vLayer * 3.7;
+              vec2 p = sxz * 0.55 + vec2(uTime * uSpeed * 6.0, uTime * uSpeed * 1.5) + vLayer * 3.7;
               float field = fbm(p) * 0.8 + fbm(p * 2.3 - vec2(uTime * uSpeed * 4.0, 0.0)) * 0.4;
               float hFade = smoothstep(0.0, 0.14, above) * (1.0 - smoothstep(uTop * 0.5, uTop, above));
               float wisps = smoothstep(0.35, 0.85, field);
@@ -252,11 +278,11 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
             vec3 fogCol = uFogColor;
             if (fog > 0.004) {
               vec2 drift = vec2(uTime * 0.04, -uTime * 0.015);
-              float bank = fbm(vWorld.xz * vec2(0.24, 0.55) + drift * 0.6);
+              float bank = fbm(sxz * vec2(0.24, 0.55) + drift * 0.6);
               float fogTop = ${FOG_TOP.toFixed(2)} * (0.2 + 0.95 * bank) * (0.5 + 0.5 * fog);
               float hRel = above / max(fogTop, 0.05);
               float vert = smoothstep(0.0, 0.06, above) * (1.0 - smoothstep(0.2, 1.0, hRel));
-              vec2 q = vWorld.xz * vec2(0.9, 2.2) + drift * vec2(1.0, 2.0) + vec2(above * 1.8, -above * 1.1);
+              vec2 q = sxz * vec2(0.9, 2.2) + drift * vec2(1.0, 2.0) + vec2(above * 1.8, -above * 1.1);
               #ifdef FOG_WARP
               q += (vec2(vnoise(q * 0.5 + uTime * 0.05), vnoise(q * 0.5 + 5.2 - uTime * 0.04)) - 0.5) * 1.2;
               #endif
@@ -272,6 +298,8 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
               fogCol = uFogColor * (0.6 + 0.6 * churn) + uFogLit * lit + fireCol * (0.7 + 0.5 * (1.0 - dens));
             }
             vec3 mistCol = uColor + fireCol * 0.5;
+            a *= 1.0 - 0.85 * carve;
+            fa *= 1.0 - 0.85 * carve;
             vec3 col = mix(mistCol, fogCol, clamp(fa / max(a + fa, 0.001), 0.0, 1.0));
             gl_FragColor = vec4(col, min(0.95, a + fa));
             #include <tonemapping_fragment>
@@ -351,6 +379,10 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
     // Calibrated against the original 5 layers spread over 0.55 world units.
     const top = Math.max(FOG_TOP, preset.mist.height + 0.4);
     u.uLayerNorm.value = (5 / layers) * (top / layers / (0.55 / 5)) * 0.9;
+    for (let i = 0; i < MAX_SWIRLS; i += 1) {
+      const sw = atmosphere.swirls[i];
+      (u.uSwirls.value[i] as THREE.Vector4).set(sw?.x ?? 0, sw?.z ?? 0, sw?.age ?? 0, sw ? 1 : 0);
+    }
     if (atmosphere.fogVersion !== tmp.seen) {
       tmp.seen = atmosphere.fogVersion;
       grid.setFog(atmosphere.fog);
