@@ -60,7 +60,11 @@ export interface DirectorHooks {
   sfx: (name: SfxName) => void;
   /** Captions for screen readers and the playback bar. */
   caption: (text: string) => void;
-  sleep: (ms: number) => Promise<void>;
+  /**
+   * Sleeps `ms` real milliseconds. When `signal` aborts, the sleep must clear its timer
+   * and resolve at once, so no timer outlives a cancelled wait.
+   */
+  sleep: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
 
 /** Whether a fired rule's action is a hold (brace). */
@@ -85,6 +89,8 @@ export class PlaybackDirector {
   private resumers = new Set<() => void>();
   private animationScale = 1;
   private wakers = new Set<() => void>();
+  /** Every wait in flight. Skip, and the end of the phase, abort them all (their sleeps clear their timers). */
+  private waits = new Set<AbortController>();
 
   constructor(
     private readonly timeline: Timeline,
@@ -95,9 +101,13 @@ export class PlaybackDirector {
     return this.cancelled;
   }
 
-  /** Stop now; `run()` resolves "skipped" at once and the caller shows the final state. */
+  /**
+   * Stop now; `run()` resolves "skipped" at once and the caller shows the final state.
+   * Also the teardown when the board unmounts: every pending wait and its timer is cancelled.
+   */
   skip() {
     this.cancelled = true;
+    this.abortWaits();
     this.wakers.forEach((wake) => wake());
     this.wakers.clear();
     this.resumers.forEach((resume) => resume());
@@ -135,42 +145,81 @@ export class PlaybackDirector {
     this.hooks.animator()?.setTimeScale(1 / scale);
   }
 
-  private sleepOnce(ms: number): Promise<void> {
+  private abortWaits() {
+    this.waits.forEach((control) => control.abort());
+    this.waits.clear();
+  }
+
+  private sleepOnce(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve) => {
+      if (signal.aborted) return resolve();
       const done = () => {
         this.wakers.delete(done);
+        signal.removeEventListener("abort", done);
         resolve();
       };
       this.wakers.add(done);
-      void this.hooks.sleep(ms).then(done);
+      signal.addEventListener("abort", done, { once: true });
+      void this.hooks.sleep(ms, signal).then(done);
+    });
+  }
+
+  /** Resolves on resume(), skip(), or when this wait is cancelled. */
+  private untilResumed(signal: AbortSignal): Promise<void> {
+    return new Promise((resolve) => {
+      const done = () => {
+        this.resumers.delete(done);
+        signal.removeEventListener("abort", done);
+        resolve();
+      };
+      this.resumers.add(done);
+      signal.addEventListener("abort", done, { once: true });
     });
   }
 
   /**
    * A pace-aware, cancellable wait of `ms` timeline milliseconds. It runs in short
    * slices and re-reads the pace for each, so switching pace mid-step rescales the
-   * rest of the current step, not just the next one.
+   * rest of the current step, not just the next one. `control` lets a caller cancel
+   * this one wait (settle() does, when its animation wins the race).
    */
-  private async wait(ms: number): Promise<void> {
-    let remaining = ms;
-    while (remaining > 0 && !this.cancelled && !this.held) {
-      while (this.paused && !this.cancelled) {
-        await new Promise<void>((resolve) => this.resumers.add(resolve));
+  private async wait(ms: number, control = new AbortController()): Promise<void> {
+    this.waits.add(control);
+    const { signal } = control;
+    try {
+      let remaining = ms;
+      while (remaining > 0 && !this.cancelled && !this.held && !signal.aborted) {
+        while (this.paused && !this.cancelled && !signal.aborted) {
+          await this.untilResumed(signal);
+        }
+        if (signal.aborted) break;
+        const slice = Math.min(remaining, WAIT_SLICE_MS);
+        const scale = this.scale();
+        this.syncAnimations(scale);
+        await this.sleepOnce(slice * scale, signal);
+        remaining -= slice;
       }
-      const slice = Math.min(remaining, WAIT_SLICE_MS);
-      const scale = this.scale();
-      this.syncAnimations(scale);
-      await this.sleepOnce(slice * scale);
-      remaining -= slice;
-    }
-    if (this.held && !this.cancelled) {
-      await new Promise<void>((resolve) => this.wakers.add(resolve));
+      if (this.held && !this.cancelled && !signal.aborted) {
+        await new Promise<void>((resolve) => this.wakers.add(resolve));
+      }
+    } finally {
+      this.waits.delete(control);
     }
   }
 
-  /** Waits for an animation, but never longer than `cap` ms (a lost promise cannot stall playback). */
-  private settle(animation: Promise<unknown> | undefined, cap: number) {
-    return animation ? Promise.race([animation.then(() => undefined), this.wait(cap)]) : Promise.resolve();
+  /**
+   * Waits for an animation, but never longer than `cap` ms (a lost promise cannot stall
+   * playback). Whichever finishes first, the capped wait is cancelled: it does not keep
+   * sleeping in the background after the animation has resolved.
+   */
+  private async settle(animation: Promise<unknown> | undefined, cap: number) {
+    if (!animation) return;
+    const control = new AbortController();
+    try {
+      await Promise.race([animation.then(() => undefined, () => undefined), this.wait(cap, control)]);
+    } finally {
+      control.abort();
+    }
   }
 
   private squad(id: string | null) {
@@ -189,6 +238,8 @@ export class PlaybackDirector {
       }
       await this.play(step);
     }
+    // Phase end: nothing the phase started may keep sleeping after it.
+    this.abortWaits();
     this.hooks.focus(null);
     this.syncAnimations(1);
     return this.cancelled ? "skipped" : "done";

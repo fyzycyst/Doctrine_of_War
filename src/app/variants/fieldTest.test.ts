@@ -97,6 +97,42 @@ describe("the adaptive stop", () => {
   });
 });
 
+describe("run longer", () => {
+  const input = { orders: {}, squadIds: [], baseId: "base", variantId: "cut", firstSeed: 1, scenario: firstBreach, doctrines: doctrineLibrary } as FieldTestInput;
+  // A mild lean that never clears p < 0.01 at a checkpoint within 400 seeds.
+  const lean = (_: FieldTestInput, id: string, seed: number): Outcome =>
+    seed % 7 === 0 ? (id === "cut" ? "victory" : "defeat") : seed % 11 === 0 ? (id === "cut" ? "defeat" : "victory") : "stalemate";
+
+  it("continues the same seed sequence: 100 then 300 more equals one run of 400", () => {
+    const seeds: number[] = [];
+    const play = (i: FieldTestInput, id: string, seed: number) => {
+      if (id === "cut") seeds.push(seed);
+      return lean(i, id, seed);
+    };
+    const first = runFieldTest({ ...input, maxRuns: 100 }, undefined, () => 0, play);
+    expect(first).toMatchObject({ runs: 100, stoppedBy: "runs" });
+    const longer = runFieldTest({ ...input, from: first }, undefined, () => 0, play);
+    expect(seeds).toEqual(Array.from({ length: 400 }, (_, i) => i + 1));
+    const once = runFieldTest({ ...input, maxRuns: 400 }, undefined, () => 0, lean);
+    expect(longer).toEqual(once);
+    expect(first.runs).toBe(100); // the earlier result is not mutated
+  });
+
+  it("gets a fresh time budget and reports progress against the extended total", () => {
+    let clock = 0;
+    const slow = (i: FieldTestInput, id: string, seed: number): Outcome => {
+      clock += 20; // 40 ms a seed
+      return lean(i, id, seed);
+    };
+    const first = runFieldTest(input, undefined, () => clock, slow);
+    expect(first).toMatchObject({ runs: 75, stoppedBy: "time" });
+    const progress: [number, number][] = [];
+    const longer = runFieldTest({ ...input, from: first }, (done, max) => progress.push([done, max]), () => clock, slow);
+    expect(longer).toMatchObject({ runs: 150, stoppedBy: "time" });
+    expect(progress[0]).toEqual([76, 375]);
+  });
+});
+
 describe("the sign test", () => {
   it("matches the exact binomial tails", () => {
     expect(signTestP(0, 0)).toBe(1);

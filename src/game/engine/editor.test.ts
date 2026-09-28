@@ -3,6 +3,7 @@ import { createInitialState, doctrineLibrary, firstBreach, resolvePhase } from "
 import {
   checkVariantsPayload,
   deriveDoctrine,
+  EDITABLE_DOCTRINE_IDS,
   editableParams,
   isVariantAllowed,
   parseVariants,
@@ -129,5 +130,50 @@ describe("the variants file", () => {
       expect(() => parseVariants(bad)).toThrow(/Doctrine variants/);
     }
     expect(() => parseVariants(JSON.stringify({ version: 1, variants: Array(25).fill(cut()) }))).toThrow(/more than 24/);
+  });
+});
+
+describe("the bounds against the final rules (T17)", () => {
+  it("offers exactly these thresholds: a rule id or label change shows up here", () => {
+    const offered = EDITABLE_DOCTRINE_IDS.flatMap((id) =>
+      doctrineLibrary[id].rules.flatMap((rule) => editableParams(rule).map(({ param, value, bound }) => `${rule.id}.${param}=${value} [${bound.min}–${bound.max}/${bound.step}]`)),
+    );
+    expect(offered).toEqual([
+      "stl_break.value=20 [10–90/5]",
+      "fw_rout_guard.value=50 [10–90/5]",
+      "rs_rally.value=75 [10–90/5]",
+      "rs_seek.value=50 [10–90/5]",
+      "cc_disengage.value=30 [10–90/5]",
+    ]);
+  });
+
+  it("never offers a Host doctrine, or a bombard, to the player's editor", () => {
+    for (const id of EDITABLE_DOCTRINE_IDS) {
+      expect(doctrineLibrary[id].faction).toBe("free_banners");
+      expect(doctrineLibrary[id].rules.some((rule) => rule.then.kind === "bombard")).toBe(false);
+    }
+    expect(EDITABLE_DOCTRINE_IDS).not.toContain("hurl_fire");
+    const hurl = doctrineLibrary.hurl_fire;
+    const result = validateVariant(
+      { id: "v-hurl", baseId: "hurl_fire", name: "Hurl Fire", order: hurl.rules.map((rule) => rule.id), params: {} },
+      doctrineLibrary,
+      EDITABLE_DOCTRINE_IDS,
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it("keeps Counterstroke's new strike (power, label) intact when its orders move", () => {
+    const counter = doctrineLibrary.clean_counterstroke;
+    const doctrine = deriveDoctrine(counter, {
+      id: "v-counter",
+      name: "Counterstroke (bold)",
+      order: ["cc_answer", "cc_strike", "cc_disengage", "cc_wait"],
+      params: { cc_disengage: { value: 15 } },
+    });
+    const answer = doctrine.rules[0];
+    expect(answer.label).toBe("If enemy adjacent → strike back from guard");
+    expect(answer.then).toEqual(counter.rules.find((rule) => rule.id === "cc_answer")!.then);
+    expect(doctrine.rules[2].label).toBe("If cohesion < 15 → fall back 1 hex");
+    expect(editableParams(counter.rules.find((rule) => rule.id === "cc_answer")!)).toEqual([]);
   });
 });

@@ -321,6 +321,36 @@ describe("phase playback", () => {
     expect(screen.getByText("Chronicle · Phase 1")).toBeInTheDocument();
   });
 
+  // A guard on Playback.tsx's own timers. (jsdom has no animator, so the settle-race leak
+  // itself is reproduced in director.test.ts, "no stray timers".)
+  it("leaves no timers running once a phase has played out, or been skipped", async () => {
+    vi.useFakeTimers();
+    try {
+      act(() => useGame.getState().loadBattle(firstBreach, { fortune: "on", seed: 146 }, "command"));
+      const view = render(<App />);
+      act(() => useGame.setState({ playbackSpeed: 20 }));
+      act(() => game().sealOrders());
+      for (let guard = 0; game().stage === "resolving" && guard < 2000; guard += 1) {
+        await act(() => vi.advanceTimersByTimeAsync(25));
+      }
+      expect(game().stage).toBe("report");
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(vi.getTimerCount()).toBe(0);
+
+      // Replay, skip mid-step, and unmount: nothing may keep sleeping.
+      act(() => game().replayPhase());
+      await act(() => vi.advanceTimersByTimeAsync(300));
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      act(() => screen.getByRole("button", { name: /Skip/ }).click());
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(game().stage).toBe("report");
+      view.unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("skips to the final state with Space", async () => {
     const user = userEvent.setup();
     loadFirstBreach("on", 146);

@@ -60,7 +60,8 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
   const title = useGame((s) => s.baseScenario.title);
   const scenario = useGame((s) => s.scenario);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [outcome, setOutcome] = useState<{ result: FieldTestResult; rules: string; name: string } | null>(null);
+  /** `extended`: already run longer once (one extra budget per result). */
+  const [outcome, setOutcome] = useState<{ result: FieldTestResult; rules: string; name: string; extended: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const run = useRef<FieldTestRun | null>(null);
   const base = doctrineLibrary[baseId];
@@ -70,19 +71,23 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
   // Closing the editor stops a test in flight.
   useEffect(() => () => run.current?.cancel(), []);
 
-  const start = () => {
+  /**
+   * Runs the test. With `from`, runs longer: the same seed sequence continues from where
+   * that result stopped, and the earlier result stays on screen until the new one lands.
+   */
+  const start = (from?: FieldTestResult) => {
     if (!plan.ok) return;
-    setOutcome(null);
+    if (!from) setOutcome(null);
     setError(null);
-    setProgress({ done: 0, total: FIELD_TEST_MAX });
-    const current = startFieldTest(plan.input, (done, total) => setProgress({ done, total }));
+    setProgress({ done: from?.runs ?? 0, total: (from?.runs ?? 0) + FIELD_TEST_MAX });
+    const current = startFieldTest({ ...plan.input, ...(from ? { from } : {}) }, (done, total) => setProgress({ done, total }));
     run.current = current;
     current.result.then(
       (result) => {
         if (run.current !== current) return;
         run.current = null;
         setProgress(null);
-        setOutcome({ result, rules, name: variant.name });
+        setOutcome({ result, rules, name: variant.name, extended: Boolean(from) });
       },
       (reason: unknown) => {
         if (run.current !== current) return;
@@ -119,7 +124,7 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
             </button>
           </div>
         ) : (
-          <button type="button" className="btn-quiet" disabled={!plan.ok || !edited} onClick={start}>
+          <button type="button" className="btn-quiet" disabled={!plan.ok || !edited} onClick={() => start()}>
             {outcome ? "Run again" : "Run the test"}
           </button>
         )}
@@ -155,6 +160,15 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
               .join(" ")}
             {outcome.rules !== rules && <strong> These results are for your previous cut.</strong>}
           </p>
+          {/* A big battle may run out of budget before the difference is settled: allow one more. */}
+          {!progress && !outcome.extended && outcome.rules === rules && (said.tone === "slightly-better" || said.tone === "slightly-worse") && (
+            <p className="field-test-longer">
+              <button type="button" className="btn-quiet" onClick={() => start(outcome.result)}>
+                Run longer
+              </button>
+              <span>Up to {FIELD_TEST_MAX} more battles, continuing the same fortunes.</span>
+            </p>
+          )}
         </div>
       )}
     </section>
