@@ -29,6 +29,8 @@ describe("Hold for Dawn: the staged goal", () => {
     expect(game().stage).toBe("command");
     render(<App />);
     expect(screen.getByRole("status", { name: "Goal: Hold the Last Gate until dawn" })).toBeInTheDocument();
+    // Eleven companies: the roster turns compact so every tab fits.
+    expect(screen.getByRole("navigation", { name: "Companies" })).toHaveClass("dense");
 
     act(() => {
       useGame.setState({ playbackSpeed: 400 });

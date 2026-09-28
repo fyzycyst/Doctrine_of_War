@@ -5,6 +5,9 @@ import { useGame, useShownView } from "../game/gameStore";
 import { getDoctrine, resolveRank, rosterName } from "../game/view";
 import { ColumnGlyph, RoleGlyph, ROLE_NAME } from "./glyphs";
 
+/** More companies than this and the roster turns compact. */
+const DENSE_FROM = 7;
+
 const STATUS_WORD: Record<VisibleSquad["status"], string> = {
   active: "",
   routed: "Routed",
@@ -115,7 +118,8 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
   };
 
   return (
-    <nav className="roster" aria-label="Companies">
+    // Big musters (Hold for Dawn fields eleven companies) get compact tabs so all fit.
+    <nav className={`roster ${mine.length > DENSE_FROM ? "dense" : ""}`} aria-label="Companies">
       <div ref={listRef} role="listbox" aria-label="Company roster" onKeyDown={onKeyDown}>
         <div role="group" aria-label="Your companies" className="roster-group">
           {mine.map(tab)}

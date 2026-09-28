@@ -2963,3 +2963,45 @@ h3 {
   max-width: 300px;
   white-space: normal;
 }
+
+/* Compact roster for big musters: one tight tab per company. */
+.roster.dense .roster-group {
+  gap: 3px;
+}
+
+.roster.dense .banner-tab {
+  min-height: 0;
+  grid-template-columns: 28px 1fr;
+}
+
+.roster.dense .banner-glyph {
+  padding-top: 7px;
+}
+
+.roster.dense .banner-glyph .glyph {
+  width: 15px;
+  height: 15px;
+}
+
+.roster.dense .banner-body {
+  gap: 1px;
+  padding: 4px 20px 5px 8px;
+}
+
+.roster.dense .banner-name {
+  font-size: 12px;
+}
+
+.roster.dense .banner-sub {
+  font-size: 11.5px;
+}
+
+.roster.dense .banner-meters {
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.roster.dense .meter {
+  height: 3px;
+}
