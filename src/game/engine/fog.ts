@@ -6,7 +6,7 @@
 import { getHex, hexDistance, type HexCoord } from "../board";
 import { checkRout, fortuneOn, type EngineContext, type RuleContext } from "./context";
 import type { EngineSquad, EngineState, FactionId } from "./types";
-import { enemiesOf, isActive, type ActiveSquad } from "./world";
+import { isActive, type ActiveSquad } from "./world";
 
 export const BASE_SIGHT = 2;
 export const RIDGE_SIGHT_BONUS = 1;
@@ -57,20 +57,6 @@ export function canSee(ctx: RuleContext, observer: ActiveSquad, target: ActiveSq
   return hexLine(observer.hex, target.hex)
     .slice(1, -1)
     .every((hex) => getHex(ctx.scenario.board, hex)?.terrain !== "ruin");
-}
-
-/**
- * The enemies a squad may base its rule conditions and targets on: all of them for
- * an omniscient side (the Host, or anyone when fortune is off), otherwise only
- * those its faction currently has in sight.
- */
-export function perceivedEnemies(ctx: RuleContext, squad: ActiveSquad): ActiveSquad[] {
-  const enemies = enemiesOf(ctx.state, squad);
-  if (!fortuneOn(ctx) || squad.faction !== ctx.scenario.playerFaction) {
-    return enemies;
-  }
-  const intel = ctx.state.intel[squad.faction] ?? {};
-  return enemies.filter((enemy) => intel[enemy.id]?.visible);
 }
 
 function factions(state: EngineState): FactionId[] {

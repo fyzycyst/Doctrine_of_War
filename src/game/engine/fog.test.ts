@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { canSee, hexLine, perceivedEnemies, refreshIntel, sightRange, visibleState } from "./fog";
+import { executeAction } from "./actions";
+import { canSee, hexLine, refreshIntel, sightRange, visibleState } from "./fog";
+import { perceive } from "./perception";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { evaluateCondition } from "./rules";
 import { actionContext, doctrine, library, openBoard, scenario, squad } from "./testKit";
@@ -124,12 +126,29 @@ describe("fogged decisions", () => {
       squads: [squad("p", FB, { q: 0, r: 2 }), squad("h", AH, { q: 2, r: 2 })],
     });
     const fogged = actionContext(scen, library(), on);
-    expect(perceivedEnemies(fogged.ctx, fogged.get("p"))).toEqual([]);
+    expect(perceive(fogged.ctx, fogged.get("p")).enemies).toEqual([]);
     expect(evaluateCondition(fogged.ctx, fogged.get("p"), { kind: "enemyWithin", range: 2 })).toBe(false);
     expect(evaluateCondition(fogged.ctx, fogged.get("h"), { kind: "enemyWithin", range: 2 })).toBe(true);
 
     const clear = actionContext(scen, library());
     expect(evaluateCondition(clear.ctx, clear.get("p"), { kind: "enemyWithin", range: 2 })).toBe(true);
+  });
+
+  it("judges an enemy's support only by the enemies it can see (hidden supporters do not count)", () => {
+    // E is in sight (2 hexes); its supporter S stands 3 hexes away, out of sight.
+    const scen = scenario({
+      squads: [squad("p", FB, { q: 0, r: 2 }), squad("E", AH, { q: 2, r: 2 }), squad("S", AH, { q: 3, r: 2 })],
+    });
+    const overextended = { kind: "enemyOverextended", range: 2 } as const;
+    const fogged = actionContext(scen, library(), on);
+    expect(perceive(fogged.ctx, fogged.get("p")).enemies.map((enemy) => enemy.id)).toEqual(["E"]);
+    expect(evaluateCondition(fogged.ctx, fogged.get("p"), overextended)).toBe(true);
+    const clear = actionContext(scen, library());
+    expect(evaluateCondition(clear.ctx, clear.get("p"), overextended)).toBe(false);
+
+    // The decision is made on what it sees; the consequence lands on the true state.
+    executeAction(fogged.ctx, fogged.get("p"), { kind: "counterCharge", target: { kind: "overextendedEnemy", range: 2 } });
+    expect(fogged.events.find((event) => event.kind === "engagement")).toMatchObject({ defenderId: "E", reckless: true });
   });
 
   it("changes behaviour in a real phase", () => {
