@@ -5,7 +5,17 @@
 // Everything here is inert when state.fortune is "off".
 import { boardNeighbors, getHex, hexDistance, type HexCoord } from "../board";
 import { checkRout, fortuneOn, type EngineContext, type EventBody, type RuleContext } from "./context";
-import type { EngineEvent, EngineSquad, EngineState, FactionId, Redaction, RedactedActor, SquadStatus } from "./types";
+import type {
+  EngineEvent,
+  EngineScenario,
+  EngineSquad,
+  EngineState,
+  FactionId,
+  Redaction,
+  RedactedActor,
+  SquadStatus,
+  Weather,
+} from "./types";
 import { isActive, type ActiveSquad } from "./world";
 
 export const BASE_SIGHT = 2;
@@ -44,11 +54,16 @@ export function hexLine(a: HexCoord, b: HexCoord): HexCoord[] {
   return line;
 }
 
-export function sightRange(ctx: RuleContext, observer: ActiveSquad): number {
-  const ridge = getHex(ctx.scenario.board, observer.hex)?.terrain === "ridge" ? RIDGE_SIGHT_BONUS : 0;
-  const mist = ctx.state.weather === "mist" ? MIST_SIGHT_PENALTY : 0;
-  const night = ctx.scenario.timeOfDay === "nightFires" ? NIGHT_SIGHT_PENALTY : 0;
+/** Sight range of a squad standing on `hex` in this weather (also used by the UI inspector). */
+export function sightRangeAt(scenario: EngineScenario, weather: Weather, hex: HexCoord): number {
+  const ridge = getHex(scenario.board, hex)?.terrain === "ridge" ? RIDGE_SIGHT_BONUS : 0;
+  const mist = weather === "mist" ? MIST_SIGHT_PENALTY : 0;
+  const night = scenario.timeOfDay === "nightFires" ? NIGHT_SIGHT_PENALTY : 0;
   return Math.max(1, BASE_SIGHT + ridge - mist - night);
+}
+
+export function sightRange(ctx: RuleContext, observer: ActiveSquad): number {
+  return sightRangeAt(ctx.scenario, ctx.state.weather, observer.hex);
 }
 
 /** At night, a squad on a ford or beside the burning river is lit and seen from 1 hex further. */

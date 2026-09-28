@@ -1,238 +1,257 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { useGame } from "./app/game/gameStore";
+import { useAppStore } from "./app/store";
+import { applyCampaign, ashAndBanner, startCampaign } from "./game/campaign";
+import { createInitialState, doctrineLibrary, firstBreach } from "./game/engine";
 
-async function startTutorial() {
-  const user = userEvent.setup();
-  render(<App />);
-  await user.click(screen.getByRole("button", { name: /begin command/i }));
-  return user;
+// WebGL does not exist in jsdom; the diorama is exercised by the capture script instead.
+vi.mock("./app/ui/BattleBoard", () => ({ BattleBoard: () => null }));
+
+function loadFirstBreach(fortune: "on" | "off" = "off", seed = 1) {
+  act(() => useGame.getState().loadBattle(firstBreach, { fortune, seed }));
 }
 
-afterEach(() => {
-  vi.useRealTimers();
+const game = () => useGame.getState();
+
+beforeEach(() => {
+  useAppStore.getState().clearSelection();
+  loadFirstBreach();
 });
 
-describe("App", () => {
-  it("renders the tutorial briefing", () => {
+async function toCommand(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Take Command" }));
+  await user.click(screen.getByRole("button", { name: "March to positions" }));
+}
+
+describe("command flow on The First Breach (fortune off)", () => {
+  it("runs briefing → deploy → assign → seal → report → next phase → outcome", async () => {
+    const user = userEvent.setup();
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /the first breach/i })).toBeInTheDocument();
-    expect(screen.getByText(/you command the free banners/i)).toBeInTheDocument();
-    expect(screen.getByText(/the ashen host moves first/i)).toBeInTheDocument();
+    // Briefing: title, plain-words conditions, and the one way forward.
+    expect(screen.getByRole("heading", { name: "The First Breach" })).toBeInTheDocument();
+    expect(screen.getByText("Keep Greyford Gate standing through all 3 phases.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Take Command" }));
+
+    // Deploy: an occupied hex is refused with a reason, a free one is accepted.
+    await user.click(screen.getByRole("option", { name: /Greyford Shields/ }));
+    const deploy = screen.getByRole("group", { name: "Deploy Greyford Shields" });
+    await user.click(within(deploy).getByRole("button", { name: /Upper Gate Road/ }));
+    expect(screen.getByRole("status")).toHaveTextContent("Dawnwatch Archers already holds that hex.");
+    await user.click(within(deploy).getByRole("button", { name: /^Gate Road/ }));
+    expect(game().deployment.greyford_shields).toEqual({ q: 2, r: 2 });
+    expect(game().view.squads.find((squad) => squad.id === "greyford_shields")?.hex).toEqual({ q: 2, r: 2 });
+    await user.click(screen.getByRole("button", { name: "March to positions" }));
+
+    // Assign by keyboard: the hand opens on the current doctrine; → then Enter assigns the next card.
+    const hand = screen.getByRole("listbox", { name: "Doctrine for Greyford Shields" });
+    const cards = within(hand).getAllByRole("option");
+    expect(cards[0]).toHaveAttribute("aria-selected", "true");
+    act(() => cards[0].focus());
+    await user.keyboard("{ArrowRight}{Enter}");
+    expect(game().orders).toEqual({ greyford_shields: "fighting_withdrawal" });
+    expect(within(hand).getByRole("option", { name: /Fighting Withdrawal/ })).toHaveAttribute("aria-selected", "true");
+
+    // Assign by click, then seal: the three untouched companies trigger a confirmation.
+    await user.click(within(hand).getByRole("option", { name: /Shield the Line/ }));
+    expect(game().orders).toEqual({ greyford_shields: "shield_the_line" });
+    await user.click(screen.getByRole("button", { name: "Seal Orders" }));
+    const confirm = screen.getByRole("alertdialog", { name: "Seal with standing doctrines?" });
+    expect(within(confirm).getAllByRole("listitem")).toHaveLength(3);
+    await user.click(within(confirm).getByRole("button", { name: "Seal anyway" }));
+
+    // Report for phase 1, then play on until the battle ends.
+    expect(screen.getByText("Chronicle · Phase 1")).toBeInTheDocument();
+    expect(screen.getByText(/seed/)).toHaveTextContent("#1");
+    await user.click(screen.getByRole("button", { name: "Next Phase" }));
+    expect(game().stage).toBe("command");
+
+    for (let guard = 0; guard < 5 && game().stage !== "outcome"; guard += 1) {
+      if (game().stage === "command") {
+        await user.click(screen.getByRole("button", { name: "Seal Orders" }));
+        await user.click(screen.getByRole("button", { name: "Seal anyway" }));
+      }
+      await user.click(screen.getByRole("button", { name: /Next Phase|See the outcome/ }));
+    }
+    expect(game().stage).toBe("outcome");
+    expect(screen.getByRole("heading", { level: 2, name: /Victory|Defeat|Stalemate/ })).toBeInTheDocument();
+    expect(game().log).toHaveLength(3);
   });
 
-  it("lets the player assign doctrines to at least three squads", async () => {
-    const user = await startTutorial();
-
-    await user.selectOptions(screen.getByLabelText(/doctrine for greyford shields/i), "hold_for_dawn");
-    await user.selectOptions(screen.getByLabelText(/doctrine for dawnwatch archers/i), "shield_the_line");
-    await user.selectOptions(screen.getByLabelText(/doctrine for stoneford riders/i), "clean_counterstroke");
-
-    expect(screen.getByLabelText(/doctrine for greyford shields/i)).toHaveValue("hold_for_dawn");
-    expect(screen.getByLabelText(/doctrine for dawnwatch archers/i)).toHaveValue("shield_the_line");
-    expect(screen.getByLabelText(/doctrine for stoneford riders/i)).toHaveValue("clean_counterstroke");
-  });
-
-  it("keeps doctrine summaries available without always showing them in the command panel", async () => {
-    await startTutorial();
-
-    const greyfordDoctrine = screen.getByLabelText(/doctrine for greyford shields/i);
-
-    expect(greyfordDoctrine).toHaveAttribute("title", "Hold formation, protect the gate, and absorb pressure.");
-    expect(screen.queryByText("Hold formation, protect the gate, and absorb pressure.")).not.toBeInTheDocument();
-  });
-
-  it("keeps exact battlefield stats accessible while reducing visible token text", async () => {
-    await startTutorial();
-
-    expect(screen.getByLabelText("Greyford Shields strength 86 of 100")).toBeInTheDocument();
-    expect(screen.getByLabelText("Greyford Shields cohesion 76 of 100")).toBeInTheDocument();
-    expect(screen.getByLabelText("Gate integrity 100")).toHaveTextContent("100");
-
-    const fieldGateMeter = screen.getByLabelText("Greyford Gate field integrity 100 of 100");
-
-    expect(fieldGateMeter).toBeInTheDocument();
-    expect(fieldGateMeter.querySelector(".stat-meter-fill")).toHaveStyle({ width: "100%" });
-    expect(screen.queryByText("STR 86 / COH 76")).not.toBeInTheDocument();
-  });
-
-  it("commits a phase and shows report output", async () => {
-    const user = await startTutorial();
-
-    await user.click(screen.getByRole("button", { name: /commit phase/i }));
-
-    expect(screen.getByRole("heading", { name: /phase 1/i })).toBeInTheDocument();
-    expect(screen.getByText(/the host moves first/i)).toBeInTheDocument();
-    expect(screen.getByText(/casualties/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Objective" })).toBeInTheDocument();
-  });
-
-  it("starts playback with support context before individual engagements", async () => {
-    const user = await startTutorial();
-
-    await user.click(screen.getByRole("button", { name: /commit phase/i }));
-
-    expect(screen.getByText("Resolving")).toBeInTheDocument();
-    expect(screen.getByLabelText(/support from mercy standard/i)).toHaveClass("active");
-    expect(screen.queryByLabelText(/engagement at hex 2,2/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /commit phase/i })).toBeDisabled();
-    expect(screen.getByLabelText(/doctrine for greyford shields/i)).toBeDisabled();
-    expect(screen.getByRole("button", { name: /skip playback/i })).toBeInTheDocument();
-  });
-
-  it("steps through engagements at the selected readable timing", async () => {
-    vi.useFakeTimers();
-
+  it("seals without asking when every company has new orders", async () => {
+    const user = userEvent.setup();
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /begin command/i }));
-    fireEvent.click(screen.getByRole("button", { name: /commit phase/i }));
-
-    await act(async () => {
-      vi.advanceTimersByTime(625);
-    });
-
-    expect(screen.getByLabelText(/engagement at hex 2,2/i)).toHaveClass("active");
-    expect(screen.queryByLabelText(/engagement at hex 2,1/i)).not.toBeInTheDocument();
-
-    await act(async () => {
-      vi.advanceTimersByTime(1250);
-    });
-
-    expect(screen.getByLabelText(/engagement at hex 2,1/i)).toHaveClass("active");
-    expect(screen.getByLabelText(/engagement at hex 2,2/i)).not.toHaveClass("active");
+    await toCommand(user);
+    for (const id of ["greyford_shields", "dawnwatch_archers", "mercy_standard", "stoneford_riders"]) {
+      act(() => void game().assignDoctrine(id, "shield_the_line"));
+    }
+    await user.click(screen.getByRole("button", { name: "Seal Orders" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(game().stage).toBe("report");
   });
+});
 
-  it("uses fast playback timing when the player changes playback pace", async () => {
-    vi.useFakeTimers();
-
+describe("doctrine allowlist", () => {
+  it("offers exactly the scenario's player doctrines and refuses anything else", async () => {
+    const user = userEvent.setup();
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /begin command/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Fast" }));
-    fireEvent.click(screen.getByRole("button", { name: /commit phase/i }));
+    await toCommand(user);
+    await user.click(screen.getByRole("option", { name: /Mercy Standard/ }));
 
-    expect(screen.getByRole("button", { name: "Fast" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByLabelText(/support from mercy standard/i)).toHaveClass("active");
+    const hand = screen.getByRole("listbox", { name: "Doctrine for Mercy Standard" });
+    const names = within(hand)
+      .getAllByRole("option")
+      .map((card) => card.textContent);
+    expect(names).toHaveLength(firstBreach.playerDoctrineIds.length);
+    firstBreach.playerDoctrineIds.forEach((id, index) => expect(names[index]).toContain(doctrineLibrary[id].name));
 
-    await act(async () => {
-      vi.advanceTimersByTime(250);
-    });
-
-    expect(screen.getByLabelText(/engagement at hex 2,2/i)).toHaveClass("active");
+    // A Host doctrine, an unknown id, or an enemy squad are all refused.
+    expect(game().assignDoctrine("mercy_standard", "iron_tide")).toBe(false);
+    expect(game().assignDoctrine("mercy_standard", "no_such_doctrine")).toBe(false);
+    expect(game().assignDoctrine("cinder_vanguard", "shield_the_line")).toBe(false);
+    expect(game().orders).toEqual({});
   });
 
-  it("stops pulsing phase indicators after playback reaches the report state", async () => {
-    vi.useFakeTimers();
-
+  it("shows no hand for an enemy squad", async () => {
+    const user = userEvent.setup();
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /begin command/i }));
-    fireEvent.click(screen.getByRole("button", { name: /commit phase/i }));
+    await toCommand(user);
+    await user.click(screen.getByRole("option", { name: /Cinder Vanguard/ }));
+    expect(screen.queryByRole("listbox", { name: /Doctrine for/ })).not.toBeInTheDocument();
+    // Fortune off: everything is in sight, so their doctrine is shown.
+    expect(screen.getByText("Their doctrine")).toBeInTheDocument();
+    expect(screen.getByText("Iron Tide")).toBeInTheDocument();
+  });
+});
 
-    await act(async () => {
-      vi.advanceTimersByTime(625);
+describe("fog of war in the inspector", () => {
+  it("shows a sighted enemy's doctrine and seals a last-known enemy's", async () => {
+    const user = userEvent.setup();
+    loadFirstBreach("on", 146);
+    render(<App />);
+    await toCommand(user);
+
+    // Take the real engine state and let one sighted enemy slip out of sight.
+    const engine = structuredClone(game().engine);
+    const intel = engine.intel.free_banners ?? {};
+    const [hiddenId] = Object.keys(intel).filter((id) => intel[id].visible);
+    intel[hiddenId].visible = false;
+    act(() => game().replaceEngine(engine));
+
+    const hidden = game().view.squads.find((squad) => squad.id === hiddenId)!;
+    expect(hidden.lastKnown).toBe(true);
+    expect(hidden.doctrineId).toBeNull();
+
+    await user.click(screen.getByRole("option", { name: new RegExp(hidden.name) }));
+    const inspector = screen.getByRole("complementary", { name: `Inspector: ${hidden.name}` });
+    expect(within(inspector).getByRole("group", { name: "Doctrine unknown" })).toBeInTheDocument();
+    expect(within(inspector).queryByText("Their doctrine")).not.toBeInTheDocument();
+    expect(within(inspector).getByText("Numbers as last seen")).toBeInTheDocument();
+  });
+
+  it("keeps the phase log to the player's filtered events", async () => {
+    const user = userEvent.setup();
+    loadFirstBreach("on", 146);
+    render(<App />);
+    await toCommand(user);
+    act(() => game().sealOrders());
+    const [entry] = game().log;
+    expect(entry.events.length).toBeGreaterThan(0);
+    expect(entry.events.every((event) => event.visibleTo.includes("free_banners"))).toBe(true);
+  });
+});
+
+describe("retry", () => {
+  async function playToOutcome() {
+    const user = userEvent.setup();
+    render(<App />);
+    await toCommand(user);
+    act(() => {
+      for (let guard = 0; guard < 5 && game().stage !== "outcome"; guard += 1) {
+        if (game().stage === "command") game().sealOrders();
+        game().nextPhase();
+      }
     });
+    expect(game().stage).toBe("outcome");
+    return user;
+  }
+
+  it("restarts at deployment with the same seed", async () => {
+    loadFirstBreach("on", 146);
+    const user = await playToOutcome();
+    await user.click(screen.getByRole("button", { name: "Retry, same fortune" }));
+    expect(game().stage).toBe("deploy");
+    expect(game().setup).toEqual({ fortune: "on", seed: 146 });
+    expect(game().log).toEqual([]);
+    expect(game().view.phase).toBe(1);
+    expect(screen.getByRole("button", { name: "March to positions" })).toBeInTheDocument();
+  });
+
+  it("restarts with a new seed", async () => {
+    loadFirstBreach("on", 146);
+    const user = await playToOutcome();
+    await user.click(screen.getByRole("button", { name: "Retry, new fortune" }));
+    expect(game().stage).toBe("deploy");
+    expect(game().setup.fortune).toBe("on");
+    expect(game().setup.seed).not.toBe(146);
+  });
+});
+
+describe("keyboard and board selection", () => {
+  it("moves through the roster with the arrow keys", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await toCommand(user);
+    const first = screen.getByRole("option", { name: /Greyford Shields/ });
+    act(() => first.focus());
+    await user.keyboard("{ArrowDown}");
+    expect(useAppStore.getState().selectedSquadId).toBe("dawnwatch_archers");
+    expect(screen.getByRole("option", { name: /Dawnwatch Archers/ })).toHaveFocus();
+    await user.keyboard("{ArrowUp}{Escape}");
+    expect(useAppStore.getState().selectedSquadId).toBeNull();
+  });
+
+  it("places the selected company when an empty board hex is picked during deployment", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Take Command" }));
+    // The Diorama's picking: select the hex, then the squad on it (none).
     await act(async () => {
-      vi.advanceTimersByTime(1250);
+      useAppStore.getState().selectSquad("greyford_shields");
+      useAppStore.getState().selectHex({ q: 2, r: 3 });
+      useAppStore.getState().selectSquad(null);
     });
-    await act(async () => {
-      vi.advanceTimersByTime(1250);
-    });
-    await act(async () => {
-      vi.advanceTimersByTime(875);
-    });
-
-    expect(screen.getByText("Report")).toBeInTheDocument();
-    expect(document.querySelectorAll(".phase-indicator.active, .phase-indicator.pulsing")).toHaveLength(0);
-    expect(screen.getByLabelText(/engagement at hex 2,2/i)).toBeInTheDocument();
+    expect(game().deployment.greyford_shields).toEqual({ q: 2, r: 3 });
+    expect(useAppStore.getState().selectedSquadId).toBe("greyford_shields");
   });
 
-  it("keeps the battle report visible after skipping phase playback", async () => {
-    const user = await startTutorial();
+  it("refuses a hex outside the deployment zone with a reason", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Take Command" }));
+    act(() => void game().placeSquad("greyford_shields", { q: 0, r: 4 }));
+    expect(screen.getByRole("status")).toHaveTextContent("Outside your deployment zone");
+    expect(game().deployment.greyford_shields).toEqual({ q: 3, r: 2 });
+  });
+});
 
-    await user.click(screen.getByRole("button", { name: /commit phase/i }));
-    await user.click(screen.getByRole("button", { name: /skip playback/i }));
-
-    expect(screen.getByText("Report")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /phase 1/i })).toBeInTheDocument();
-    expect(screen.getByText(/the host moves first/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /commit phase/i })).not.toBeDisabled();
+describe("battle setup", () => {
+  it("builds the battle from the engine's own initial state", () => {
+    expect(game().engine).toEqual(createInitialState(firstBreach, { fortune: "off", seed: 1 }));
+    expect(game().stage).toBe("briefing");
   });
 
-  it("lets the player deploy a Free Banners squad to an empty friendly hex before phase one", async () => {
-    const user = await startTutorial();
-
-    await user.click(screen.getByLabelText(/select stoneford riders at hex 3,3/i));
-    await user.click(screen.getByLabelText(/deploy stoneford riders to hex 2,3/i));
-
-    expect(screen.getByLabelText(/select stoneford riders at hex 2,3/i)).toBeInTheDocument();
-  });
-
-  it("prevents deployment to occupied, enemy-only, and objective hexes", async () => {
-    const user = await startTutorial();
-
-    await user.click(screen.getByLabelText(/select stoneford riders at hex 3,3/i));
-
-    expect(screen.queryByLabelText(/deploy stoneford riders to hex 3,2/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/deploy stoneford riders to hex 1,2/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/deploy stoneford riders to hex 4,2/i)).not.toBeInTheDocument();
-  });
-
-  it("locks deployment after the first phase has been committed", async () => {
-    const user = await startTutorial();
-
-    await user.click(screen.getByRole("button", { name: /commit phase/i }));
-    await user.click(screen.getByLabelText(/select stoneford riders at hex 3,3/i));
-
-    expect(screen.queryByLabelText(/deploy stoneford riders to hex 2,3/i)).not.toBeInTheDocument();
-  });
-
-  it("renders a fully tessellated 25 tile battlefield instead of lane fields", async () => {
-    await startTutorial();
-
-    expect(screen.getByRole("img", { name: /tessellated hex battlefield/i })).toBeInTheDocument();
-    expect(screen.getAllByTestId("hex-tile")).toHaveLength(25);
-    expect(screen.queryByRole("img", { name: /three approach lanes/i })).not.toBeInTheDocument();
-  });
-
-  it("shows a terrain legend with each terrain impact", async () => {
-    await startTutorial();
-
-    const legend = screen.getByRole("list", { name: /terrain effects/i });
-
-    expect(legend).toHaveTextContent("Road +0 defense");
-    expect(legend).toHaveTextContent("Ridge +3 defense");
-    expect(legend).toHaveTextContent("Ford -1 defense");
-    expect(legend).toHaveTextContent("Wall +4 defense");
-    expect(legend).toHaveTextContent("Field +0 defense");
-    expect(legend).toHaveTextContent("Ruin +2 defense");
-  });
-
-  it("lets the player collapse and expand a completed battle report", async () => {
-    const user = await startTutorial();
-
-    await user.click(screen.getByRole("button", { name: /commit phase/i }));
-    await user.click(screen.getByRole("button", { name: /collapse report/i }));
-
-    expect(screen.queryByRole("heading", { name: "Casualties" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /expand report/i })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /expand report/i }));
-
-    expect(screen.getByRole("heading", { name: "Casualties" })).toBeInTheDocument();
-  });
-
-  it("can reach a terminal scenario state", async () => {
-    const user = await startTutorial();
-
-    await user.click(screen.getByRole("button", { name: /commit phase/i }));
-    await user.click(screen.getByRole("button", { name: /skip playback/i }));
-    await user.click(screen.getByRole("button", { name: /commit phase/i }));
-    await user.click(screen.getByRole("button", { name: /skip playback/i }));
-    await user.click(screen.getByRole("button", { name: /commit phase/i }));
-    await user.click(screen.getByRole("button", { name: /skip playback/i }));
-
-    expect(screen.getByText(/scenario victory|scenario defeat/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /commit phase/i })).toBeDisabled();
+  it("starts production at the First Breach briefing, curated seed, fortune on, through the campaign", async () => {
+    vi.resetModules();
+    const { useGame: fresh } = await import("./app/game/gameStore");
+    const state = fresh.getState();
+    expect(state.baseScenario.id).toBe(firstBreach.id);
+    expect(state.setup).toEqual({ seed: firstBreach.curatedSeed, fortune: "on" });
+    expect(state.stage).toBe("briefing");
+    expect(state.campaign?.def.id).toBe(ashAndBanner.id);
+    expect(state.scenario).toEqual(applyCampaign(ashAndBanner, startCampaign(ashAndBanner), firstBreach));
   });
 });
