@@ -1,7 +1,8 @@
 import { Bloom, EffectComposer, TiltShift2, ToneMapping } from "@react-three/postprocessing";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { ToneMappingMode } from "postprocessing";
 import { useEffect, useMemo } from "react";
+import * as THREE from "three";
 import { useLook } from "../look/LookContext";
 import { GradeEffect } from "./GradeEffect";
 
@@ -11,7 +12,7 @@ import { GradeEffect } from "./GradeEffect";
  * toggle drops DOF/bloom).
  */
 export function PostFX({ focusY = 0.56 }: { focusY?: number }) {
-  const { preset, quality } = useLook();
+  const { preset, quality, atmosphere } = useLook();
   const gl = useThree((state) => state.gl);
   const grading = preset.grading;
   const high = quality === "high";
@@ -22,7 +23,20 @@ export function PostFX({ focusY = 0.56 }: { focusY?: number }) {
   }, [gl, preset.exposure]);
 
   const grade = useMemo(() => new GradeEffect(grading), []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => grade.setGrade(grading), [grade, grading]);
+  // Weather overlay on the grade and exposure, updated every frame so shifts cross-fade.
+  const tinted = useMemo(() => new THREE.Color(), []);
+  useFrame(() => {
+    const m = atmosphere.mix;
+    gl.toneMappingExposure = preset.exposure * m.exposureScale;
+    tinted.set(grading.highlightTint).lerp(m.gradeTint, Math.min(1, m.gradeTintMix));
+    grade.setGrade({
+      ...grading,
+      saturation: grading.saturation + m.saturation,
+      contrast: grading.contrast + m.contrast,
+      highlightTint: `#${tinted.getHexString()}`,
+      splitStrength: grading.splitStrength + m.gradeTintMix * 0.25,
+    });
+  });
   useEffect(() => () => grade.dispose(), [grade]);
 
   const mode = preset.toneMapping === "agx" ? ToneMappingMode.AGX : ToneMappingMode.ACES_FILMIC;

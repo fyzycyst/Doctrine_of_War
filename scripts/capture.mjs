@@ -21,6 +21,14 @@ const jobs = [
   { name: "stress-dusk-dpr1", query: "preset=dusk&figures=a&board=stress&dpr=1" },
   { name: "stress-nightFires", query: "preset=nightFires&figures=a&board=stress" },
   { name: "emberFord-nightFires", query: "scenario=emberFord&preset=nightFires&figures=a" },
+  { name: "emberFord-nightFires-close", query: "scenario=emberFord&preset=nightFires&figures=a&cam=close" },
+  { name: "weather-rain", query: "preset=dusk&figures=a&weather=rain" },
+  { name: "weather-mist", query: "preset=dusk&figures=a&weather=mist" },
+  { name: "weather-ashWind", query: "preset=dusk&figures=a&weather=ashWind" },
+  { name: "fog-static", query: "preset=dusk&figures=a&fog=1" },
+  { name: "fog-reveal-before", query: "preset=dusk&figures=a&fog=reveal&revealAt=999" },
+  { name: "fog-reveal-mid", query: "preset=dusk&figures=a&fog=reveal&revealAt=0.3&fogFreeze=0.55" },
+  { name: "fog-reveal-after", query: "preset=dusk&figures=a&fog=reveal&revealAt=0.3" },
   { name: "emberFord-dusk", query: "scenario=emberFord&preset=dusk&figures=a" },
   { name: "dusk-picking", query: "preset=dusk&figures=a&deploy=1&select=greyford_shields&hover=2,2" },
   anim("march", "stoneford_riders", 0.9),
@@ -31,7 +39,6 @@ const jobs = [
   anim("brace", "greyford_shields", 0.6),
   { name: "dusk-kaykit", query: "preset=dusk&figures=b" },
   { name: "dusk-toy-low", query: "preset=dusk&figures=a&quality=low" },
-  { name: "dusk-toy-fog", query: "preset=dusk&figures=a&fog=1" },
   { name: "chronicle-stub-toy", query: "preset=dusk&figures=a&skin=illuminatedChronicle" },
 ];
 

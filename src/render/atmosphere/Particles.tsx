@@ -1,5 +1,5 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mulberry32 } from "../hexWorld";
 import { useLook } from "../look/LookContext";
@@ -11,12 +11,55 @@ import { useLook } from "../look/LookContext";
  * - rain: slanted streaks falling through the scene.
  */
 export function Particles({ extent = 9 }: { extent?: number }) {
-  const { preset, quality } = useLook();
+  const { preset, quality, atmosphere } = useLook();
   const { kind, rate } = preset.particles;
   const scale = quality === "high" ? 1 : 0.35;
 
-  if (kind === "rain") return <Rain count={Math.round(1400 * rate * scale)} extent={extent} />;
-  return <Embers count={Math.round(320 * rate * scale)} extent={extent} />;
+  // Weather layers ride on top of the time-of-day particles and fade with
+  // their weather weight, so a phase-to-phase shift cross-fades.
+  const rainLayer = useMemo<Layer>(
+    () => ({
+      opacity: () => atmosphere.mix.rain,
+      apply: (u) => {
+        u.uColor.value.copy(atmosphere.mix.rainColor);
+        u.uSpeed.value = atmosphere.mix.rainSpeed;
+      },
+    }),
+    [atmosphere],
+  );
+  const ashLayer = useMemo<Layer>(
+    () => ({
+      opacity: () => atmosphere.mix.ash,
+      apply: (u) => {
+        u.uColor.value.copy(atmosphere.mix.ashColor);
+        u.uSpeed.value = atmosphere.mix.ashSpeed;
+        u.uSize.value = 1.9;
+        u.uAsh.value = 1;
+        u.uWind.value = 1;
+      },
+    }),
+    [atmosphere],
+  );
+
+  return (
+    <>
+      {kind === "rain" ? (
+        <Rain count={Math.round(1400 * rate * scale)} extent={extent} />
+      ) : (
+        <Embers count={Math.round(320 * rate * scale)} extent={extent} />
+      )}
+      <Rain count={Math.round(1400 * 2.6 * scale)} extent={extent} layer={rainLayer} />
+      <Embers count={Math.round(320 * 3.2 * scale)} extent={extent} layer={ashLayer} />
+    </>
+  );
+}
+
+type Uniforms = Record<string, THREE.IUniform>;
+
+/** A weather-driven particle layer: per-frame opacity plus uniform overrides. */
+interface Layer {
+  opacity: () => number;
+  apply: (u: Uniforms) => void;
 }
 
 function seeds(count: number, salt: number) {
@@ -26,7 +69,7 @@ function seeds(count: number, salt: number) {
   return arr;
 }
 
-function Embers({ count, extent }: { count: number; extent: number }) {
+function Embers({ count, extent, layer }: { count: number; extent: number; layer?: Layer }) {
   const { preset } = useLook();
   const dpr = useThree((state) => state.viewport.dpr);
 
@@ -52,10 +95,12 @@ function Embers({ count, extent }: { count: number; extent: number }) {
           uExtent: { value: extent },
           uPixel: { value: dpr },
           uAsh: { value: 0 },
+          uWind: { value: 0 },
+          uOpacity: { value: 1 },
         },
         vertexShader: /* glsl */ `
           attribute vec4 aSeed;
-          uniform float uTime, uSpeed, uSize, uExtent, uPixel, uAsh;
+          uniform float uTime, uSpeed, uSize, uExtent, uPixel, uAsh, uWind;
           varying float vAlpha;
           varying float vHot;
           void main() {
@@ -71,6 +116,10 @@ function Embers({ count, extent }: { count: number; extent: number }) {
             vec3 pos = start + vec3(t * vx,
                                     t * 0.16 + sin(t * 1.3 + aSeed.x * 20.0) * 0.18,
                                     sin(t * 0.8 + aSeed.z * 10.0) * 0.45);
+            // Ash-wind: gusty, tumbling flakes low over the board.
+            pos += uWind * vec3(sin(t * 2.7 + aSeed.w * 30.0) * 0.35,
+                                -t * 0.12 + sin(t * 3.1 + aSeed.x * 9.0) * 0.12,
+                                sin(t * 1.9 + aSeed.y * 17.0) * 0.4);
             vec4 mv = modelViewMatrix * vec4(pos, 1.0);
             gl_Position = projectionMatrix * mv;
             float flicker = 0.55 + 0.45 * sin(uTime * (6.0 + aSeed.w * 8.0) + aSeed.x * 50.0);
@@ -82,15 +131,16 @@ function Embers({ count, extent }: { count: number; extent: number }) {
         `,
         fragmentShader: /* glsl */ `
           uniform vec3 uColor;
-          uniform float uAsh;
+          uniform float uAsh, uWind, uOpacity;
           varying float vAlpha;
           varying float vHot;
           void main() {
             float d = length(gl_PointCoord - 0.5);
             float a = smoothstep(0.5, 0.0, d);
-            vec3 ash = vec3(0.35, 0.33, 0.32);
-            vec3 col = mix(ash * 0.6, uColor * 4.0, vHot);
-            gl_FragColor = vec4(col * a * vAlpha, 1.0);
+            vec3 ash = mix(vec3(0.35, 0.33, 0.32) * 0.6, uColor * 1.6, uWind);
+            vec3 hot = uWind > 0.5 ? vec3(1.0, 0.45, 0.15) * 3.0 : uColor * 4.0;
+            vec3 col = mix(ash, hot, vHot);
+            gl_FragColor = vec4(col * a * vAlpha * uOpacity, 1.0);
           }
         `,
       }),
@@ -98,21 +148,29 @@ function Embers({ count, extent }: { count: number; extent: number }) {
   );
 
   useMemo(() => {
+    if (layer) return;
     const u = material.uniforms;
     u.uColor.value.set(preset.particles.color);
     u.uSpeed.value = preset.particles.speed;
     u.uSize.value = preset.particles.size;
     u.uAsh.value = preset.particles.kind === "ash" ? 1 : 0;
-  }, [material, preset]);
+  }, [material, preset, layer]);
 
+  const points = useRef<THREE.Points>(null);
   useFrame((_, dt) => {
     material.uniforms.uTime.value += dt;
+    if (layer) {
+      const o = layer.opacity();
+      material.uniforms.uOpacity.value = o;
+      layer.apply(material.uniforms);
+      if (points.current) points.current.visible = o > 0.002;
+    }
   });
 
-  return <points geometry={geometry} material={material} renderOrder={5} />;
+  return <points ref={points} geometry={geometry} material={material} renderOrder={5} />;
 }
 
-function Rain({ count, extent }: { count: number; extent: number }) {
+function Rain({ count, extent, layer }: { count: number; extent: number; layer?: Layer }) {
   const { preset } = useLook();
 
   const geometry = useMemo(() => {
@@ -143,6 +201,7 @@ function Rain({ count, extent }: { count: number; extent: number }) {
           uColor: { value: new THREE.Color() },
           uSpeed: { value: 7 },
           uExtent: { value: extent },
+          uOpacity: { value: 1 },
         },
         vertexShader: /* glsl */ `
           attribute vec4 aSeed;
@@ -160,9 +219,10 @@ function Rain({ count, extent }: { count: number; extent: number }) {
         `,
         fragmentShader: /* glsl */ `
           uniform vec3 uColor;
+          uniform float uOpacity;
           varying float vA;
           void main() {
-            gl_FragColor = vec4(uColor, 0.38 * vA);
+            gl_FragColor = vec4(uColor, 0.38 * vA * uOpacity);
           }
         `,
       }),
@@ -170,13 +230,21 @@ function Rain({ count, extent }: { count: number; extent: number }) {
   );
 
   useMemo(() => {
+    if (layer) return;
     material.uniforms.uColor.value.set(preset.particles.color);
     material.uniforms.uSpeed.value = preset.particles.speed;
-  }, [material, preset]);
+  }, [material, preset, layer]);
 
+  const lines = useRef<THREE.LineSegments>(null);
   useFrame((_, dt) => {
     material.uniforms.uTime.value += dt;
+    if (layer) {
+      const o = layer.opacity();
+      material.uniforms.uOpacity.value = o;
+      layer.apply(material.uniforms);
+      if (lines.current) lines.current.visible = o > 0.002;
+    }
   });
 
-  return <lineSegments geometry={geometry} material={material} renderOrder={5} />;
+  return <lineSegments ref={lines} geometry={geometry} material={material} renderOrder={5} />;
 }

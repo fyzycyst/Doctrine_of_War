@@ -1,6 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useAppStore } from "../../app/store";
 import type { FactionId } from "../../game/types";
 import { useLook } from "../look/LookContext";
@@ -68,10 +69,14 @@ function SquadMarker({
   const halo = useRef<THREE.Mesh>(null);
   const crest = useRef<THREE.Group>(null);
 
+  const ghost = !!squad.lastKnown;
   const { lit } = cohesionArc(squad.cohesion);
   const thetaLength = Math.max(0.001, lit * Math.PI * 2);
   // Rings are kept below the figures in brightness (look-lock #7).
-  const ringBase = useMemo(() => new THREE.Color(style.glow).multiplyScalar(1.05), [style.glow]);
+  const ringBase = useMemo(
+    () => (ghost ? new THREE.Color("#8a94a8").multiplyScalar(0.9) : new THREE.Color(style.glow).multiplyScalar(1.05)),
+    [style.glow, ghost],
+  );
   const ringMat = useMemo(
     () => new THREE.MeshBasicMaterial({ color: ringBase.clone(), transparent: true, opacity: 0.62, depthWrite: false }),
     [ringBase],
@@ -84,7 +89,7 @@ function SquadMarker({
     () => new THREE.MeshBasicMaterial({ color: new THREE.Color("#fff4d6").multiplyScalar(1.6), transparent: true, opacity: 0, depthWrite: false }),
     [],
   );
-  const cloth = useMemo(() => makeClothMaterial(texture, phase), [texture, phase]);
+  const cloth = useMemo(() => makeClothMaterial(texture, phase, ghost), [texture, phase, ghost]);
   useEffect(() => () => [ringMat, ringBackMat, haloMat, cloth].forEach((m) => m.dispose()), [ringMat, ringBackMat, haloMat, cloth]);
 
   useFrame(({ clock }, dt) => {
@@ -98,8 +103,8 @@ function SquadMarker({
     const fade = pose?.ringFade ?? 1;
     const emphasis = selected ? 0.9 : hovered ? 0.4 : 0;
     ringMat.color.copy(ringBase).multiplyScalar(Math.max(0.2, 1 + flash + emphasis));
-    ringMat.opacity = 0.62 * fade;
-    ringBackMat.opacity = 0.12 * fade;
+    ringMat.opacity = (ghost ? 0.4 : 0.62) * fade;
+    ringBackMat.opacity = ghost ? 0 : 0.12 * fade;
     if (halo.current) {
       const pulse = 0.5 + 0.5 * Math.sin(t * 4);
       haloMat.opacity = selected ? 0.35 + 0.35 * pulse : hovered ? 0.18 : 0;
@@ -126,7 +131,7 @@ function SquadMarker({
     <group ref={root} position={[placed.x, placed.y, placed.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
         <circleGeometry args={[0.62, 24]} />
-        <meshBasicMaterial map={shadow} transparent depthWrite={false} opacity={0.55} color="#000000" />
+        <meshBasicMaterial map={shadow} transparent depthWrite={false} opacity={ghost ? 0.22 : 0.55} color="#000000" />
       </mesh>
       <group ref={yawGroup} rotation={[0, squad.facing, 0]}>
         {/* Cohesion ring: arc centred on the facing, gap at the rear. */}
@@ -134,9 +139,14 @@ function SquadMarker({
           <mesh renderOrder={2} material={ringBackMat}>
             <ringGeometry args={[0.55, 0.59, 64, 1]} />
           </mesh>
-          <mesh renderOrder={2} material={ringMat}>
-            <ringGeometry args={[0.55, 0.59, 64, 1, -thetaLength / 2, thetaLength]} />
-          </mesh>
+          {ghost ? (
+            // Last-known position: a dashed grey ring (no cohesion reading).
+            <mesh renderOrder={6} material={ringMat} geometry={DASHED_RING} />
+          ) : (
+            <mesh renderOrder={2} material={ringMat}>
+              <ringGeometry args={[0.55, 0.59, 64, 1, -thetaLength / 2, thetaLength]} />
+            </mesh>
+          )}
           <mesh ref={halo} renderOrder={2} material={haloMat}>
             <ringGeometry args={[0.62, 0.66, 64, 1]} />
           </mesh>
@@ -155,7 +165,7 @@ function SquadMarker({
             <mesh castShadow material={cloth} position={[-w / 2, poleHeight - h / 2 - 0.03, 0]} rotation={[0, Math.PI, 0]}>
               <planeGeometry args={[w, h, 14, 4]} />
             </mesh>
-            {squad.renowned && (
+            {squad.renowned && !ghost && (
               <group ref={crest} position={[0, poleHeight + 0.13, 0]}>
                 <mesh>
                   <torusGeometry args={[0.055, 0.012, 6, 16]} />
@@ -179,14 +189,28 @@ const clothVertex = /* glsl */ `
   uniform float uPhase;
 `;
 
-function makeClothMaterial(texture: THREE.Texture, phase: number) {
+const DASHED_RING = (() => {
+  const dashes = 14;
+  const parts: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < dashes; i += 1) {
+    const len = ((Math.PI * 2) / dashes) * 0.55;
+    parts.push(new THREE.RingGeometry(0.55, 0.585, 6, 1, (i / dashes) * Math.PI * 2, len));
+  }
+  return mergeGeometries(parts);
+})();
+
+function makeClothMaterial(texture: THREE.Texture, phase: number, ghost = false) {
+  // A last-known squad's banner is a colourless dark rag: no heraldry to read.
   const m = new THREE.MeshStandardMaterial({
-    map: texture,
+    map: ghost ? null : texture,
+    alphaMap: null,
+    color: ghost ? "#2c2c32" : "#ffffff",
+    transparent: false,
     side: THREE.DoubleSide,
-    alphaTest: 0.5,
+    alphaTest: ghost ? 0 : 0.5,
     roughness: 0.9,
-    emissive: new THREE.Color("#ffffff"),
-    emissiveMap: texture,
+    emissive: new THREE.Color(ghost ? "#000000" : "#ffffff"),
+    emissiveMap: ghost ? null : texture,
     emissiveIntensity: 0.22,
   });
   const uniforms = { uTime: { value: 0 }, uPhase: { value: phase } };
@@ -208,7 +232,7 @@ function makeClothMaterial(texture: THREE.Texture, phase: number) {
          transformed.y -= wv * wv * 0.02;`,
       );
   };
-  m.customProgramCacheKey = () => "banner-cloth";
+  m.customProgramCacheKey = () => (ghost ? "banner-cloth-ghost" : "banner-cloth");
   m.userData.uniforms = uniforms;
   return m;
 }
