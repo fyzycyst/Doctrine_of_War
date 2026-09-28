@@ -158,11 +158,11 @@ export function Diorama({
   useEffect(() => {
     atmosphere.setFog(
       board.hexes.map((h) => h.coord),
-      visibility ? visibility.visibleHexes : null,
+      visibility ? knownHexes(visibility.visibleHexes, exitHexes) : null,
       !fogInit.current,
     );
     fogInit.current = true;
-  }, [atmosphere, board, visibility]);
+  }, [atmosphere, board, visibility, exitHexes]);
 
   // Reveal: squads that are drawn live now but were hidden or ghosts before.
   const shown = useRef<Set<string> | null>(null);
@@ -272,4 +272,15 @@ const FOG_REF_DISTANCE = 26;
 /** Push the fog back on boards bigger than that, so their wide shot isn't buried. */
 function fogOffsetFor(board: BoardLayout): number {
   return Math.max(0, wideShotFor(board).distance - FOG_REF_DISTANCE);
+}
+
+/**
+ * Hexes the fog of war leaves clear: what the player sees, plus a known exit
+ * edge (the player always knows where the way out is, so it never reads as
+ * unknown ground). Squads there are still drawn per `visibility`.
+ */
+export function knownHexes(visible: HexCoord[], exits?: HexCoord[]): HexCoord[] {
+  if (!exits || exits.length === 0) return visible;
+  const seen = new Set(visible.map(hexKey));
+  return [...visible, ...exits.filter((h) => !seen.has(hexKey(h)))];
 }

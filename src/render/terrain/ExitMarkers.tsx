@@ -19,7 +19,9 @@ export function ExitMarkers({ board, island, hexes }: { board: BoardLayout; isla
     if (!reducedMotion) material.uniforms.uTime.value += dt;
   });
   if (!geometry) return null;
-  return <mesh geometry={geometry} material={material} renderOrder={2} raycast={() => null} frustumCulled={false} />;
+  // Drawn after the mist (renderOrder 3) so the way out reads through any haze;
+  // depth-tested so figures still stand in front of it.
+  return <mesh geometry={geometry} material={material} renderOrder={4} raycast={() => null} frustumCulled={false} />;
 }
 
 /** Outward (off-board) unit direction of an edge hex in world x/z, or null if it isn't on an edge. */
@@ -39,7 +41,7 @@ export function offBoardDirection(coord: HexCoord, board: BoardLayout, center: {
 }
 
 const GLOW_RADIUS = 0.86;
-const CHEVRON = { half: 0.17, back: 0.11, width: 0.045, lift: 0.025 };
+const CHEVRON = { half: 0.2, back: 0.13, width: 0.06, lift: 0.025 };
 
 function buildExitGeometry(board: BoardLayout, island: IslandBuild, hexes: HexCoord[]): THREE.BufferGeometry | null {
   const pos: number[] = [];
@@ -62,7 +64,7 @@ function buildExitGeometry(board: BoardLayout, island: IslandBuild, hexes: HexCo
     for (let i = 0; i < 6; i += 1) {
       const [ax, az] = hexCorner(i, GLOW_RADIUS);
       const [bx, bz] = hexCorner(i + 1, GLOW_RADIUS);
-      const rim = (x: number, z: number) => 0.01 + 0.1 * Math.max(0, (x * out[0] + z * out[1]) / GLOW_RADIUS);
+      const rim = (x: number, z: number) => 0.015 + 0.14 * Math.max(0, (x * out[0] + z * out[1]) / GLOW_RADIUS);
       push(cx, y, cz, 0.02, -1, out);
       push(cx + bx, y, cz + bz, rim(bx, bz), -1, out);
       push(cx + ax, y, cz + az, rim(ax, az), -1, out);
@@ -82,12 +84,12 @@ function buildExitGeometry(board: BoardLayout, island: IslandBuild, hexes: HexCo
         const ox = (nx / nl) * CHEVRON.width * 0.5;
         const oz = (nz / nl) * CHEVRON.width * 0.5;
         const yc = y + CHEVRON.lift;
-        push(tipX - ox, yc, tipZ - oz, 0.4, phase, out);
-        push(ex - ox, yc, ez - oz, 0.4, phase, out);
-        push(ex + ox, yc, ez + oz, 0.4, phase, out);
-        push(tipX - ox, yc, tipZ - oz, 0.4, phase, out);
-        push(ex + ox, yc, ez + oz, 0.4, phase, out);
-        push(tipX + ox, yc, tipZ + oz, 0.4, phase, out);
+        push(tipX - ox, yc, tipZ - oz, 0.6, phase, out);
+        push(ex - ox, yc, ez - oz, 0.6, phase, out);
+        push(ex + ox, yc, ez + oz, 0.6, phase, out);
+        push(tipX - ox, yc, tipZ - oz, 0.6, phase, out);
+        push(ex + ox, yc, ez + oz, 0.6, phase, out);
+        push(tipX + ox, yc, tipZ + oz, 0.6, phase, out);
       }
     }
   }
