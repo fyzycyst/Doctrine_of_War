@@ -122,6 +122,12 @@ describe("resolvePhase contract", () => {
     expect(() => run(scen, { ghost: "shield_the_line" })).toThrow(/Invalid player order/);
   });
 
+  it("only accepts player doctrines from the scenario's list", () => {
+    const limited = scenario({ ...scen, playerDoctrineIds: ["shield_the_line"] });
+    expect(() => run(limited, { p: "shield_the_line" })).not.toThrow();
+    expect(() => run(limited, { p: "hold_for_dawn" })).toThrow(/hold_for_dawn is not available in this scenario/);
+  });
+
   it("applies the host schedule for the current phase; unlisted squads keep their doctrine", () => {
     const scheduled = scenario({
       ...scen,

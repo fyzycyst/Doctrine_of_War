@@ -90,7 +90,7 @@ export function scenario(overrides: Partial<EngineScenario> & { squads: SquadSet
     maxPhases: 1,
     board: openBoard(),
     objectives: [],
-    playerDoctrineIds: [],
+    playerDoctrineIds: Object.keys(library()),
     hostSchedule: [],
     winCondition: { kind: "escapeEdge", edgeHexes: [], count: 99 },
     ...overrides,

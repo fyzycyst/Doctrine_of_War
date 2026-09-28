@@ -41,6 +41,14 @@ describe("The First Breach (v2)", () => {
     for (const id of firstBreach.playerDoctrineIds) {
       expect(doctrineLibrary[id].faction).toBe("free_banners");
     }
+    for (const setup of firstBreach.squads.filter((item) => item.faction === firstBreach.playerFaction)) {
+      expect(firstBreach.playerDoctrineIds, setup.id).toContain(setup.doctrineId);
+    }
+    for (const plan of Object.values(firstBreach.referencePlans ?? {})) {
+      for (const doctrineId of Object.values(plan)) {
+        expect(firstBreach.playerDoctrineIds).toContain(doctrineId);
+      }
+    }
     const gate = firstBreach.objectives[0];
     expect(getHex(firstBreach.board, gate.hex)?.objectiveId).toBe(gate.id);
   });

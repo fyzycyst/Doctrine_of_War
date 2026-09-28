@@ -88,12 +88,16 @@ function assign(
   orders: Orders,
   faction: FactionId,
   source: string,
+  allowed?: string[],
 ) {
   for (const [squadId, doctrineId] of Object.entries(orders)) {
     const squad = state.squads.find((item) => item.id === squadId);
     const doctrine = doctrines[doctrineId];
     if (!squad || !doctrine || squad.faction !== faction || doctrine.faction !== faction) {
       throw new Error(`Invalid ${source} order: ${squadId} -> ${doctrineId}`);
+    }
+    if (allowed && !allowed.includes(doctrineId)) {
+      throw new Error(`Invalid ${source} order: ${doctrineId} is not available in this scenario`);
     }
     squad.doctrineId = doctrineId;
   }
@@ -132,7 +136,8 @@ export function resolvePhase(
   if (hostPhase) {
     assign(state, doctrines, hostPhase.orders, opponentOf(scenario, scenario.playerFaction), "host schedule");
   }
-  assign(state, doctrines, orders, scenario.playerFaction, "player");
+  // Player orders must come from the scenario's doctrine list; starting doctrines are exempt.
+  assign(state, doctrines, orders, scenario.playerFaction, "player", scenario.playerDoctrineIds);
 
   const events: EngineEvent[] = [];
   const rng = createRng(state.rngState);

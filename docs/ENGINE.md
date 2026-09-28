@@ -23,7 +23,9 @@ resolvePhase(state, orders, scenario, { doctrines? }) → { state, events, repor
   (both sides are omniscient) and no dread. The battle is then fully deterministic
   whatever the seed, and it emits zero `fortune`, `dread`, `weatherShift` or `sighted`
   events.
-- `orders`: `squadId → doctrineId` for the player's squads. Invalid orders throw.
+- `orders`: `squadId → doctrineId` for the player's squads. Invalid orders throw,
+  including a doctrine not listed in `scenario.playerDoctrineIds`. Starting doctrines
+  come from scenario data and are exempt.
 - `options.doctrines`: the doctrine lookup (defaults to the built-in library), so a
   future editor can pass edited doctrines without touching the engine.
 - Call it once per phase. `state.phase` advances until `state.status` becomes
