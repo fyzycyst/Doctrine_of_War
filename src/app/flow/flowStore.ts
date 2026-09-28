@@ -1,6 +1,8 @@
 // The app flow (T14): which screen is up, the campaign in progress and its save.
 // The battle itself lives in the game store; this store decides what surrounds it.
 import { create } from "zustand";
+import { useGame } from "../game/gameStore";
+import { scenarioFor } from "./campaignView";
 import {
   ashAndBanner,
   CampaignSaveError,
@@ -31,6 +33,8 @@ export interface FlowState {
   store: SaveStore;
   /** A save that failed to write, in plain words (the game carries on). */
   saveError: string | null;
+  /** Why the last campaign-map choice could not be played, in plain words. */
+  notice: string | null;
 
   go: (screen: Screen) => void;
   /** Looks for a usable save (for the title's Continue). */
@@ -41,6 +45,15 @@ export interface FlowState {
   continueCampaign: () => Promise<void>;
   /** Replaces the campaign and autosaves it. */
   commitCampaign: (state: CampaignState) => Promise<void>;
+  /** Opens a battle's briefing, with the campaign's companies (current battle only). */
+  openBattle: (battleId: string) => void;
+  clearNotice: () => void;
+}
+
+/** First attempt: the scenario's curated seed. A retry draws a fresh one. */
+function seedFor(state: CampaignState, battleId: string, curated: number | undefined): number {
+  const attempts = state.history.filter((record) => record.battleId === battleId).length;
+  return attempts === 0 && curated ? curated : 1 + Math.floor(Math.random() * 99_999);
 }
 
 export const useFlow = create<FlowState>((set, get) => ({
@@ -51,8 +64,34 @@ export const useFlow = create<FlowState>((set, get) => ({
   saved: null,
   store: defaultStore(),
   saveError: null,
+  notice: null,
 
-  go: (screen) => set({ screen }),
+  go: (screen) => set({ screen, notice: null }),
+  clearNotice: () => set({ notice: null }),
+
+  openBattle: (battleId) => {
+    const { definition, campaign } = get();
+    const battle = definition.battles.find((item) => item.id === battleId);
+    if (!campaign || !battle) {
+      return;
+    }
+    if (currentBattle(definition, campaign)?.id !== battleId) {
+      set({ notice: `${battle.title} is already decided; the campaign moves on.` });
+      return;
+    }
+    const scenario = scenarioFor(battle);
+    if (!scenario) {
+      set({ notice: `${battle.title} is still being forged. It will open in a later build.` });
+      return;
+    }
+    useGame
+      .getState()
+      .loadBattle(scenario, { seed: seedFor(campaign, battleId, scenario.curatedSeed), fortune: "on" }, "briefing", {
+        def: definition,
+        state: campaign,
+      });
+    set({ screen: "battle", notice: null });
+  },
 
   checkSave: async () => {
     const { store, definition } = get();

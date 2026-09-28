@@ -1,9 +1,11 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ashAndBanner, startCampaign } from "../../game/campaign";
+import { useGame } from "../game/gameStore";
 import { Root } from "../Root";
 import { useFlow } from "./flowStore";
+import { campaignAfter } from "./devCampaign";
 import { afterTutorial, memoryStore, savedStore } from "./testKit";
 
 vi.mock("../../render/showcase/TitleScene", async () => ({ TitleScene: (await import("./testKit")).FakeTitleScene }));
@@ -71,5 +73,54 @@ describe("title screen", () => {
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     await act(() => useFlow.getState().continueCampaign());
     expect(useFlow.getState().campaign).toBeNull();
+  });
+});
+
+describe("campaign map", () => {
+  function onMap(state = startCampaign(ashAndBanner)) {
+    useFlow.setState({ campaign: state, screen: "campaign", save: "valid" });
+    render(<Root />);
+  }
+
+  it("shows the islands, the ledger and the next battle", () => {
+    onMap(afterTutorial());
+    const islands = screen.getByRole("list", { name: "Islands" });
+    expect(within(islands).getByRole("button", { name: "The First Breach" })).toHaveAttribute("data-status", "won");
+    expect(within(islands).getByRole("button", { name: "Ember Ford" })).toHaveAttribute("data-status", "current");
+    expect(within(islands).getByRole("button", { name: /Hold for Dawn/ })).toBeDisabled();
+    const ledger = screen.getByRole("complementary", { name: "Army ledger" });
+    expect(within(ledger).getByText("Greyford Shields")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Take the field: Ember Ford/ })).toHaveFocus();
+  });
+
+  it("opens the current battle's briefing with the campaign's companies", async () => {
+    const user = userEvent.setup();
+    const state = afterTutorial();
+    onMap(state);
+    await user.click(screen.getByRole("button", { name: "Ember Ford" }));
+    expect(useFlow.getState().screen).toBe("battle");
+    const game = useGame.getState();
+    expect(game.stage).toBe("briefing");
+    expect(game.baseScenario.id).toBe("ember_ford");
+    expect(game.campaign?.state).toBe(state);
+    expect(screen.getByRole("heading", { name: "Ember Ford" })).toBeInTheDocument();
+    // First attempt: the curated seed, fortune on.
+    expect(game.setup).toEqual({ seed: game.baseScenario.curatedSeed, fortune: "on" });
+  });
+
+  it("says a battle is still being forged instead of opening it", async () => {
+    const user = userEvent.setup();
+    onMap(campaignAfter(ashAndBanner, 2));
+    await user.click(screen.getByRole("button", { name: /The Saltmarsh Column/ }));
+    expect(useFlow.getState().screen).toBe("campaign");
+    expect(screen.getByRole("status")).toHaveTextContent("still being forged");
+    expect(screen.getByRole("button", { name: "Read the chronicle so far" })).toBeInTheDocument();
+  });
+
+  it("goes back to the title", async () => {
+    const user = userEvent.setup();
+    onMap();
+    await user.click(screen.getByRole("button", { name: /Title screen/ }));
+    expect(useFlow.getState().screen).toBe("title");
   });
 });

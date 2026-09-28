@@ -1,4 +1,5 @@
 import App from "../App";
+import { CampaignScreen } from "./flow/CampaignScreen";
 import { useFlow } from "./flow/flowStore";
 import { TitleScreen } from "./flow/TitleScreen";
 
@@ -14,6 +15,7 @@ export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: st
     case "battle":
       return <App still={still} pauseAt={pauseAt} />;
     case "campaign":
+      return <CampaignScreen />;
     case "ending":
       // Filled in by the campaign map and ending screens.
       return <TitleScreen />;

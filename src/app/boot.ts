@@ -9,6 +9,7 @@
 //   &select=<squadId>      select a squad
 //   &still=1               no idle camera drift (captures)
 import { scenarios, type EngineScenario } from "../game/engine";
+import { campaignAfter } from "./flow/devCampaign";
 import { useFlow } from "./flow/flowStore";
 import { useGame, type Stage } from "./game/gameStore";
 import { useAppStore } from "./store";
@@ -80,7 +81,13 @@ export function bootFromUrl(search: string): BootOptions {
 
   const screen = params.get("screen");
   if (screen === "title" || screen === "campaign" || screen === "ending") {
-    useFlow.getState().go(screen);
+    // `&campaignAt=N`: a real campaign after N battles (fortune on, curated seeds), not saved.
+    const flow = useFlow.getState();
+    const played = Number(params.get("campaignAt")) || 0;
+    if (screen !== "title") {
+      useFlow.setState({ campaign: campaignAfter(flow.definition, played, { fortune: "on" }) });
+    }
+    flow.go(screen);
   }
 
   const select = params.get("select");

@@ -12,6 +12,8 @@ const SIZES = [
 ];
 const STAGES = [
   { name: "title", query: "screen=title", settleMs: 2500 },
+  { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
+  { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
   { name: "briefing", query: "stage=briefing" },
   { name: "deploy", query: "stage=deploy&select=greyford_shields" },
   { name: "command", query: "stage=command&select=greyford_shields" },
