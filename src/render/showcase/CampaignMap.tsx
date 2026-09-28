@@ -18,6 +18,7 @@ import type { TimeOfDay } from "../skins/types";
 import { buildIsland, type IslandBuild } from "../terrain/buildIsland";
 import { Water } from "../terrain/Water";
 import { placeholderBoard, type PlaceholderKind } from "./placeholderBoards";
+import { useDisposable } from "../dispose";
 
 /**
  * Campaign map (T09/T13): the war as an archipelago of small floating islands in
@@ -239,7 +240,14 @@ function Archipelago({
       }),
     [battles, skin],
   );
-  useEffect(() => () => islands.forEach((i) => i.island.geometry.dispose()), [islands]);
+  useEffect(
+    () => () =>
+      islands.forEach((i) => {
+        i.island.geometry.dispose();
+        i.island.wallGeometry?.dispose();
+      }),
+    [islands],
+  );
 
   const current = Math.max(
     0,
@@ -518,12 +526,9 @@ function Flag({
 }) {
   const { skin } = useLook();
   const { motion } = useLook();
-  const texture = useMemo(() => makeBannerTexture(faction, skin.factions[faction]), [faction, skin]);
+  const texture = useDisposable(() => makeBannerTexture(faction, skin.factions[faction]), [faction, skin]);
   const cloth = useMemo(() => makeClothMaterial(texture, 1.3), [texture]);
-  useEffect(() => () => {
-    texture.dispose();
-    cloth.dispose();
-  }, [texture, cloth]);
+  useEffect(() => () => cloth.dispose(), [cloth]);
   useFrame((_, dt) => {
     cloth.userData.uniforms.uTime.value += dt * (motion < 1 ? 0.3 : 1);
   });
@@ -590,7 +595,7 @@ function CurrentGlow({ radius }: { radius: number }) {
 
 function Braziers({ radius, count }: { radius: number; count: number }) {
   const { motion } = useLook();
-  const flame = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color("#ff8a3d").multiplyScalar(6) }), []);
+  const flame = useDisposable(() => new THREE.MeshBasicMaterial({ color: new THREE.Color("#ff8a3d").multiplyScalar(6) }), []);
   const group = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     group.current?.children.forEach((c, i) => c.scale.set(1, 0.95 + motion * (-0.15 + 0.35 * Math.sin(clock.elapsedTime * 9 + i * 2)), 1));
@@ -612,7 +617,7 @@ function Braziers({ radius, count }: { radius: number; count: number }) {
 /** Locked: soft mist billboards hugging the island. Lost: drifting ash-smoke. */
 function MistVeil({ radius, ash = false }: { radius: number; ash?: boolean }) {
   const { motion } = useLook();
-  const texture = useMemo(() => {
+  const texture = useDisposable(() => {
     const c = document.createElement("canvas");
     c.width = c.height = 64;
     const g = c.getContext("2d")!;

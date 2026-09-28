@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { mulberry32 } from "../hexWorld";
 import { useLook } from "../look/LookContext";
 import type { Anchor, IslandBuild } from "../terrain/buildIsland";
+import { useDisposable } from "../dispose";
 
 /**
  * Fires by anchor kind: burning bridge wreckage (the Ember Ford key lights,
@@ -55,11 +56,11 @@ export function Fires({ island }: { island: IslandBuild }) {
     return new Set(ranked.slice(0, MAX_LIGHTS).map((a) => a.index));
   }, [anchors]);
 
-  const flameMaterial = useMemo(
+  const flameMaterial = useDisposable(
     () => new THREE.MeshBasicMaterial({ color: new THREE.Color(preset.fires.color).multiplyScalar(6), toneMapped: true }),
     [preset.fires.color],
   );
-  const coreMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffd28a").multiplyScalar(8) }), []);
+  const coreMaterial = useDisposable(() => new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffd28a").multiplyScalar(8) }), []);
 
   const river = useMemo(() => {
     if (island.water.length === 0) return null;
@@ -138,7 +139,7 @@ export function Fires({ island }: { island: IslandBuild }) {
 function SmokeAndEmbers({ sources, quality, motion }: { sources: Anchor[]; quality: "high" | "low"; motion: number }) {
   const dpr = useThree((s) => s.viewport.dpr);
   const perSource = quality === "high" ? 70 : 28;
-  const geometry = useMemo(() => {
+  const geometry = useDisposable(() => {
     const n = sources.length * perSource;
     const rand = mulberry32(777);
     const seed = new Float32Array(n * 4);
@@ -198,8 +199,8 @@ function SmokeAndEmbers({ sources, quality, motion }: { sources: Anchor[]; quali
         }
       `,
     });
-  const smoke = useMemo(() => make(false), [dpr]); // eslint-disable-line react-hooks/exhaustive-deps
-  const sparks = useMemo(() => make(true), [dpr]); // eslint-disable-line react-hooks/exhaustive-deps
+  const smoke = useDisposable(() => make(false), [dpr]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sparks = useDisposable(() => make(true), [dpr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((_, dt) => {
     smoke.uniforms.uTime.value += dt * motion;

@@ -47,39 +47,56 @@ export function pathTime(path: CameraPath, time: number): number {
   return Math.max(0, Math.min(d, time));
 }
 
-/** Samples a path at a global time (seconds). */
+/** Samples a path at a global time (seconds). Pure: returns a new sample. */
 export function sampleCameraPath(path: CameraPath, time: number): CameraSample {
+  return sampleCameraPathInto(path, time, {
+    position: new THREE.Vector3(),
+    target: new THREE.Vector3(),
+    fov: DEFAULT_FOV,
+  });
+}
+
+/**
+ * Same as `sampleCameraPath`, writing into `out` with no allocation, for
+ * per-frame use (e.g. CinematicCamera). Returns `out`.
+ */
+export function sampleCameraPathInto(path: CameraPath, time: number, out: CameraSample): CameraSample {
   const keys = path.keys;
   const t = pathTime(path, time);
-  if (keys.length === 1 || t <= keys[0].t) return fromKey(keys[0]);
   const last = keys[keys.length - 1];
-  if (t >= last.t) return fromKey(last);
+  if (keys.length === 1 || t <= keys[0].t) return fromKey(keys[0], out);
+  if (t >= last.t) return fromKey(last, out);
   let i = 0;
   while (i < keys.length - 2 && t > keys[i + 1].t) i += 1;
   const a = keys[i];
   const b = keys[i + 1];
   const u = smooth((t - a.t) / Math.max(1e-6, b.t - a.t));
-  const k = (j: number) => keys[Math.max(0, Math.min(keys.length - 1, j))];
-  const cr = (sel: (key: CameraKeyframe) => Vec3) =>
-    catmull(new THREE.Vector3(...sel(k(i - 1))), new THREE.Vector3(...sel(a)), new THREE.Vector3(...sel(b)), new THREE.Vector3(...sel(k(i + 2))), u);
-  return {
-    position: cr((key) => key.position),
-    target: cr((key) => key.target),
-    fov: THREE.MathUtils.lerp(a.fov ?? DEFAULT_FOV, b.fov ?? DEFAULT_FOV, u),
-  };
+  const k0 = keys[Math.max(0, i - 1)];
+  const k3 = keys[Math.min(keys.length - 1, i + 2)];
+  catmullInto(k0.position, a.position, b.position, k3.position, u, out.position);
+  catmullInto(k0.target, a.target, b.target, k3.target, u, out.target);
+  out.fov = THREE.MathUtils.lerp(a.fov ?? DEFAULT_FOV, b.fov ?? DEFAULT_FOV, u);
+  return out;
 }
 
-function fromKey(key: CameraKeyframe): CameraSample {
-  return { position: new THREE.Vector3(...key.position), target: new THREE.Vector3(...key.target), fov: key.fov ?? DEFAULT_FOV };
+function fromKey(key: CameraKeyframe, out: CameraSample): CameraSample {
+  out.position.set(key.position[0], key.position[1], key.position[2]);
+  out.target.set(key.target[0], key.target[1], key.target[2]);
+  out.fov = key.fov ?? DEFAULT_FOV;
+  return out;
 }
 
-function catmull(p0: THREE.Vector3, p1: THREE.Vector3, p2: THREE.Vector3, p3: THREE.Vector3, u: number) {
+function catmull1(p0: number, p1: number, p2: number, p3: number, u: number, u2: number, u3: number) {
+  return 0.5 * (2 * p1 + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2 + (-p0 + 3 * p1 - 3 * p2 + p3) * u3);
+}
+
+function catmullInto(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, u: number, out: THREE.Vector3) {
   const u2 = u * u;
   const u3 = u2 * u;
-  return new THREE.Vector3(
-    0.5 * (2 * p1.x + (-p0.x + p2.x) * u + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * u2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * u3),
-    0.5 * (2 * p1.y + (-p0.y + p2.y) * u + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * u2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * u3),
-    0.5 * (2 * p1.z + (-p0.z + p2.z) * u + (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * u2 + (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * u3),
+  return out.set(
+    catmull1(p0[0], p1[0], p2[0], p3[0], u, u2, u3),
+    catmull1(p0[1], p1[1], p2[1], p3[1], u, u2, u3),
+    catmull1(p0[2], p1[2], p2[2], p3[2], u, u2, u3),
   );
 }
 

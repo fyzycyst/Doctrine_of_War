@@ -9,6 +9,7 @@ import type { FactionStyle } from "../skins/types";
 import { cohesionArc } from "../squadLayout";
 import type { SquadAnimator } from "./squadAnimation";
 import type { PlacedSquad } from "./types";
+import { useDisposable } from "../dispose";
 
 /**
  * Per-squad dressing shared by both figure approaches (tech plan D7): a faction
@@ -26,7 +27,7 @@ export function SquadMarkers({ placed, animator }: { placed: PlacedSquad[]; anim
     [skin],
   );
   useEffect(() => () => Object.values(clothTextures).forEach((t) => t.dispose()), [clothTextures]);
-  const shadowTexture = useMemo(() => makeShadowTexture(), []);
+  const shadowTexture = useDisposable(() => makeShadowTexture(), []);
 
   return (
     <>

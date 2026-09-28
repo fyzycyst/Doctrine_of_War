@@ -21,6 +21,7 @@ import { buildIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
 import { WallsAndObjectiveFX } from "./terrain/ObjectiveFX";
 import { Water } from "./terrain/Water";
+import { useDisposable } from "./dispose";
 
 /**
  * Figure approach (b), the CC0 KayKit pack, is lab-only: the module (and its
@@ -80,11 +81,17 @@ export function Diorama({
   const { skin, preset, atmosphere } = useLook();
   const island = useMemo(() => buildIsland(board, skin), [board, skin]);
   const material = useMemo(() => createIslandMaterial(skin.material), [skin.material]);
-  const outline = useMemo(
+  const outline = useDisposable(
     () => (skin.material.outline ? createOutlineMaterial(skin.material.outlineColor, 0.012) : null),
     [skin.material.outline, skin.material.outlineColor],
   );
-  useEffect(() => () => island.geometry.dispose(), [island]);
+  useEffect(
+    () => () => {
+      island.geometry.dispose();
+      island.wallGeometry?.dispose();
+    },
+    [island],
+  );
   useEffect(() => () => material.dispose(), [material]);
 
   useMemo(() => {

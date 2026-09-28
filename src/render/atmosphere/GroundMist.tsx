@@ -6,6 +6,7 @@ import { useLook } from "../look/LookContext";
 import { NOISE_GLSL } from "../shaders/noise";
 import { FOG_UNIFORMS } from "../shaders/surface";
 import type { IslandBuild, IslandHex } from "../terrain/buildIsland";
+import { useDisposable } from "../dispose";
 
 /**
  * Low-lying animated ground mist (Grey Dawn's mist on the Ember Dusk base),
@@ -158,7 +159,7 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
   useEffect(() => grid.setDensity(densityByHex), [grid, densityByHex]);
   useEffect(() => () => grid.texture.dispose(), [grid]);
 
-  const material = useMemo(
+  const material = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         transparent: true,

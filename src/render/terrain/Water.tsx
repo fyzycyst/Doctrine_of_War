@@ -6,6 +6,7 @@ import { useLook } from "../look/LookContext";
 import { NOISE_GLSL } from "../shaders/noise";
 import { SURFACE_UNIFORMS } from "../shaders/surface";
 import type { IslandBuild } from "./buildIsland";
+import { useDisposable } from "../dispose";
 
 /**
  * Ford water with an animated sheen that flows toward the waterfall, and the
@@ -15,7 +16,7 @@ import type { IslandBuild } from "./buildIsland";
 export function Water({ island }: { island: IslandBuild }) {
   const { skin, preset, motion } = useLook();
 
-  const geometry = useMemo(() => {
+  const geometry = useDisposable(() => {
     if (island.water.length === 0) return null;
     const parts = island.water.map((w) => {
       const g = new THREE.CircleGeometry(1.0, 6);
@@ -31,7 +32,7 @@ export function Water({ island }: { island: IslandBuild }) {
     return new THREE.Vector2(island.flow[0], island.flow[1]);
   }, [island]);
 
-  const material = useMemo(
+  const material = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         fog: true,
@@ -123,7 +124,7 @@ export function Water({ island }: { island: IslandBuild }) {
     [],
   );
 
-  const fall = useMemo(
+  const fall = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         transparent: true,

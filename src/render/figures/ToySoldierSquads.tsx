@@ -7,6 +7,7 @@ import { createFigureMaterial, createOutlineMaterial } from "../materials";
 import { MAX_FIGURES, type SquadAnimator } from "./squadAnimation";
 import { buildToySoldier } from "./toySoldier";
 import { slotToWorld, type PlacedSquad } from "./types";
+import { useDisposable } from "../dispose";
 
 const FACTIONS: FactionId[] = ["free_banners", "ashen_host"];
 
@@ -90,7 +91,7 @@ function FactionInstances({
   );
   useEffect(() => () => material.dispose(), [material]);
   useEffect(() => () => ghostMaterial.dispose(), [ghostMaterial]);
-  const outlineMaterial = useMemo(
+  const outlineMaterial = useDisposable(
     () => (skin.material.outline ? createOutlineMaterial(skin.material.outlineColor, 0.006) : null),
     [skin.material.outline, skin.material.outlineColor],
   );

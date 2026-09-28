@@ -3,6 +3,7 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mulberry32 } from "../hexWorld";
 import { useLook } from "../look/LookContext";
+import { useDisposable } from "../dispose";
 
 /**
  * GPU-animated weather particles (no per-frame CPU work):
@@ -73,7 +74,7 @@ function Embers({ count, extent, layer }: { count: number; extent: number; layer
   const { preset, motion } = useLook();
   const dpr = useThree((state) => state.viewport.dpr);
 
-  const geometry = useMemo(() => {
+  const geometry = useDisposable(() => {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(count * 3), 3));
     g.setAttribute("aSeed", new THREE.Float32BufferAttribute(seeds(count, 99), 4));
@@ -81,7 +82,7 @@ function Embers({ count, extent, layer }: { count: number; extent: number; layer
     return g;
   }, [count, extent]);
 
-  const material = useMemo(
+  const material = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         transparent: true,
@@ -173,7 +174,7 @@ function Embers({ count, extent, layer }: { count: number; extent: number; layer
 function Rain({ count, extent, layer }: { count: number; extent: number; layer?: Layer }) {
   const { preset, motion } = useLook();
 
-  const geometry = useMemo(() => {
+  const geometry = useDisposable(() => {
     const g = new THREE.BufferGeometry();
     const s = seeds(count, 7);
     const seed = new Float32Array(count * 2 * 4);
@@ -191,7 +192,7 @@ function Rain({ count, extent, layer }: { count: number; extent: number; layer?:
     return g;
   }, [count, extent]);
 
-  const material = useMemo(
+  const material = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         transparent: true,

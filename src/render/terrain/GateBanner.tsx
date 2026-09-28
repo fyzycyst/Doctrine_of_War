@@ -3,6 +3,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { useLook } from "../look/LookContext";
 import type { Anchor } from "./buildIsland";
+import { useDisposable } from "../dispose";
 
 /** A tall hanging banner of the Free Banners over Greyford Gate, gently swaying. */
 export function GateBanner({ anchor }: { anchor: Anchor }) {
@@ -40,7 +41,7 @@ export function GateBanner({ anchor }: { anchor: Anchor }) {
   }, [style]);
   useEffect(() => () => texture.dispose(), [texture]);
 
-  const material = useMemo(() => {
+  const material = useDisposable(() => {
     const uniforms = { uTime: { value: 0 } };
     const m = new THREE.MeshStandardMaterial({
       map: texture,

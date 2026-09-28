@@ -5,6 +5,7 @@ import { sunDirection } from "../lighting/LightRig";
 import { useLook } from "../look/LookContext";
 import { applyBackdrop, BACKDROP_GLSL, BACKDROP_UNIFORMS } from "../shaders/backdrop";
 import { NOISE_GLSL } from "../shaders/noise";
+import { useDisposable } from "../dispose";
 
 /**
  * Diorama backdrop (screen-space dusk gradient, stars at night) plus a thin
@@ -13,7 +14,7 @@ import { NOISE_GLSL } from "../shaders/noise";
 export function SkyDome() {
   const { preset, atmosphere, motion } = useLook();
 
-  const sky = useMemo(
+  const sky = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         side: THREE.BackSide,
@@ -48,7 +49,7 @@ export function SkyDome() {
     [],
   );
 
-  const clouds = useMemo(
+  const clouds = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         transparent: true,

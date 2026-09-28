@@ -7,6 +7,7 @@ import { hexKey, type HexCoord } from "../../game/board";
 import { hexToWorld } from "../hexWorld";
 import { useLook } from "../look/LookContext";
 import type { IslandBuild } from "./buildIsland";
+import { useDisposable } from "../dispose";
 
 /**
  * Hex overlays drawn on the tile tops: a hover outline, a selected-hex outline
@@ -98,7 +99,7 @@ function DeploymentZone({ island, hexes, color }: { island: IslandBuild; hexes: 
   }, [hexes, island]);
   useEffect(() => () => geometry?.dispose(), [geometry]);
 
-  const material = useMemo(
+  const material = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         transparent: true,

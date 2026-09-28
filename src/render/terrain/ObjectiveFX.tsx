@@ -5,6 +5,7 @@ import type { ObjectiveShake, SquadAnimator } from "../figures/squadAnimation";
 import { mulberry32 } from "../hexWorld";
 import { useLook } from "../look/LookContext";
 import type { IslandBuild } from "./buildIsland";
+import { useDisposable } from "../dispose";
 
 /**
  * The walls/gatehouse as their own mesh, and the objective-hit effects driven
@@ -96,7 +97,7 @@ function shakeTime(animator: SquadAnimator, id: number) {
 
 function DustBurst({ id, at, intensity, animator }: { id: number; at: { x: number; y: number; z: number }; intensity: number; animator: SquadAnimator }) {
   const count = 60;
-  const geometry = useMemo(() => {
+  const geometry = useDisposable(() => {
     const rand = mulberry32(id * 7919);
     const seed = new Float32Array(count * 4);
     for (let i = 0; i < seed.length; i += 1) seed[i] = rand();
@@ -106,7 +107,7 @@ function DustBurst({ id, at, intensity, animator }: { id: number; at: { x: numbe
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(at.x, at.y, at.z), 4);
     return g;
   }, [id, at]);
-  const material = useMemo(
+  const material = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         transparent: true,
