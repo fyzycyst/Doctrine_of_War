@@ -5,7 +5,7 @@ import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { emberDusk } from "../../render/skins";
 import { useGame } from "../game/gameStore";
 import { PlaybackDirector } from "../playback/director";
-import { buildTimeline } from "../playback/timeline";
+import { buildTimeline, snapshotBefore } from "../playback/timeline";
 
 declare global {
   interface Window {
@@ -65,7 +65,8 @@ export function Playback({
       pace: () => useGame.getState().pace,
       display: () => useGame.getState().display ?? entry.start,
       setDisplay: (display) => useGame.getState().setPlayback({ display }),
-      known: (id) => final.squads.find((squad) => squad.id === id),
+      // Emerging squads start as they were when first seen, not as they end the phase.
+      known: (id, step) => snapshotBefore(final.squads.find((squad) => squad.id === id), entry.events, step.index),
       setBeat: (beat) => useGame.getState().setPlayback({ beat }),
       callout: (spec) => {
         const id = useGame.getState().pushCallout(spec);

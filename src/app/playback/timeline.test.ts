@@ -11,7 +11,7 @@ import {
   type FactionId,
 } from "../../game/engine";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
-import { applyStep, buildTimeline, PHASE_BUDGET_MS, routDirection, STEP_MS, type Step } from "./timeline";
+import { applyStep, buildTimeline, PHASE_BUDGET_MS, routDirection, snapshotBefore, STEP_MS, type Step } from "./timeline";
 
 const PLAYER: FactionId = "free_banners";
 const factionOf = (id: string) => firstBreach.squads.find((squad) => squad.id === id)?.faction;
@@ -139,6 +139,7 @@ describe("applyStep", () => {
     kind: "move",
     beat: event.beat,
     event,
+    index: 0,
     at: 0,
     duration: 0,
     linger: 0,
@@ -221,5 +222,51 @@ describe("routDirection", () => {
     expect(dx).toBeGreaterThan(0);
     const [hx] = routDirection(firstBreach.board, { q: 1, r: 2 }, "ashen_host");
     expect(hx).toBeLessThan(0);
+  });
+});
+
+describe("emerging squads", () => {
+  it("appear as they were when first seen, and take later losses only when those land", () => {
+    const final = visibleState(createInitialState(firstBreach, { fortune: "off" }), PLAYER);
+    const runnersEnd = { ...final.squads.find((squad) => squad.id === "ember_runners")!, strength: 60, cohesion: 40 };
+    const end = { ...final, squads: final.squads.map((squad) => (squad.id === "ember_runners" ? runnersEnd : squad)) };
+    const start = { ...final, squads: final.squads.filter((squad) => squad.id !== "ember_runners") };
+    const path = [
+      { q: 1, r: 1 },
+      { q: 2, r: 1 },
+    ];
+    const events: EngineEvent[] = [
+      { ...base, beat: 1, kind: "move", squadId: "ember_runners", path, from: null, to: path[1], reason: "advance" },
+      rule("greyford_shields", "stl_brace", 1),
+      {
+        ...base,
+        beat: 2,
+        kind: "engagement",
+        attackerId: "ember_runners",
+        defenderId: "dawnwatch_archers",
+        attackerHex: path[1],
+        defenderHex: { q: 2, r: 2 },
+        charge: false,
+        reckless: false,
+        strengthChanges: { ember_runners: -10, dawnwatch_archers: -3 },
+        cohesionChanges: { ember_runners: -8 },
+      },
+      { ...base, beat: 3, kind: "rally", sourceId: "ashbound_thralls", targetId: "ember_runners", restored: 6 },
+    ];
+    const known = (id: string, step: Step) => snapshotBefore(end.squads.find((squad) => squad.id === id), events, step.index);
+    const { steps } = buildTimeline(events, "readable", ctx);
+
+    const runners = (view: typeof start) => view.squads.find((squad) => squad.id === "ember_runners");
+    const shown: Array<[string, number | undefined, number | undefined]> = [];
+    let view = start;
+    for (const step of steps) {
+      view = applyStep(view, step, known);
+      shown.push([step.kind, runners(view)?.strength, runners(view)?.cohesion]);
+    }
+    // On emergence: the end state with the later clash and rally undone.
+    expect(shown.find(([kind]) => kind === "move")).toEqual(["move", 70, 42]);
+    expect(shown.find(([kind]) => kind === "clash")).toEqual(["clash", 60, 34]);
+    expect(shown.find(([kind]) => kind === "rally")).toEqual(["rally", 60, 40]);
+    expect(runners(view)).toMatchObject({ strength: runnersEnd.strength, cohesion: runnersEnd.cohesion });
   });
 });

@@ -5,7 +5,7 @@ import type { BoardLayout, HexCoord } from "../../game/board";
 import { doctrineLibrary, type EngineEvent, type FactionId, type VisibleSquad, type VisibleState } from "../../game/engine";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { figureCount } from "../../render/squadLayout";
-import { applyStep, PACE_SCALE, routDirection, type Pace, type Step, type Timeline } from "./timeline";
+import { applyStep, PACE_SCALE, routDirection, type Known, type Pace, type Step, type Timeline } from "./timeline";
 
 export type SfxName = "clash" | "horn" | "card" | "seal" | "rout" | "dread" | "reveal";
 
@@ -33,8 +33,8 @@ export interface DirectorHooks {
   pace: () => Pace;
   display: () => VisibleState;
   setDisplay: (view: VisibleState) => void;
-  /** The phase's final view: where squads that emerge mid-phase come from. */
-  known: (id: string) => VisibleSquad | undefined;
+  /** A squad that comes into view mid-phase, as it was at that step (snapshotBefore). */
+  known: Known;
   setBeat: (beat: number) => void;
   callout: (spec: CalloutSpec) => void;
   focus: (hex: HexCoord | null) => void;

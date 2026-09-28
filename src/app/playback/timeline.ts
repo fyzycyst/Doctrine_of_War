@@ -34,6 +34,8 @@ export interface Step {
   beat: number;
   /** null for a beat marker. */
   event: EngineEvent | null;
+  /** The event's position in the projected stream (-1 for a beat marker). */
+  index: number;
   /** Start time in ms from the beginning of the phase (pace applied). */
   at: number;
   /** ms until the next step starts (pace applied). */
@@ -97,8 +99,14 @@ const LINGER_SCALE: Record<Pace, number> = { readable: 1, fast: 0.6 };
 
 type Draft = Omit<Step, "at" | "duration" | "linger"> & { base: number; lingerBase: number };
 
-function draft(event: EngineEvent, playerFaction: FactionId, factionOf: (id: string) => FactionId | undefined, lastRule: Map<string, string>): Draft | null {
-  const plain = { beat: event.beat, event, repeat: false, quiet: false, path: [], emerges: false, vanishes: false };
+function draft(
+  event: EngineEvent,
+  playerFaction: FactionId,
+  factionOf: (id: string) => FactionId | undefined,
+  lastRule: Map<string, string>,
+  index: number,
+): Draft | null {
+  const plain = { beat: event.beat, event, index, repeat: false, quiet: false, path: [], emerges: false, vanishes: false };
   switch (event.kind) {
     case "ruleFired": {
       const firstThisPhase = !lastRule.has(event.squadId);
@@ -170,13 +178,13 @@ export function buildTimeline(
   const drafts: Draft[] = [];
   const lastRule = new Map<string, string>();
   let beat = -1;
-  for (const event of events) {
-    const next = draft(event, playerFaction, factionOf, lastRule);
+  for (const [index, event] of events.entries()) {
+    const next = draft(event, playerFaction, factionOf, lastRule, index);
     if (!next) {
       continue;
     }
     if (event.beat > 0 && event.beat !== beat) {
-      drafts.push({ kind: "beat", beat: event.beat, event: null, repeat: false, quiet: false, path: [], emerges: false, vanishes: false, base: STEP_MS.beat, lingerBase: 0 });
+      drafts.push({ kind: "beat", beat: event.beat, event: null, index: -1, repeat: false, quiet: false, path: [], emerges: false, vanishes: false, base: STEP_MS.beat, lingerBase: 0 });
     }
     beat = event.beat;
     drafts.push(next);
@@ -213,13 +221,51 @@ function mapSquad(view: VisibleState, id: string | null, change: (squad: Visible
   return { ...view, squads: view.squads.map((squad) => (squad.id === id ? change(squad) : squad)) };
 }
 
-/** Adds a squad the player just laid eyes on (from the phase's final view), or reveals a ghost. */
-function reveal(view: VisibleState, id: string, hex: HexCoord, known: (id: string) => VisibleSquad | undefined): VisibleState {
+/**
+ * Where a squad that comes into view mid-phase comes from: its stats as they were at
+ * that step (see snapshotBefore), keyed by squad and the step it appears on.
+ */
+export type Known = (id: string, step: Step) => VisibleSquad | undefined;
+
+/**
+ * A squad as it was when event `index` happened: its phase-end view, with every change
+ * the player witnessed after that event undone. Exact while the squad stays in sight to
+ * the end of the phase; losses it took unseen between two sightings are not in the
+ * projected stream (see the engine gap in the T14 report).
+ */
+export function snapshotBefore(final: VisibleSquad | undefined, events: EngineEvent[], index: number): VisibleSquad | undefined {
+  if (!final) return undefined;
+  let strength = final.strength;
+  let cohesion = final.cohesion;
+  for (const event of events.slice(index + 1)) {
+    switch (event.kind) {
+      case "engagement":
+        strength -= event.strengthChanges[final.id] ?? 0;
+        cohesion -= event.cohesionChanges[final.id] ?? 0;
+        break;
+      case "rally":
+        if (event.targetId === final.id) cohesion -= event.restored;
+        break;
+      case "dread":
+        if (event.squadId === final.id) cohesion += event.shock;
+        break;
+      case "fortune":
+        if (event.squadId === final.id && event.outcome === "surge") cohesion -= SURGE_COHESION;
+        break;
+      default:
+        break;
+    }
+  }
+  return { ...final, strength: clamp(strength), cohesion: clamp(cohesion), status: "active", lastKnown: false };
+}
+
+/** Adds a squad the player just laid eyes on (as it was at this step), or reveals a ghost. */
+function reveal(view: VisibleState, id: string, hex: HexCoord, step: Step, known: Known): VisibleState {
   const existing = view.squads.find((squad) => squad.id === id);
   if (existing) {
     return mapSquad(view, id, (squad) => ({ ...squad, hex: { ...hex }, lastKnown: false, status: "active" }));
   }
-  const info = known(id);
+  const info = known(id, step);
   if (!info) {
     return view;
   }
@@ -231,7 +277,7 @@ function reveal(view: VisibleState, id: string, hex: HexCoord, known: (id: strin
  * the last step it matches the phase's outcome closely enough that swapping in the
  * final visibleState is seamless. `known` supplies squads that emerge mid-phase.
  */
-export function applyStep(view: VisibleState, step: Step, known: (id: string) => VisibleSquad | undefined): VisibleState {
+export function applyStep(view: VisibleState, step: Step, known: Known): VisibleState {
   const event = step.event;
   if (!event) {
     return view;
@@ -239,7 +285,7 @@ export function applyStep(view: VisibleState, step: Step, known: (id: string) =>
   switch (event.kind) {
     case "move": {
       const end = step.path[step.path.length - 1];
-      let next = step.emerges || !view.squads.some((squad) => squad.id === event.squadId) ? reveal(view, event.squadId, step.path[0], known) : view;
+      let next = step.emerges || !view.squads.some((squad) => squad.id === event.squadId) ? reveal(view, event.squadId, step.path[0], step, known) : view;
       next = mapSquad(next, event.squadId, (squad) => ({
         ...squad,
         hex: { ...end },
@@ -285,7 +331,7 @@ export function applyStep(view: VisibleState, step: Step, known: (id: string) =>
     case "weatherShift":
       return { ...view, weather: event.to };
     case "sighted":
-      return reveal(view, event.squadId, event.hex, known);
+      return reveal(view, event.squadId, event.hex, step, known);
     case "outcome":
       return { ...view, status: event.status };
     case "ruleFired":
