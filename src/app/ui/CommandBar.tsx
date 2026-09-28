@@ -1,4 +1,7 @@
-import { CloudFog, CloudRain, Settings, Sun, Volume2, VolumeX, Wind } from "lucide-react";
+import { Castle, CloudFog, CloudRain, DoorOpen, Settings, Sun, Swords, Volume2, VolumeX, Wind } from "lucide-react";
+import { goalFor, type GoalIcon } from "../game/goal";
+
+const GOAL_ICON: Record<GoalIcon, typeof Sun> = { hold: Castle, break: Swords, escape: DoorOpen };
 import { useFlow } from "../flow/flowStore";
 import { useAudioStore } from "../audioStore";
 import type { Weather } from "../../game/engine";
@@ -31,6 +34,7 @@ export function CommandBar() {
   // In the chronicle and aftermath, show the phase just fought, not the one to come.
   const reporting = stage === "resolving" || stage === "report" || stage === "outcome";
   const phase = reporting && log.length > 0 ? log[log.length - 1].phase : Math.min(view.phase, view.maxPhases);
+  const goal = goalFor(scenario, phase, view);
 
   return (
     <header className="command-bar">
@@ -48,6 +52,17 @@ export function CommandBar() {
           ))}
         </span>
       </div>
+      {goal && (
+        <div className={`chip goal-chip goal-${goal.icon}`} role="status" aria-label={`Goal: ${goal.text}${goal.progress ? `, ${goal.progress}` : ""}`}>
+          <GoalIconView icon={goal.icon} />
+          <span aria-hidden="true">{goal.text}</span>
+          {goal.progress && (
+            <span className="mono goal-progress" aria-hidden="true">
+              {goal.progress}
+            </span>
+          )}
+        </div>
+      )}
       <div className="chip weather-chip" title={WEATHER_EFFECT[view.weather]}>
         <WeatherIcon size={15} aria-hidden="true" />
         <span>
@@ -83,4 +98,9 @@ export function CommandBar() {
       </div>
     </header>
   );
+}
+
+function GoalIconView({ icon }: { icon: GoalIcon }) {
+  const Icon = GOAL_ICON[icon];
+  return <Icon size={15} aria-hidden="true" />;
 }

@@ -24,7 +24,7 @@ function placeAt(view: VisibleState, id: string, hex: HexCoord): VisibleState {
 
 export type SfxName = "clash" | "horn" | "card" | "seal" | "rout" | "dread" | "reveal";
 
-export type CalloutKind = "rule" | "surge" | "waver" | "dread" | "rout" | "rally" | "gate" | "sighted" | "weather";
+export type CalloutKind = "rule" | "surge" | "waver" | "dread" | "rout" | "rally" | "gate" | "sighted" | "weather" | "stage";
 
 export interface CalloutSpec {
   kind: CalloutKind;

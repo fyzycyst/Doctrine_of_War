@@ -8,6 +8,7 @@ import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { DioramaCamera, wideShot } from "../../render/camera/DioramaCamera";
 import { Diorama } from "../../render/Diorama";
 import { lightingFor, visibilityFromView, weatherFor } from "../../render/fromEngine";
+import { timeOfDayAt } from "../../game/engine";
 import { boardRadius } from "../../render/hexWorld";
 import { LookProvider } from "../../render/look/LookContext";
 import { PostFX } from "../../render/post/PostFX";
@@ -43,10 +44,14 @@ export function BattleBoard({
   const shot = useMemo(() => wideShot(boardRadius(scenario.board)), [scenario.board]);
   // Reduced motion: no idle camera drift. (Embers, water and fire shimmer are render-owned; see T08.)
   const reducedMotion = usePrefersReducedMotion();
+  // The hour of the phase on show. (The engine's state.timeOfDay only turns when a phase
+  // resolves, so the orders window of a new hour, e.g. Hold for Dawn's sunrise, would
+  // otherwise still be lit for the old one.)
+  const hour = timeOfDayAt(scenario, Math.min(view.phase, view.maxPhases));
   const shaking = useGateShake(reducedMotion);
   const water = useMemo(() => scenario.board.hexes.some((hex) => hex.terrain === "river" || hex.terrain === "ford"), [scenario.board]);
   useAmbience({
-    timeOfDay: lightingFor(view.timeOfDay),
+    timeOfDay: lightingFor(hour),
     weather: weatherFor(view.weather),
     water,
     hostDrums: view.squads.some((squad) => squad.faction !== view.viewer && squad.status === "active"),
@@ -62,7 +67,7 @@ export function BattleBoard({
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         onPointerMissed={() => clearSelection()}
       >
-        <LookProvider skin={emberDusk} timeOfDay={lightingFor(view.timeOfDay)} weather={weatherFor(view.weather)}>
+        <LookProvider skin={emberDusk} timeOfDay={lightingFor(hour)} weather={weatherFor(view.weather)}>
           <DioramaCamera shot={shot} drift={!still && !reducedMotion} />
           <Diorama
             key={scenario.id}
