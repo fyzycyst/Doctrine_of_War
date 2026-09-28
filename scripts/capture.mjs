@@ -8,14 +8,26 @@ import electronPath from "electron";
 import { createServer } from "vite";
 
 const PRESETS = ["dusk", "nightFires", "rainGrey", "predawn", "sunrise"];
+const anim = (name, squad, freeze) => ({
+  name: `anim-${name}`,
+  query: `preset=dusk&figures=a&cam=close&anim=${name}&animSquad=${squad}&animFreeze=${freeze}`,
+});
 const jobs = [
   ...PRESETS.map((preset) => ({ name: `${preset}-toy`, query: `preset=${preset}&figures=a` })),
-  { name: "dusk-kaykit", query: "preset=dusk&figures=b" },
   { name: "dusk-toy-close", query: "preset=dusk&figures=a&cam=close" },
-  { name: "dusk-kaykit-close", query: "preset=dusk&figures=b&cam=close" },
+  { name: "stress-dusk", query: "preset=dusk&figures=a&board=stress" },
+  { name: "stress-dusk-low", query: "preset=dusk&figures=a&board=stress&quality=low" },
+  { name: "stress-nightFires", query: "preset=nightFires&figures=a&board=stress" },
+  { name: "dusk-picking", query: "preset=dusk&figures=a&deploy=1&select=greyford_shields&hover=2,2" },
+  anim("march", "stoneford_riders", 0.9),
+  anim("lunge", "greyford_shields", 0.3),
+  anim("fall", "greyford_shields", 0.55),
+  anim("rout", "mercy_standard", 1.1),
+  anim("rally", "dawnwatch_archers", 0.4),
+  anim("brace", "greyford_shields", 0.6),
+  { name: "dusk-kaykit", query: "preset=dusk&figures=b" },
   { name: "dusk-toy-low", query: "preset=dusk&figures=a&quality=low" },
   { name: "dusk-toy-fog", query: "preset=dusk&figures=a&fog=1" },
-  { name: "dusk-toy-lab-ui", query: "preset=dusk&figures=a&ui=1" },
   { name: "chronicle-stub-toy", query: "preset=dusk&figures=a&skin=illuminatedChronicle" },
 ];
 

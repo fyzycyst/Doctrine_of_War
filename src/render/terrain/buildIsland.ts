@@ -57,7 +57,9 @@ export interface IslandBuild {
 }
 
 const CAP_RADIUS = 0.95;
-const BEVEL = 0.05;
+const BEVEL = 0.035;
+/** Hex columns stop here; below it the island is one continuous rock mass. */
+const RIM_Y = -0.28;
 const WATER_ABOVE_BED = 0.11;
 
 // Reusable primitive geometries (low-poly on purpose).
@@ -150,18 +152,19 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   const cliffBottom = color(I.cliffBottom);
   const strata = color(I.strata);
 
-  // --- Columns (tile tops + cliff sides) -----------------------------------
+  // --- Columns (tile tops + short earthen sides) ----------------------------
   for (const hex of hexes) {
     const hr = mulberry32(hexKey(hex.coord).length * 977 + hex.coord.q * 131 + hex.coord.r * 7919);
-    const d = Math.hypot(hex.x, hex.z) / radius;
-    const bottom = -(1.3 + 3.6 * Math.pow(Math.max(0, 1 - d), 1.2) + hr() * 1.6);
     const topColorHex =
       hex.kind === "board" ? T[hex.terrain!].top : hex.kind === "river" ? T.ford.top : I.shoreTop;
     const topColor = jitterColor(color(topColorHex), jitter, hr);
-    addColumn(b, hex, bottom, topColor, cliffTop, cliffBottom, strata, hr);
+    addColumn(b, hex, topColor, cliffTop, hr);
     if (hex.kind === "board") surface.set(hexKey(hex.coord), hex.top);
     if (hex.terrain === "ford" || hex.kind === "river") water.push({ x: hex.x, z: hex.z, level: waterLevel });
   }
+
+  // --- One continuous jagged rock mass under the whole island --------------
+  addRockMass(b, hexes, radius, cliffTop, cliffBottom, strata);
 
   // Waterfall over the outer edge of the last river hex.
   const riverHexes = hexes.filter((h) => h.kind === "river");
@@ -263,16 +266,7 @@ function hr1(h: IslandHex) {
 
 // ---------------------------------------------------------------------------
 
-function addColumn(
-  b: GeoBuilder,
-  hex: IslandHex,
-  bottom: number,
-  topColor: THREE.Color,
-  cliffTop: THREE.Color,
-  cliffBottom: THREE.Color,
-  strata: THREE.Color,
-  rand: () => number,
-) {
+function addColumn(b: GeoBuilder, hex: IslandHex, topColor: THREE.Color, cliffTop: THREE.Color, rand: () => number) {
   const { x, z, top } = hex;
   const v = (px: number, py: number, pz: number) => new THREE.Vector3(x + px, py, z + pz);
   const noise = hex.kind === "board" && hex.terrain !== "road" && hex.terrain !== "wall" ? 0.02 : 0.012;
@@ -297,8 +291,9 @@ function addColumn(
     const [bx, bz] = hexCorner(i, 1);
     bevel.push(v(bx, top - BEVEL, bz));
   }
-  const edgeCol = topColor.clone().multiplyScalar(0.86);
-  const bevelCol = topColor.clone().lerp(cliffTop, 0.45).multiplyScalar(0.8);
+  // Seams are kept soft (look-lock #6): edges only slightly darker than the tile.
+  const edgeCol = topColor.clone().multiplyScalar(0.93);
+  const bevelCol = topColor.clone().lerp(cliffTop, 0.25).multiplyScalar(0.9);
   const centerCol = topColor.clone().multiplyScalar(1.03);
 
   for (let i = 0; i < 6; i += 1) {
@@ -310,38 +305,133 @@ function addColumn(
     b.quad(outer[i], outer[j], bevel[j], bevel[i], bevelCol, bevelCol, bevelCol, bevelCol);
   }
 
-  // Cliff sides: stacked bands that taper and wobble with depth.
-  const height = top - BEVEL - bottom;
-  const bands = Math.max(3, Math.round(height / 0.32));
-  let prevRing = bevel;
-  let prevCol = cliffTop.clone().lerp(bevelCol, 0.3);
-  for (let k = 1; k <= bands; k += 1) {
-    const t = k / bands;
-    const y = top - BEVEL - height * t;
-    const taper = 1 - 0.24 * Math.pow(t, 1.6);
-    const ringPts: THREE.Vector3[] = [];
-    for (let i = 0; i < 6; i += 1) {
-      const [cx, cz] = hexCorner(i, taper * (1 + (rand() - 0.5) * 0.1));
-      ringPts.push(v(cx, y + (rand() - 0.5) * 0.08, cz));
-    }
-    const bandShade = k % 2 === 0 ? 1.06 : 0.9;
-    const col = cliffTop
-      .clone()
-      .lerp(cliffBottom, Math.pow(t, 0.75))
-      .lerp(strata, k % 3 === 0 ? 0.35 : 0)
-      .multiplyScalar(bandShade);
-    for (let i = 0; i < 6; i += 1) {
-      const j = (i + 1) % 6;
-      b.quad(prevRing[i], prevRing[j], ringPts[j], ringPts[i], prevCol, prevCol, col, col);
-    }
-    prevRing = ringPts;
-    prevCol = col;
+  // Short straight earthen side down to the rim; the rock mass continues below.
+  const soil = cliffTop.clone().lerp(bevelCol, 0.25);
+  const bottom: THREE.Vector3[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const [cx, cz] = hexCorner(i, 1);
+    bottom.push(v(cx, RIM_Y - 0.02, cz));
   }
-  // Point the bottom into a jagged tip.
-  const tip = v((rand() - 0.5) * 0.2, bottom - 0.35 - rand() * 0.5, (rand() - 0.5) * 0.2);
   for (let i = 0; i < 6; i += 1) {
     const j = (i + 1) % 6;
-    b.tri(prevRing[i], prevRing[j], tip, prevCol, prevCol, cliffBottom);
+    b.quad(bevel[i], bevel[j], bottom[j], bottom[i], soil, soil, cliffTop, cliffTop);
+  }
+}
+
+/**
+ * Outer boundary of the union of island hexes, as world-space (x, z) points in
+ * the same winding as hex corners (so faces built from it point outward).
+ * Returns the longest closed loop.
+ */
+export function islandBoundary(hexes: Array<{ coord: HexCoord; x: number; z: number }>): Array<[number, number]> {
+  // Neighbour across the edge between corner i and i+1 (flat-top, see hexCorner).
+  const across: HexCoord[] = [
+    { q: 1, r: 0 },
+    { q: 0, r: 1 },
+    { q: -1, r: 1 },
+    { q: -1, r: 0 },
+    { q: 0, r: -1 },
+    { q: 1, r: -1 },
+  ];
+  const keys = new Set(hexes.map((h) => hexKey(h.coord)));
+  const k = (x: number, z: number) => `${Math.round(x * 1000)},${Math.round(z * 1000)}`;
+  const next = new Map<string, [number, number]>();
+  for (const h of hexes) {
+    for (let i = 0; i < 6; i += 1) {
+      const n = across[i];
+      if (keys.has(hexKey({ q: h.coord.q + n.q, r: h.coord.r + n.r }))) continue;
+      const [ax, az] = hexCorner(i, 1);
+      const [bx, bz] = hexCorner((i + 1) % 6, 1);
+      next.set(k(h.x + ax, h.z + az), [h.x + bx, h.z + bz]);
+    }
+  }
+  const visited = new Set<string>();
+  let best: Array<[number, number]> = [];
+  for (const startKey of next.keys()) {
+    if (visited.has(startKey)) continue;
+    const loop: Array<[number, number]> = [];
+    let key = startKey;
+    while (!visited.has(key) && next.has(key)) {
+      visited.add(key);
+      const p = next.get(key)!;
+      loop.push(p);
+      key = k(p[0], p[1]);
+    }
+    if (loop.length > best.length) best = loop;
+  }
+  return best;
+}
+
+/**
+ * The island underside: rings that follow the island outline, bulge slightly,
+ * then taper to a point with jagged, stratified faces plus hanging spikes —
+ * one continuous rock mass instead of per-hex columns (look-lock #1).
+ */
+function addRockMass(
+  b: GeoBuilder,
+  hexes: IslandHex[],
+  radius: number,
+  cliffTop: THREE.Color,
+  cliffBottom: THREE.Color,
+  strata: THREE.Color,
+) {
+  const loop = islandBoundary(hexes);
+  if (loop.length < 3) return;
+  const rand = mulberry32(4242);
+  const cx = loop.reduce((s2, p) => s2 + p[0], 0) / loop.length;
+  const cz = loop.reduce((s2, p) => s2 + p[1], 0) / loop.length;
+  const ph = Array.from({ length: 4 }, () => rand() * Math.PI * 2);
+  const depth = Math.max(3.5, radius * 0.75);
+  const LEVELS = 12;
+
+  const rings: THREE.Vector3[][] = [];
+  const cols: THREE.Color[][] = [];
+  for (let l = 0; l <= LEVELS; l += 1) {
+    const t = l / LEVELS;
+    const yBase = RIM_Y - depth * Math.pow(t, 1.1);
+    // Slight overhang just under the rim, then a long taper.
+    const scale = l === 0 ? 1 : Math.pow(1 - t, 0.8) * (1 + 0.09 * Math.sin(Math.PI * Math.min(1, t * 2.2)));
+    const ring: THREE.Vector3[] = [];
+    const ringCols: THREE.Color[] = [];
+    const bandTint = l % 3 === 1 ? 0.35 : 0;
+    const base = cliffTop.clone().lerp(cliffBottom, Math.pow(t, 0.7)).lerp(strata, bandTint);
+    for (const [px, pz] of loop) {
+      const a = Math.atan2(pz - cz, px - cx);
+      const n =
+        0.5 * Math.sin(3 * a + ph[0] + l * 0.7) + 0.3 * Math.sin(7 * a + ph[1] - l * 1.3) + 0.2 * Math.sin(13 * a + ph[2] + l * 2.1);
+      const jag = l === 0 ? 1 : 1 + 0.17 * n * Math.min(1, t * 3) + (rand() - 0.5) * 0.12 * Math.min(1, t * 4);
+      const y = l === 0 ? yBase : yBase + (rand() - 0.5) * 0.3 * Math.min(1, t * 3);
+      ring.push(new THREE.Vector3(cx + (px - cx) * scale * jag, y, cz + (pz - cz) * scale * jag));
+      ringCols.push(base.clone().multiplyScalar(0.88 + rand() * 0.2));
+    }
+    rings.push(ring);
+    cols.push(ringCols);
+  }
+  for (let l = 0; l < LEVELS; l += 1) {
+    const top = rings[l];
+    const low = rings[l + 1];
+    for (let i = 0; i < top.length; i += 1) {
+      const j = (i + 1) % top.length;
+      b.quad(top[i], top[j], low[j], low[i], cols[l][i], cols[l][j], cols[l + 1][j], cols[l + 1][i]);
+    }
+  }
+  const last = rings[LEVELS];
+  const tip = new THREE.Vector3(cx + (rand() - 0.5) * 0.6, RIM_Y - depth - 1.2, cz + (rand() - 0.5) * 0.6);
+  for (let i = 0; i < last.length; i += 1) {
+    const j = (i + 1) % last.length;
+    b.tri(last[i], last[j], tip, cols[LEVELS][i], cols[LEVELS][j], cliffBottom);
+  }
+
+  // Hanging spikes break up the silhouette.
+  for (let s2 = 0; s2 < 18; s2 += 1) {
+    const l = 2 + Math.floor(rand() * (LEVELS - 5));
+    const ring = rings[l];
+    const p = ring[Math.floor(rand() * ring.length)];
+    const inward = new THREE.Vector3(cx - p.x, 0, cz - p.z).multiplyScalar(0.12 + rand() * 0.1);
+    const h = 0.6 + rand() * 1.6;
+    const r = 0.18 + rand() * 0.3;
+    const c = cols[l][0].clone().multiplyScalar(0.8 + rand() * 0.25);
+    b.add(PRIM.cone6, trs(p.x + inward.x, p.y - h / 2 + 0.1, p.z + inward.z, Math.PI, rand() * 3, (rand() - 0.5) * 0.3, r, h, r), c, 0.2, rand);
   }
 }
 

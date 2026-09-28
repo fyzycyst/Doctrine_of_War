@@ -20,8 +20,8 @@ export interface DepthFadeUniforms {
 export function createIslandMaterial(style: MaterialStyle): THREE.Material & { userData: { fade: DepthFadeUniforms } } {
   const fade: DepthFadeUniforms = {
     uFadeColor: { value: new THREE.Color("#3a2530") },
-    uFadeTop: { value: -0.3 },
-    uFadeBottom: { value: -3.2 },
+    uFadeTop: { value: -1.4 },
+    uFadeBottom: { value: -6.8 },
   };
   const material =
     style.shading === "toon"
@@ -103,5 +103,84 @@ export function createOutlineMaterial(colorHex: string, thickness = 0.012): THRE
     );
   };
   material.customProgramCacheKey = () => `outline-${thickness}`;
+  return material;
+}
+
+/**
+ * Toy-soldier material: vertex colours, a tight fresnel rim in the faction glow,
+ * emissive ember glints from the geometry's `glow` channel, and a per-instance
+ * `aFade` (InstancedBufferAttribute, 0..1) that dithers figures out without any
+ * transparency sorting — used by the fall and rout tweens.
+ */
+export function createFigureMaterial(opts: {
+  shading: MaterialStyle["shading"];
+  rimColor: string;
+  rimStrength: number;
+  glintColor: string;
+  cacheKey: string;
+}): THREE.Material {
+  const material =
+    opts.shading === "toon"
+      ? new THREE.MeshToonMaterial({ vertexColors: true })
+      : new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.55, metalness: 0.05 });
+  const uniforms = {
+    uRimColor: { value: new THREE.Color(opts.rimColor) },
+    uRimStrength: { value: opts.rimStrength },
+    uGlint: { value: new THREE.Color(opts.glintColor).multiplyScalar(2) },
+  };
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+attribute float glow;
+varying float vGlow;
+varying float vFade;
+#ifdef USE_INSTANCING
+attribute float aFade;
+#endif`,
+      )
+      .replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
+vGlow = glow;
+#ifdef USE_INSTANCING
+vFade = aFade;
+#else
+vFade = 1.0;
+#endif`,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+uniform vec3 uRimColor;
+uniform float uRimStrength;
+uniform vec3 uGlint;
+varying float vGlow;
+varying float vFade;`,
+      )
+      .replace(
+        "#include <clipping_planes_fragment>",
+        `#include <clipping_planes_fragment>
+if (vFade < 0.999) {
+  float th = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
+  if (vFade <= th) discard;
+}`,
+      )
+      .replace(
+        "#include <opaque_fragment>",
+        `{
+  vec3 viewDir = normalize(vViewPosition);
+  float fres = pow(1.0 - clamp(dot(normalize(normal), viewDir), 0.0, 1.0), 3.5);
+  outgoingLight += uRimColor * fres * uRimStrength;
+  outgoingLight += uGlint * vGlow;
+}
+#include <opaque_fragment>`,
+      );
+  };
+  material.customProgramCacheKey = () => `figure-${opts.cacheKey}`;
+  material.userData.figure = uniforms;
   return material;
 }

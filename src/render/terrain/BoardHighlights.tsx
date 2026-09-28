@@ -1,0 +1,132 @@
+import { useFrame } from "@react-three/fiber";
+import { useEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { useAppStore } from "../../app/store";
+import { hexKey, type HexCoord } from "../../game/board";
+import { hexToWorld } from "../hexWorld";
+import type { IslandBuild } from "./buildIsland";
+
+/**
+ * Hex overlays drawn on the tile tops: a hover outline, a selected-hex outline
+ * (both from the store) and a pulsing deployment-zone tint for a set of hexes
+ * passed in as a prop.
+ */
+export function BoardHighlights({
+  island,
+  deploymentHexes,
+  deploymentColor = "#ffcf6e",
+}: {
+  island: IslandBuild;
+  deploymentHexes?: HexCoord[];
+  deploymentColor?: string;
+}) {
+  const hovered = useAppStore((s) => s.hoveredHex);
+  const selected = useAppStore((s) => s.selectedHex);
+
+  const at = (hex: HexCoord | null) => {
+    if (!hex) return null;
+    const y = island.surface.get(hexKey(hex));
+    if (y === undefined) return null;
+    const [x, z] = hexToWorld(hex, island.center);
+    return new THREE.Vector3(x, y + 0.02, z);
+  };
+  const hoverPos = at(hovered);
+  const selectedPos = at(selected);
+
+  return (
+    <>
+      {deploymentHexes && deploymentHexes.length > 0 && (
+        <DeploymentZone island={island} hexes={deploymentHexes} color={deploymentColor} />
+      )}
+      {hoverPos && (
+        <HexOutline position={hoverPos} color="#fff4d6" opacity={0.45} width={0.05} />
+      )}
+      {selectedPos && <HexOutline position={selectedPos} color="#ffd27a" opacity={0.85} width={0.07} pulse />}
+    </>
+  );
+}
+
+function HexOutline({
+  position,
+  color,
+  opacity,
+  width,
+  pulse = false,
+}: {
+  position: THREE.Vector3;
+  color: string;
+  opacity: number;
+  width: number;
+  pulse?: boolean;
+}) {
+  const mat = useRef<THREE.MeshBasicMaterial>(null);
+  useFrame(({ clock }) => {
+    if (pulse && mat.current) mat.current.opacity = opacity * (0.7 + 0.3 * Math.sin(clock.elapsedTime * 4));
+  });
+  return (
+    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} renderOrder={4}>
+      {/* thetaStart 0 puts a corner on +x, matching flat-top hexes. */}
+      <ringGeometry args={[0.93 - width, 0.93, 6, 1]} />
+      <meshBasicMaterial
+        ref={mat}
+        color={new THREE.Color(color).multiplyScalar(1.4)}
+        transparent
+        opacity={opacity}
+        depthWrite={false}
+        polygonOffset
+        polygonOffsetFactor={-2}
+      />
+    </mesh>
+  );
+}
+
+function DeploymentZone({ island, hexes, color }: { island: IslandBuild; hexes: HexCoord[]; color: string }) {
+  const geometry = useMemo(() => {
+    const parts = hexes.flatMap((hex) => {
+      const y = island.surface.get(hexKey(hex));
+      if (y === undefined) return [];
+      const [x, z] = hexToWorld(hex, island.center);
+      const g = new THREE.CircleGeometry(0.9, 6);
+      g.rotateX(-Math.PI / 2);
+      g.translate(x, y + 0.018, z);
+      return [g];
+    });
+    return parts.length ? mergeGeometries(parts) : null;
+  }, [hexes, island]);
+  useEffect(() => () => geometry?.dispose(), [geometry]);
+
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(color) } },
+        vertexShader: /* glsl */ `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform float uTime;
+          uniform vec3 uColor;
+          varying vec2 vUv;
+          void main() {
+            float r = length(vUv - 0.5) * 2.0;
+            float edge = mix(0.35, 1.0, smoothstep(0.55, 0.95, r));
+            float pulse = 0.6 + 0.4 * sin(uTime * 2.2);
+            gl_FragColor = vec4(uColor * edge * pulse * 0.14, 1.0);
+          }
+        `,
+      }),
+    [color],
+  );
+  useFrame((_, dt) => {
+    material.uniforms.uTime.value += dt;
+  });
+  if (!geometry) return null;
+  return <mesh geometry={geometry} material={material} renderOrder={3} />;
+}

@@ -76,20 +76,20 @@ export function Water({ island }: { island: IslandBuild }) {
             float across = dot(p, perp);
             float n = fbm(vec2(along * 1.4 - uTime * 0.35, across * 2.2));
             float n2 = fbm(vec2(along * 3.0 - uTime * 0.8, across * 5.0) + 7.0);
-            vec3 col = mix(uDeep, uColor, 0.15 + 0.7 * n);
-            // Fresnel sky reflection.
+            // Dark, deep water that mirrors the sky above it (look-lock #5).
             vec3 viewDir = normalize(cameraPosition - vWorld);
-            float fres = pow(1.0 - max(viewDir.y, 0.0), 3.0);
-            col = mix(col, uSky, fres * 0.12);
-            // Moving sheen streaks.
-            float streak = smoothstep(0.62, 0.9, n2) * (0.6 + 0.4 * sin(across * 14.0 + n * 6.0));
-            col += uSheen * streak * 0.12;
-            // Burning river (night fires preset).
+            float fres = pow(1.0 - max(viewDir.y, 0.0), 2.0);
+            vec3 base = mix(uDeep, uColor, 0.1 + 0.35 * n);
+            vec3 col = mix(base, uSky, 0.35 + 0.45 * fres);
+            col *= 0.85 + 0.3 * n2;
+            // Long thin glints running with the current.
+            float lines = smoothstep(0.72, 0.95, fbm(vec2(along * 0.9 - uTime * 0.45, across * 16.0)));
+            col += uSheen * lines * 0.35;
+            // Fire reflections as streaks (night fires), not blotches.
             float flick = 0.65 + 0.35 * sin(uTime * 3.1 + n * 9.0) * sin(uTime * 1.7 + n2 * 5.0);
-            // Patches of burning oil rather than a uniform sheet (keeps it orange, not white).
-            float patches = smoothstep(0.45, 0.75, fbm(vec2(along * 2.0 - uTime * 0.25, across * 3.0) + 3.0));
-            col = mix(col, col * 0.35, clamp(uGlow, 0.0, 1.0));
-            col += uGlowColor * uGlow * flick * (patches * 0.55 + pow(patches, 4.0) * 0.6);
+            float fire = smoothstep(0.6, 0.9, fbm(vec2(along * 1.2 - uTime * 0.3, across * 11.0) + 3.0));
+            col = mix(col, col * 0.45, clamp(uGlow, 0.0, 1.0));
+            col += uGlowColor * uGlow * flick * fire * 0.9;
             gl_FragColor = vec4(col, 1.0);
             #include <tonemapping_fragment>
             #include <colorspace_fragment>
@@ -150,7 +150,8 @@ export function Water({ island }: { island: IslandBuild }) {
     const u = material.uniforms;
     u.uColor.value.set(skin.island.water);
     u.uDeep.value.set(skin.island.waterDeep);
-    u.uSky.value.set(preset.sky.mid).lerp(new THREE.Color(preset.sky.horizon), 0.35);
+    // Reflect the upper sky (zenith → mid): dark at dusk and night.
+    u.uSky.value.set(preset.sky.zenith).lerp(new THREE.Color(preset.sky.mid), 0.6);
     u.uSheen.value.set(preset.sun.color).multiplyScalar(Math.min(1, preset.sun.intensity / 3.5));
     // Deeper red-orange than the flames: ACES turns bright orange peach.
     u.uGlowColor.value.set(preset.fires.color).lerp(new THREE.Color("#ff2a05"), 0.5);

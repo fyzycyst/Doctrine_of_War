@@ -1,18 +1,21 @@
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useAppStore } from "../../app/store";
 import type { FactionId } from "../../game/types";
 import { useLook } from "../look/LookContext";
 import type { FactionStyle } from "../skins/types";
 import { cohesionArc } from "../squadLayout";
+import type { SquadAnimator } from "./squadAnimation";
 import type { PlacedSquad } from "./types";
 
 /**
- * Per-squad dressing shared by both figure approaches (tech plan D7):
- * a faction banner with cloth waving in the vertex shader, a cohesion ring
- * whose gap shows lost cohesion, and a soft contact shadow.
+ * Per-squad dressing shared by both figure approaches (tech plan D7): a faction
+ * banner with cloth waving in the vertex shader, a cohesion ring whose gap shows
+ * lost cohesion, a soft contact shadow, a renown crest, and the selection/hover
+ * highlight. Everything follows the animator's squad pose (march, rout, rally…).
  */
-export function SquadMarkers({ placed }: { placed: PlacedSquad[] }) {
+export function SquadMarkers({ placed, animator }: { placed: PlacedSquad[]; animator: SquadAnimator }) {
   const { skin } = useLook();
   const clothTextures = useMemo(
     () => ({
@@ -27,51 +30,146 @@ export function SquadMarkers({ placed }: { placed: PlacedSquad[] }) {
   return (
     <>
       {placed.map((p, i) => (
-        <group key={p.squad.id} position={[p.x, p.y, p.z]}>
-          <ContactShadow texture={shadowTexture} />
-          <CohesionRing faction={p.squad.faction} cohesion={p.squad.cohesion} facing={p.squad.facing} />
-          <Banner
-            texture={clothTextures[p.squad.faction]}
-            faction={p.squad.faction}
-            facing={p.squad.facing}
-            phase={i * 1.7}
-          />
-        </group>
+        <SquadMarker
+          key={p.squad.id}
+          placed={p}
+          animator={animator}
+          texture={clothTextures[p.squad.faction]}
+          shadow={shadowTexture}
+          phase={i * 1.7}
+        />
       ))}
     </>
   );
 }
 
-function ContactShadow({ texture }: { texture: THREE.Texture }) {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
-      <circleGeometry args={[0.62, 24]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} opacity={0.55} color="#000000" />
-    </mesh>
-  );
-}
-
-function CohesionRing({ faction, cohesion, facing }: { faction: FactionId; cohesion: number; facing: number }) {
+function SquadMarker({
+  placed,
+  animator,
+  texture,
+  shadow,
+  phase,
+}: {
+  placed: PlacedSquad;
+  animator: SquadAnimator;
+  texture: THREE.Texture;
+  shadow: THREE.Texture;
+  phase: number;
+}) {
   const { skin } = useLook();
-  const glow = skin.factions[faction].glow;
-  const { lit } = cohesionArc(cohesion);
-  const inner = 0.55;
-  const outer = 0.59;
-  // Arc centred on the squad's facing; the gap opens at the rear.
-  const thetaLength = Math.max(0.001, lit * Math.PI * 2);
-  const thetaStart = facing - thetaLength / 2;
-  const litColor = useMemo(() => new THREE.Color(glow).multiplyScalar(1.5), [glow]);
+  const { squad } = placed;
+  const style = skin.factions[squad.faction];
+  const selected = useAppStore((s) => s.selectedSquadId === squad.id);
+  const hovered = useAppStore((s) => s.hoveredSquadId === squad.id);
 
+  const root = useRef<THREE.Group>(null);
+  const yawGroup = useRef<THREE.Group>(null);
+  const bannerGroup = useRef<THREE.Group>(null);
+  const halo = useRef<THREE.Mesh>(null);
+  const crest = useRef<THREE.Group>(null);
+
+  const { lit } = cohesionArc(squad.cohesion);
+  const thetaLength = Math.max(0.001, lit * Math.PI * 2);
+  // Rings are kept below the figures in brightness (look-lock #7).
+  const ringBase = useMemo(() => new THREE.Color(style.glow).multiplyScalar(1.05), [style.glow]);
+  const ringMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: ringBase.clone(), transparent: true, opacity: 0.62, depthWrite: false }),
+    [ringBase],
+  );
+  const ringBackMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: style.glow, transparent: true, opacity: 0.12, depthWrite: false }),
+    [style.glow],
+  );
+  const haloMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: new THREE.Color("#fff4d6").multiplyScalar(1.6), transparent: true, opacity: 0, depthWrite: false }),
+    [],
+  );
+  const cloth = useMemo(() => makeClothMaterial(texture, phase), [texture, phase]);
+  useEffect(() => () => [ringMat, ringBackMat, haloMat, cloth].forEach((m) => m.dispose()), [ringMat, ringBackMat, haloMat, cloth]);
+
+  useFrame(({ clock }, dt) => {
+    const t = clock.elapsedTime;
+    const pose = animator.squadPose(squad.id);
+    const a = pose?.anchor;
+    root.current?.position.set(a?.x ?? placed.x, a?.y ?? placed.y, a?.z ?? placed.z);
+    if (yawGroup.current) yawGroup.current.rotation.y = pose?.facing ?? squad.facing;
+
+    const flash = pose?.ringFlash ?? 0;
+    const fade = pose?.ringFade ?? 1;
+    const emphasis = selected ? 0.9 : hovered ? 0.4 : 0;
+    ringMat.color.copy(ringBase).multiplyScalar(Math.max(0.2, 1 + flash + emphasis));
+    ringMat.opacity = 0.62 * fade;
+    ringBackMat.opacity = 0.12 * fade;
+    if (halo.current) {
+      const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+      haloMat.opacity = selected ? 0.35 + 0.35 * pulse : hovered ? 0.18 : 0;
+      halo.current.scale.setScalar(1 + (selected ? 0.03 * pulse : 0));
+    }
+
+    const g = bannerGroup.current;
+    if (g) {
+      const bf = pose?.bannerFade ?? 1;
+      g.position.y = (pose?.bannerLift ?? 0) - (1 - bf) * 0.25;
+      g.rotation.z = pose?.bannerTilt ?? 0;
+      g.scale.setScalar(Math.max(0.001, bf));
+      g.visible = bf > 0.01;
+    }
+    cloth.userData.uniforms.uTime.value += dt;
+    cloth.emissiveIntensity = 0.22 + (pose?.bannerFlare ?? 0);
+    if (crest.current) crest.current.rotation.y = t * 0.8;
+  });
+
+  const poleHeight = 0.78;
+  const w = 0.34;
+  const h = 0.22;
   return (
-    <group rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
-      <mesh renderOrder={2}>
-        <ringGeometry args={[inner, outer, 64, 1]} />
-        <meshBasicMaterial color={glow} transparent opacity={0.16} depthWrite={false} />
+    <group ref={root} position={[placed.x, placed.y, placed.z]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
+        <circleGeometry args={[0.62, 24]} />
+        <meshBasicMaterial map={shadow} transparent depthWrite={false} opacity={0.55} color="#000000" />
       </mesh>
-      <mesh renderOrder={2}>
-        <ringGeometry args={[inner, outer, 64, 1, thetaStart, thetaLength]} />
-        <meshBasicMaterial color={litColor} transparent opacity={0.8} depthWrite={false} />
-      </mesh>
+      <group ref={yawGroup} rotation={[0, squad.facing, 0]}>
+        {/* Cohesion ring: arc centred on the facing, gap at the rear. */}
+        <group rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
+          <mesh renderOrder={2} material={ringBackMat}>
+            <ringGeometry args={[0.55, 0.59, 64, 1]} />
+          </mesh>
+          <mesh renderOrder={2} material={ringMat}>
+            <ringGeometry args={[0.55, 0.59, 64, 1, -thetaLength / 2, thetaLength]} />
+          </mesh>
+          <mesh ref={halo} renderOrder={2} material={haloMat}>
+            <ringGeometry args={[0.62, 0.66, 64, 1]} />
+          </mesh>
+        </group>
+        {/* Banner: pole behind the formation, cloth streaming away from the enemy. */}
+        <group position={[-0.34, 0, -0.18]}>
+          <group ref={bannerGroup}>
+            <mesh castShadow position={[0, poleHeight / 2, 0]}>
+              <cylinderGeometry args={[0.012, 0.014, poleHeight, 6]} />
+              <meshStandardMaterial color="#4a3526" roughness={0.8} />
+            </mesh>
+            <mesh position={[0, poleHeight + 0.02, 0]}>
+              {squad.faction === "ashen_host" ? <coneGeometry args={[0.03, 0.08, 4]} /> : <sphereGeometry args={[0.03, 8, 6]} />}
+              <meshStandardMaterial color={style.trim} metalness={0.6} roughness={0.35} />
+            </mesh>
+            <mesh castShadow material={cloth} position={[-w / 2, poleHeight - h / 2 - 0.03, 0]} rotation={[0, Math.PI, 0]}>
+              <planeGeometry args={[w, h, 14, 4]} />
+            </mesh>
+            {squad.renowned && (
+              <group ref={crest} position={[0, poleHeight + 0.13, 0]}>
+                <mesh>
+                  <torusGeometry args={[0.055, 0.012, 6, 16]} />
+                  <meshStandardMaterial color={style.trim} emissive={style.trim} emissiveIntensity={0.9} metalness={0.7} roughness={0.3} />
+                </mesh>
+                <mesh scale={[0.035, 0.05, 0.035]}>
+                  <octahedronGeometry args={[1, 0]} />
+                  <meshStandardMaterial color="#fff0c0" emissive="#ffd27a" emissiveIntensity={1.4} />
+                </mesh>
+              </group>
+            )}
+          </group>
+        </group>
+      </group>
     </group>
   );
 }
@@ -81,85 +179,38 @@ const clothVertex = /* glsl */ `
   uniform float uPhase;
 `;
 
-function Banner({
-  texture,
-  faction,
-  facing,
-  phase,
-}: {
-  texture: THREE.Texture;
-  faction: FactionId;
-  facing: number;
-  phase: number;
-}) {
-  const { skin } = useLook();
-  const style = skin.factions[faction];
-  const material = useMemo(() => {
-    const m = new THREE.MeshStandardMaterial({
-      map: texture,
-      side: THREE.DoubleSide,
-      alphaTest: 0.5,
-      roughness: 0.9,
-      emissive: new THREE.Color("#ffffff"),
-      emissiveMap: texture,
-      emissiveIntensity: 0.22,
-    });
-    const uniforms = { uTime: { value: 0 }, uPhase: { value: phase } };
-    m.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, uniforms);
-      shader.vertexShader = shader.vertexShader
-        .replace("#include <common>", `#include <common>\n${clothVertex}`)
-        .replace(
-          "#include <beginnormal_vertex>",
-          `#include <beginnormal_vertex>
-           float wv = uv.x;
-           float ang = uv.x * 7.0 - uTime * 4.2 + uPhase;
-           objectNormal = normalize(vec3(-cos(ang) * 0.35 * wv, 0.0, 1.0));`,
-        )
-        .replace(
-          "#include <begin_vertex>",
-          `#include <begin_vertex>
-           transformed.z += sin(ang) * 0.035 * wv + sin(uv.y * 5.0 + uTime * 2.3) * 0.008 * wv;
-           transformed.y -= wv * wv * 0.02;`,
-        );
-    };
-    m.customProgramCacheKey = () => "banner-cloth";
-    m.userData.uniforms = uniforms;
-    return m;
-  }, [texture, phase]);
-
-  useFrame((_, dt) => {
-    material.userData.uniforms.uTime.value += dt;
+function makeClothMaterial(texture: THREE.Texture, phase: number) {
+  const m = new THREE.MeshStandardMaterial({
+    map: texture,
+    side: THREE.DoubleSide,
+    alphaTest: 0.5,
+    roughness: 0.9,
+    emissive: new THREE.Color("#ffffff"),
+    emissiveMap: texture,
+    emissiveIntensity: 0.22,
   });
-
-  const poleHeight = 0.78;
-  const w = 0.34;
-  const h = 0.22;
-  // Pole behind the formation, cloth streaming away from the enemy.
-  const back = -0.34;
-  return (
-    <group rotation={[0, facing, 0]}>
-      <group position={[back, 0, -0.18]}>
-        <mesh castShadow position={[0, poleHeight / 2, 0]}>
-          <cylinderGeometry args={[0.012, 0.014, poleHeight, 6]} />
-          <meshStandardMaterial color="#4a3526" roughness={0.8} />
-        </mesh>
-        <mesh position={[0, poleHeight + 0.02, 0]}>
-          {faction === "ashen_host" ? <coneGeometry args={[0.03, 0.08, 4]} /> : <sphereGeometry args={[0.03, 8, 6]} />}
-          <meshStandardMaterial color={style.metal} metalness={0.6} roughness={0.35} />
-        </mesh>
-        {/* Cloth: plane in local XY, attached along its left edge to the pole, streaming backward (-x). */}
-        <mesh
-          castShadow
-          material={material}
-          position={[-w / 2, poleHeight - h / 2 - 0.03, 0]}
-          rotation={[0, Math.PI, 0]}
-        >
-          <planeGeometry args={[w, h, 14, 4]} />
-        </mesh>
-      </group>
-    </group>
-  );
+  const uniforms = { uTime: { value: 0 }, uPhase: { value: phase } };
+  m.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", `#include <common>\n${clothVertex}`)
+      .replace(
+        "#include <beginnormal_vertex>",
+        `#include <beginnormal_vertex>
+         float wv = uv.x;
+         float ang = uv.x * 7.0 - uTime * 4.2 + uPhase;
+         objectNormal = normalize(vec3(-cos(ang) * 0.35 * wv, 0.0, 1.0));`,
+      )
+      .replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
+         transformed.z += sin(ang) * 0.035 * wv + sin(uv.y * 5.0 + uTime * 2.3) * 0.008 * wv;
+         transformed.y -= wv * wv * 0.02;`,
+      );
+  };
+  m.customProgramCacheKey = () => "banner-cloth";
+  m.userData.uniforms = uniforms;
+  return m;
 }
 
 function makeBannerTexture(faction: FactionId, style: FactionStyle): THREE.Texture {
