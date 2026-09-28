@@ -5,11 +5,10 @@ import { Canvas } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useState, type RefObject } from "react";
 import { useAmbience } from "../../audio";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
-import { DioramaCamera, wideShot } from "../../render/camera/DioramaCamera";
+import { DioramaCamera, wideShotFor } from "../../render/camera/DioramaCamera";
 import { Diorama } from "../../render/Diorama";
 import { lightingFor, visibilityFromView, weatherFor } from "../../render/fromEngine";
 import { timeOfDayAt } from "../../game/engine";
-import { boardRadius } from "../../render/hexWorld";
 import { LookProvider } from "../../render/look/LookContext";
 import { PostFX } from "../../render/post/PostFX";
 import { useCanvasDpr } from "../../render/quality";
@@ -41,7 +40,8 @@ export function BattleBoard({
 
   const squads = useMemo(() => toDioramaSquads(view), [view]);
   const zone = useMemo(() => (stage === "deploy" ? deploymentHexes(scenario) : undefined), [stage, scenario]);
-  const shot = useMemo(() => wideShot(boardRadius(scenario.board)), [scenario.board]);
+  // Tighter, Banner-biased framing on the big boards; the classic shot elsewhere.
+  const shot = useMemo(() => wideShotFor(scenario.board), [scenario.board]);
   // Reduced motion: no idle camera drift. (Embers, water and fire shimmer are render-owned; see T08.)
   const reducedMotion = usePrefersReducedMotion();
   // The hour of the phase on show. (The engine's state.timeOfDay only turns when a phase
