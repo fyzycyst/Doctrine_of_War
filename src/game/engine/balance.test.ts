@@ -7,7 +7,7 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
     it(`${scenario.title} meets the guardrails over 60 seeds with fortune on`, () => {
       const rows = runBalance(scenario, 60, "on");
       expect(guardrailFailures(rows), formatTable(scenario, rows)).toEqual([]);
-    });
+    }, 60_000); // hundreds of simulated battles; the 5 s default times out under full-suite load
   }
 
   it("builds intended, bad and one mono plan per player doctrine", () => {
