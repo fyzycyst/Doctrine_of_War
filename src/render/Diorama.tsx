@@ -227,7 +227,7 @@ export function Diorama({
       <Fires island={island} />
       {island.gateBanner && <GateBanner anchor={island.gateBanner} />}
       <BoardHighlights island={island} deploymentHexes={deploymentHexes} />
-      <SquadMarkers placed={placed} animator={animator} />
+      <SquadMarkers placed={placed} animator={animator} waterLevel={island.waterLevel} />
       <Suspense fallback={null}>
         {figures === "kaykit" && KayKitSquads ? (
           <KayKitSquads placed={placed} />

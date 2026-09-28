@@ -17,7 +17,7 @@ import { useDisposable } from "../dispose";
  * lost cohesion, a soft contact shadow, a renown crest, and the selection/hover
  * highlight. Everything follows the animator's squad pose (march, rout, rally…).
  */
-export function SquadMarkers({ placed, animator }: { placed: PlacedSquad[]; animator: SquadAnimator }) {
+export function SquadMarkers({ placed, animator, waterLevel = -Infinity }: { placed: PlacedSquad[]; animator: SquadAnimator; waterLevel?: number }) {
   const { skin } = useLook();
   const clothTextures = useMemo(
     () => ({
@@ -40,6 +40,7 @@ export function SquadMarkers({ placed, animator }: { placed: PlacedSquad[]; anim
           texture={p.squad.kind === "column" ? columnTexture : clothTextures[p.squad.faction]}
           shadow={shadowTexture}
           phase={i * 1.7}
+          waterLevel={waterLevel}
         />
       ))}
     </>
@@ -52,10 +53,13 @@ function SquadMarker({
   texture,
   shadow,
   phase,
+  waterLevel,
 }: {
   placed: PlacedSquad;
   animator: SquadAnimator;
   texture: THREE.Texture;
+  /** Rings and shadows float on the water in fords instead of sinking under it. */
+  waterLevel: number;
   shadow: THREE.Texture;
   phase: number;
 }) {
@@ -70,6 +74,8 @@ function SquadMarker({
   const bannerGroup = useRef<THREE.Group>(null);
   const halo = useRef<THREE.Mesh>(null);
   const crest = useRef<THREE.Group>(null);
+  const ground = useRef<THREE.Mesh>(null);
+  const ringLift = useRef<THREE.Group>(null);
 
   const ghost = !!squad.lastKnown;
   // The refugee Column: a small pale banner and a bone-white ring.
@@ -80,7 +86,7 @@ function SquadMarker({
   const ringBase = useMemo(
     () =>
       ghost
-        ? new THREE.Color("#8a94a8").multiplyScalar(0.9)
+        ? new THREE.Color("#4e586e")
         : column
           ? new THREE.Color("#e8dcc4").multiplyScalar(0.95)
           : new THREE.Color(style.glow).multiplyScalar(1.05),
@@ -106,13 +112,16 @@ function SquadMarker({
     const pose = animator.squadPose(squad.id);
     const a = pose?.anchor;
     root.current?.position.set(a?.x ?? placed.x, a?.y ?? placed.y, a?.z ?? placed.z);
+    const lift = Math.max(0, waterLevel - (a?.y ?? placed.y));
+    if (ground.current) ground.current.position.y = 0.004 + lift;
+    if (ringLift.current) ringLift.current.position.y = 0.012 + lift;
     if (yawGroup.current) yawGroup.current.rotation.y = pose?.facing ?? squad.facing;
 
     const flash = pose?.ringFlash ?? 0;
     const fade = pose?.ringFade ?? 1;
     const emphasis = selected ? 0.9 : hovered ? 0.4 : 0;
     ringMat.color.copy(ringBase).multiplyScalar(Math.max(0.2, 1 + flash + emphasis));
-    ringMat.opacity = (ghost ? 0.4 : 0.62) * fade;
+    ringMat.opacity = (ghost ? 0.85 : 0.62) * fade;
     ringBackMat.opacity = ghost ? 0 : 0.12 * fade;
     if (halo.current) {
       const pulse = reducedMotion ? 0.6 : 0.5 + 0.5 * Math.sin(t * 4);
@@ -130,6 +139,8 @@ function SquadMarker({
     }
     cloth.userData.uniforms.uTime.value += dt * (reducedMotion ? 0.3 : 1);
     cloth.emissiveIntensity = 0.22 + (pose?.bannerFlare ?? 0);
+    // Ghost banners breathe with their silhouettes.
+    if (ghost) cloth.opacity = GHOST_CLOTH_OPACITY * (0.75 + 0.25 * Math.sin(t * 0.9 * motion + phase));
     if (crest.current) crest.current.rotation.y = t * 0.8 * motion;
   });
 
@@ -138,13 +149,13 @@ function SquadMarker({
   const h = column ? 0.16 : 0.22;
   return (
     <group ref={root} position={[placed.x, placed.y, placed.z]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
+      <mesh ref={ground} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} renderOrder={1}>
         <circleGeometry args={[0.62, 24]} />
         <meshBasicMaterial map={shadow} transparent depthWrite={false} opacity={ghost ? 0.22 : 0.55} color="#000000" />
       </mesh>
       <group ref={yawGroup} rotation={[0, squad.facing, 0]}>
         {/* Cohesion ring: arc centred on the facing, gap at the rear. */}
-        <group rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
+        <group ref={ringLift} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
           <mesh renderOrder={2} material={ringBackMat}>
             <ringGeometry args={[0.55, 0.59, 64, 1]} />
           </mesh>
@@ -163,15 +174,23 @@ function SquadMarker({
         {/* Banner: pole behind the formation, cloth streaming away from the enemy. */}
         <group position={[-0.34, 0, -0.18]}>
           <group ref={bannerGroup}>
-            <mesh castShadow position={[0, poleHeight / 2, 0]}>
+            <mesh castShadow={!ghost} position={[0, poleHeight / 2, 0]} renderOrder={ghost ? 6 : 0}>
               <cylinderGeometry args={[0.012, 0.014, poleHeight, 6]} />
-              <meshStandardMaterial color="#4a3526" roughness={0.8} />
+              {ghost ? (
+                <meshStandardMaterial color="#26262b" roughness={0.9} transparent opacity={0.55} />
+              ) : (
+                <meshStandardMaterial color="#4a3526" roughness={0.8} />
+              )}
             </mesh>
-            <mesh position={[0, poleHeight + 0.02, 0]}>
+            <mesh position={[0, poleHeight + 0.02, 0]} renderOrder={ghost ? 6 : 0}>
               {squad.faction === "ashen_host" ? <coneGeometry args={[0.03, 0.08, 4]} /> : <sphereGeometry args={[0.03, 8, 6]} />}
-              <meshStandardMaterial color={style.trim} metalness={0.6} roughness={0.35} />
+              {ghost ? (
+                <meshStandardMaterial color="#303036" roughness={0.6} transparent opacity={0.55} />
+              ) : (
+                <meshStandardMaterial color={style.trim} metalness={0.6} roughness={0.35} />
+              )}
             </mesh>
-            <mesh castShadow material={cloth} position={[-w / 2, poleHeight - h / 2 - 0.03, 0]} rotation={[0, Math.PI, 0]}>
+            <mesh castShadow={!ghost} renderOrder={ghost ? 6 : 0} material={cloth} position={[-w / 2, poleHeight - h / 2 - 0.03, 0]} rotation={[0, Math.PI, 0]}>
               <planeGeometry args={[w, h, 14, 4]} />
             </mesh>
             {squad.renowned && !ghost && (
@@ -198,6 +217,8 @@ const clothVertex = /* glsl */ `
   uniform float uPhase;
 `;
 
+const GHOST_CLOTH_OPACITY = 0.7;
+
 const DASHED_RING = (() => {
   const dashes = 14;
   const parts: THREE.BufferGeometry[] = [];
@@ -209,12 +230,14 @@ const DASHED_RING = (() => {
 })();
 
 export function makeClothMaterial(texture: THREE.Texture, phase: number, ghost = false) {
-  // A last-known squad's banner is a colourless dark rag: no heraldry to read.
+  // A last-known squad's banner is a colourless, tattered, translucent rag:
+  // no heraldry to read.
   const m = new THREE.MeshStandardMaterial({
     map: ghost ? null : texture,
     alphaMap: null,
-    color: ghost ? "#2c2c32" : "#ffffff",
-    transparent: false,
+    color: ghost ? "#3a3b42" : "#ffffff",
+    transparent: ghost,
+    opacity: ghost ? GHOST_CLOTH_OPACITY : 1,
     side: THREE.DoubleSide,
     alphaTest: ghost ? 0 : 0.5,
     roughness: 0.9,
@@ -226,7 +249,8 @@ export function makeClothMaterial(texture: THREE.Texture, phase: number, ghost =
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", `#include <common>\n${clothVertex}`)
+      .replace("#include <common>", `#include <common>\n${clothVertex}\nvarying vec2 vClothUv;`)
+      .replace("#include <uv_vertex>", "#include <uv_vertex>\nvClothUv = uv;")
       .replace(
         "#include <beginnormal_vertex>",
         `#include <beginnormal_vertex>
@@ -240,6 +264,18 @@ export function makeClothMaterial(texture: THREE.Texture, phase: number, ghost =
          transformed.z += sin(ang) * 0.035 * wv + sin(uv.y * 5.0 + uTime * 2.3) * 0.008 * wv;
          transformed.y -= wv * wv * 0.02;`,
       );
+    if (ghost) {
+      // Tattered: ragged, frayed strips torn from the fly end.
+      shader.fragmentShader = shader.fragmentShader
+        .replace("#include <common>", "#include <common>\nvarying vec2 vClothUv;")
+        .replace(
+          "#include <clipping_planes_fragment>",
+          `#include <clipping_planes_fragment>
+          float strip = fract(sin(floor(vClothUv.y * 7.0) * 91.7 + 3.1) * 437.58);
+          float fray = fract(sin(floor(vClothUv.y * 23.0) * 57.3 + 1.7) * 311.9);
+          if (vClothUv.x > 0.5 + 0.38 * strip + 0.1 * fray) discard;`,
+        );
+    }
   };
   m.customProgramCacheKey = () => (ghost ? "banner-cloth-ghost" : "banner-cloth");
   m.userData.uniforms = uniforms;

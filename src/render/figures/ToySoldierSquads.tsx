@@ -42,16 +42,16 @@ const dummy = new THREE.Object3D();
 
 /**
  * Ghosts draw in the transparent pass after the mist (renderOrder 6), so a
- * last-known position stays readable inside the fog; the dither still makes
- * them read as half-seen.
+ * last-known position stays readable inside the fog, as a dark translucent
+ * silhouette with a soft rim.
  */
 function withGhostDraw(material: THREE.Material) {
   material.transparent = true;
   material.depthWrite = true;
   return material;
 }
-/** Ghost silhouettes are screen-door translucent and slowly breathe. */
-const GHOST_FADE = 0.42;
+/** Ghost silhouettes are low-alpha and slowly breathe. */
+const GHOST_FADE = 0.7;
 
 function FactionInstances({
   faction,
@@ -201,7 +201,7 @@ function InstanceGroup({
         }
         dummy.updateMatrix();
         for (const m of targets) m.setMatrixAt(index, dummy.matrix);
-        const breathe = ghost ? GHOST_FADE * (0.8 + 0.2 * Math.sin(t * 1.4 + s + slot.phase)) : 1;
+        const breathe = ghost ? GHOST_FADE * (0.72 + 0.28 * Math.sin(t * 0.9 + s * 1.3 + slot.phase * 0.3)) : 1;
         fade.setX(index, visible ? (f?.fade ?? 1) * breathe : 0);
       }
     });

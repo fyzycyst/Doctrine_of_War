@@ -134,6 +134,10 @@ export function createOutlineMaterial(colorHex: string, thickness = 0.012): THRE
  * emissive ember glints from the geometry's `glow` channel, and a per-instance
  * `aFade` (InstancedBufferAttribute, 0..1) that dithers figures out without any
  * transparency sorting — used by the fall and rout tweens.
+ *
+ * The ghost variant (last-known positions) is a real translucent silhouette
+ * instead: near-black, alpha = `aFade`, with a soft cool rim that is more
+ * opaque than the body so the outline carries the read.
  */
 export function createFigureMaterial(opts: {
   shading: MaterialStyle["shading"];
@@ -154,8 +158,8 @@ export function createFigureMaterial(opts: {
     uGlint: { value: new THREE.Color(opts.glintColor).multiplyScalar(opts.ghost ? 0 : 2) },
   };
   if (opts.ghost) {
-    uniforms.uRimColor.value.set("#8a94a8");
-    uniforms.uRimStrength.value = 0.35;
+    uniforms.uRimColor.value.set("#9aa6bf");
+    uniforms.uRimStrength.value = 0.4;
   }
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -198,7 +202,9 @@ varying float vFade;`,
       )
       .replace(
         "#include <clipping_planes_fragment>",
-        `#include <clipping_planes_fragment>
+        opts.ghost
+          ? "#include <clipping_planes_fragment>\nif (vFade < 0.004) discard;"
+          : `#include <clipping_planes_fragment>
 if (vFade < 0.999) {
   float th = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
   if (vFade <= th) discard;
@@ -208,9 +214,14 @@ if (vFade < 0.999) {
         "#include <opaque_fragment>",
         `{
   vec3 viewDir = normalize(vViewPosition);
-  float fres = pow(1.0 - clamp(dot(normalize(normal), viewDir), 0.0, 1.0), 3.5);
+  float facing = clamp(dot(normalize(normal), viewDir), 0.0, 1.0);
+${opts.ghost
+    ? `  float fres = pow(1.0 - facing, 2.0);
   outgoingLight += uRimColor * fres * uRimStrength;
-  outgoingLight += uGlint * vGlow;
+  diffuseColor.a = min(1.0, vFade * (0.8 + 0.6 * fres));`
+    : `  float fres = pow(1.0 - facing, 3.5);
+  outgoingLight += uRimColor * fres * uRimStrength;
+  outgoingLight += uGlint * vGlow;`}
 }
 #include <opaque_fragment>`,
       );
