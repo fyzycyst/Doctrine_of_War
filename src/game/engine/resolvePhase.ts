@@ -6,7 +6,7 @@ import { sameHex } from "../board";
 import { executeAction } from "./actions";
 import type { EngineContext, EventBody } from "./context";
 import { doctrineLibrary } from "./doctrines";
-import { dreadFromSight, refreshIntel } from "./fog";
+import { dreadFromSight, observeDeparture, refreshIntel } from "./fog";
 import { phaseStartWeather, stressCheck } from "./fortune";
 import { evaluateOutcome, validateWinCondition } from "./outcome";
 import { buildReport } from "./report";
@@ -23,7 +23,7 @@ import type {
   Orders,
   PhaseResult,
 } from "./types";
-import { isActive } from "./world";
+import { getSquad, isActive } from "./world";
 
 export const BEATS_PER_PHASE = 3;
 
@@ -157,6 +157,10 @@ export function resolvePhase(
     // Events are deep-copied so playback data never aliases state or scenario coordinates.
     emit: (event: EventBody) => {
       events.push({ ...structuredClone(event), phase, beat: ctx.beat } as EngineEvent);
+      if (event.kind === "rout" || event.kind === "exit") {
+        const status = event.kind === "exit" ? "escaped" : event.cause === "strength" ? "destroyed" : "routed";
+        observeDeparture(ctx, getSquad(state, event.squadId), event.hex, status);
+      }
     },
   };
 

@@ -68,6 +68,28 @@ describe("intel and sighting", () => {
     expect(events).toEqual([{ kind: "sighted", faction: FB, squadId: "hidden", byId: "scout", hex: { q: 1, r: 3 } }]);
   });
 
+  it("does not learn of a rout it could not see: the silhouette keeps its last-known state", () => {
+    const kit = actionContext(field(), library(), on);
+    kit.get("close").hex = { q: 5, r: 0 };
+    refreshIntel(kit.ctx);
+    const lost = kit.get("close");
+    lost.status = "routed";
+    lost.hex = null as never;
+    refreshIntel(kit.ctx);
+    expect(kit.state.intel.free_banners?.close).toMatchObject({ visible: false, status: "active", hex: { q: 2, r: 2 } });
+  });
+
+  it("learns of a rout it watched happen", () => {
+    const striker = doctrine("striker", FB, [[{ kind: "always" }, { kind: "attack", target: { kind: "nearestEnemy" } }]]);
+    const scen = scenario({
+      initiativeSide: FB,
+      squads: [squad("p", FB, { q: 1, r: 2 }, { doctrineId: "striker", strength: 100 }), squad("h", AH, { q: 2, r: 2 }, { cohesion: 3 }), squad("h2", AH, { q: 6, r: 4 })],
+      maxPhases: 2,
+    });
+    const { state } = resolvePhase(createInitialState(scen, on), {}, scen, { doctrines: library(striker) });
+    expect(state.intel.free_banners?.h).toMatchObject({ visible: false, status: "routed", hex: null });
+  });
+
   it("keeps the last-known position when an enemy slips out of sight", () => {
     const kit = actionContext(field(), library(), on);
     kit.get("close").hex = { q: 5, r: 0 };

@@ -5,7 +5,7 @@
 // Everything here is inert when state.fortune is "off".
 import { getHex, hexDistance, type HexCoord } from "../board";
 import { checkRout, fortuneOn, type EngineContext, type RuleContext } from "./context";
-import type { EngineSquad, EngineState, FactionId } from "./types";
+import type { EngineSquad, EngineState, FactionId, SquadStatus } from "./types";
 import { isActive, type ActiveSquad } from "./world";
 
 export const BASE_SIGHT = 2;
@@ -48,15 +48,48 @@ export function sightRange(ctx: RuleContext, observer: ActiveSquad): number {
   return Math.max(1, BASE_SIGHT + ridge - mist);
 }
 
-/** In range, and no ruin hex strictly between the two (adjacent squads always see each other). */
-export function canSee(ctx: RuleContext, observer: ActiveSquad, target: ActiveSquad): boolean {
-  const distance = hexDistance(observer.hex, target.hex);
+/** In range, and no ruin hex strictly between the two (neighbouring hexes are always seen). */
+export function canSeeHex(ctx: RuleContext, observer: ActiveSquad, hex: HexCoord): boolean {
+  const distance = hexDistance(observer.hex, hex);
   if (distance > sightRange(ctx, observer)) {
     return false;
   }
-  return hexLine(observer.hex, target.hex)
+  return hexLine(observer.hex, hex)
     .slice(1, -1)
-    .every((hex) => getHex(ctx.scenario.board, hex)?.terrain !== "ruin");
+    .every((between) => getHex(ctx.scenario.board, between)?.terrain !== "ruin");
+}
+
+export function canSee(ctx: RuleContext, observer: ActiveSquad, target: ActiveSquad): boolean {
+  return canSeeHex(ctx, observer, target.hex);
+}
+
+/** Whether any active squad of `faction` can see `hex` right now. */
+export function factionSees(ctx: RuleContext, faction: FactionId, hex: HexCoord): boolean {
+  return ctx.state.squads.some(
+    (squad) => squad.faction === faction && isActive(squad) && canSeeHex(ctx, squad, hex),
+  );
+}
+
+/**
+ * A squad leaves the board (rout, destruction, escape) at `hex`. Each opposing side
+ * that can see that hex learns it; the others keep their last-known silhouette.
+ */
+export function observeDeparture(ctx: RuleContext, squad: EngineSquad, hex: HexCoord, status: SquadStatus) {
+  if (!fortuneOn(ctx)) {
+    return;
+  }
+  for (const faction of factions(ctx.state)) {
+    if (faction === squad.faction || !factionSees(ctx, faction, hex)) {
+      continue;
+    }
+    const intel = (ctx.state.intel[faction] ??= {});
+    intel[squad.id] = {
+      ...(intel[squad.id] ?? { strength: squad.strength, cohesion: squad.cohesion, phase: ctx.state.phase, beat: 0 }),
+      visible: false,
+      hex: null,
+      status,
+    };
+  }
 }
 
 function factions(state: EngineState): FactionId[] {
@@ -79,10 +112,10 @@ export function refreshIntel(ctx: RuleContext, emit?: EngineContext["emit"], bea
       }
       const known = intel[enemy.id];
       if (!isActive(enemy)) {
+        // Gone from the board. Only an observed departure (observeDeparture) updates
+        // status and position; an unseen rout leaves the last-known silhouette.
         if (known) {
           known.visible = false;
-          known.status = enemy.status;
-          known.hex = null;
         }
         continue;
       }
