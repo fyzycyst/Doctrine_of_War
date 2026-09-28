@@ -170,3 +170,20 @@ describe("wide shot framing", () => {
   });
 });
 
+describe("exit markers", () => {
+  it("points the Saltmarsh southern edge off the board", async () => {
+    const { offBoardDirection } = await import("./terrain/ExitMarkers");
+    const { boardCenter, hexToWorld } = await import("./hexWorld");
+    const { saltmarshColumn } = await import("../game/engine/scenarios/saltmarshColumn");
+    const board = saltmarshColumn.board;
+    const center = boardCenter(board);
+    const [, z6] = hexToWorld({ q: 3, r: 6 }, center);
+    const [, z7] = hexToWorld({ q: 3, r: 7 }, center);
+    const dir = offBoardDirection({ q: 3, r: 7 }, board, center)!;
+    // Same way as stepping from row 6 to row 7 (south), and unit length.
+    expect(Math.sign(dir[1])).toBe(Math.sign(z7 - z6));
+    expect(Math.hypot(dir[0], dir[1])).toBeCloseTo(1);
+    expect(offBoardDirection({ q: 3, r: 3 }, board, center)).toBeNull();
+  });
+});
+

@@ -24,6 +24,8 @@ export interface LabScene {
   deployment: HexCoord[];
   /** Objective hex centre in world space, for the close shot. */
   focus: [number, number, number];
+  /** Exit hexes for an escape win (Saltmarsh's southern edge), for `exit=1`. */
+  exits?: HexCoord[];
 }
 
 const OVERRIDES: Record<string, Partial<DioramaSquad>> = {
@@ -52,7 +54,10 @@ export const LAB_SCENES = {
   firstBreach: toScene(firstBreach.board, dioramaSquads(firstBreach.squads), lightingFor(firstBreach.timeOfDay), OVERRIDES),
   emberFord: toScene(emberFord.board, dioramaSquads(emberFord.squads), lightingFor(emberFord.timeOfDay)),
   stress: toScene(stressScenario.board, dioramaSquads(stressScenario.squads), "dusk"),
-  saltmarsh: toScene(saltmarshColumn.board, dioramaSquads(saltmarshColumn.squads), lightingFor(saltmarshColumn.timeOfDay)),
+  saltmarsh: {
+    ...toScene(saltmarshColumn.board, dioramaSquads(saltmarshColumn.squads), lightingFor(saltmarshColumn.timeOfDay)),
+    exits: saltmarshColumn.winCondition.kind === "escapeEdge" ? saltmarshColumn.winCondition.edgeHexes : undefined,
+  },
   holdForDawn: toScene(holdForDawn.board, dioramaSquads(holdForDawn.squads), lightingFor(holdForDawn.timeOfDay)),
 } as const;
 
