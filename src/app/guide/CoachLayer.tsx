@@ -1,7 +1,9 @@
 import { useEffect } from "react";
+import { doctrineLibrary } from "../../game/engine";
 import { useGame } from "../game/gameStore";
+import { rosterName } from "../game/view";
 import { useAppStore } from "../store";
-import { COACH_COPY, FIRST_BATTLE } from "./coach";
+import { COACH_COPY, FIRST_BATTLE, firstLesson, LESSON_WHY, lessonCopy, type CoachCopy } from "./coach";
 import { CoachMark } from "./CoachMark";
 import { useGuide, type CoachStep } from "./guideStore";
 
@@ -68,13 +70,24 @@ export function CoachLayer() {
   const step = useGuide((s) => s.step);
   const watchCallout = useGuide((s) => s.watchCallout);
   const stage = useGame((s) => s.stage);
+  const scenario = useGame((s) => s.scenario);
+  const view = useGame((s) => s.view);
+  const selectedId = useAppStore((s) => s.selectedSquadId);
   const firstBattle = useFirstBattle();
   const active = coach === "active" && firstBattle;
   useCoachTriggers(active);
   if (!active) return null;
 
-  const mark = markFor(step, stage, watchCallout);
-  const copy = COACH_COPY[step];
+  // The one lesson (First Breach: give the Stoneford Riders the Clean Counterstroke card).
+  const found = firstLesson(scenario);
+  const company = found && view.squads.find((squad) => squad.id === found.squadId);
+  const why = found && LESSON_WHY[`${found.squadId}:${found.doctrineId}`];
+  const lesson =
+    found && company && why
+      ? { ...found, onLesson: selectedId === found.squadId, copy: (s: CoachStep) => lessonCopy(s, rosterName(company), doctrineLibrary[found.doctrineId].name, why, selectedId === found.squadId) }
+      : null;
+  const mark = markFor(step, stage, watchCallout, lesson);
+  const copy = lesson && (step === "select" || step === "assign") ? lesson.copy(step) : COACH_COPY[step];
   return (
     <>
       <p className="sr-only" role="status" aria-live="polite">
@@ -85,14 +98,32 @@ export function CoachLayer() {
   );
 }
 
-function markFor(step: CoachStep, stage: string, watchCallout: number | null) {
+interface LessonMark {
+  squadId: string;
+  doctrineId: string;
+  /** The lesson's company is the one selected. */
+  onLesson: boolean;
+  copy: (step: CoachStep) => CoachCopy;
+}
+
+function markFor(step: CoachStep, stage: string, watchCallout: number | null, lesson: LessonMark | null) {
   if (stage === "command") {
+    const tab = (id: string) => find(`.roster .banner-tab.own[role="option"][data-squad="${id}"]`);
     switch (step) {
       case "select":
-        return <CoachMark step="select" target={find('.roster .banner-tab.own[role="option"]')} prefer="right" />;
+        return lesson ? (
+          <CoachMark step="select" target={tab(lesson.squadId)} prefer="right" copy={lesson.copy("select")} />
+        ) : (
+          <CoachMark step="select" target={find('.roster .banner-tab.own[role="option"]')} prefer="right" />
+        );
       case "read":
         return <CoachMark step="read" target={find(".inspector .insp-doctrine .doctrine-card")} prefer="left" />;
       case "assign":
+        // The lesson's card in its company's hand; with another company selected, that company's tab first.
+        if (lesson?.onLesson) {
+          return <CoachMark step="assign" target={find(`.hand [role="option"][data-doctrine="${lesson.doctrineId}"]`)} prefer="above" copy={lesson.copy("assign")} />;
+        }
+        if (lesson) return <CoachMark step="assign" target={tab(lesson.squadId)} prefer="right" copy={lesson.copy("assign")} />;
         return <CoachMark step="assign" target={around(".hand-caption, .hand-cards")} prefer="above" />;
       case "seal":
         return <CoachMark step="seal" target={find(".wax-seal")} prefer="above" />;

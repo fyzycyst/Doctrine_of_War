@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { COACH_COPY } from "./coach";
+import { COACH_COPY, type CoachCopy } from "./coach";
 import { COACH_STEPS, useGuide, type CoachStep } from "./guideStore";
 
 export type Placement = "above" | "below" | "left" | "right";
@@ -60,6 +60,7 @@ export function CoachMark({
   prefer = "above",
   focusNext = false,
   onNext,
+  copy = COACH_COPY[step],
 }: {
   step: CoachStep;
   /** The element to point at, or a rectangle (e.g. the union of a few elements). */
@@ -68,8 +69,9 @@ export function CoachMark({
   /** Move focus to the Next button (for marks the player must answer before going on). */
   focusNext?: boolean;
   onNext?: () => void;
+  /** Words for this mark, when they depend on the battle (the first lesson). */
+  copy?: CoachCopy;
 }) {
-  const copy = COACH_COPY[step];
   const skip = useGuide((s) => s.skip);
   const advance = useGuide((s) => s.advance);
   const panelRef = useRef<HTMLDivElement>(null);
