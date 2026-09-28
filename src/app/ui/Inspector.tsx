@@ -1,6 +1,6 @@
 import { Eye, History, Shield, Sparkles } from "lucide-react";
 import { getHex, hexKey, sameHex, terrainDefenseBonus } from "../../game/board";
-import { sightRangeAt, type VisibleSquad } from "../../game/engine";
+import { sightRangeAt, timeOfDayAt, type VisibleSquad } from "../../game/engine";
 import { deploymentHexes, hexName } from "../game/deploy";
 import { useGame } from "../game/gameStore";
 import { getDoctrine, resolveRank, rosterName } from "../game/view";
@@ -32,6 +32,8 @@ export function Inspector() {
 
   const own = squad.faction === view.viewer;
   const ward = Boolean(squad.noncombatant);
+  // Sight in the hour this phase will resolve in (the engine's state.timeOfDay lags a phase).
+  const sight = squad.hex ? sightRangeAt(scenario, view.weather, squad.hex, timeOfDayAt(scenario, Math.min(view.phase, view.maxPhases))) : 0;
   const boardHex = squad.hex ? getHex(scenario.board, squad.hex) : undefined;
   const doctrine = getDoctrine(own ? (orders[squad.id] ?? squad.doctrineId) : squad.doctrineId);
 
@@ -110,8 +112,8 @@ export function Inspector() {
             <div>
               <dt>Sight</dt>
               <dd>
-                {sightRangeAt(scenario, view.weather, squad.hex, view.timeOfDay)}
-                <span className="unit"> {sightRangeAt(scenario, view.weather, squad.hex, view.timeOfDay) === 1 ? "hex" : "hexes"}</span>
+                {sight}
+                <span className="unit"> {sight === 1 ? "hex" : "hexes"}</span>
               </dd>
             </div>
           </>

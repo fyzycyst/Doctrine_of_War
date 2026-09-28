@@ -40,6 +40,7 @@ const STAGES = [
     ["qa-sm-play2", "scenario=saltmarshColumn&stage=resolving&phase=2&plan=intended&pauseAt=rule-mine"],
     ["qa-hfd-dawn", "scenario=holdForDawn&stage=resolving&phase=4&plan=intended&speed=25&pauseAt=stage"],
     ["qa-capture-play", "scenario=emberFord&stage=resolving&plan=intended&pauseAt=rule-mine&capture=1"],
+    ["qa-reduced-play", "scenario=firstBreach&stage=resolving&plan=intended&pauseAt=rule-mine&motion=reduce"],
   ].map(([name, query]) => ({ name, query, probe: "__playbackFrozen", settleMs: name === "qa-hfd-dawn" ? 4000 : 700 })),
   { name: "qa-sm-command", query: "scenario=saltmarshColumn&stage=command&select=saltmarsh_column" },
   { name: "qa-sm-deploy", query: "scenario=saltmarshColumn&stage=deploy&select=greyford_shields" },

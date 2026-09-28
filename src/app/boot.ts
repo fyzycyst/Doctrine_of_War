@@ -15,6 +15,7 @@ import { campaignAfter } from "./flow/devCampaign";
 import { useFlow } from "./flow/flowStore";
 import { COACH_STEPS, useGuide, type CoachStep } from "./guide/guideStore";
 import { useGame, type Stage } from "./game/gameStore";
+import { useSettings } from "./settingsStore";
 import { useAppStore } from "./store";
 
 export interface BootOptions {
@@ -65,6 +66,10 @@ export function bootFromUrl(search: string): BootOptions {
   if (params.get("howto") === "1") {
     useFlow.getState().setHowToOpen(true);
   }
+
+  // `&motion=reduce|full`: the Settings motion override (reduced-motion QA).
+  const motion = params.get("motion");
+  if (motion === "reduce" || motion === "full") useSettings.getState().set({ motion });
 
   // `&speed=N`: fast-forward playback timers (captures of late moments).
   const speed = Number(params.get("speed"));

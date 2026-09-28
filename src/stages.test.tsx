@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { useGame } from "./app/game/gameStore";
+import { useAppStore } from "./app/store";
 import { holdForDawn, timeOfDayAt } from "./game/engine";
 
 vi.mock("./app/ui/BattleBoard", () => ({ BattleBoard: () => null }));
@@ -61,5 +62,9 @@ describe("Hold for Dawn: the staged goal", () => {
 
     act(() => game().nextPhase());
     expect(screen.getByRole("status", { name: "Goal: Break the Cinderram" })).toBeInTheDocument();
+    // At sunrise the inspector's sight has lost the night penalty.
+    act(() => useAppStore.getState().selectSquad("greyford_shields"));
+    const inspector = screen.getByRole("complementary", { name: "Inspector: Greyford Shields" });
+    expect(within(inspector).getByText("Sight").nextElementSibling).toHaveTextContent(/^2 hexes$/);
   });
 });
