@@ -151,7 +151,7 @@ const LAYERS_LOW = 4;
 const FOG_TOP = 0.85;
 
 export function GroundMist({ island, densityByHex }: { island: IslandBuild; densityByHex?: MistDensityMap }) {
-  const { preset, quality, atmosphere } = useLook();
+  const { preset, quality, atmosphere, motion } = useLook();
   const extent = island.radius + 1.5;
 
   const grid = useMemo(() => new MistGrid(island, extent), [island, extent]);
@@ -265,7 +265,7 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
   useFrame((_, dt) => {
     const u = material.uniforms;
     const m = atmosphere.mix;
-    u.uTime.value += dt;
+    u.uTime.value += dt * motion;
     // Weather layers more (and differently coloured) mist on top of the preset.
     u.uDensity.value = preset.mist.density + m.mistDensityAdd;
     u.uColor.value.copy(tmp.base.set(preset.mist.color).lerp(m.mistColor, Math.min(1, m.mistColorMix)));

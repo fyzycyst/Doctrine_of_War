@@ -235,6 +235,7 @@ function MapCamera({ points, focus, reduced }: { points: THREE.Vector3[]; focus:
 
 /** A dotted march line between islands: gold up to the current battle, grey after. */
 function MarchPath({ points, reached }: { points: THREE.Vector3[]; reached: number }) {
+  const { motion } = useLook();
   const mesh = useRef<THREE.InstancedMesh>(null);
   const dots = useMemo(() => {
     const out: Array<{ p: THREE.Vector3; seg: number; u: number }> = [];
@@ -268,7 +269,7 @@ function MarchPath({ points, reached }: { points: THREE.Vector3[]; reached: numb
     if (!m) return;
     dots.forEach((d, i) => {
       // A slow ripple marches along the traversed road.
-      const pulse = d.seg < reached ? 1 + 0.35 * Math.max(0, Math.sin(clock.elapsedTime * 2.2 - (d.seg + d.u) * 6)) : 1;
+      const pulse = d.seg < reached ? 1 + 0.35 * motion * Math.max(0, Math.sin(clock.elapsedTime * 2.2 - (d.seg + d.u) * 6)) : 1;
       dummy.position.copy(d.p);
       dummy.scale.setScalar(0.07 * pulse);
       dummy.updateMatrix();
@@ -304,7 +305,7 @@ function MiniIsland({
   onHover: (on: boolean) => void;
   onSelect: () => void;
 }) {
-  const { skin } = useLook();
+  const { skin, motion } = useLook();
   const status = battle.status;
   const material = useMemo(() => {
     const m = createIslandMaterial(skin.material);
@@ -320,7 +321,7 @@ function MiniIsland({
     const g = group.current;
     if (!g) return;
     const t = clock.elapsedTime;
-    g.position.set(position.x, position.y + Math.sin(t * 0.4 + bob) * 0.08, position.z);
+    g.position.set(position.x, position.y + Math.sin(t * 0.4 + bob) * 0.08 * motion, position.z);
     const target = hovered && status !== "locked" ? 1.06 : 1;
     const s = THREE.MathUtils.lerp(g.scale.x / scale, target, 0.12) * scale;
     g.scale.setScalar(s);
@@ -395,6 +396,7 @@ function Flag({
   scale: number;
 }) {
   const { skin } = useLook();
+  const { motion } = useLook();
   const texture = useMemo(() => makeBannerTexture(faction, skin.factions[faction]), [faction, skin]);
   const cloth = useMemo(() => makeClothMaterial(texture, 1.3), [texture]);
   useEffect(() => () => {
@@ -402,7 +404,7 @@ function Flag({
     cloth.dispose();
   }, [texture, cloth]);
   useFrame((_, dt) => {
-    cloth.userData.uniforms.uTime.value += dt;
+    cloth.userData.uniforms.uTime.value += dt * (motion < 1 ? 0.3 : 1);
   });
   const s = 3.2 * scale;
   return (
@@ -437,12 +439,13 @@ function getGlowTexture(): THREE.Texture {
 
 /** The next battle glows: warm light, a soft halo beneath the island and lit braziers. */
 function CurrentGlow({ radius }: { radius: number }) {
+  const { motion } = useLook();
   const light = useRef<THREE.PointLight>(null);
   const halo = useRef<THREE.MeshBasicMaterial>(null);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    if (light.current) light.current.intensity = 9 + Math.sin(t * 3.1) * 1.5;
-    if (halo.current) halo.current.opacity = 0.35 + 0.15 * Math.sin(t * 1.6);
+    if (light.current) light.current.intensity = 9 + Math.sin(t * 3.1) * 1.5 * motion;
+    if (halo.current) halo.current.opacity = 0.35 + 0.15 * motion * Math.sin(t * 1.6);
   });
   return (
     <>
@@ -465,10 +468,11 @@ function CurrentGlow({ radius }: { radius: number }) {
 }
 
 function Braziers({ radius, count }: { radius: number; count: number }) {
+  const { motion } = useLook();
   const flame = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color("#ff8a3d").multiplyScalar(6) }), []);
   const group = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
-    group.current?.children.forEach((c, i) => c.scale.set(1, 0.8 + 0.35 * Math.sin(clock.elapsedTime * 9 + i * 2), 1));
+    group.current?.children.forEach((c, i) => c.scale.set(1, 0.95 + motion * (-0.15 + 0.35 * Math.sin(clock.elapsedTime * 9 + i * 2)), 1));
   });
   return (
     <group ref={group}>
@@ -486,6 +490,7 @@ function Braziers({ radius, count }: { radius: number; count: number }) {
 
 /** Locked: soft mist billboards hugging the island. Lost: drifting ash-smoke. */
 function MistVeil({ radius, ash = false }: { radius: number; ash?: boolean }) {
+  const { motion } = useLook();
   const texture = useMemo(() => {
     const c = document.createElement("canvas");
     c.width = c.height = 64;
@@ -509,7 +514,7 @@ function MistVeil({ radius, ash = false }: { radius: number; ash?: boolean }) {
   );
   const group = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
-    if (group.current) group.current.rotation.y = clock.elapsedTime * (ash ? 0.05 : 0.025);
+    if (group.current) group.current.rotation.y = clock.elapsedTime * (ash ? 0.05 : 0.025) * motion;
   });
   return (
     <group ref={group}>

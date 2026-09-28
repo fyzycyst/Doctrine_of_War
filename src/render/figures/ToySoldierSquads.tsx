@@ -58,7 +58,7 @@ function FactionInstances({
   onSquadClick,
   onSquadHover,
 }: { faction: FactionId; placed: PlacedSquad[]; animator: SquadAnimator } & FigurePickHandlers) {
-  const { skin } = useLook();
+  const { skin, motion } = useLook();
   const style = skin.factions[faction];
   const live = useMemo(() => placed.filter((p) => p.squad.faction === faction && !p.squad.lastKnown), [placed, faction]);
   const ghosts = useMemo(() => placed.filter((p) => p.squad.faction === faction && p.squad.lastKnown), [placed, faction]);
@@ -103,7 +103,8 @@ function FactionInstances({
         material={material}
         outline={outlineMaterial}
         animator={animator}
-        amp={skin.figures.bobAmplitude}
+        amp={skin.figures.bobAmplitude * motion}
+        sway={motion}
         castShadow
         onSquadClick={onSquadClick}
         onSquadHover={onSquadHover}
@@ -132,6 +133,7 @@ function InstanceGroup({
   outline,
   animator,
   amp,
+  sway: swayScale = 0,
   ghost = false,
   castShadow = false,
   onSquadClick,
@@ -143,6 +145,8 @@ function InstanceGroup({
   outline: THREE.Material | null;
   animator: SquadAnimator;
   amp: number;
+  /** Idle sway multiplier (0 = none, 1 = full; reduced motion scales it down). */
+  sway?: number;
   ghost?: boolean;
   castShadow?: boolean;
 } & FigurePickHandlers) {
@@ -182,7 +186,7 @@ function InstanceGroup({
           const [ox, oz] = slotToWorld(slot, facing, f?.spread ?? 1);
           const idle = f?.still ? 0 : 1;
           const bob = Math.max(0, Math.sin(t * 2.2 + slot.phase)) * amp * idle;
-          const sway = ghost ? 0 : Math.sin(t * 1.3 + slot.phase) * 0.04 * idle;
+          const sway = Math.sin(t * 1.3 + slot.phase) * 0.04 * idle * swayScale;
           dummy.position.set(ax + ox + (f?.dx ?? 0), ay + bob + (f?.dy ?? 0), az + oz + (f?.dz ?? 0));
           // Yaw first, then lean (about local z) and roll (about local x).
           dummy.rotation.set(f?.roll ?? 0, facing + slot.yaw + (f?.yaw ?? 0) + sway, -(f?.lean ?? 0) + sway * 0.3, "YXZ");

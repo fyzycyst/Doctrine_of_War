@@ -11,7 +11,7 @@ import { NOISE_GLSL } from "../shaders/noise";
  * sea of cloud far below the island so the cliffs appear to hang in the air.
  */
 export function SkyDome() {
-  const { preset, atmosphere } = useLook();
+  const { preset, atmosphere, motion } = useLook();
 
   const sky = useMemo(
     () =>
@@ -97,7 +97,7 @@ export function SkyDome() {
 
   const sunDir = useMemo(() => sunDirection(preset.sun.azimuth, preset.sun.elevation), [preset]);
   useFrame((state, dt) => {
-    clouds.uniforms.uTime.value += dt;
+    clouds.uniforms.uTime.value += dt * motion;
     const m = atmosphere.mix;
     if (m.skyMix > 0.001) applyBackdrop(preset, sunDir, m.skyTint, m.skyMix);
     else applyBackdrop(preset, sunDir);

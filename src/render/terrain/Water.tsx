@@ -13,7 +13,7 @@ import type { IslandBuild } from "./buildIsland";
  * `waterGlow` turns the river into burning oil (the Ember Ford key light).
  */
 export function Water({ island }: { island: IslandBuild }) {
-  const { skin, preset } = useLook();
+  const { skin, preset, motion } = useLook();
 
   const geometry = useMemo(() => {
     if (island.water.length === 0) return null;
@@ -194,8 +194,9 @@ export function Water({ island }: { island: IslandBuild }) {
   }, [material, fall, skin, preset, flow]);
 
   useFrame((_, dt) => {
-    material.uniforms.uTime.value += dt;
-    fall.uniforms.uTime.value += dt;
+    // Reduced motion calms the shimmer and the fall.
+    material.uniforms.uTime.value += dt * motion;
+    fall.uniforms.uTime.value += dt * motion;
   });
 
   const wf = island.waterfall;

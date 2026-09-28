@@ -70,7 +70,7 @@ function seeds(count: number, salt: number) {
 }
 
 function Embers({ count, extent, layer }: { count: number; extent: number; layer?: Layer }) {
-  const { preset } = useLook();
+  const { preset, motion } = useLook();
   const dpr = useThree((state) => state.viewport.dpr);
 
   const geometry = useMemo(() => {
@@ -158,7 +158,7 @@ function Embers({ count, extent, layer }: { count: number; extent: number; layer
 
   const points = useRef<THREE.Points>(null);
   useFrame((_, dt) => {
-    material.uniforms.uTime.value += dt;
+    material.uniforms.uTime.value += dt * motion;
     if (layer) {
       const o = layer.opacity();
       material.uniforms.uOpacity.value = o;
@@ -171,7 +171,7 @@ function Embers({ count, extent, layer }: { count: number; extent: number; layer
 }
 
 function Rain({ count, extent, layer }: { count: number; extent: number; layer?: Layer }) {
-  const { preset } = useLook();
+  const { preset, motion } = useLook();
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -237,7 +237,7 @@ function Rain({ count, extent, layer }: { count: number; extent: number; layer?:
 
   const lines = useRef<THREE.LineSegments>(null);
   useFrame((_, dt) => {
-    material.uniforms.uTime.value += dt;
+    material.uniforms.uTime.value += dt * motion;
     if (layer) {
       const o = layer.opacity();
       material.uniforms.uOpacity.value = o;

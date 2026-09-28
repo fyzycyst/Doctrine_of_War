@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useAppStore, type RenderQuality } from "../../app/store";
 import { AtmosphereRuntime } from "../atmosphere/atmosphereRuntime";
+import { REDUCED_MOTION_SCALE, useReducedMotion } from "../motion";
 import { SURFACE_UNIFORMS } from "../shaders/surface";
 import { emberDusk } from "../skins/emberDusk";
 import type { LightingPreset, Skin, TimeOfDay, WeatherKind } from "../skins/types";
@@ -19,6 +20,10 @@ export interface Look {
   preset: LightingPreset;
   quality: RenderQuality;
   atmosphere: AtmosphereRuntime;
+  /** Reduced motion (OS preference or the app override). */
+  reducedMotion: boolean;
+  /** Multiplier for ambient animation time: 1, or REDUCED_MOTION_SCALE when reduced. */
+  motion: number;
 }
 
 const LookContext = createContext<Look | null>(null);
@@ -36,6 +41,7 @@ export function LookProvider({
   children: ReactNode;
 }) {
   const quality = useAppStore((state) => state.quality);
+  const reducedMotion = useReducedMotion();
   const runtime = useRef<AtmosphereRuntime | null>(null);
   if (!runtime.current) runtime.current = new AtmosphereRuntime(skin.weather, weather);
   const atmosphere = runtime.current;
@@ -44,8 +50,17 @@ export function LookProvider({
   useEffect(() => atmosphere.setWeather(weather), [atmosphere, weather]);
 
   const value = useMemo<Look>(
-    () => ({ skin, timeOfDay, weather, preset: skin.lighting[timeOfDay], quality, atmosphere }),
-    [skin, timeOfDay, weather, quality, atmosphere],
+    () => ({
+      skin,
+      timeOfDay,
+      weather,
+      preset: skin.lighting[timeOfDay],
+      quality,
+      atmosphere,
+      reducedMotion,
+      motion: reducedMotion ? REDUCED_MOTION_SCALE : 1,
+    }),
+    [skin, timeOfDay, weather, quality, atmosphere, reducedMotion],
   );
 
   return <LookContext.Provider value={value}>{children}</LookContext.Provider>;
@@ -64,6 +79,8 @@ export function useLook(): Look {
     preset: emberDusk.lighting.dusk,
     quality: "high",
     atmosphere: fallbackAtmosphere,
+    reducedMotion: false,
+    motion: 1,
   };
 }
 

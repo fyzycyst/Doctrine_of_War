@@ -5,6 +5,7 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { useAppStore } from "../../app/store";
 import { hexKey, type HexCoord } from "../../game/board";
 import { hexToWorld } from "../hexWorld";
+import { useLook } from "../look/LookContext";
 import type { IslandBuild } from "./buildIsland";
 
 /**
@@ -61,8 +62,9 @@ function HexOutline({
   pulse?: boolean;
 }) {
   const mat = useRef<THREE.MeshBasicMaterial>(null);
+  const { reducedMotion } = useLook();
   useFrame(({ clock }) => {
-    if (pulse && mat.current) mat.current.opacity = opacity * (0.7 + 0.3 * Math.sin(clock.elapsedTime * 4));
+    if (pulse && mat.current) mat.current.opacity = opacity * (reducedMotion ? 0.85 : 0.7 + 0.3 * Math.sin(clock.elapsedTime * 4));
   });
   return (
     <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} renderOrder={4}>
@@ -102,7 +104,7 @@ function DeploymentZone({ island, hexes, color }: { island: IslandBuild; hexes: 
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
-        uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(color) } },
+        uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(color) }, uStatic: { value: 0 } },
         vertexShader: /* glsl */ `
           varying vec2 vUv;
           void main() {
@@ -111,21 +113,24 @@ function DeploymentZone({ island, hexes, color }: { island: IslandBuild; hexes: 
           }
         `,
         fragmentShader: /* glsl */ `
-          uniform float uTime;
+          uniform float uTime, uStatic;
           uniform vec3 uColor;
           varying vec2 vUv;
           void main() {
             float r = length(vUv - 0.5) * 2.0;
             float edge = mix(0.35, 1.0, smoothstep(0.55, 0.95, r));
-            float pulse = 0.6 + 0.4 * sin(uTime * 2.2);
+            // Reduced motion: a steady tint instead of a pulse.
+            float pulse = mix(0.6 + 0.4 * sin(uTime * 2.2), 0.8, uStatic);
             gl_FragColor = vec4(uColor * edge * pulse * 0.14, 1.0);
           }
         `,
       }),
     [color],
   );
+  const { reducedMotion: still } = useLook();
   useFrame((_, dt) => {
     material.uniforms.uTime.value += dt;
+    material.uniforms.uStatic.value = still ? 1 : 0;
   });
   if (!geometry) return null;
   return <mesh geometry={geometry} material={material} renderOrder={3} />;

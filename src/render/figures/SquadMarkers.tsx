@@ -57,7 +57,7 @@ function SquadMarker({
   shadow: THREE.Texture;
   phase: number;
 }) {
-  const { skin } = useLook();
+  const { skin, reducedMotion, motion } = useLook();
   const { squad } = placed;
   const style = skin.factions[squad.faction];
   const selected = useAppStore((s) => s.selectedSquadId === squad.id);
@@ -106,7 +106,7 @@ function SquadMarker({
     ringMat.opacity = (ghost ? 0.4 : 0.62) * fade;
     ringBackMat.opacity = ghost ? 0 : 0.12 * fade;
     if (halo.current) {
-      const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+      const pulse = reducedMotion ? 0.6 : 0.5 + 0.5 * Math.sin(t * 4);
       haloMat.opacity = selected ? 0.35 + 0.35 * pulse : hovered ? 0.18 : 0;
       halo.current.scale.setScalar(1 + (selected ? 0.03 * pulse : 0));
     }
@@ -119,9 +119,9 @@ function SquadMarker({
       g.scale.setScalar(Math.max(0.001, bf));
       g.visible = bf > 0.01;
     }
-    cloth.userData.uniforms.uTime.value += dt;
+    cloth.userData.uniforms.uTime.value += dt * (reducedMotion ? 0.3 : 1);
     cloth.emissiveIntensity = 0.22 + (pose?.bannerFlare ?? 0);
-    if (crest.current) crest.current.rotation.y = t * 0.8;
+    if (crest.current) crest.current.rotation.y = t * 0.8 * motion;
   });
 
   const poleHeight = 0.78;

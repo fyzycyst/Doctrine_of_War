@@ -27,3 +27,16 @@ describe("showcase", () => {
     useCaptureStore.getState().setCaptureMode(false);
   });
 });
+
+describe("reduced motion setting", () => {
+  it("resolves the app override against the OS preference and persists", async () => {
+    const { resolveReducedMotion, useMotionStore, MOTION_STORAGE_KEY } = await import("../../app/motionStore");
+    expect(resolveReducedMotion("system", true)).toBe(true);
+    expect(resolveReducedMotion("system", false)).toBe(false);
+    expect(resolveReducedMotion("on", false)).toBe(true);
+    expect(resolveReducedMotion("off", true)).toBe(false);
+    useMotionStore.getState().setReducedMotion("on");
+    expect(JSON.parse(localStorage.getItem(MOTION_STORAGE_KEY) ?? "{}").state).toEqual({ reducedMotion: "on" });
+    useMotionStore.getState().setReducedMotion("system");
+  });
+});

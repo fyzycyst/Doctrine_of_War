@@ -6,7 +6,7 @@ import type { Anchor } from "./buildIsland";
 
 /** A tall hanging banner of the Free Banners over Greyford Gate, gently swaying. */
 export function GateBanner({ anchor }: { anchor: Anchor }) {
-  const { skin } = useLook();
+  const { skin, motion } = useLook();
   const style = skin.factions.free_banners;
   const texture = useMemo(() => {
     const canvas = document.createElement("canvas");
@@ -68,7 +68,7 @@ export function GateBanner({ anchor }: { anchor: Anchor }) {
   }, [texture]);
 
   useFrame((_, dt) => {
-    material.userData.uniforms.uTime.value += dt;
+    material.userData.uniforms.uTime.value += dt * motion;
   });
 
   return (
