@@ -63,6 +63,9 @@ export const firstBreach: EngineScenario = {
     "clean_counterstroke",
     "hold_for_dawn",
   ],
+  // Default orders are the intended plan minus one lesson: the Stoneford Riders start on
+  // Hold for Dawn. Switching them to Clean Counterstroke (the guide's step 3) lets them
+  // pounce on the Ford Reavers when they come on alone, and the line holds.
   squads: [
     {
       id: "greyford_shields",
@@ -84,7 +87,7 @@ export const firstBreach: EngineScenario = {
       strength: 68,
       cohesion: 70,
       resolve: 1,
-      doctrineId: "clean_counterstroke",
+      doctrineId: "shield_the_line",
     },
     {
       id: "mercy_standard",
