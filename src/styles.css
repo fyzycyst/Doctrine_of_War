@@ -3075,3 +3075,32 @@ h3 {
     padding-top: 14px;
   }
 }
+
+/* ------------------------------------------------ doctrine variants (T16) */
+
+.badge-experimental {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  margin-top: 5px;
+  padding: 1px 7px 1px 6px;
+  border: 1px dashed var(--lapis-text);
+  border-radius: 999px;
+  background: rgba(47, 79, 143, 0.28);
+  color: var(--lapis-text);
+  font-family: var(--body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge-experimental.small {
+  margin: 0 0 0 6px;
+  padding: 0 5px;
+  font-size: 10px;
+  vertical-align: 1px;
+}

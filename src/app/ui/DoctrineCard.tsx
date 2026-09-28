@@ -1,6 +1,7 @@
-import { LockKeyhole } from "lucide-react";
+import { FlaskConical, LockKeyhole } from "lucide-react";
 import type { Doctrine } from "../../game/engine";
 import { splitRule } from "../game/view";
+import { isVariantId } from "../variants/variantStore";
 import { Sigil } from "./glyphs";
 
 /** A doctrine as a heraldic order-scroll: name, sigil, flavor and its numbered standing orders. */
@@ -11,6 +12,7 @@ export function DoctrineCardFace({ doctrine, compact = false }: { doctrine: Doct
         <Sigil faction={doctrine.faction} size={compact ? 18 : 22} />
         <span className="card-name">{doctrine.name}</span>
       </span>
+      {isVariantId(doctrine.id) && <ExperimentalBadge />}
       {!compact && <span className="card-flavor">{doctrine.flavor}</span>}
       <ol className="card-rules">
         {doctrine.rules.map((rule) => {
@@ -24,6 +26,15 @@ export function DoctrineCardFace({ doctrine, compact = false }: { doctrine: Doct
         })}
       </ol>
     </>
+  );
+}
+
+/** Every surface that shows a doctrine variant (T16) marks it: custom orders, untested by the author. */
+export function ExperimentalBadge({ small = false }: { small?: boolean }) {
+  return (
+    <span className={`badge-experimental ${small ? "small" : ""}`} title="Your own cut of a doctrine: custom orders">
+      <FlaskConical size={small ? 11 : 12} aria-hidden="true" /> Experimental
+    </span>
   );
 }
 

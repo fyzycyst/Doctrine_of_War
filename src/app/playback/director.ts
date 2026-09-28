@@ -2,10 +2,10 @@
 // animator, advancing the displayed board state as each step lands. Every effect
 // goes through injected hooks, so it runs headless in tests (no animator, fake timers).
 import type { BoardLayout, HexCoord } from "../../game/board";
-import { doctrineLibrary, type EngineEvent, type FactionId, type VisibleSquad, type VisibleState } from "../../game/engine";
+import type { EngineEvent, FactionId, VisibleSquad, VisibleState } from "../../game/engine";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { figureCount } from "../../render/squadLayout";
-import { rosterName } from "../game/view";
+import { getDoctrine, rosterName } from "../game/view";
 
 const rosterNameOr = (squad: { name: string; noncombatant?: boolean } | undefined, fallback: string) => (squad ? rosterName(squad) : fallback);
 import {
@@ -65,7 +65,7 @@ export interface DirectorHooks {
 
 /** Whether a fired rule's action is a hold (brace). */
 function isHold(event: Extract<EngineEvent, { kind: "ruleFired" }>): boolean {
-  return doctrineLibrary[event.doctrineId]?.rules.find((rule) => rule.id === event.ruleId)?.then.kind === "hold";
+  return getDoctrine(event.doctrineId)?.rules.find((rule) => rule.id === event.ruleId)?.then.kind === "hold";
 }
 
 const capitalize = (text: string) => (text ? text[0].toUpperCase() + text.slice(1) : text);
