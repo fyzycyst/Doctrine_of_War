@@ -7,6 +7,7 @@ import { visibleHexes, visibleState } from "./fog";
 import { narrateEvent } from "./report";
 import { createInitialState, isOrderAllowed, resolvePhase } from "./resolvePhase";
 import { firstBreach } from "./scenarios/firstBreach";
+import { saltmarshColumn } from "./scenarios/saltmarshColumn";
 import { scenario, squad } from "./testKit";
 import type { EngineEvent } from "./types";
 
@@ -42,6 +43,16 @@ describe("deployment", () => {
     expect(moved.squads.find((item) => item.id === "greyford_shields")?.hex).toEqual({ q: 2, r: 2 });
     expect(firstBreach).toEqual(pristine);
     expect(() => applyDeployment(firstBreach, { greyford_shields: { q: 4, r: 2 } })).toThrow(/cannot be garrisoned/);
+  });
+
+  it("never moves the Column: the refugees start where they are", () => {
+    const free = deploymentHexes(saltmarshColumn).find(
+      (hex) => !saltmarshColumn.squads.some((squad) => squad.hex.q === hex.q && squad.hex.r === hex.r),
+    )!;
+    expect(checkPlacement(saltmarshColumn, {}, "saltmarsh_column", free)).toEqual({ ok: false, reason: "The Column moves on its own orders." });
+    expect(checkPlacement(saltmarshColumn, {}, "greyford_shields", free)).toEqual({ ok: true });
+    const column = saltmarshColumn.squads.find((squad) => squad.id === "saltmarsh_column")!;
+    expect(checkPlacement(saltmarshColumn, {}, "saltmarsh_column", column.hex)).toEqual({ ok: true });
   });
 });
 

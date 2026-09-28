@@ -85,8 +85,13 @@ export type Action =
   | { kind: "hold" }
   /** Move up to the squad's speed toward the target. Already there = hold. */
   | { kind: "advance"; toward: TargetSelector }
-  /** Strike the target if adjacent (enemy squad or objective hex); otherwise advance toward it. */
-  | { kind: "attack"; target: EnemySelector }
+  /**
+   * Strike the target if adjacent (enemy squad or objective hex); otherwise advance toward it.
+   * `power` shifts the blow's attack (a guarded strike is weaker than a committed one).
+   */
+  | { kind: "attack"; target: EnemySelector; power?: number }
+  /** Siege engines: hurl fire at an enemy objective within `range`; otherwise advance toward it. */
+  | { kind: "bombard"; range: number }
   /** Move away from the nearest enemies. Ignores zones of control. */
   | { kind: "fallBack"; hexes: 1 | 2 }
   /** Restore cohesion to the weakest adjacent ally. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { engagementLosses, executeAction, RALLY_BASE, SIEGE_OBJECTIVE_DAMAGE } from "./actions";
+import { BOMBARD_DAMAGE, BRACE_BITE, engagementLosses, executeAction, RALLY_BASE, SIEGE_OBJECTIVE_DAMAGE } from "./actions";
 import { actionContext, kinds, scenario, squad } from "./testKit";
 import type { Action, ObjectiveSetup } from "./types";
 
@@ -205,5 +205,31 @@ describe("routing", () => {
     executeAction(kit.ctx, kit.get("a"), { kind: "attack", target: nearest });
     executeAction(kit.ctx, kit.get("a"), { kind: "advance", toward: nearest });
     expect(kit.get("a").hex).toEqual({ q: 2, r: 2 });
+  });
+
+  it("bombard hurls fire at the gate from range, and closes in when out of range", () => {
+    const kit = actionContext(
+      scenario({ objectives: [gate], squads: [squad("p", FB, { q: 6, r: 0 }), squad("m", AH, { q: 0, r: 2 }, { role: "siege", strength: 50 })] }),
+    );
+    executeAction(kit.ctx, kit.get("m"), { kind: "bombard", range: 4 });
+    expect(kit.get("m").hex).toEqual({ q: 1, r: 2 });
+    expect(kit.state.objectives[0].integrity).toBe(100);
+    executeAction(kit.ctx, kit.get("m"), { kind: "bombard", range: 4 });
+    expect(kit.events.at(-1)).toMatchObject({ kind: "objectiveDamage", attackerId: "m", newIntegrity: 100 - BOMBARD_DAMAGE / 2 });
+    expect(kit.get("m").hex).toEqual({ q: 1, r: 2 });
+  });
+
+  it("a braced Shield the Line bites: blows on it cost the attacker far more than on a lighter brace", () => {
+    const bout = (doctrineId: string) => {
+      const kit = actionContext(
+        scenario({ squads: [squad("d", FB, { q: 2, r: 2 }, { doctrineId }), squad("a", AH, { q: 3, r: 2 })] }),
+      );
+      kit.get("d").braced = true;
+      return engagementLosses(kit.ctx, kit.get("a"), kit.get("d"), false);
+    };
+    const wall = bout("shield_the_line");
+    const guard = bout("clean_counterstroke");
+    expect(wall.attackerStrength - guard.attackerStrength).toBeGreaterThanOrEqual(2 * BRACE_BITE - 1);
+    expect(wall.attackerCohesion - guard.attackerCohesion).toBeGreaterThanOrEqual(2 * BRACE_BITE - 2);
   });
 });

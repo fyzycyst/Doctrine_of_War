@@ -44,7 +44,7 @@ export const firstBreach: EngineScenario = {
   initiativeSide: "ashen_host",
   maxPhases: 3,
   // Fortune-on seed for the first playthrough and video capture: the gate untouched, no company broken.
-  curatedSeed: 146,
+  curatedSeed: 21,
   board,
   objectives: [
     {
@@ -71,7 +71,7 @@ export const firstBreach: EngineScenario = {
       role: "frontline",
       hex: { q: 3, r: 2 },
       strength: 86,
-      cohesion: 76,
+      cohesion: 68,
       resolve: 2,
       doctrineId: "shield_the_line",
     },
@@ -116,7 +116,7 @@ export const firstBreach: EngineScenario = {
       hex: { q: 1, r: 2 },
       strength: 100,
       cohesion: 72,
-      resolve: 1,
+      resolve: 2,
       doctrineId: "iron_tide",
     },
     {
@@ -127,7 +127,7 @@ export const firstBreach: EngineScenario = {
       hex: { q: 0, r: 2 },
       strength: 93,
       cohesion: 68,
-      resolve: 2,
+      resolve: 3,
       doctrineId: "break_the_gate",
     },
     {
@@ -138,7 +138,7 @@ export const firstBreach: EngineScenario = {
       hex: { q: 2, r: 0 },
       strength: 79,
       cohesion: 62,
-      resolve: 0,
+      resolve: 1,
       doctrineId: "terror_push",
     },
     {
@@ -160,7 +160,7 @@ export const firstBreach: EngineScenario = {
       hex: { q: 1, r: 1 },
       strength: 99,
       cohesion: 60,
-      resolve: -1,
+      resolve: 0,
       doctrineId: "terror_push",
     },
   ],
@@ -197,12 +197,13 @@ export const firstBreach: EngineScenario = {
   winCondition: { kind: "holdObjective", objectiveId: "greyford_gate" },
   forecast: { start: "clear", shiftChance: 0.35, shifts: ["clear", "rain", "mist", "ashWind"] },
   referencePlans: {
-    // The lesson: hold the gate and keep the holders rallied.
+    // The lesson: hold the gate, keep the holders rallied, and let the riders pounce
+    // on whatever comes at the line alone.
     intended: {
       greyford_shields: "shield_the_line",
       mercy_standard: "rescue_standard",
       dawnwatch_archers: "shield_the_line",
-      stoneford_riders: "shield_the_line",
+      stoneford_riders: "clean_counterstroke",
     },
     // Everyone gives ground: the gate is left open.
     bad: {

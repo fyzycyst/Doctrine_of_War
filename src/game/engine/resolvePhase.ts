@@ -246,6 +246,8 @@ export function resolvePhase(
       outcome = evaluateOutcome(state, scenario, true);
     } else {
       state.phase = phase + 1;
+      // The hour turns with the phase, so the next command window sees by the next hour.
+      state.timeOfDay = timeOfDayAt(scenario, state.phase);
     }
   }
   if (outcome) {

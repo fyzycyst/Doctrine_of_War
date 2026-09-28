@@ -22,6 +22,10 @@ export function checkPlacement(scenario: EngineScenario, placements: Placements,
   if (!squad || squad.faction !== scenario.playerFaction) {
     return { ok: false, reason: "Only your own companies can be deployed." };
   }
+  if (squad.noncombatant && !sameHex(hex, squad.hex)) {
+    // The refugees start where they are (a placement on their own start hex is no move).
+    return { ok: false, reason: "The Column moves on its own orders." };
+  }
   const boardHex = getHex(scenario.board, hex);
   if (!boardHex) {
     return { ok: false, reason: "That hex is off the field." };

@@ -149,9 +149,9 @@ describe("end-to-end campaign", () => {
       await fightBattle(user);
       await user.click(screen.getByRole("button", { name: "Return to the campaign map" }));
     }
-    // Seed 1 is a known stalemate for the intended plan in the Saltmarsh (fortune on).
+    // Seed 2 is a known stalemate for the intended plan in the Saltmarsh on this roster (fortune on).
     await user.click(screen.getByRole("button", { name: "Take the field: The Saltmarsh Column" }));
-    act(() => game().loadBattle(game().baseScenario, { seed: 1, fortune: "on" }, "briefing", game().campaign));
+    act(() => game().loadBattle(game().baseScenario, { seed: 2, fortune: "on" }, "briefing", game().campaign));
     expect(await fightBattle(user)).toBe("Stalemate");
     await waitFor(() => expect(useFlow.getState().campaign?.battleIndex).toBe(3));
     await user.click(screen.getByRole("button", { name: "Return to the campaign map" }));

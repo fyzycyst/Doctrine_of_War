@@ -103,7 +103,8 @@ report title is the schedule entry's `intent`.
 | --- | --- |
 | `hold` | Brace: +2 defense and a stronger riposte until the squad's next activation (this carries across a phase boundary). |
 | `advance {toward}` | Move up to speed toward the target. If it is already in position, it braces instead. |
-| `attack {target}` | If adjacent, strike the enemy squad or batter the objective hex. Otherwise advance (no strike this activation). If there is no way to close in, it strikes the nearest adjacent enemy instead ("ram whoever bars the way"). |
+| `attack {target, power?}` | If adjacent, strike the enemy squad or batter the objective hex. Otherwise advance (no strike this activation). If there is no way to close in, it strikes the nearest adjacent enemy instead ("ram whoever bars the way"). `power` shifts the blow's attack (Clean Counterstroke strikes back from guard at −1). |
+| `bombard {range}` | Siege engines: batter an enemy objective within `range` hexes (`strength% × 10`, halved if an enemy is adjacent); otherwise advance toward it. |
 | `counterCharge {target}` | Move up to speed + 1, then strike on arrival. A **clean** charge (target overextended) gets `+2 + passives.counter` (+2 more for cavalry). A **reckless** charge into a supported target gets no bonus, and every neighbour of the target joins the riposte. |
 | `fallBack {hexes}` | Step away from the enemy (maximise nearest-enemy distance, then total distance). Ignores ZOC. If it is cornered, it braces instead. |
 | `rally` | +`12 + passives.cohesion + resolve` cohesion to the weakest adjacent ally (capped at 100). |
@@ -124,6 +125,11 @@ stops after entering a hex adjacent to an enemy.
   cohesion (minimum 2).
 - The attacker takes half a riposte scaled by the defender's strength, its brace and its
   counter.
+- **The braced bite (the wall).** A braced defender also costs the attacker
+  `3 × (passives.defense − 1)` strength and cohesion per blow. Only Shield the Line
+  (defense 3, bite 6) and the Host's holders (Lie in Wait 3, No Step Back 6) bite; Resolve
+  does not scale it (it already hardens the defense; a veteran wall that also bit harder
+  could not be broken).
 - Role modifiers (attack/defense): frontline 0/+1, skirmish −1/−1, support −3/−2,
   cavalry 0/−1, siege 0/−2. A support banner is a poor wall, so "everyone brace" has a
   cost.
@@ -158,11 +164,15 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   `referencePlans {intended, bad}` (used by the balance harness and tutorial hints),
   optional `timeOfDay` (`"nightFires"`: sight −1, but a squad on a ford or beside the
   river is lit and seen from 1 hex further), `timeOfDayByPhase` (per-phase overrides;
-  the current hour is `state.timeOfDay`; the dark hours `nightFires`, `rainGrey` and
+  the current hour is `state.timeOfDay`, which turns with `state.phase`, so the command
+  window for phase N already sees by phase N's hour; the dark hours `nightFires`, `rainGrey` and
   `predawn` cut sight by 1, and `sunrise` does not), and `curatedSeed` (a fortune-on
   seed that
   plays the intended plan to a clean win, used for the first playthrough and for video
-  capture; `scenarios.test.ts` asserts it).
+  capture; `scenarios.test.ts` asserts it: at most one company broken and the objective
+  at 85+, except the finale, whose first play is a near-miss by design). Curated seeds
+  must also win on the campaign's curated-path roster, since the strong roster replays
+  them.
 - `WinCondition` (from the player's side):
   - `holdObjective`: defeat at integrity 0, victory after `maxPhases`.
   - `escapeEdge {edgeHexes, count, mustEscape?}`: a player squad standing on an edge hex
@@ -216,7 +226,8 @@ The library (`doctrines.ts`) holds the Free Banners doctrines *Shield the Line*,
 *Fighting Withdrawal*, *Rescue Standard*, *Clean Counterstroke* and *Hold for Dawn*, and
 the Ashen Host doctrines *Iron Tide*, *Break the Gate*, *No Step Back*, *Cull the Weak*,
 *Terror Push*, *Through the Embers* (cross and cut through blockers toward the exits),
-*Slip the Leash* (outriders: never fight, run for the exits), *Lie in Wait* (hold
+*Slip the Leash* (outriders: never fight, run for the exits), *Hurl Fire* (a mangonel:
+bombard the gate from 4 hexes), *Lie in Wait* (hold
 hidden until the schedule springs the ambush), *Under Wet Hides* (a ram's night
 doctrine: batter the gate, ram whoever is adjacent, else drive on the gate; passives
 defense +6 and cohesion +12, so blows glance off) and *The Nerve Fails* (always fall
@@ -257,29 +268,46 @@ objective integrity, and exits 1 if a guardrail fails:
 
 `balance.test.ts` runs the same check with 60 seeds on every `npm test`. Every
 scenario in `scenarios/index.ts` must pass. The scenarios so far:
-- *The First Breach*: the tutorial, which teaches holding and rallying.
-- *Ember Ford*: battle 1, which teaches Clean Counterstroke against overextension, kept
-  steady by a rally banner. Crossers climb out right beside the two roads, and Host
-  outriders lurk by both roads.
+Each battle has a **star doctrine** even when it uses a mix:
+- *The First Breach*: the tutorial; the star is the wall. Shields hold the gate, the
+  standard rallies them, and the riders (Counterstroke) pounce on whatever comes alone.
+- *Ember Ford*: battle 1; the star is the opportunist. Counterstroke hunts crossers as
+  they climb out alone beside the roads, and a rally banner holds nerve against the
+  Unquenched. Breaking the vanguard is the only win (a timeout is a defeat): a wall
+  bites whoever hits it but never hunts. Host outriders lurk by both roads.
 
 - *The Saltmarsh Column*: battle 2, which teaches Fighting Withdrawal with a Rescue
   Standard escorting the refugee column, while the hunters come out of the mist in
   waves.
-- *Hold for Dawn*: battle 3, the finale (`holdThenBreak`). Shields hold the front line
-  against the Cinderram under its hides, the standards behind them keep them standing,
-  and the counterstroke companies wait for sunrise, when the Host falls back and the ram
-  is exposed. Losing three companies breaks the line.
+- *Hold for Dawn*: battle 3, the finale (`holdThenBreak`): the wall through the night,
+  the opportunist at dawn. Shields hold the front line against the Cinderram under its
+  hides while the Ash Mangonel lobs fire at the gate (it typically ends a win at 40–70),
+  and the standards keep the line standing. The hides burn through in the last hour of
+  dark; at sunrise the Host falls back and the counterstroke companies break the exposed
+  ram. Losing three companies breaks the line.
 
 **Scenario design principle.** Every battle's intended plan uses at least two doctrine
 families in meaningful roles. Its scenario test ablates each family (swapping it for
 another doctrine) and requires each swap to cost at least 15 points of advance rate.
+
+**Doctrine identity matrix** (`identityKit.ts`, `identity.test.ts`). Canonical
+micro-battles against Iron Tide marching on a gate (30 seeds, fortune on) assert that
+every doctrine has a job:
+- against a supported line, Shield the Line holds more ground, loses less and wins the
+  exchange over Clean Counterstroke, and its bite costs attackers far more than any
+  other brace;
+- against a lone crosser, Clean Counterstroke deals far more damage than Shield the Line;
+- on a mixed front (a supported pair and a lone raider), the right mix (Shield facing the
+  pair, Counterstroke facing the raider) beats either doctrine alone, and the wrong mix
+  is worst.
 
 ## UI surface
 
 - **Deployment** (`deployment.ts`):
   - `deploymentHexes(scenario)` lists the player's deployment zone.
   - `checkPlacement` and `validateDeployment(scenario, placements)` return a
-    plain-language reason for each squad whose placement is illegal.
+    plain-language reason for each squad whose placement is illegal. Noncombatants
+    (the Column) cannot be placed: "The Column moves on its own orders."
   - `applyDeployment` returns a copy of the scenario with the placements applied, and
     throws on an illegal one.
 - **Narration** reads names from a `NameSource`, which the player's `VisibleState`

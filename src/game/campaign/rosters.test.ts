@@ -5,6 +5,7 @@ import { firstBreach } from "../engine/scenarios/firstBreach";
 import {
   applyCampaign,
   fameOf,
+  HOST_EASE_RESOLVE_CAP,
   HOST_RESOLVE_CAP,
   HOST_STRENGTH_CAP,
   hostEscalation,
@@ -27,14 +28,17 @@ const company = (resolve: number, renown = false): CampaignCompany => ({
 });
 
 describe("the Host has heard of you", () => {
-  it("scales with fame relative to the authored roster, in small capped steps both ways", () => {
+  it("scales with fame relative to the authored roster, in small capped steps both ways (easing a little faster)", () => {
     expect(fameOf([company(3, true), company(-1)])).toBe(4);
     expect(hostEscalation([company(1)], 1)).toEqual({ fame: 0, strength: 0, resolve: 0 });
     expect(hostEscalation([company(3)], 0)).toEqual({ fame: 3, strength: 6, resolve: 0 });
     expect(hostEscalation([company(3, true)], 0)).toEqual({ fame: 5, strength: 10, resolve: 1 });
     expect(hostEscalation([company(3, true), company(3, true)], 0)).toEqual({ fame: 10, strength: HOST_STRENGTH_CAP, resolve: HOST_RESOLVE_CAP });
-    expect(hostEscalation([company(-2), company(-1)], 1)).toEqual({ fame: -4, strength: -8, resolve: -1 });
-    expect(hostEscalation([company(-3), company(-3), company(-3)], 0)).toEqual({ fame: -9, strength: -HOST_STRENGTH_CAP, resolve: -HOST_RESOLVE_CAP });
+    // The catch-up handicap: below the authored roster, Host Resolve eases one point per 2 fame.
+    expect(hostEscalation([company(-1)], 0)).toEqual({ fame: -1, strength: -2, resolve: 0 });
+    expect(hostEscalation([company(-2)], 0)).toEqual({ fame: -2, strength: -4, resolve: -1 });
+    expect(hostEscalation([company(-2), company(-1)], 1)).toEqual({ fame: -4, strength: -8, resolve: -2 });
+    expect(hostEscalation([company(-3), company(-3), company(-3)], 0)).toEqual({ fame: -9, strength: -HOST_STRENGTH_CAP, resolve: -HOST_EASE_RESOLVE_CAP });
   });
 
   it("leaves the tutorial untouched: its founding companies are the authored roster", () => {
