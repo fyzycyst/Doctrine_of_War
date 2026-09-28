@@ -1,5 +1,6 @@
 {
   "name": "doctrine-of-war-ash-and-banner",
+  "productName": "Doctrine of War",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -45,33 +46,5 @@
     "vite-plugin-electron": "^1.1.2",
     "vite-plugin-electron-renderer": "^0.14.7",
     "vitest": "^3.0.0"
-  },
-  "build": {
-    "appId": "com.modeleer.doctrine-of-war",
-    "productName": "Doctrine of War",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*",
-      "package.json",
-      "!node_modules/**/*"
-    ],
-    "asar": true,
-    "mac": {
-      "category": "public.app-category.games",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": ["arm64", "x64"]
-        },
-        {
-          "target": "dir",
-          "arch": ["arm64"]
-        }
-      ],
-      "identity": null
-    }
   }
 }
