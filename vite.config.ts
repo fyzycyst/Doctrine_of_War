@@ -61,6 +61,27 @@ export default defineConfig({
         ]
       : []),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Vendor split: stable libraries get their own long-cached chunks and
+        // download in parallel with the app code (all same-origin, so the CSP's
+        // script-src 'self' is unchanged).
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          // Split only along acyclic lines: three (+ three-stdlib) import nothing from
+          // React, and pmndrs postprocessing imports only three. Everything React-based
+          // (react, react-dom, R3F, drei, zustand…) stays together; splitting it
+          // creates circular chunks that break React's module init order.
+          if (/node_modules\/(three|three-stdlib)\//.test(id)) return "vendor-three";
+          if (/node_modules\/postprocessing\//.test(id)) return "vendor-postfx";
+          return "vendor-react";
+        },
+      },
+    },
+    // three.js alone is ~700 kB minified and cannot be split further; the rest is well under.
+    chunkSizeWarningLimit: 800,
+  },
   test: {
     environment: "jsdom",
     globals: true,
