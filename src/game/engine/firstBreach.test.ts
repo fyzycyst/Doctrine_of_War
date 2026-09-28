@@ -60,6 +60,34 @@ describe("The First Breach (v2)", () => {
     expect(gate).toBeGreaterThan(0);
   });
 
+  it("teaches Hold + Rally: dropping Rescue Standard has a measurable cost", () => {
+    const withoutRally: Orders = { ...intendedPlan, mercy_standard: "shield_the_line" };
+    const rallied = playBattle(intendedPlan);
+    const unrallied = playBattle(withoutRally);
+    // Deterministic (fortune off): the rallied line holds; the unrallied line breaks.
+    expect(rallied.state.status).toBe("victory");
+    expect(unrallied.state.status).toBe("defeat");
+    expect(unrallied.gate).toBeLessThan(rallied.gate);
+    expect(unrallied.state.squads.find((item) => item.id === "greyford_shields")?.status).not.toBe("active");
+
+    // With fortune on it is forgiving but clearly worse: ~20+ points fewer wins over 60 seeds.
+    const winRate = (orders: Orders) => {
+      let wins = 0;
+      for (let seed = 1; seed <= 60; seed += 1) {
+        let state = createInitialState(firstBreach, { seed, fortune: "on" });
+        while (state.status === "command") {
+          state = resolvePhase(state, orders, firstBreach).state;
+        }
+        wins += state.status === "victory" ? 1 : 0;
+      }
+      return wins / 60;
+    };
+    const ralliedRate = winRate(intendedPlan);
+    const unralliedRate = winRate(withoutRally);
+    expect(unralliedRate).toBeGreaterThan(0.2);
+    expect(ralliedRate - unralliedRate).toBeGreaterThanOrEqual(0.2);
+  });
+
   it("loses the gate when every company uses Fighting Withdrawal", () => {
     const { state, gate, events } = playBattle(everyone("fighting_withdrawal"));
     expect(state.status).toBe("defeat");
