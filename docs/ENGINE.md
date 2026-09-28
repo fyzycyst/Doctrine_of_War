@@ -40,7 +40,9 @@ resolvePhase(state, orders, scenario, { doctrines? }) → { state, events, repor
   - a move's `path` is clipped to the hexes the side saw. `from` or `to` is null when
     the start or end was not seen (render it as the squad emerging from, or vanishing
     into, the fog);
-  - actor ids the side could not see are null;
+  - actor ids the side could not see are null. For example, `objectiveDamage.attackerId`
+    is null when the defender could not see who struck, and the report reads
+    "Greyford Gate took 12 damage from an unseen company";
   - `visibleTo` is reduced to the viewer, and the raw-only `redactions` field is
     removed.
 

@@ -44,7 +44,9 @@ export function narrateEvent(event: EngineEvent, state: EngineState): string | n
     case "exit":
       return `${name(event.squadId)} escaped the field.`;
     case "objectiveDamage":
-      return `${name(event.attackerId)} battered ${objectiveName(event.objectiveId)} (${event.oldIntegrity} → ${event.newIntegrity}).`;
+      return event.attackerId === null
+        ? `${objectiveName(event.objectiveId)} took ${event.oldIntegrity - event.newIntegrity} damage from an unseen company (${event.oldIntegrity} → ${event.newIntegrity}).`
+        : `${name(event.attackerId)} battered ${objectiveName(event.objectiveId)} (${event.oldIntegrity} → ${event.newIntegrity}).`;
     case "outcome":
       return `${event.status === "victory" ? "Victory" : event.status === "stalemate" ? "Stalemate" : "Defeat"}: ${event.reason}`;
     case "fortune":

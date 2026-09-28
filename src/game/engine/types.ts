@@ -300,7 +300,11 @@ interface EventBase {
 export interface Redaction {
   /** For a move: which path hexes (same order as `path`) the faction could see. */
   pathSeen?: boolean[];
+  /** Actor ids the faction could not see; eventsFor() sets them to null. */
+  hidden?: RedactedActor[];
 }
+
+export type RedactedActor = "attackerId";
 
 export type EngineEvent =
   | (EventBase & {
@@ -345,7 +349,8 @@ export type EngineEvent =
   | (EventBase & {
       kind: "objectiveDamage";
       objectiveId: string;
-      attackerId: string;
+      /** null in a projection that did not see who struck. */
+      attackerId: string | null;
       hex: HexCoord;
       oldIntegrity: number;
       newIntegrity: number;

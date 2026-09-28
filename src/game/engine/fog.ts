@@ -5,7 +5,7 @@
 // Everything here is inert when state.fortune is "off".
 import { boardNeighbors, getHex, hexDistance, type HexCoord } from "../board";
 import { checkRout, fortuneOn, type EngineContext, type EventBody, type RuleContext } from "./context";
-import type { EngineEvent, EngineSquad, EngineState, FactionId, Redaction, SquadStatus } from "./types";
+import type { EngineEvent, EngineSquad, EngineState, FactionId, Redaction, RedactedActor, SquadStatus } from "./types";
 import { isActive, type ActiveSquad } from "./world";
 
 export const BASE_SIGHT = 2;
@@ -219,8 +219,9 @@ export function witnessEvent(
   if (!fortuneOn(ctx)) {
     return { visibleTo: everyone };
   }
-  const factionOf = (squadId: string) => ctx.state.squads.find((squad) => squad.id === squadId)?.faction;
-  const hexOf = (squadId: string) => ctx.state.squads.find((squad) => squad.id === squadId)?.hex ?? null;
+  // Raw events always carry actor ids; they only become null in projections.
+  const factionOf = (squadId: string | null) => ctx.state.squads.find((squad) => squad.id === squadId)?.faction;
+  const hexOf = (squadId: string | null) => ctx.state.squads.find((squad) => squad.id === squadId)?.hex ?? null;
   const witnessed = (owners: (FactionId | undefined)[], hexes: (HexCoord | null)[]) =>
     everyone.filter(
       (faction) => owners.includes(faction) || hexes.some((hex) => hex !== null && factionSees(ctx, faction, hex)),
@@ -264,7 +265,21 @@ export function witnessEvent(
   }
 
   const redactions: Partial<Record<FactionId, Redaction>> = {};
+  const actorSeen = (faction: FactionId, squadId: string | null) => {
+    if (squadId === null || factionOf(squadId) === faction) {
+      return true;
+    }
+    const hex = hexOf(squadId);
+    return hex !== null && factionSees(ctx, faction, hex);
+  };
+  const hide = (faction: FactionId, actor: RedactedActor) => {
+    const current = redactions[faction] ?? {};
+    redactions[faction] = { ...current, hidden: [...(current.hidden ?? []), actor] };
+  };
   for (const faction of visibleTo) {
+    if (event.kind === "objectiveDamage" && !actorSeen(faction, event.attackerId)) {
+      hide(faction, "attackerId");
+    }
     if (event.kind === "move" && factionOf(event.squadId) !== faction) {
       const pathSeen = event.path.map((hex) => factionSees(ctx, faction, hex));
       if (pathSeen.some((seen) => !seen)) {
@@ -280,6 +295,11 @@ export function projectEvent(event: EngineEvent, faction: FactionId): EngineEven
   const { redactions, visibleTo: _all, ...rest } = structuredClone(event);
   const projected = { ...rest, visibleTo: [faction] } as EngineEvent;
   const redaction = redactions?.[faction];
+  for (const actor of redaction?.hidden ?? []) {
+    if (actor === "attackerId" && projected.kind === "objectiveDamage") {
+      projected.attackerId = null;
+    }
+  }
   if (redaction?.pathSeen && projected.kind === "move") {
     const seen = redaction.pathSeen;
     projected.from = seen[0] ? projected.from : null;

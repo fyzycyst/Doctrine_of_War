@@ -192,6 +192,27 @@ describe("event projection", () => {
   });
 });
 
+describe("unseen attackers", () => {
+  it("tells the defender its objective was hit, but not by whom, when the attacker is out of sight", () => {
+    const scen = scenario({
+      objectives: [{ id: "gate", name: "Gate", description: "", hex: { q: 5, r: 2 }, integrity: 100, defender: FB }],
+      winCondition: { kind: "holdObjective", objectiveId: "gate" },
+      squads: [squad("far", FB, { q: 0, r: 4 }), squad("ram", AH, { q: 4, r: 2 }, { role: "siege", doctrineId: "break_the_gate" })],
+      maxPhases: 2,
+    });
+    const { events, report } = resolvePhase(createInitialState(scen, on), {}, scen, { doctrines: library() });
+    const raw = events.find((event) => event.kind === "objectiveDamage");
+    expect(raw).toMatchObject({ attackerId: "ram", visibleTo: [FB, AH] });
+    const seen = eventsFor(events, FB).filter((event) => event.kind === "objectiveDamage");
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((event) => event.kind === "objectiveDamage" && event.attackerId === null)).toBe(true);
+    expect(eventsFor(events, AH).find((event) => event.kind === "objectiveDamage")).toMatchObject({ attackerId: "ram" });
+    const text = report.lines.join("\n");
+    expect(text).toMatch(/Gate took \d+ damage from an unseen company/);
+    expect(text).not.toMatch(/\bram\b/);
+  });
+});
+
 describe("visibleState", () => {
   const field = scenario({
     squads: [
