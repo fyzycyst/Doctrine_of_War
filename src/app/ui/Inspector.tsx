@@ -163,7 +163,7 @@ function DeployChoices({ squad }: { squad: VisibleSquad }) {
                 onClick={() => placeSquad(squad.id, hex)}
               >
                 <span>{hexName(scenario, hex)}</span>
-                {holder && !here && <span className="holder">{holder.name}</span>}
+                {holder && !here && <span className="holder">{rosterName(holder)}</span>}
                 {here && <span className="holder">here</span>}
               </button>
             </li>
