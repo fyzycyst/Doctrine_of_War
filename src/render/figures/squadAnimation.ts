@@ -81,6 +81,12 @@ export interface SquadAnimationApi {
   rout(squadId: string, opts?: RoutOptions): Promise<void>;
   rally(squadId: string): Promise<void>;
   brace(squadId: string, opts?: BraceOptions): Promise<void>;
+  /**
+   * Fog of war: a newly sighted squad resolves out of the mist: figures rise
+   * and dither in front rank first, the banner unfurls, the ring draws on.
+   * The Diorama calls this itself when `visibility` reveals a squad.
+   */
+  reveal(squadId: string, opts?: { duration?: number }): Promise<void>;
   /** Clears all persistent animation state (one squad, or all). */
   reset(squadId?: string): void;
 }
@@ -429,6 +435,32 @@ export class SquadAnimator implements SquadAnimationApi {
         f.lean = -0.1 * k;
         f.dy -= 0.004 * k;
         f.still = f.still || k > 0.01;
+      });
+    });
+  }
+
+  reveal(squadId: string, opts: { duration?: number } = {}): Promise<void> {
+    if (!this.scene.squad(squadId)) return Promise.resolve();
+    const st = this.state(squadId);
+    st.routed = false;
+    const rand = mulberry32(hashId(squadId) + 83);
+    // Front rank (low survival index ≈ random here) first, with jitter.
+    const delay = Array.from({ length: MAX_FIGURES }, (_, i) => i * 0.06 + rand() * 0.18);
+    const duration = opts.duration ?? 1.5;
+    return this.add(squadId, duration, (_u, t, s) => {
+      s.pose.ringFade = clamp01((t - 0.2) / 0.6);
+      s.pose.ringFlash = Math.max(s.pose.ringFlash, 1.2 * Math.sin(Math.PI * clamp01((t - 0.2) / 0.9)));
+      const bt = clamp01((t - 0.35) / 0.7);
+      s.pose.bannerFade = easeOutCubic(bt);
+      s.pose.bannerLift = 0.08 * Math.sin(Math.PI * bt);
+      s.pose.bannerFlare = 0.8 * Math.sin(Math.PI * bt);
+      s.figures.forEach((f, i) => {
+        const v = clamp01((t - delay[i]) / 0.75);
+        const e = easeOutCubic(v);
+        f.fade = Math.min(f.fade, v);
+        f.dy += -0.09 * (1 - e);
+        f.scaleY *= 0.7 + 0.3 * e;
+        f.still = v < 1;
       });
     });
   }

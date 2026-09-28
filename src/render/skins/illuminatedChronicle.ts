@@ -1,4 +1,4 @@
-import { emberDusk } from "./emberDusk";
+import { EMBER_DUSK_WEATHER, emberDusk } from "./emberDusk";
 import type { LightingPreset, Skin, TimeOfDay } from "./types";
 
 /**
@@ -112,4 +112,5 @@ export const illuminatedChronicle: Skin = {
   },
   figures: { ...emberDusk.figures, rimStrength: 0.15 },
   lighting,
+  weather: EMBER_DUSK_WEATHER,
 };

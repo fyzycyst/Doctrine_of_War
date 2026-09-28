@@ -1,5 +1,5 @@
 import type { HexCoord } from "../../game/board";
-import type { FactionId } from "../../game/types";
+import type { FactionId } from "../../game/engine/types";
 import { hexKey } from "../../game/board";
 import { hexToWorld } from "../hexWorld";
 import { figureCount, formationOrder, type FigureSlot } from "../squadLayout";
@@ -16,6 +16,11 @@ export interface DioramaSquad {
   facing: number;
   /** Renowned squads (Resolve +3) carry a gold crest above their banner. */
   renowned?: boolean;
+  /**
+   * Fog of war: an enemy shown where it was last seen. Drawn as a dark,
+   * translucent silhouette with no banner colour and a dashed ring.
+   */
+  lastKnown?: boolean;
 }
 
 export type FigureApproach = "toy" | "kaykit";

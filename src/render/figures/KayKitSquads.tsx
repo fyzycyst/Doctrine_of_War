@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
-import type { FactionId } from "../../game/types";
+import type { FactionId } from "../../game/engine/types";
 import { useLook } from "../look/LookContext";
 import { addRimLight } from "../materials";
 import type { PlacedFigure, PlacedSquad } from "./types";

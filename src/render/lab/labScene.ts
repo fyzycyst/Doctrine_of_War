@@ -1,7 +1,8 @@
 import { hexDistance, hexKey, hexNeighbors, type BoardLayout, type HexCoord } from "../../game/board";
 import { emberFord } from "../../game/engine/scenarios/emberFord";
 import { firstBreach } from "../../game/engine/scenarios/firstBreach";
-import { readabilityScenario } from "../../game/readabilityScenario";
+import { stressScenario } from "./stressScenario";
+import type { DioramaVisibility } from "../Diorama";
 import type { DioramaSquad } from "../figures/types";
 import { dioramaSquads, lightingFor } from "../fromEngine";
 import { boardCenter, hexToWorld } from "../hexWorld";
@@ -10,7 +11,7 @@ import type { TimeOfDay } from "../skins/types";
 /**
  * Lab scenes, mapped from the engine's scenario format (what the real game will
  * feed the Diorama) through `fromEngine`: First Breach, Ember Ford, and the
- * legacy 14-squad readability fixture. First Breach shows one depleted Host
+ * 14-squad readability/performance fixture (stressScenario.ts). First Breach shows one depleted Host
  * squad and one renowned Banner squad.
  */
 export interface LabScene {
@@ -18,7 +19,6 @@ export interface LabScene {
   squads: DioramaSquad[];
   timeOfDay: TimeOfDay;
   deployment: HexCoord[];
-  fogDemo: Record<string, number>;
   /** Objective hex centre in world space, for the close shot. */
   focus: [number, number, number];
 }
@@ -41,9 +41,6 @@ function toScene(
     squads: squads.map((s) => ({ ...s, ...overrides[s.id] })),
     timeOfDay,
     deployment: board.hexes.filter((h) => h.deploymentFaction === "free_banners").map((h) => h.coord),
-    fogDemo: Object.fromEntries(
-      board.hexes.filter((h) => h.deploymentFaction === "ashen_host").map((h) => [hexKey(h.coord), 3]),
-    ),
     focus: [fx, 0.4, fz],
   };
 }
@@ -51,11 +48,7 @@ function toScene(
 export const LAB_SCENES = {
   firstBreach: toScene(firstBreach.board, dioramaSquads(firstBreach.squads), lightingFor(firstBreach.timeOfDay), OVERRIDES),
   emberFord: toScene(emberFord.board, dioramaSquads(emberFord.squads), lightingFor(emberFord.timeOfDay)),
-  stress: toScene(
-    readabilityScenario.board!,
-    dioramaSquads(readabilityScenario.squads.filter((s) => s.hex).map((s) => ({ ...s, hex: s.hex! }))),
-    "dusk",
-  ),
+  stress: toScene(stressScenario.board, dioramaSquads(stressScenario.squads), "dusk"),
 } as const;
 
 export type LabSceneId = keyof typeof LAB_SCENES;
@@ -75,4 +68,26 @@ export function stepToward(from: HexCoord, facing: number, board: BoardLayout, o
     })
     .sort((a, b) => b.score - a.score);
   return options[0]?.n ?? null;
+}
+
+/**
+ * Lab fog-of-war demo from the Banners' point of view: they see `sight` hexes
+ * around their squads. Unseen Host squads are either last-known silhouettes
+ * (every other one, as if glimpsed earlier) or not drawn at all. The real game
+ * derives the same shape from the engine's `visibleState`.
+ */
+export function fogOfWar(scene: LabScene, sight: number): { squads: DioramaSquad[]; visibility: DioramaVisibility } {
+  const banners = scene.squads.filter((s) => s.faction === "free_banners");
+  const visibleHexes = scene.board.hexes
+    .map((h) => h.coord)
+    .filter((c) => banners.some((b) => hexDistance(b.hex, c) <= sight));
+  const seen = new Set(visibleHexes.map(hexKey));
+  const squads: DioramaSquad[] = [];
+  const lastKnown: DioramaVisibility["lastKnown"] = [];
+  let unseen = 0;
+  scene.squads.forEach((s) => {
+    if (s.faction === "free_banners" || seen.has(hexKey(s.hex))) squads.push(s);
+    else if (unseen++ % 2 === 0) lastKnown.push({ squadId: s.id, hex: s.hex, faction: s.faction, strength: s.strength, cohesion: s.cohesion });
+  });
+  return { squads, visibility: { visibleHexes, lastKnown } };
 }

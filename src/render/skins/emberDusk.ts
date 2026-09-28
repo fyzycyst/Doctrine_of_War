@@ -1,4 +1,4 @@
-import type { GradingParams, LightingPreset, Skin, TimeOfDay } from "./types";
+import type { GradingParams, LightingPreset, Skin, TimeOfDay, WeatherKind, WeatherPreset } from "./types";
 
 /**
  * Ember Dusk (mood board A) with Grey Dawn's ground mist (board B).
@@ -60,16 +60,16 @@ const lighting: Record<TimeOfDay, LightingPreset> = {
     id: "nightFires",
     label: "Night Fires",
     sky: { zenith: "#06070e", mid: "#131328", horizon: "#4a2018", below: "#0b0a12" },
-    sun: { color: "#8aa0d8", intensity: 1.5, azimuth: 150, elevation: 42 },
-    fill: { color: "#ff6a2a", intensity: 1.6, azimuth: 185, elevation: 10 },
-    hemisphere: { sky: "#3a4470", ground: "#241410", intensity: 0.75 },
+    sun: { color: "#9ab0e0", intensity: 2.1, azimuth: 150, elevation: 42 },
+    fill: { color: "#ff7a3a", intensity: 1.9, azimuth: 185, elevation: 14 },
+    hemisphere: { sky: "#5a6898", ground: "#3a2418", intensity: 1.25 },
     fog: { color: "#140f1a", near: 22, far: 55 },
     mist: { color: "#5a3a40", density: 0.45, height: 0.5, speed: 0.07 },
     particles: { kind: "embers", rate: 1.3, color: "#ff6a22", speed: 0.8, size: 1 },
     fires: { color: "#ff7a2e", intensity: 7 },
     waterGlow: 0.6,
     cliffFade: "#0e0b14",
-    exposure: 1.4,
+    exposure: 1.55,
     toneMapping: "aces",
     grading: {
       ...baseGrading,
@@ -156,6 +156,50 @@ const lighting: Record<TimeOfDay, LightingPreset> = {
   },
 };
 
+/** Weather overlays (engine: clear | rain | mist | ashWind), layered on any time of day. */
+export const EMBER_DUSK_WEATHER: Record<WeatherKind, WeatherPreset> = {
+  clear: {
+    id: "clear",
+    label: "Clear",
+    mist: { densityAdd: 0, color: "#ffffff", colorMix: 0, heightAdd: 0 },
+    particles: { kind: "rain", rate: 0, color: "#c8d4e0", speed: 7 },
+    wetness: 0,
+    light: { sunScale: 1, ambientScale: 1, fogScale: 1, exposureScale: 1 },
+    sky: { tint: "#000000", mix: 0 },
+    grading: { saturation: 0, contrast: 0, tint: "#ffffff", tintMix: 0 },
+  },
+  rain: {
+    id: "rain",
+    label: "Rain",
+    mist: { densityAdd: 0.1, color: "#9aa2ac", colorMix: 0.5, heightAdd: 0.05 },
+    particles: { kind: "rain", rate: 2.6, color: "#c8d4e0", speed: 7.5 },
+    wetness: 1,
+    light: { sunScale: 0.45, ambientScale: 1.1, fogScale: 0.8, exposureScale: 1.05 },
+    sky: { tint: "#4a5058", mix: 0.55 },
+    grading: { saturation: -0.22, contrast: 0.04, tint: "#c8d4e0", tintMix: 0.25 },
+  },
+  mist: {
+    id: "mist",
+    label: "Mist",
+    mist: { densityAdd: 0.9, color: "#c0bcc4", colorMix: 0.5, heightAdd: 0.3 },
+    particles: { kind: "rain", rate: 0, color: "#c8d4e0", speed: 7 },
+    wetness: 0.25,
+    light: { sunScale: 0.6, ambientScale: 1.15, fogScale: 0.55, exposureScale: 1.05 },
+    sky: { tint: "#8a8490", mix: 0.35 },
+    grading: { saturation: -0.14, contrast: -0.06, tint: "#e0dce4", tintMix: 0.2 },
+  },
+  ashWind: {
+    id: "ashWind",
+    label: "Ash-wind",
+    mist: { densityAdd: 0.15, color: "#8a7060", colorMix: 0.55, heightAdd: 0.1 },
+    particles: { kind: "ash", rate: 2.2, color: "#cfc4b8", speed: 2.6 },
+    wetness: 0,
+    light: { sunScale: 0.7, ambientScale: 0.95, fogScale: 0.7, exposureScale: 0.98 },
+    sky: { tint: "#6a4a34", mix: 0.45 },
+    grading: { saturation: -0.08, contrast: 0.08, tint: "#e0a060", tintMix: 0.35 },
+  },
+};
+
 export const emberDusk: Skin = {
   id: "emberDusk",
   label: "Ember Dusk",
@@ -223,4 +267,5 @@ export const emberDusk: Skin = {
     maxFigures: 9,
   },
   lighting,
+  weather: EMBER_DUSK_WEATHER,
 };

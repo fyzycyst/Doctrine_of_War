@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { BACKDROP_GLSL, BACKDROP_UNIFORMS } from "./shaders/backdrop";
+import { FOG_UNIFORMS, SURFACE_UNIFORMS } from "./shaders/surface";
 import type { MaterialStyle } from "./skins/types";
 
 /**
@@ -29,21 +30,33 @@ export function createIslandMaterial(style: MaterialStyle): THREE.Material & { u
       : new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: style.roughness, metalness: 0 });
 
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, fade, BACKDROP_UNIFORMS);
+    Object.assign(shader.uniforms, fade, BACKDROP_UNIFORMS, FOG_UNIFORMS, SURFACE_UNIFORMS);
     shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nvarying float vWorldY;")
+      .replace("#include <common>", "#include <common>\nvarying float vWorldY;\nvarying vec2 vWorldXZ;")
       .replace(
         "#include <worldpos_vertex>",
-        "#include <worldpos_vertex>\nvWorldY = (modelMatrix * vec4(transformed, 1.0)).y;",
+        "#include <worldpos_vertex>\nvec4 wp = modelMatrix * vec4(transformed, 1.0);\nvWorldY = wp.y;\nvWorldXZ = wp.xz;",
       );
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",
-        `#include <common>\nvarying float vWorldY;\nuniform vec3 uFadeColor;\nuniform float uFadeTop;\nuniform float uFadeBottom;\n${BACKDROP_GLSL}`,
+        `#include <common>\nvarying float vWorldY;\nvarying vec2 vWorldXZ;\nuniform vec3 uFadeColor;\nuniform float uFadeTop;\nuniform float uFadeBottom;\nuniform sampler2D uFogGrid;\nuniform float uFogExtent;\nuniform float uFogStrength;\nuniform float uWet;\n${BACKDROP_GLSL}`,
+      )
+      // Weather: wet ground is darker (and glossier, below).
+      .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb *= 1.0 - 0.3 * uWet * step(-0.2, vWorldY);")
+      .replace(
+        "#include <roughnessmap_fragment>",
+        "#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.3, 0.75 * uWet * step(-0.2, vWorldY));",
       )
       .replace(
         "#include <opaque_fragment>",
-        `float depthFade = smoothstep(uFadeTop, uFadeBottom, vWorldY);
+        `// Fog of war: terrain under unseen hexes is desaturated and dimmed.
+if (uFogStrength > 0.0) {
+  float fogv = texture2D(uFogGrid, vWorldXZ / (uFogExtent * 2.0) + 0.5).b;
+  vec3 grey = vec3(dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722)));
+  outgoingLight = mix(outgoingLight, grey * 0.72, fogv * 0.6);
+}
+float depthFade = smoothstep(uFadeTop, uFadeBottom, vWorldY);
 // Dissolve into the backdrop pixel behind us (lightly tinted by the skin).
 vec3 fadeTarget = mix(backdropColor(gl_FragCoord.xy), uFadeColor, 0.15);
 outgoingLight = mix(outgoingLight, fadeTarget, depthFade * depthFade * (3.0 - 2.0 * depthFade));
@@ -118,6 +131,8 @@ export function createFigureMaterial(opts: {
   rimStrength: number;
   glintColor: string;
   cacheKey: string;
+  /** Last-known silhouette: near-black, no glints, cool rim. */
+  ghost?: boolean;
 }): THREE.Material {
   const material =
     opts.shading === "toon"
@@ -126,8 +141,12 @@ export function createFigureMaterial(opts: {
   const uniforms = {
     uRimColor: { value: new THREE.Color(opts.rimColor) },
     uRimStrength: { value: opts.rimStrength },
-    uGlint: { value: new THREE.Color(opts.glintColor).multiplyScalar(2) },
+    uGlint: { value: new THREE.Color(opts.glintColor).multiplyScalar(opts.ghost ? 0 : 2) },
   };
+  if (opts.ghost) {
+    uniforms.uRimColor.value.set("#8a94a8");
+    uniforms.uRimStrength.value = 0.35;
+  }
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
@@ -162,6 +181,12 @@ varying float vGlow;
 varying float vFade;`,
       )
       .replace(
+        "#include <color_fragment>",
+        opts.ghost
+          ? "#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.025, 0.03), 0.9);"
+          : "#include <color_fragment>",
+      )
+      .replace(
         "#include <clipping_planes_fragment>",
         `#include <clipping_planes_fragment>
 if (vFade < 0.999) {
@@ -180,7 +205,7 @@ if (vFade < 0.999) {
 #include <opaque_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => `figure-${opts.cacheKey}`;
+  material.customProgramCacheKey = () => `figure-${opts.cacheKey}${opts.ghost ? "-ghost" : ""}`;
   material.userData.figure = uniforms;
   return material;
 }

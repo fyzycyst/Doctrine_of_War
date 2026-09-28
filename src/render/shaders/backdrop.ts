@@ -35,11 +35,20 @@ vec3 backdropColor(vec2 fragCoord) {
 }
 `;
 
-export function applyBackdrop(preset: LightingPreset, sunDir: THREE.Vector3) {
+/** Set the backdrop from a preset, optionally pulled toward a weather tint. */
+export function applyBackdrop(preset: LightingPreset, sunDir: THREE.Vector3, tint?: THREE.Color, tintMix = 0) {
   const u = BACKDROP_UNIFORMS;
+  const k = Math.min(1, tintMix);
   u.uBgZenith.value.set(preset.sky.zenith);
   u.uBgMid.value.set(preset.sky.mid);
   u.uBgHorizon.value.set(preset.sky.horizon);
   u.uBgSun.value.set(preset.sun.color);
+  if (tint && k > 0) {
+    // The zenith keeps more of its own colour so night stays night.
+    u.uBgZenith.value.lerp(tint.clone().multiplyScalar(0.35), k * 0.5);
+    u.uBgMid.value.lerp(tint, k * 0.8);
+    u.uBgHorizon.value.lerp(tint.clone().multiplyScalar(1.2), k);
+    u.uBgSun.value.multiplyScalar(1 - k * 0.8);
+  }
   u.uBgSunX.value = sunDir.x;
 }

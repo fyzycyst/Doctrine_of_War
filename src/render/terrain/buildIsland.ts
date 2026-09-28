@@ -42,6 +42,8 @@ export interface Anchor {
   y: number;
   z: number;
   yaw: number;
+  /** Fire anchors only: what burns here (drives flame size, light and smoke). */
+  kind?: "torch" | "campfire" | "bridge" | "brazier";
 }
 
 export interface IslandBuild {
@@ -287,7 +289,25 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
       b.add(PRIM.cyl6, trs(fx, h.top + 0.03, fz, Math.PI / 2, (i * Math.PI) / 3, 0, 0.025, 0.22, 0.025), trunk);
     }
     ring(b, fx, h.top, fz, 0.13, 7, stone, hr1(h));
-    fireAnchors.push({ x: fx, y: h.top + 0.05, z: fz, yaw: 0 });
+    fireAnchors.push({ x: fx, y: h.top + 0.05, z: fz, yaw: 0, kind: "campfire" });
+  }
+
+  if (hasRiver) {
+    // Ember Ford: the Host fired its own bridges. Charred wreckage at every
+    // ford is the key light; braziers mark the Host's bank.
+    for (const ford of hexes.filter((h) => h.terrain === "ford")) {
+      fireAnchors.push(...drawBridgeWreck(b, ford, waterLevel, mulberry32(ford.coord.q * 97 + ford.coord.r * 13 + 3)));
+    }
+    const hostBank = layout.hexes
+      .filter((h) => h.deploymentFaction === "ashen_host")
+      .filter((h) => hexNeighbors(h.coord).some((n) => {
+        const t = boardByKey.get(hexKey(n))?.terrain;
+        return t === "river" || t === "ford";
+      }))
+      .map((h) => hexes.find((x) => x.kind === "board" && x.coord.q === h.coord.q && x.coord.r === h.coord.r)!)
+      .sort((a, c) => a.z - c.z);
+    const picks = hostBank.filter((_, i) => i % 2 === 0).slice(0, 3);
+    for (const h of picks) fireAnchors.push(drawBrazier(b, h, mulberry32(h.coord.q * 31 + h.coord.r * 7 + 9)));
   }
 
   return {
@@ -658,6 +678,54 @@ function dressShore(
   }
 }
 
+// --- Fires (Ember Ford) -------------------------------------------------------
+
+/** Burnt bridge timbers slumped across a ford; returns fire anchors on the wreck. */
+function drawBridgeWreck(b: GeoBuilder, ford: IslandHex, waterLevel: number, rand: () => number): Anchor[] {
+  const char = color("#1e1712");
+  const charLit = color("#3a2418");
+  const y = waterLevel;
+  // Two stumps of the span still standing on each bank side, the middle collapsed.
+  for (const side of [-1, 1]) {
+    const px = ford.x + side * 0.62;
+    for (const dz of [-0.2, 0.2]) {
+      b.add(PRIM.cyl6, trs(px, y + 0.08, ford.z + dz, (rand() - 0.5) * 0.2, 0, (rand() - 0.5) * 0.2, 0.035, 0.3, 0.035), char);
+    }
+    // Deck planks, broken off toward the middle.
+    b.add(PRIM.box, trs(px - side * 0.12, y + 0.2, ford.z, 0, (rand() - 0.5) * 0.2, side * (0.12 + rand() * 0.1), 0.45, 0.04, 0.46), charLit, 0.3, rand);
+  }
+  // Fallen beams half-sunk in the water.
+  for (let i = 0; i < 4; i += 1) {
+    b.add(
+      PRIM.box,
+      trs(ford.x + (rand() - 0.5) * 0.5, y + 0.02, ford.z + (rand() - 0.5) * 0.5, (rand() - 0.5) * 0.4, rand() * Math.PI, (rand() - 0.5) * 0.3, 0.5, 0.05, 0.07),
+      char,
+      0.3,
+      rand,
+    );
+  }
+  return [
+    { x: ford.x - 0.5, y: y + 0.22, z: ford.z + (rand() - 0.5) * 0.2, yaw: 0, kind: "bridge" },
+    { x: ford.x + 0.45, y: y + 0.22, z: ford.z + (rand() - 0.5) * 0.2, yaw: 0, kind: "bridge" },
+  ];
+}
+
+/** An iron brazier on its tripod at the west edge of a hex. */
+function drawBrazier(b: GeoBuilder, hex: IslandHex, rand: () => number): Anchor {
+  const iron = color("#2a2624");
+  const a = Math.PI + (rand() - 0.5) * 1.2; // west side of the hex
+  const x = hex.x + Math.cos(a) * 0.7;
+  const z = hex.z + Math.sin(a) * 0.7;
+  const h = 0.26;
+  for (let i = 0; i < 3; i += 1) {
+    const la = (i / 3) * Math.PI * 2;
+    b.add(PRIM.cyl6, trs(x + Math.cos(la) * 0.05, hex.top + h / 2, z + Math.sin(la) * 0.05, Math.sin(la) * 0.25, 0, -Math.cos(la) * 0.25, 0.008, h, 0.008), iron);
+  }
+  b.add(PRIM.cyl8, trs(x, hex.top + h, z, 0, 0, 0, 0.075, 0.05, 0.075), iron);
+  b.add(PRIM.cyl8, trs(x, hex.top + h + 0.027, z, 0, 0, 0, 0.06, 0.006, 0.06), color("#6a2a10"), 0, undefined, 0);
+  return { x, y: hex.top + h + 0.03, z, yaw: 0, kind: "brazier" };
+}
+
 // --- Roads -----------------------------------------------------------------
 
 function drawRoads(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], roadCol: THREE.Color, fieldHex: string, rand: () => number) {
@@ -824,8 +892,8 @@ function drawWalls(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], skin:
       b.add(PRIM.box, trs(x + 0.02, hex.top + 0.18, hex.z, 0, 0, 0, 0.06, 0.36, gap * 2 - 0.14), wood);
       b.add(PRIM.box, trs(x - 0.02, hex.top + 0.18, hex.z, 0, 0, 0, 0.012, 0.3, 0.02), color("#4a3020"));
       gateBanner = { x: x - THICK / 2 - 0.02, y: hex.top + 0.44, z: hex.z, yaw: Math.PI };
-      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z - gap, yaw: 0 });
-      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z + gap, yaw: 0 });
+      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z - gap, yaw: 0, kind: "torch" });
+      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z + gap, yaw: 0, kind: "torch" });
     } else {
       segment(x, hex.top, z0, z1);
     }

@@ -1,23 +1,29 @@
 import { Stats } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useAudioStore } from "../../app/audioStore";
 import { useAppStore, type RenderQuality } from "../../app/store";
+import { playSfx, SFX_NAMES, useAmbience } from "../../audio";
 import { hexKey } from "../../game/board";
 import { closeShot, DioramaCamera, wideShot, type CameraShot } from "../camera/DioramaCamera";
 import { Diorama } from "../Diorama";
 import type { SquadAnimationApi, SquadAnimator } from "../figures/squadAnimation";
 import type { FigureApproach } from "../figures/types";
 import { boardRadius } from "../hexWorld";
-import { LookProvider } from "../look/LookContext";
+import { LookProvider, useLook } from "../look/LookContext";
+import { canvasDpr } from "../quality";
 import { PostFX } from "../post/PostFX";
-import { getSkin, isTimeOfDay, SKINS, TIME_OF_DAY_KEYS, type TimeOfDay } from "../skins";
-import { LAB_SCENES, stepToward, type LabSceneId } from "./labScene";
+import { getSkin, isTimeOfDay, SKINS, TIME_OF_DAY_KEYS, WEATHER_KINDS, type TimeOfDay, type WeatherKind } from "../skins";
+import { fogOfWar, LAB_SCENES, stepToward, type LabSceneId } from "./labScene";
 
 /**
  * Dev-only Look Lab (`?lab=1`). Full-screen diorama with a small switcher.
  * URL params: preset (defaults to the scenario's time of day), skin, figures
  * (a|b), quality (high|low), scenario (firstBreach|emberFord), board=stress
- * (14-squad fixture), dpr=<n> (render scale override, for perf checks), cam (wide|close), az/polar/dist (shot overrides), fog=1,
+ * (14-squad fixture), weather (clear|rain|mist|ashWind), dpr=<n> (render
+ * scale override; 2 = "ultra"), cam (wide|close), az/polar/dist (shot
+ * overrides), fog=1 (fog of war, Banners' view) or fog=reveal (&revealAt=<s>
+ * &fogFreeze=<s> for stills of the enemy emerging from the mist),
  * deploy=1, select=<squadId>, hover=q,r, ui=0, still=1 (no idle drift), and for stills of an animation:
  * anim=<march|lunge|fall|rout|rally|brace>&animSquad=<id>&animFreeze=<seconds>.
  *
@@ -33,7 +39,8 @@ type LabState = {
   figures: FigureApproach;
   board: LabSceneId;
   cam: "wide" | "close";
-  fog: boolean;
+  fog: "off" | "on" | "reveal";
+  weather: WeatherKind;
   deploy: boolean;
 };
 
@@ -58,7 +65,8 @@ function readParams() {
       figures: figures === "b" || figures === "kaykit" ? "kaykit" : "toy",
       board,
       cam: p.get("cam") === "close" ? "close" : "wide",
-      fog: p.get("fog") === "1",
+      fog: p.get("fog") === "reveal" ? "reveal" : p.get("fog") === "1" ? "on" : "off",
+      weather: (WEATHER_KINDS as string[]).includes(p.get("weather") ?? "") ? (p.get("weather") as WeatherKind) : "clear",
       deploy: p.get("deploy") === "1",
     } as LabState,
     quality: (p.get("quality") === "low" ? "low" : "high") as RenderQuality,
@@ -71,6 +79,8 @@ function readParams() {
     select: p.get("select"),
     dpr: num("dpr"),
     hover: p.get("hover"),
+    revealAt: num("revealAt") ?? 2,
+    fogFreeze: num("fogFreeze"),
   };
 }
 
@@ -115,10 +125,12 @@ export function LookLab() {
     }
     p.set("cam", state.cam);
     p.set("quality", quality);
-    for (const flag of ["fog", "deploy"] as const) {
-      if (state[flag]) p.set(flag, "1");
-      else p.delete(flag);
-    }
+    if (state.deploy) p.set("deploy", "1");
+    else p.delete("deploy");
+    if (state.fog === "off") p.delete("fog");
+    else p.set("fog", state.fog === "on" ? "1" : "reveal");
+    if (state.weather === "clear") p.delete("weather");
+    else p.set("weather", state.weather);
     window.history.replaceState(null, "", `${window.location.pathname}?${p.toString()}`);
   }, [state, quality]);
 
@@ -139,6 +151,23 @@ export function LookLab() {
     };
   }, [state.cam, scene, initial.shot]);
   const onFiguresReady = useCallback(() => setFiguresReady(true), []);
+
+  // Fog of war: "on" = the Banners see 2 hexes; "reveal" starts at 1 and, after
+  // `revealAt` seconds, widens to 3 so Host squads emerge from the mist.
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => setRevealed(false), [state.fog, state.board]);
+  const fog = useMemo(() => {
+    if (state.fog === "off") return null;
+    return fogOfWar(scene, state.fog === "on" ? 2 : revealed ? 3 : 1);
+  }, [scene, state.fog, revealed]);
+  const onReveal = useCallback(() => playSfx("reveal"), []);
+
+  useAmbience({
+    timeOfDay: state.preset,
+    weather: state.weather,
+    water: scene.board.hexes.some((h) => h.terrain === "ford" || h.terrain === "river"),
+    hostDrums: true,
+  });
 
   const targetSquad = selectedSquadId ?? scene.squads.find((s) => s.faction === "free_banners")?.id ?? null;
   const play = useCallback(
@@ -173,25 +202,33 @@ export function LookLab() {
     <div style={{ position: "fixed", inset: 0, background: "#0d0c12" }}>
       <Canvas
         shadows="soft"
-        dpr={initial.dpr ?? (quality === "high" ? [1, 2] : 1)}
+        dpr={initial.dpr ?? canvasDpr(quality)}
         camera={{ fov: 30, near: 0.1, far: 200, position: [0, 10, 14] }}
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         onPointerMissed={() => clearSelection()}
       >
-        <LookProvider skin={skin} timeOfDay={state.preset}>
+        <LookProvider skin={skin} timeOfDay={state.preset} weather={state.weather}>
           <DioramaCamera shot={shot} drift={!initial.still} />
           <Diorama
             key={state.board}
             board={scene.board}
-            squads={scene.squads}
+            squads={fog ? fog.squads : scene.squads}
+            visibility={fog?.visibility}
+            onReveal={onReveal}
             figures={state.figures}
-            mistDensity={state.fog ? scene.fogDemo : undefined}
             deploymentHexes={state.deploy ? scene.deployment : undefined}
             animationRef={animations}
             onFiguresReady={onFiguresReady}
           />
           <PostFX />
           <FrameProbe figuresReady={figuresReady} />
+          <AtmosphereFreezer />
+          {state.fog === "reveal" && figuresReady && !revealed && (
+            <After seconds={initial.revealAt} run={() => setRevealed(true)} />
+          )}
+          {revealed && initial.fogFreeze !== undefined && (
+            <After seconds={initial.fogFreeze} run={() => freezeAll(animations.current)} />
+          )}
           {initial.anim && figuresReady && (
             <AutoAnimation
               run={() => play(initial.anim!, initial.animSquad ?? targetSquad)}
@@ -212,11 +249,49 @@ export function LookLab() {
             onQuality={setQuality}
             onAnim={(name) => void play(name, targetSquad)}
             onReset={() => animations.current?.reset()}
+            onReveal={() => {
+              setState((s) => ({ ...s, fog: "reveal" }));
+              setRevealed(false);
+            }}
           />
+          <AudioPanel />
         </>
       )}
     </div>
   );
+}
+
+/** Runs a callback once, `seconds` after mounting (scene time). */
+function After({ seconds, run }: { seconds: number; run: () => void }) {
+  const start = useRef<number | null>(null);
+  const done = useRef(false);
+  useFrame(({ clock }) => {
+    if (start.current === null) start.current = clock.elapsedTime;
+    if (!done.current && clock.elapsedTime - start.current >= seconds) {
+      done.current = true;
+      run();
+    }
+  });
+  return null;
+}
+
+/** Freeze every tween (figures, weather, fog) for a still; set from inside the scene. */
+let freezeAtmosphere: (() => void) | null = null;
+function freezeAll(animator: SquadAnimationApi | null) {
+  if (animator) (animator as SquadAnimator).timeScale = 0;
+  freezeAtmosphere?.();
+}
+function AtmosphereFreezer() {
+  const { atmosphere } = useLook();
+  useEffect(() => {
+    freezeAtmosphere = () => {
+      atmosphere.timeScale = 0;
+    };
+    return () => {
+      freezeAtmosphere = null;
+    };
+  }, [atmosphere]);
+  return null;
 }
 
 /** Starts one animation shortly after load and optionally freezes it mid-way. */
@@ -322,6 +397,7 @@ function LabPanel({
   onQuality,
   onAnim,
   onReset,
+  onReveal,
 }: {
   state: LabState;
   quality: RenderQuality;
@@ -330,6 +406,7 @@ function LabPanel({
   onQuality: (q: RenderQuality) => void;
   onAnim: (name: AnimName) => void;
   onReset: () => void;
+  onReveal: () => void;
 }) {
   const skin = getSkin(state.skin);
   return (
@@ -339,6 +416,12 @@ function LabPanel({
       {TIME_OF_DAY_KEYS.map((key) => (
         <Chip key={key} active={state.preset === key} onClick={() => onChange({ preset: key })}>
           {skin.lighting[key].label}
+        </Chip>
+      ))}
+      <span style={label}>Weather</span>
+      {WEATHER_KINDS.map((w) => (
+        <Chip key={w} active={state.weather === w} onClick={() => onChange({ weather: w })}>
+          {skin.weather[w].label}
         </Chip>
       ))}
       <span style={label}>Skin</span>
@@ -373,9 +456,10 @@ function LabPanel({
       <Chip active={quality === "high"} onClick={() => onQuality(quality === "high" ? "low" : "high")}>
         {quality === "high" ? "High" : "Low"}
       </Chip>
-      <Chip active={state.fog} onClick={() => onChange({ fog: !state.fog })}>
-        Fog
+      <Chip active={state.fog !== "off"} onClick={() => onChange({ fog: state.fog === "off" ? "on" : "off" })}>
+        Fog of war
       </Chip>
+      <Chip onClick={onReveal}>Reveal ▸</Chip>
       <Chip active={state.deploy} onClick={() => onChange({ deploy: !state.deploy })}>
         Deploy zone
       </Chip>
@@ -386,6 +470,38 @@ function LabPanel({
         </Chip>
       ))}
       <Chip onClick={onReset}>reset</Chip>
+    </div>
+  );
+}
+
+function AudioPanel() {
+  const muted = useAudioStore((s) => s.muted);
+  const volume = useAudioStore((s) => s.volume);
+  const toggleMuted = useAudioStore((s) => s.toggleMuted);
+  const setVolume = useAudioStore((s) => s.setVolume);
+  return (
+    <div style={{ ...panel, top: "auto", bottom: 12, width: 236 }}>
+      <span style={{ ...label, marginTop: 0 }}>Audio (click anywhere to start)</span>
+      <Chip active={!muted} onClick={toggleMuted}>
+        {muted ? "Muted" : "Sound on"}
+      </Chip>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={volume}
+        onChange={(e) => setVolume(Number(e.target.value))}
+        style={{ width: 110, verticalAlign: "middle" }}
+        aria-label="Volume"
+      />
+      <div style={{ marginTop: 6 }}>
+        {SFX_NAMES.map((name) => (
+          <Chip key={name} onClick={() => playSfx(name)}>
+            {name}
+          </Chip>
+        ))}
+      </div>
     </div>
   );
 }
