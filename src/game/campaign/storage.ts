@@ -28,6 +28,10 @@ function browserStorage(): KeyValueStorage | null {
   }
 }
 
+function describe(error: unknown): string {
+  return error instanceof Error ? error.name : "unknown error";
+}
+
 /** `storage` null means none is available: reads and writes then throw. */
 export function localStorageStore(
   storage: KeyValueStorage | null = browserStorage(),
@@ -36,11 +40,20 @@ export function localStorageStore(
   return {
     async read() {
       if (!storage) throw new CampaignSaveError("local storage is not available");
-      return storage.getItem(key);
+      try {
+        return storage.getItem(key);
+      } catch (error) {
+        throw new CampaignSaveError(`local storage could not be read (${describe(error)})`);
+      }
     },
     async write(data) {
       if (!storage) throw new CampaignSaveError("local storage is not available");
-      storage.setItem(key, data);
+      try {
+        storage.setItem(key, data);
+      } catch (error) {
+        // Typically a QuotaExceededError, or storage blocked after construction.
+        throw new CampaignSaveError(`local storage could not be written (${describe(error)})`);
+      }
     },
   };
 }
