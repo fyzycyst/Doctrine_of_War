@@ -12,3 +12,5 @@ export { eventsFor, visibleState, type VisibleSquad, type VisibleState } from ".
 export { evaluateOutcome } from "./outcome";
 export { narrateEvent } from "./report";
 export { firstBreach } from "./scenarios/firstBreach";
+export { emberFord } from "./scenarios/emberFord";
+export { scenarios } from "./scenarios";

@@ -10,7 +10,7 @@ export interface PixelPoint {
   y: number;
 }
 
-export type TerrainType = "road" | "ridge" | "ford" | "wall" | "field" | "ruin";
+export type TerrainType = "road" | "ridge" | "ford" | "wall" | "field" | "ruin" | "river";
 
 export interface BoardHex {
   coord: HexCoord;
@@ -102,9 +102,9 @@ export function boardNeighbors(layout: BoardLayout, coord: HexCoord): BoardHex[]
     .filter((hex): hex is BoardHex => hex !== undefined);
 }
 
-/** Walls (including gate hexes) block movement; every other terrain can be entered. */
+/** Walls (including gate hexes) and deep river block movement; every other terrain can be entered. */
 export function isPassableTerrain(terrain: TerrainType): boolean {
-  return terrain !== "wall";
+  return terrain !== "wall" && terrain !== "river";
 }
 
 export function terrainDefenseBonus(terrain: TerrainType): number {
@@ -119,6 +119,7 @@ export function terrainDefenseBonus(terrain: TerrainType): number {
       return 2;
     case "field":
     case "road":
+    case "river":
       return 0;
   }
 }

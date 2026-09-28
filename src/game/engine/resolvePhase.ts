@@ -8,7 +8,7 @@ import type { EngineContext, EventBody } from "./context";
 import { doctrineLibrary } from "./doctrines";
 import { dreadFromSight, eventsFor, eventVisibility, observeDeparture, refreshIntel } from "./fog";
 import { phaseStartWeather, stressCheck } from "./fortune";
-import { evaluateOutcome, validateWinCondition } from "./outcome";
+import { evaluateOutcome, exitHexesFor, validateWinCondition } from "./outcome";
 import { buildReport } from "./report";
 import { createRng } from "./rng";
 import { chooseRule } from "./rules";
@@ -233,17 +233,11 @@ export function resolvePhase(
   return { state, events, report };
 }
 
-/** A player squad standing on an escape-edge hex after its activation leaves the board. */
+/** A squad standing on one of its side's exit hexes after its activation leaves the board. */
 function exitIfOnEdge(ctx: EngineContext, squad: EngineSquad) {
-  const win = ctx.scenario.winCondition;
+  const exits = exitHexesFor(ctx.scenario, squad.faction);
   const hex = squad.hex;
-  if (
-    win.kind !== "escapeEdge" ||
-    squad.faction !== ctx.scenario.playerFaction ||
-    squad.status !== "active" ||
-    !hex ||
-    !win.edgeHexes.some((edge) => sameHex(edge, hex))
-  ) {
+  if (!exits || squad.status !== "active" || !hex || !exits.some((edge) => sameHex(edge, hex))) {
     return;
   }
   ctx.emit({ kind: "exit", squadId: squad.id, hex });

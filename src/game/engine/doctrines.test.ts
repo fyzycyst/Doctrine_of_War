@@ -8,7 +8,7 @@ import type { Doctrine, FactionId } from "./types";
 const byFaction = (faction: FactionId) => doctrines.filter((item) => item.faction === faction);
 
 describe("doctrine library", () => {
-  it("has the five Free Banners and five Ashen Host doctrines", () => {
+  it("has the five Free Banners doctrines and the Ashen Host doctrines", () => {
     expect(byFaction("free_banners").map((item) => item.name)).toEqual([
       "Shield the Line",
       "Fighting Withdrawal",
@@ -22,8 +22,10 @@ describe("doctrine library", () => {
       "No Step Back",
       "Cull the Weak",
       "Terror Push",
+      "Through the Embers",
+      "Slip the Leash",
     ]);
-    expect(Object.keys(doctrineLibrary)).toHaveLength(10);
+    expect(Object.keys(doctrineLibrary)).toHaveLength(12);
   });
 
   it("survives a JSON round trip unchanged (data only, no functions)", () => {
@@ -61,12 +63,15 @@ describe("doctrine library", () => {
           { id: "prize", name: "Prize", description: "", hex: { q: 6, r: 2 }, integrity: 100, defender: subject.faction },
           { id: "target", name: "Target", description: "", hex: { q: 0, r: 2 }, integrity: 100, defender: enemy },
         ],
-        winCondition: { kind: "escapeEdge", edgeHexes: [], count: 99 },
+        // An exit beyond the foe, for doctrines that run for an edge.
+        winCondition: { kind: "escapeEdge", edgeHexes: [{ q: 6, r: 2 }], count: 99 },
         squads: [
           squad("subject", subject.faction, { q: 3, r: 2 }, { doctrineId: subject.id }),
           squad("friend", subject.faction, { q: 4, r: 3 }, { cohesion: 45 }),
           squad("foe", enemy, { q: 1, r: 2 }, { cohesion: 45, strength: 50, doctrineId: foeDoctrine }),
           squad("lone", enemy, { q: 1, r: 4 }, { cohesion: 40 }),
+          // Host subjects only: a sentry beside the road to the exit.
+          ...(enemy === "free_banners" ? [squad("sentry", enemy, { q: 5, r: 1 })] : []),
         ],
       });
       const { events, state } = resolvePhase(createInitialState(scen), {}, scen, { doctrines: library() });

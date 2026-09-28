@@ -8,6 +8,7 @@ import type {
   TargetSelector,
 } from "./types";
 import type { RuleContext } from "./context";
+import { exitHexesFor } from "./outcome";
 import { looksOverextended, perceive, type PerceivedWorld } from "./perception";
 import { byDistance, type ActiveSquad } from "./world";
 
@@ -129,10 +130,8 @@ export function resolveTarget(
       return objective ? { kind: "objective", objective } : null;
     }
     case "exitEdge": {
-      const win = ctx.scenario.winCondition;
-      return win.kind === "escapeEdge" && squad.faction === ctx.scenario.playerFaction
-        ? { kind: "hexes", hexes: win.edgeHexes }
-        : null;
+      const hexes = exitHexesFor(ctx.scenario, squad.faction);
+      return hexes ? { kind: "hexes", hexes } : null;
     }
   }
 

@@ -81,7 +81,8 @@ report title is the schedule entry's `intent`.
 | `fallBack {hexes}` | Step away from the enemy (maximise nearest-enemy distance, then total distance). Ignores ZOC. If it is cornered, it braces instead. |
 | `rally` | +`12 + passives.cohesion + resolve` cohesion to the weakest adjacent ally (capped at 100). |
 
-**Movement.** Speed is 1 hex (cavalry 2). In rain, entering a ford ends the move. Squads cannot enter walls, objective hexes,
+**Movement.** Speed is 1 hex (cavalry 2). In rain, entering a ford ends the move.
+Deep `river` hexes, like walls, cannot be entered; `ford` hexes can. Squads cannot enter walls, objective hexes,
 off-board hexes or occupied hexes. Paths are found by BFS in `hexNeighbors` order, so
 tie-breaks are deterministic. If no goal hex is reachable, the squad moves to the
 reachable hex closest to the goal, and never further away. **Zone of control:** a move
@@ -122,7 +123,11 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
 - `EngineScenario`: board, squads (with start hexes and optional `renown {title}`),
   objectives (`hex`, `defender`), `playerDoctrineIds`, `hostSchedule: {phase, intent, orders}[]`,
   `winCondition`, optional `forecast {start, shiftChance, shifts}`, and optional
-  `referencePlans {intended, bad}` (used by the balance harness and tutorial hints).
+  `referencePlans {intended, bad}` (used by the balance harness and tutorial hints),
+  optional `timeOfDay` (`"nightFires"`: sight −1, but a squad on a ford or beside the
+  river is lit and seen from 1 hex further), and `curatedSeed` (a fortune-on seed that
+  plays the intended plan to a clean win, used for the first playthrough and for video
+  capture; `scenarios.test.ts` asserts it).
 - `WinCondition` (from the player's side):
   - `holdObjective`: defeat at integrity 0, victory after `maxPhases`.
   - `escapeEdge {edgeHexes, count}`: a player squad standing on an edge hex after its
@@ -130,6 +135,12 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   - `destroySquads {squadIds}`: victory once all of them are routed or destroyed. The
     list must be non-empty and name only existing, non-player squads; otherwise
     `createInitialState` throws.
+  - Optional `defeatConditions` add more ways to lose:
+    - `enemyEscape {edgeHexes, count}`: the opposing side gets `count` squads off
+      through those hexes. Its `exitEdge` selector points at them, and a Host squad
+      standing on one after its activation exits.
+    - `squadsLost {count}`: that many player squads are routed or destroyed ("the line
+      breaks").
   - In every mode it is defeat when no player squad is left on the field. For
     `escapeEdge` and `destroySquads`, reaching the end of `maxPhases` is also defeat.
 - Events (`phase`, `beat` on each, where beat 0 means phase-level): `ruleFired`, `move {path, reason}`,
@@ -140,8 +151,9 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
 
 The library (`doctrines.ts`) holds the Free Banners doctrines *Shield the Line*,
 *Fighting Withdrawal*, *Rescue Standard*, *Clean Counterstroke* and *Hold for Dawn*, and
-the Ashen Host doctrines *Iron Tide*, *Break the Gate*, *No Step Back*, *Cull the Weak*
-and *Terror Push*. Every rule list ends with an `always` catch-all.
+the Ashen Host doctrines *Iron Tide*, *Break the Gate*, *No Step Back*, *Cull the Weak*,
+*Terror Push*, *Through the Embers* (cross and cut through blockers toward the exits)
+and *Slip the Leash* (outriders: never fight, run for the exits). Every rule list ends with an `always` catch-all.
 
 ## Friction & fortune (`fortune.ts`, `fog.ts`)
 
@@ -175,4 +187,8 @@ objective integrity, and exits 1 if a guardrail fails:
 - the bad plan wins ≤ 35%;
 - no mono plan wins ≥ 60%.
 
-`balance.test.ts` runs the same check with 60 seeds on every `npm test`.
+`balance.test.ts` runs the same check with 60 seeds on every `npm test`. Every
+scenario in `scenarios/index.ts` must pass. The scenarios so far:
+- *The First Breach*: the tutorial, which teaches holding and rallying.
+- *Ember Ford*: battle 1, which teaches Clean Counterstroke against overextension, kept
+  steady by a rally banner.

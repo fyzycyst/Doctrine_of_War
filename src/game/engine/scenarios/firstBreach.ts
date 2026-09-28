@@ -43,6 +43,8 @@ export const firstBreach: EngineScenario = {
   playerFaction: "free_banners",
   initiativeSide: "ashen_host",
   maxPhases: 3,
+  // Fortune-on seed for the first playthrough and video capture: the gate untouched, no company broken.
+  curatedSeed: 146,
   board,
   objectives: [
     {

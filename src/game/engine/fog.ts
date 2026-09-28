@@ -3,7 +3,7 @@
 // base their rule conditions and targets on, and (b) what visibleState() reveals
 // to the UI and renderer. The Host (non-player side) is omniscient for now.
 // Everything here is inert when state.fortune is "off".
-import { getHex, hexDistance, type HexCoord } from "../board";
+import { boardNeighbors, getHex, hexDistance, type HexCoord } from "../board";
 import { checkRout, fortuneOn, type EngineContext, type EventBody, type RuleContext } from "./context";
 import type { EngineEvent, EngineSquad, EngineState, FactionId, SquadStatus } from "./types";
 import { isActive, type ActiveSquad } from "./world";
@@ -11,6 +11,8 @@ import { isActive, type ActiveSquad } from "./world";
 export const BASE_SIGHT = 2;
 export const RIDGE_SIGHT_BONUS = 1;
 export const MIST_SIGHT_PENALTY = 1;
+export const NIGHT_SIGHT_PENALTY = 1;
+export const LIT_SIGHT_BONUS = 1;
 /** Cohesion lost per point of Resolve the renowned squad has over the viewer. */
 export const DREAD_PER_RESOLVE = 5;
 export const ASH_WIND_DREAD_MULTIPLIER = 1.5;
@@ -45,13 +47,26 @@ export function hexLine(a: HexCoord, b: HexCoord): HexCoord[] {
 export function sightRange(ctx: RuleContext, observer: ActiveSquad): number {
   const ridge = getHex(ctx.scenario.board, observer.hex)?.terrain === "ridge" ? RIDGE_SIGHT_BONUS : 0;
   const mist = ctx.state.weather === "mist" ? MIST_SIGHT_PENALTY : 0;
-  return Math.max(1, BASE_SIGHT + ridge - mist);
+  const night = ctx.scenario.timeOfDay === "nightFires" ? NIGHT_SIGHT_PENALTY : 0;
+  return Math.max(1, BASE_SIGHT + ridge - mist - night);
 }
 
-/** In range, and no ruin hex strictly between the two (neighbouring hexes are always seen). */
+/** At night, a squad on a ford or beside the burning river is lit and seen from 1 hex further. */
+export function isLit(ctx: RuleContext, hex: HexCoord): boolean {
+  if (ctx.scenario.timeOfDay !== "nightFires") {
+    return false;
+  }
+  const here = getHex(ctx.scenario.board, hex)?.terrain;
+  return here === "ford" || boardNeighbors(ctx.scenario.board, hex).some((neighbor) => neighbor.terrain === "river");
+}
+
+/**
+ * In range (1 further if the hex is lit by the burning river), and no ruin hex strictly
+ * between the two (neighbouring hexes are always seen).
+ */
 export function canSeeHex(ctx: RuleContext, observer: ActiveSquad, hex: HexCoord): boolean {
   const distance = hexDistance(observer.hex, hex);
-  if (distance > sightRange(ctx, observer)) {
+  if (distance > sightRange(ctx, observer) + (isLit(ctx, hex) ? LIT_SIGHT_BONUS : 0)) {
     return false;
   }
   return hexLine(observer.hex, hex)
