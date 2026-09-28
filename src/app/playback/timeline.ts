@@ -12,7 +12,7 @@ export type Pace = "readable" | "fast";
 export const PACE_SCALE: Record<Pace, number> = { readable: 1, fast: 0.5 };
 
 /** A whole phase at Readable fits in this; longer phases are compressed to it. */
-export const PHASE_BUDGET_MS = 20_000;
+export const PHASE_BUDGET_MS = 24_000;
 
 export type StepKind =
   | "beat"
@@ -42,6 +42,8 @@ export interface Step {
   linger: number;
   /** A rule the squad already showed this phase: a small callout, a quick step. */
   repeat: boolean;
+  /** Caption only, no callout: a Host squad's later firings in the phase. */
+  quiet: boolean;
   /** Moves: the hexes to march through, clipped to what the player saw. */
   path: HexCoord[];
   /** Moves: the squad steps out of the fog at path[0] (its start was unseen). */
@@ -96,18 +98,22 @@ const LINGER_SCALE: Record<Pace, number> = { readable: 1, fast: 0.6 };
 type Draft = Omit<Step, "at" | "duration" | "linger"> & { base: number; lingerBase: number };
 
 function draft(event: EngineEvent, playerFaction: FactionId, factionOf: (id: string) => FactionId | undefined, lastRule: Map<string, string>): Draft | null {
-  const plain = { beat: event.beat, event, repeat: false, path: [], emerges: false, vanishes: false };
+  const plain = { beat: event.beat, event, repeat: false, quiet: false, path: [], emerges: false, vanishes: false };
   switch (event.kind) {
     case "ruleFired": {
+      const firstThisPhase = !lastRule.has(event.squadId);
       const repeat = lastRule.get(event.squadId) === event.ruleId;
       lastRule.set(event.squadId, event.ruleId);
       const mine = factionOf(event.squadId) === playerFaction;
+      // The Host gets one callout per squad per phase; its later firings go to the caption bar.
+      const quiet = !mine && !firstThisPhase;
       return {
         ...plain,
         kind: "rule",
-        repeat,
+        repeat: repeat || quiet,
+        quiet,
         base: repeat ? STEP_MS.ruleRepeat : mine ? STEP_MS.ruleMine : STEP_MS.ruleTheirs,
-        lingerBase: repeat ? LINGER_MS.ruleRepeat : LINGER_MS.rule,
+        lingerBase: quiet ? 0 : repeat ? LINGER_MS.ruleRepeat : LINGER_MS.rule,
       };
     }
     case "move": {
@@ -170,7 +176,7 @@ export function buildTimeline(
       continue;
     }
     if (event.beat > 0 && event.beat !== beat) {
-      drafts.push({ kind: "beat", beat: event.beat, event: null, repeat: false, path: [], emerges: false, vanishes: false, base: STEP_MS.beat, lingerBase: 0 });
+      drafts.push({ kind: "beat", beat: event.beat, event: null, repeat: false, quiet: false, path: [], emerges: false, vanishes: false, base: STEP_MS.beat, lingerBase: 0 });
     }
     beat = event.beat;
     drafts.push(next);

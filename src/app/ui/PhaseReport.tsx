@@ -73,7 +73,7 @@ export function PhaseReport() {
     <Modal className="report" labelledBy="report-title" initialFocus={button} returnFocus={rosterFocus}>
         <header>
           <p className="report-eyebrow">Chronicle · Phase {entry.phase}</p>
-          <h2 id="report-title">{reportHeadline(entry.title)}</h2>
+          <h2 id="report-title">{entry.intent || reportHeadline(entry.title)}</h2>
         </header>
 
         <div className="report-body">

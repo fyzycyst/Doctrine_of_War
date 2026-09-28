@@ -68,6 +68,19 @@ describe("buildTimeline", () => {
     expect(rules[0].linger).toBeGreaterThan(rules[1].linger);
   });
 
+  it("gives each Host squad one callout per phase; later Host firings are caption-only", () => {
+    const { steps } = buildTimeline(
+      [rule("cinder_vanguard", "it_press", 1), rule("cinder_vanguard", "it_march", 2), rule("greyford_shields", "stl_brace", 2), rule("greyford_shields", "stl_hold", 3)],
+      "readable",
+      ctx,
+    );
+    const rules = steps.filter((step) => step.kind === "rule");
+    expect(rules.map((step) => step.quiet)).toEqual([false, true, false, false]);
+    expect(rules[1].linger).toBe(0);
+    // The player's change of rule is a full callout, not a repeat.
+    expect(rules[3].repeat).toBe(false);
+  });
+
   it("lays steps end to end and halves every step at Fast", () => {
     const events = curatedPhases()[0];
     const readable = buildTimeline(events, "readable", ctx);
@@ -79,7 +92,7 @@ describe("buildTimeline", () => {
     expect(fast.totalMs).toBeLessThanOrEqual(readable.totalMs / 2 + fast.steps.length);
   });
 
-  it("fits every curated First Breach phase in the budget: ≤ 20 s Readable, ≤ 10 s Fast", () => {
+  it("fits every curated First Breach phase in the budget: ≤ 24 s Readable, ≤ 12 s Fast", () => {
     for (const events of curatedPhases()) {
       expect(buildTimeline(events, "readable", ctx).totalMs).toBeLessThanOrEqual(PHASE_BUDGET_MS);
       expect(buildTimeline(events, "fast", ctx).totalMs).toBeLessThanOrEqual(PHASE_BUDGET_MS / 2 + 50);
@@ -130,6 +143,7 @@ describe("applyStep", () => {
     duration: 0,
     linger: 0,
     repeat: false,
+    quiet: false,
     path: [],
     emerges: false,
     vanishes: false,

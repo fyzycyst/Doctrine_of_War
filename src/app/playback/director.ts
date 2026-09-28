@@ -142,7 +142,9 @@ export class PlaybackDirector {
     switch (event.kind) {
       case "ruleFired": {
         const squad = this.squad(event.squadId);
-        if (squad?.hex) {
+        if (squad?.hex && step.quiet) {
+          hooks.caption(`${squad.name}: ${event.label}`);
+        } else if (squad?.hex) {
           const { when, then } = splitLabel(event.label);
           hooks.callout({
             kind: "rule",
