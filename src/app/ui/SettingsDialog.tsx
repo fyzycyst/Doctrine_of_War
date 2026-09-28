@@ -61,6 +61,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setPace = useGame((s) => s.setPace);
   const close = useRef<HTMLButtonElement>(null);
   const setHowToOpen = useFlow((s) => s.setHowToOpen);
+  const setEditor = useFlow((s) => s.setEditor);
   const resetGuide = useGuide((s) => s.reset);
   const guideFresh = useGuide((s) => !s.introSeen && s.coach === "active" && s.step === "select");
 
@@ -142,6 +143,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             {guideFresh ? "Guide ready" : "Show the guide again"}
           </button>
         </div>
+      </Row>
+
+      <Row title="Doctrine editor" help="Experimental. Cut your own copy of a doctrine: reorder its orders, move its thresholds.">
+        <button
+          type="button"
+          className="btn-quiet"
+          onClick={() => {
+            onClose();
+            setEditor({});
+          }}
+        >
+          Open the editor
+        </button>
       </Row>
 
       <div className="modal-actions">

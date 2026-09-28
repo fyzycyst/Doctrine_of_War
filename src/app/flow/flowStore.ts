@@ -24,6 +24,14 @@ export type Screen = "title" | "campaign" | "battle" | "ending";
 /** "invalid": a save exists but failed validation (it is never loaded). */
 export type SaveStatus = "checking" | "none" | "valid" | "invalid";
 
+/** Where the doctrine editor opens: a base doctrine, a saved variant, and the company it was opened for. */
+export interface EditorTarget {
+  baseId?: string;
+  variantId?: string;
+  /** Opened from the hand: the new variant is ordered for this company on save. */
+  squadId?: string;
+}
+
 export interface FlowState {
   screen: Screen;
   definition: CampaignDefinition;
@@ -40,6 +48,9 @@ export interface FlowState {
   notice: string | null;
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
+  /** The doctrine editor (T16), and what it opened on. */
+  editor: EditorTarget | null;
+  setEditor: (editor: EditorTarget | null) => void;
   howToOpen: boolean;
   setHowToOpen: (open: boolean) => void;
 
@@ -86,6 +97,8 @@ export const useFlow = create<FlowState>((set, get) => ({
   lastRecord: null,
   settingsOpen: false,
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  editor: null,
+  setEditor: (editor) => set({ editor }),
   howToOpen: false,
   setHowToOpen: (howToOpen) => set({ howToOpen }),
 
