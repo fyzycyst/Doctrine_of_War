@@ -5,7 +5,7 @@ import { hexKey } from "../../game/board";
 import { useLook } from "../look/LookContext";
 import { NOISE_GLSL } from "../shaders/noise";
 import { FOG_UNIFORMS } from "../shaders/surface";
-import type { IslandBuild, IslandHex } from "../terrain/buildIsland";
+import type { Anchor, IslandBuild, IslandHex } from "../terrain/buildIsland";
 import { useDisposable } from "../dispose";
 
 /**
@@ -150,6 +150,10 @@ const LAYERS_HIGH = 7;
 const LAYERS_LOW = 4;
 /** Height of the fog-of-war wall above the ground. */
 const FOG_TOP = 0.85;
+/** Fires that light the mist (nearest-first by kind: bridges, braziers, campfires, torches). */
+const MAX_FIRES = 6;
+const FIRE_ORDER: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 0, brazier: 1, campfire: 2, torch: 3 };
+const FIRE_WEIGHT: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 1, brazier: 0.4, campfire: 0.4, torch: 0.2 };
 
 export function GroundMist({ island, densityByHex }: { island: IslandBuild; densityByHex?: MistDensityMap }) {
   const { preset, quality, atmosphere, motion } = useLook();
@@ -165,6 +169,8 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
         transparent: true,
         depthWrite: false,
         fog: true,
+        // Low quality skips the domain warp (one fbm + one vnoise pair less per layer).
+        defines: quality === "high" ? { FOG_WARP: "" } : {},
         uniforms: THREE.UniformsUtils.merge([
           THREE.UniformsLib.fog,
           {
@@ -173,10 +179,14 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
             uExtent: { value: 1 },
             uColor: { value: new THREE.Color() },
             uFogColor: { value: new THREE.Color() },
+            uFogLit: { value: new THREE.Color() },
+            uFireColor: { value: new THREE.Color() },
+            uFires: { value: Array.from({ length: MAX_FIRES }, () => new THREE.Vector4()) },
             uDensity: { value: 0.5 },
             uSpeed: { value: 0.05 },
             uTop: { value: 0.6 },
             uLayerNorm: { value: 1 },
+            uFogAlpha: { value: 1.05 },
           },
         ]),
         vertexShader: /* glsl */ `
@@ -196,34 +206,73 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
         fragmentShader: /* glsl */ `
           #include <common>
           #include <fog_pars_fragment>
-          uniform float uTime, uExtent, uDensity, uSpeed, uTop, uLayerNorm;
+          uniform float uTime, uExtent, uDensity, uSpeed, uTop, uLayerNorm, uFogAlpha;
           uniform sampler2D uGrid;
-          uniform vec3 uColor, uFogColor;
+          uniform vec3 uColor, uFogColor, uFogLit, uFireColor;
+          uniform vec4 uFires[${MAX_FIRES}];
           varying vec3 vWorld;
           varying float vLayer;
           ${NOISE_GLSL}
           void main() {
             vec2 uv = vWorld.xz / (uExtent * 2.0) + 0.5;
             vec4 g = texture2D(uGrid, uv);
+            float fog = g.b;
+            // Most of each slice is open air past the island: skip it early.
+            if (g.r < 0.004 && fog < 0.004) discard;
             float terrain = g.g * 2.0 - 1.0;
             float above = vWorld.y - terrain;
-            vec2 p = vWorld.xz * 0.55 + vec2(uTime * uSpeed * 6.0, uTime * uSpeed * 1.5) + vLayer * 3.7;
-            float n = fbm(p);
-            float n2 = fbm(p * 2.3 - vec2(uTime * uSpeed * 4.0, 0.0));
-            float field = n * 0.8 + n2 * 0.4;
+
+            // Firelight from the nearest fires (bridges first), on mist and fog.
+            float fire = 0.0;
+            for (int i = 0; i < ${MAX_FIRES}; i++) {
+              vec3 d = vWorld - uFires[i].xyz;
+              fire += uFires[i].w / (1.0 + dot(d, d) * 2.2);
+            }
+            vec3 fireCol = uFireColor * min(fire, 1.6);
 
             // Ground mist.
-            float hFade = smoothstep(0.0, 0.14, above) * (1.0 - smoothstep(uTop * 0.5, uTop, above));
-            float wisps = smoothstep(0.35, 0.85, field);
-            // uLayerNorm keeps total opacity independent of the layer count and spacing.
-            float a = min(1.0, g.r * ${MAX_DENSITY.toFixed(1)} * wisps * hFade * uDensity * 0.55 * uLayerNorm);
+            float a = 0.0;
+            if (g.r > 0.004) {
+              vec2 p = vWorld.xz * 0.55 + vec2(uTime * uSpeed * 6.0, uTime * uSpeed * 1.5) + vLayer * 3.7;
+              float field = fbm(p) * 0.8 + fbm(p * 2.3 - vec2(uTime * uSpeed * 4.0, 0.0)) * 0.4;
+              float hFade = smoothstep(0.0, 0.14, above) * (1.0 - smoothstep(uTop * 0.5, uTop, above));
+              float wisps = smoothstep(0.35, 0.85, field);
+              // uLayerNorm keeps total opacity independent of the layer count and spacing.
+              a = min(1.0, g.r * ${MAX_DENSITY.toFixed(1)} * wisps * hFade * uDensity * 0.55 * uLayerNorm);
+            }
 
-            // Fog of war: a tall wall that tears open from the thin wisps inward.
-            float fog = g.b;
-            float fogH = smoothstep(0.0, 0.1, above) * (1.0 - smoothstep(${(FOG_TOP * 0.55).toFixed(2)}, ${FOG_TOP.toFixed(2)}, above));
-            float tear = smoothstep(1.15 - fog, 1.5 - fog, field + 0.1);
-            float fa = fog * tear * fogH * 0.5 * uLayerNorm;
-            vec3 col = mix(uColor, uFogColor, clamp(fa / max(a + fa, 0.001), 0.0, 1.0));
+            // Fog of war: drifting battlefield mist rather than a wall.
+            // - Banks: a slow, large noise that is the same in every slice, so
+            //   from above the fog shows rolling banks, an uneven drifting top
+            //   and thin gaps instead of a flat slab.
+            // - Churn: finer noise sheared with height, so the slices line up
+            //   into one moving volume instead of stacked planes.
+            // - A reveal tears the thin parts open first (tear), cores last.
+            float fa = 0.0;
+            vec3 fogCol = uFogColor;
+            if (fog > 0.004) {
+              vec2 drift = vec2(uTime * 0.04, -uTime * 0.015);
+              float bank = fbm(vWorld.xz * vec2(0.24, 0.55) + drift * 0.6);
+              float fogTop = ${FOG_TOP.toFixed(2)} * (0.2 + 0.95 * bank) * (0.5 + 0.5 * fog);
+              float hRel = above / max(fogTop, 0.05);
+              float vert = smoothstep(0.0, 0.06, above) * (1.0 - smoothstep(0.2, 1.0, hRel));
+              vec2 q = vWorld.xz * vec2(0.9, 2.2) + drift * vec2(1.0, 2.0) + vec2(above * 1.8, -above * 1.1);
+              #ifdef FOG_WARP
+              q += (vec2(vnoise(q * 0.5 + uTime * 0.05), vnoise(q * 0.5 + 5.2 - uTime * 0.04)) - 0.5) * 1.2;
+              #endif
+              float churn = vnoise(q) * 0.65 + vnoise(q * 2.1 + 3.3) * 0.35;
+              float dens = smoothstep(0.1, 0.75, bank * 1.2 - 0.15 + (churn - 0.5) * 0.7 + (fog - 1.0) * 0.4);
+              // A low veil under the banks, so unseen ground always reads as unseen.
+              dens = max(dens, (0.35 + 0.2 * churn) * (1.0 - smoothstep(0.08, 0.3, above)));
+              float tear = smoothstep(1.0 - fog, 1.3 - fog, churn * 0.6 + bank * 0.6);
+              fa = fog * tear * dens * vert * uFogAlpha * uLayerNorm;
+              // Crests and thin edges catch the key light (warm at dusk, silver
+              // under the moon); the cores sit in their own shadow.
+              float lit = smoothstep(0.4, 1.0, hRel) * (1.0 - 0.7 * dens) * 0.9 + 0.12;
+              fogCol = uFogColor * (0.6 + 0.6 * churn) + uFogLit * lit + fireCol * (0.7 + 0.5 * (1.0 - dens));
+            }
+            vec3 mistCol = uColor + fireCol * 0.5;
+            vec3 col = mix(mistCol, fogCol, clamp(fa / max(a + fa, 0.001), 0.0, 1.0));
             gl_FragColor = vec4(col, min(0.95, a + fa));
             #include <tonemapping_fragment>
             #include <colorspace_fragment>
@@ -231,7 +280,7 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
           }
         `,
       }),
-    [],
+    [quality],
   );
 
   const layers = quality === "high" ? LAYERS_HIGH : LAYERS_LOW;
@@ -254,7 +303,16 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
   }, [extent, island.waterLevel, preset.mist.height, layers]);
   useEffect(() => () => geometry.dispose(), [geometry]);
 
-  const tmp = useMemo(() => ({ base: new THREE.Color(), fog: new THREE.Color(), seen: -1 }), [grid]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tmp = useMemo(() => ({ base: new THREE.Color(), fog: new THREE.Color(), sky: new THREE.Color(), seen: -1 }), [grid]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fires = useMemo(
+    () =>
+      island.fireAnchors
+        .filter((a) => a.kind)
+        .sort((a, b) => FIRE_ORDER[a.kind!] - FIRE_ORDER[b.kind!])
+        .slice(0, MAX_FIRES)
+        .map((a) => ({ x: a.x, y: a.y + 0.2, z: a.z, weight: FIRE_WEIGHT[a.kind!] })),
+    [island],
+  );
 
   useEffect(() => {
     FOG_UNIFORMS.uFogGrid.value = grid.texture;
@@ -270,8 +328,24 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
     // Weather layers more (and differently coloured) mist on top of the preset.
     u.uDensity.value = preset.mist.density + m.mistDensityAdd;
     u.uColor.value.copy(tmp.base.set(preset.mist.color).lerp(m.mistColor, Math.min(1, m.mistColorMix)));
-    // Fog of war is a dimmer, cooler grey than the ground mist: unknown, not weather.
-    u.uFogColor.value.copy(tmp.fog.set(preset.mist.color).lerp(new THREE.Color(preset.fog.color), 0.5).lerp(new THREE.Color("#5a6070"), 0.3).multiplyScalar(0.7));
+    // Fog of war is a dimmer, cooler body than the ground mist (unknown, not
+    // weather), toned by the sky so it sits in each time of day.
+    u.uFogColor.value.copy(tmp.fog.set(preset.fog.color).lerp(tmp.sky.set(preset.hemisphere.sky), 0.45).lerp(tmp.base.set(preset.mist.color), 0.25).multiplyScalar(0.6));
+    // The key light tints the fog's tops: warm sun at dusk, silver moon at night.
+    u.uFogLit.value.set(preset.sun.color).multiplyScalar(0.34 * Math.min(1, preset.sun.intensity / 3.5));
+    u.uFireColor.value.set(preset.fires.color).multiplyScalar(0.5);
+    const fireOn = Math.min(1, preset.fires.intensity / 5);
+    const t = u.uTime.value;
+    for (let i = 0; i < MAX_FIRES; i += 1) {
+      const f = fires[i];
+      const v = u.uFires.value[i] as THREE.Vector4;
+      if (!f || fireOn <= 0) {
+        v.set(0, -99, 0, 0);
+        continue;
+      }
+      const flick = 0.85 + 0.15 * Math.sin(t * 7.3 + i * 1.7) * Math.sin(t * 3.1 + i);
+      v.set(f.x, f.y, f.z, f.weight * fireOn * flick);
+    }
     u.uSpeed.value = preset.mist.speed;
     u.uTop.value = preset.mist.height + 0.25 + m.mistHeightAdd;
     // Calibrated against the original 5 layers spread over 0.55 world units.
