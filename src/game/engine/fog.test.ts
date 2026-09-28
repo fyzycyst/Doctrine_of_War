@@ -151,6 +151,20 @@ describe("fogged decisions", () => {
     expect(fogged.events.find((event) => event.kind === "engagement")).toMatchObject({ defenderId: "E", reckless: true });
   });
 
+  it("falls back from the enemies it can see, not from hidden ones", () => {
+    // V is adjacent (seen); H is 3 hexes off (hidden). Omniscient, H would pull the retreat north.
+    const scen = scenario({
+      squads: [squad("p", FB, { q: 3, r: 2 }), squad("V", AH, { q: 2, r: 2 }), squad("H", AH, { q: 6, r: 2 })],
+    });
+    const retreat = (fortune: "on" | "off") => {
+      const kit = actionContext(scen, library(), { fortune });
+      executeAction(kit.ctx, kit.get("p"), { kind: "fallBack", hexes: 1 });
+      return kit.get("p").hex;
+    };
+    expect(retreat("on")).toEqual({ q: 4, r: 2 });
+    expect(retreat("off")).toEqual({ q: 4, r: 1 });
+  });
+
   it("changes behaviour in a real phase", () => {
     const board = openBoard(7, 5, { "1,2": "ruin" });
     const wary = doctrine("wary", FB, [
