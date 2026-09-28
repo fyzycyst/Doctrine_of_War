@@ -118,4 +118,27 @@ describe("playback controls", () => {
     await p;
     expect(anim.activeShakes()).toHaveLength(0);
   });
+
+  it("reveal resolves figures from silhouette to colour and snaps the banner open", async () => {
+    const anim = new SquadAnimator(makeScene(9));
+    const p = anim.reveal("a");
+    anim.tick(0.05);
+    expect(anim.figurePose("a", 0)!.silhouette).toBeGreaterThan(0.9);
+    expect(anim.squadPose("a")!.bannerColor).toBe(0);
+    expect(anim.squadPose("a")!.bannerOpen).toBeLessThan(0.3);
+    run(anim, 0.55);
+    // Past the snap: the cloth overshoots open while its colour returns.
+    run(anim, 0.2);
+    expect(anim.squadPose("a")!.bannerOpen).toBeGreaterThan(1);
+    run(anim, 1);
+    await p;
+    anim.tick(0.016);
+    const pose = anim.squadPose("a")!;
+    expect(pose.bannerOpen).toBe(1);
+    expect(pose.bannerColor).toBe(1);
+    for (let i = 0; i < MAX_FIGURES; i += 1) {
+      expect(anim.figurePose("a", i)!.silhouette).toBe(0);
+      expect(anim.figurePose("a", i)!.fade).toBe(1);
+    }
+  });
 });

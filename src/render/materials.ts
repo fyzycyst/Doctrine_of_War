@@ -134,6 +134,10 @@ export function createOutlineMaterial(colorHex: string, thickness = 0.012): THRE
  * emissive ember glints from the geometry's `glow` channel, and a per-instance
  * `aFade` (InstancedBufferAttribute, 0..1) that dithers figures out without any
  * transparency sorting — used by the fall and rout tweens.
+ *
+ * The ghost variant (last-known positions) is a real translucent silhouette
+ * instead: near-black, alpha = `aFade`, with a soft cool rim that is more
+ * opaque than the body so the outline carries the read.
  */
 export function createFigureMaterial(opts: {
   shading: MaterialStyle["shading"];
@@ -154,8 +158,8 @@ export function createFigureMaterial(opts: {
     uGlint: { value: new THREE.Color(opts.glintColor).multiplyScalar(opts.ghost ? 0 : 2) },
   };
   if (opts.ghost) {
-    uniforms.uRimColor.value.set("#8a94a8");
-    uniforms.uRimStrength.value = 0.35;
+    uniforms.uRimColor.value.set("#9aa6bf");
+    uniforms.uRimStrength.value = 0.4;
   }
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -166,8 +170,10 @@ export function createFigureMaterial(opts: {
 attribute float glow;
 varying float vGlow;
 varying float vFade;
+varying float vSilhouette;
 #ifdef USE_INSTANCING
 attribute float aFade;
+attribute float aSilhouette;
 #endif`,
       )
       .replace(
@@ -176,8 +182,10 @@ attribute float aFade;
 vGlow = glow;
 #ifdef USE_INSTANCING
 vFade = aFade;
+vSilhouette = aSilhouette;
 #else
 vFade = 1.0;
+vSilhouette = 0.0;
 #endif`,
       );
     shader.fragmentShader = shader.fragmentShader
@@ -188,17 +196,21 @@ uniform vec3 uRimColor;
 uniform float uRimStrength;
 uniform vec3 uGlint;
 varying float vGlow;
-varying float vFade;`,
+varying float vFade;
+varying float vSilhouette;`,
       )
       .replace(
         "#include <color_fragment>",
         opts.ghost
           ? "#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.025, 0.03), 0.9);"
-          : "#include <color_fragment>",
+          : // Reveal: resolve from the ghost silhouette to full colour.
+            "#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.025, 0.03), 0.9 * vSilhouette);",
       )
       .replace(
         "#include <clipping_planes_fragment>",
-        `#include <clipping_planes_fragment>
+        opts.ghost
+          ? "#include <clipping_planes_fragment>\nif (vFade < 0.004) discard;"
+          : `#include <clipping_planes_fragment>
 if (vFade < 0.999) {
   float th = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
   if (vFade <= th) discard;
@@ -208,9 +220,14 @@ if (vFade < 0.999) {
         "#include <opaque_fragment>",
         `{
   vec3 viewDir = normalize(vViewPosition);
-  float fres = pow(1.0 - clamp(dot(normalize(normal), viewDir), 0.0, 1.0), 3.5);
+  float facing = clamp(dot(normalize(normal), viewDir), 0.0, 1.0);
+${opts.ghost
+    ? `  float fres = pow(1.0 - facing, 2.0);
   outgoingLight += uRimColor * fres * uRimStrength;
-  outgoingLight += uGlint * vGlow;
+  diffuseColor.a = min(1.0, vFade * (0.8 + 0.6 * fres));`
+    : `  float fres = pow(1.0 - facing, mix(3.5, 2.0, vSilhouette));
+  outgoingLight += mix(uRimColor * uRimStrength, vec3(0.6, 0.65, 0.75) * 0.4, vSilhouette) * fres;
+  outgoingLight += uGlint * vGlow * (1.0 - vSilhouette);`}
 }
 #include <opaque_fragment>`,
       );

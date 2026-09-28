@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emberDusk } from "../skins/emberDusk";
 import { SKINS, WEATHER_KINDS } from "../skins";
-import { AtmosphereRuntime, FOG_REVEAL_TIME, mixWeather, WEATHER_FADE, weightsFor } from "./atmosphereRuntime";
+import { AtmosphereRuntime, FOG_REVEAL_TIME, MAX_SWIRLS, mixWeather, SWIRL_TIME, WEATHER_FADE, weightsFor } from "./atmosphereRuntime";
 
 const presets = emberDusk.weather;
 
@@ -72,5 +72,20 @@ describe("atmosphere runtime", () => {
     rt.setWeather("clear");
     run(rt, 5);
     expect(rt.weights.mist).toBe(1);
+  });
+
+  it("reveal swirls age out, stay capped, and freeze with the time scale", () => {
+    const rt = new AtmosphereRuntime(emberDusk.weather, "clear");
+    for (let i = 0; i < MAX_SWIRLS + 2; i += 1) rt.swirl(i, 0);
+    expect(rt.swirls).toHaveLength(MAX_SWIRLS);
+    expect(rt.swirls[0].x).toBe(2);
+    rt.timeScale = 0;
+    rt.tick(1);
+    expect(rt.swirls[0].age).toBe(0);
+    rt.timeScale = 1;
+    rt.tick(SWIRL_TIME / 2);
+    expect(rt.swirls[0].age).toBeCloseTo(0.5);
+    rt.tick(SWIRL_TIME);
+    expect(rt.swirls).toHaveLength(0);
   });
 });

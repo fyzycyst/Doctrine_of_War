@@ -102,17 +102,29 @@ export function Water({ island }: { island: IslandBuild }) {
             float fire = smoothstep(0.6, 0.9, fbm(vec2(along * 1.2 - uTime * 0.3, across * 11.0) + 3.0));
             col = mix(col, col * 0.45, clamp(uGlow, 0.0, 1.0));
             col += uGlowColor * uGlow * flick * fire * 0.9;
-            // Rain: expanding ripple rings, one per cell with a random phase.
+            // Rain: expanding ripple rings, large and sparse enough to read
+            // at the wide shot. Each cell fires on a random cycle (about half
+            // sit out), with a bright crest, a faint trailing ring and a
+            // darker trough just inside.
             if (uWet > 0.01) {
               for (int k = 0; k < 2; k++) {
-                vec2 q = vPos * (5.0 + float(k) * 2.3) + float(k) * 13.1;
+                vec2 q = vPos * (2.1 + float(k) * 0.9) + float(k) * 13.1;
                 vec2 cell = floor(q);
                 vec2 f = fract(q);
-                vec2 c = vec2(hash12(cell), hash12(cell + 7.3)) * 0.6 + 0.2;
-                float ph = fract(uTime * 0.85 + hash12(cell + 3.1));
+                float rate = 0.55 + 0.25 * hash12(cell + 5.7);
+                float tt = uTime * rate + hash12(cell + 3.1);
+                float ph = fract(tt);
+                float live = step(0.5, hash12(cell + floor(tt) * 1.37));
+                vec2 c = vec2(hash12(cell + floor(tt)), hash12(cell + 7.3 + floor(tt))) * 0.5 + 0.25;
                 float d = length(f - c);
-                float ring = smoothstep(0.035, 0.0, abs(d - ph * 0.42)) * (1.0 - ph);
-                col += vec3(0.55, 0.6, 0.65) * ring * uWet * 0.45;
+                float r = ph * 0.45;
+                float w = 0.03 + 0.02 * ph;
+                float crest = smoothstep(w, 0.0, abs(d - r));
+                float trail = smoothstep(w, 0.0, abs(d - r * 0.6)) * 0.25;
+                float trough = smoothstep(w * 1.6, 0.0, abs(d - r + w * 1.4));
+                float fade = (1.0 - ph) * (1.0 - ph) * live * uWet;
+                col += vec3(0.6, 0.65, 0.72) * (crest + trail) * fade * 0.7;
+                col *= 1.0 - trough * fade * 0.25;
               }
             }
             gl_FragColor = vec4(col, 1.0);

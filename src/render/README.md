@@ -46,12 +46,16 @@ imported (see `fromEngine.ts`); engine logic may not.
   (`atmosphere/atmosphereRuntime.ts`; the pure `mixWeather` is tested).
 - **Fog of war (T08):** `<Diorama visibility={visibilityFromView(view, scenario)}>` (in
   `fromEngine.ts`; it approximates the seen hexes until the engine exports `visibleHexes()`, so
-  swapping is one line). Unseen board hexes fill with a tall, dim mist and the terrain under them
+  swapping is one line). Unseen board hexes fill with drifting, lit battlefield mist (uneven
+  top, low veil, crests lit by the key light and nearby fires) and the terrain under them
   desaturates. Squads with `lastKnown: true` (mapped from `VisibleSquad.lastKnown` by
-  `dioramaSquads`) draw as dark dithered silhouettes with a colourless rag banner and a dashed ring.
+  `dioramaSquads`) draw as dark translucent silhouettes with a soft rim, a slow breathing fade, a
+  colourless tattered banner and a dashed ring.
   **Reveal hook:** when a squad that was hidden or a ghost becomes visible, the Diorama plays
-  `reveal(id)` (figures rise and resolve, the banner unfurls, the ring draws on) while the mist over
-  its hex tears open, then calls `onReveal(squadIds)`. Playback can also call
+  `reveal(id)` (1.2 s: figures resolve from silhouette to colour over ~0.8 s, the furled banner
+  snaps open with its colour at 0.55 s, the ring draws on) and `atmosphere.swirl(x, z)` (the mist
+  twists and parts around the squad) while its hex clears, then calls `onReveal(squadIds)`; the
+  `reveal` sfx is timed to the same beats. Playback can also call
   `animationRef.current.reveal(id)` directly.
 - **Audio (T08), stable path `src/audio`:** `playSfx(name)` with `clash | horn | card | seal |
   rout | dread | reveal`; `useAmbience({ timeOfDay, weather, water, hostDrums })` (or
@@ -105,7 +109,7 @@ imported (see `fromEngine.ts`); engine logic may not.
   fires, gate banner).
 - `atmosphere/`: backdrop and cloud sea, ground mist (per-hex `densityByHex` = fog of war),
   embers/ash/rain, fires.
-- `figures/`: (a) instanced toy soldiers (with ember glints and a dithered `aFade`), (b) KayKit
+- `figures/`: (a) instanced toy soldiers (with ember glints, a dithered `aFade` and a reveal `aSilhouette`), (b) KayKit
   CC0 figures (fallback only), and shared banners, cohesion rings, renown crests and contact
   shadows (`SquadMarkers`).
 - `camera/`, `post/`, `lighting/`: clamped orbit + idle drift (`wideShot(boardRadius)`,
