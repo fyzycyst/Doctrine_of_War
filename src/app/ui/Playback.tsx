@@ -130,9 +130,7 @@ function boardReady(wait: boolean): Promise<void> {
 function freeze(run: PlaybackDirector, animator: SquadAnimationApi | null, later: (ms: number, fn: () => void) => void) {
   run.hold();
   later(450, () => {
-    // SquadAnimator exposes timeScale (0 freezes every tween); the API type does not.
-    const tweens = animator as (SquadAnimationApi & { timeScale?: number }) | null;
-    if (tweens && "timeScale" in tweens) tweens.timeScale = 0;
+    animator?.pause();
     window.__playbackFrozen = { ready: true, frames: 9999 };
   });
 }

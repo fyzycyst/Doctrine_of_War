@@ -109,14 +109,12 @@ export class PlaybackDirector {
 
   /**
    * Keeps running animations in step with the pace: they were started with timeline-pace
-   * durations, so they play at 1/scale speed. Uses the animator's setTimeScale where the
-   * renderer provides it (render agent, pending); a no-op until then.
+   * durations, so they play at 1/scale speed.
    */
   private syncAnimations(scale: number) {
     if (scale === this.animationScale) return;
     this.animationScale = scale;
-    const animator = this.hooks.animator() as (SquadAnimationApi & { setTimeScale?: (k: number) => void }) | null;
-    animator?.setTimeScale?.(1 / scale);
+    this.hooks.animator()?.setTimeScale(1 / scale);
   }
 
   private sleepOnce(ms: number): Promise<void> {
@@ -349,7 +347,13 @@ export class PlaybackDirector {
         const objective = hooks.display().objectives.find((item) => item.id === event.objectiveId);
         hooks.focus(event.hex);
         hooks.sfx("clash");
-        hooks.shake();
+        // The gate itself jolts (with dust and stones) in 3D; the flat board shake is only
+        // the fallback when there is no animator (headless or not yet mounted).
+        if (anim) {
+          void anim.shakeObjective(event.hex, Math.max(0.4, Math.min(1.2, (event.oldIntegrity - event.newIntegrity) / 30)));
+        } else {
+          hooks.shake();
+        }
         hooks.callout({ kind: "gate", hex: event.hex, faction: null, title: objective?.name ?? "The gate", text: `${event.oldIntegrity} → ${event.newIntegrity}`, repeat: false, linger: step.linger });
         hooks.caption(`${objective?.name ?? "The gate"} battered: ${event.oldIntegrity} to ${event.newIntegrity}`);
         if (event.attackerId) void anim?.lunge(event.attackerId, event.hex, { duration: (d * 0.6) / 1000 });

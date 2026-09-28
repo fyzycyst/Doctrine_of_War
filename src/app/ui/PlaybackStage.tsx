@@ -74,7 +74,6 @@ function CalloutCard({ callout }: { callout: Callout }) {
     <div className={classes}>
       <span className="callout-title">{callout.title}</span>
       <span className="callout-text">{callout.text}</span>
-      {callout.kind === "gate" && <span className="dust" aria-hidden="true" />}
     </div>
   );
 }
