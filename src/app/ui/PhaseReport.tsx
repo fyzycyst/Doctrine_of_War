@@ -13,6 +13,9 @@ import {
   type Losses,
 } from "../game/chronicle";
 import { reportHeadline, splitRule, WEATHER_NAME } from "../game/view";
+import { useFirstBattle } from "../guide/CoachLayer";
+import { useGuide } from "../guide/guideStore";
+import { InlineCoach } from "../guide/InlineCoach";
 import { Modal, rosterFocus } from "./Modal";
 
 const TONE_ICON: Record<ChronicleTone, LucideIcon> = {
@@ -54,6 +57,9 @@ export function PhaseReport() {
   const view = useGame((s) => s.view);
   const nextPhase = useGame((s) => s.nextPhase);
   const replay = useGame((s) => s.replayPhase);
+  const chronicleStep = useGuide((s) => s.coach === "active" && s.step === "chronicle");
+  const firstBattle = useFirstBattle();
+  const teaching = chronicleStep && firstBattle;
   const entry = log[log.length - 1];
   const button = useRef<HTMLButtonElement>(null);
 
@@ -77,7 +83,8 @@ export function PhaseReport() {
         </header>
 
         <div className="report-body">
-          <section aria-labelledby="fired-title" className="fired">
+          {teaching && <InlineCoach step="chronicle" />}
+          <section aria-labelledby="fired-title" className={`fired ${teaching ? "coach-target" : ""}`}>
             <h3 id="fired-title">Your standing orders that fired</h3>
             {ours.length === 0 ? <p className="quiet">None of your orders fired.</p> : <FiredList groups={ours} />}
             {theirs.length > 0 && (

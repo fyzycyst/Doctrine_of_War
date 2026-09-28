@@ -6,7 +6,7 @@ import { Modal } from "../ui/Modal";
 import { useFlow } from "./flowStore";
 
 /** The title: the First Breach crane shot with the main menu laid over it. */
-export function TitleScreen({ onSettings }: { onSettings?: () => void }) {
+export function TitleScreen({ onSettings, onHowTo }: { onSettings?: () => void; onHowTo?: () => void }) {
   const save = useFlow((s) => s.save);
   const checkSave = useFlow((s) => s.checkSave);
   const begin = useFlow((s) => s.beginCampaign);
@@ -44,6 +44,11 @@ export function TitleScreen({ onSettings }: { onSettings?: () => void }) {
           {!canContinue && (
             <button type="button" className="btn-quiet" disabled aria-describedby="continue-note">
               Continue
+            </button>
+          )}
+          {onHowTo && (
+            <button type="button" className="btn-quiet" onClick={onHowTo}>
+              How to play
             </button>
           )}
           {onSettings && (

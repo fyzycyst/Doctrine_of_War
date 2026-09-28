@@ -22,6 +22,13 @@ function mockAnimator() {
     brace: record("brace"),
     reveal: record("reveal"),
     reset: vi.fn(),
+    setTimeScale: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn(),
+    shakeObjective: vi.fn((hex: { q: number; r: number }) => {
+      calls.push(`shakeObjective:${hex.q},${hex.r}`);
+      return Promise.resolve();
+    }),
   } as unknown as SquadAnimationApi;
   return { api, calls };
 }
@@ -177,7 +184,7 @@ describe("PlaybackDirector: pace inside a step", () => {
     let pace: Pace = "readable";
     run.hooks.pace = () => pace;
     const timeScales: number[] = [];
-    (run.hooks.animator() as unknown as { setTimeScale: (k: number) => void }).setTimeScale = (k) => timeScales.push(k);
+    vi.mocked(run.hooks.animator()!.setTimeScale).mockImplementation((k) => void timeScales.push(k));
     const slept: number[] = [];
     run.hooks.sleep = (ms) => {
       slept.push(ms);
@@ -208,5 +215,50 @@ describe("PlaybackDirector: a rout with nowhere to run", () => {
     expect(run.calls).toContain("fall:greyford_shields");
     expect(run.calls).not.toContain("rout:greyford_shields");
     expect(run.display().squads.find((squad) => squad.id === "greyford_shields")).toMatchObject({ status: "routed", hex: null });
+  });
+});
+
+describe("PlaybackDirector: gate hits", () => {
+  it("jolts the gate in 3D and keeps the flat board shake for when there is no animator", async () => {
+    const run = setup();
+    const hit = { phase: 1, beat: 0, visibleTo: [PLAYER], kind: "objectiveDamage" as const, objectiveId: "greyford_gate", attackerId: null, hex: { q: 4, r: 2 }, oldIntegrity: 100, newIntegrity: 63 };
+    const timeline = buildTimeline([hit], "readable", { playerFaction: PLAYER, factionOf: () => PLAYER });
+    await new PlaybackDirector(timeline, run.hooks).run();
+    expect(run.calls).toContain("shakeObjective:4,2");
+    expect(run.hooks.shake).not.toHaveBeenCalled();
+
+    const headless = setup();
+    headless.hooks.animator = () => null;
+    await new PlaybackDirector(timeline, headless.hooks).run();
+    expect(headless.hooks.shake).toHaveBeenCalledOnce();
+  });
+});
+
+describe("PlaybackDirector: pause and resume", () => {
+  it("holds at the next slice until resumed, and skip still ends it", async () => {
+    const run = setup();
+    let slices = 0;
+    let director: PlaybackDirector | null = null;
+    run.hooks.sleep = () => {
+      slices += 1;
+      if (slices === 3) director!.pause();
+      return Promise.resolve();
+    };
+    director = new PlaybackDirector(run.timeline, run.hooks);
+    const finished = director.run();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const held = slices;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(slices).toBe(held);
+    director.resume();
+    await expect(finished).resolves.toBe("done");
+    expect(slices).toBeGreaterThan(held);
+
+    const again = setup();
+    const paused = new PlaybackDirector(again.timeline, again.hooks);
+    paused.pause();
+    const ending = paused.run();
+    paused.skip();
+    await expect(ending).resolves.toBe("skipped");
   });
 });

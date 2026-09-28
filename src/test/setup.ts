@@ -13,3 +13,6 @@ if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.sho
     this.dispatchEvent(new Event("close"));
   };
 }
+
+// Tests start with the first-battle guidance already seen; guidance tests reset it.
+localStorage.setItem("doctrine-of-war.guide", JSON.stringify({ state: { introSeen: true, coach: "done" }, version: 0 }));

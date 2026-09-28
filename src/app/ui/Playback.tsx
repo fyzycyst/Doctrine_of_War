@@ -3,7 +3,10 @@ import { useEffect, useRef, type RefObject } from "react";
 import { playSfx } from "../../audio";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { emberDusk } from "../../render/skins";
+import { useCaptureStore } from "../captureStore";
 import { useGame } from "../game/gameStore";
+import { FIRST_BATTLE } from "../guide/coach";
+import { useGuide } from "../guide/guideStore";
 import { PlaybackDirector } from "../playback/director";
 import { buildTimeline, snapshotBefore } from "../playback/timeline";
 
@@ -70,6 +73,24 @@ export function Playback({
       setBeat: (beat) => useGame.getState().setPlayback({ beat }),
       callout: (spec) => {
         const id = useGame.getState().pushCallout(spec);
+        // First battle: the guide stops on the first of your rule banners so it can be read.
+        const guide = useGuide.getState();
+        const teach =
+          guide.coach === "active" &&
+          guide.step === "watch" &&
+          guide.watchCallout === null &&
+          !useCaptureStore.getState().captureMode &&
+          game.baseScenario.id === FIRST_BATTLE &&
+          spec.kind === "rule" &&
+          spec.faction === game.scenario.playerFaction &&
+          !spec.repeat;
+        if (teach) {
+          guide.pinCallout(id);
+          run.pause();
+          animation.current?.pause();
+          if (import.meta.env.DEV) later(500, () => (window.__playbackFrozen = { ready: true, frames: 9999 }));
+          return;
+        }
         later(spec.linger, () => {
           if (!frozen) useGame.getState().dropCallout(id);
         });
@@ -95,8 +116,21 @@ export function Playback({
         }
       });
 
+    // When the "watch" mark is answered (or the guide skipped), carry on and let its banner go.
+    const unsubscribeGuide = useGuide.subscribe((guide, before) => {
+      const pinned = before.watchCallout;
+      if (pinned !== null && (guide.step !== "watch" || guide.coach !== "active")) {
+        useGuide.getState().pinCallout(null);
+        animation.current?.resume();
+        run.resume();
+        later(600, () => useGame.getState().dropCallout(pinned));
+      }
+    });
+
     return () => {
       alive = false;
+      unsubscribeGuide();
+      if (useGuide.getState().watchCallout !== null) useGuide.getState().pinCallout(null);
       run.skip();
       timers.forEach(clearTimeout);
       animation.current?.reset();
@@ -130,9 +164,7 @@ function boardReady(wait: boolean): Promise<void> {
 function freeze(run: PlaybackDirector, animator: SquadAnimationApi | null, later: (ms: number, fn: () => void) => void) {
   run.hold();
   later(450, () => {
-    // SquadAnimator exposes timeScale (0 freezes every tween); the API type does not.
-    const tweens = animator as (SquadAnimationApi & { timeScale?: number }) | null;
-    if (tweens && "timeScale" in tweens) tweens.timeScale = 0;
+    animator?.pause();
     window.__playbackFrozen = { ready: true, frames: 9999 };
   });
 }

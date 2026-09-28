@@ -3,6 +3,8 @@ import { useAudioStore } from "../audioStore";
 import { useGame } from "../game/gameStore";
 import { useSettings, type QualitySetting } from "../settingsStore";
 import type { MotionPreference } from "../store";
+import { useFlow } from "../flow/flowStore";
+import { useGuide } from "../guide/guideStore";
 import { Modal } from "./Modal";
 
 function Segmented<T extends string>({
@@ -58,6 +60,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setVolume = useAudioStore((s) => s.setVolume);
   const setPace = useGame((s) => s.setPace);
   const close = useRef<HTMLButtonElement>(null);
+  const setHowToOpen = useFlow((s) => s.setHowToOpen);
+  const resetGuide = useGuide((s) => s.reset);
+  const guideFresh = useGuide((s) => !s.introSeen && s.coach === "active" && s.step === "select");
 
   return (
     <Modal className="modal settings" labelledBy="settings-title" initialFocus={close} onCancel={onClose}>
@@ -119,6 +124,24 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
       <Row title="Motion" help="Reduced keeps callouts and cuts, but stops camera moves, drift and shakes.">
         <Segmented label="Motion" value={settings.motion} options={MOTION} onChange={(motion) => settings.set({ motion })} />
+      </Row>
+
+      <Row title="Guidance" help="The field manual, or the first battle's guide again (it shows on your next First Breach).">
+        <div className="settings-audio">
+          <button
+            type="button"
+            className="btn-quiet"
+            onClick={() => {
+              onClose();
+              setHowToOpen(true);
+            }}
+          >
+            How to play
+          </button>
+          <button type="button" className="btn-quiet" disabled={guideFresh} onClick={resetGuide}>
+            {guideFresh ? "Guide ready" : "Show the guide again"}
+          </button>
+        </div>
       </Row>
 
       <div className="modal-actions">

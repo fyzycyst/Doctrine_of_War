@@ -8,9 +8,11 @@
 //   &pauseAt=rule|rule-mine|surge|rout|…   freeze playback on the first callout of that kind
 //   &select=<squadId>      select a squad
 //   &still=1               no idle camera drift (captures)
+//   &guide=reset | &coach=select|read|assign|seal|watch|chronicle | &howto=1   guidance
 import { scenarios, type EngineScenario } from "../game/engine";
 import { campaignAfter } from "./flow/devCampaign";
 import { useFlow } from "./flow/flowStore";
+import { COACH_STEPS, useGuide, type CoachStep } from "./guide/guideStore";
 import { useGame, type Stage } from "./game/gameStore";
 import { useAppStore } from "./store";
 
@@ -49,6 +51,18 @@ export function bootFromUrl(search: string): BootOptions {
       "briefing",
       standalone ? null : game.campaign,
     );
+  }
+
+  // First-battle guidance (captures): `&guide=reset` starts it fresh; `&coach=<step>` jumps to a mark.
+  if (params.get("guide") === "reset" || params.get("coach")) {
+    useGuide.getState().reset();
+  }
+  const coach = params.get("coach") as CoachStep | null;
+  if (coach && COACH_STEPS.includes(coach)) {
+    useGuide.setState({ introSeen: true, step: coach });
+  }
+  if (params.get("howto") === "1") {
+    useFlow.getState().setHowToOpen(true);
   }
 
   const stage = params.get("stage") as Stage | null;

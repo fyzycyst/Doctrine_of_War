@@ -60,6 +60,12 @@ describe("capture mode", () => {
     expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
   });
 
+  it("keeps the in-world callouts by default (they are the pitch)", async () => {
+    vi.resetModules();
+    const { useCaptureStore: fresh } = await import("./captureStore");
+    expect(fresh.getState().keepCallouts).toBe(true);
+  });
+
   it("only toggles on the chord, never on a plain H", () => {
     const key = (init: Partial<KeyboardEvent>) => ({ key: "h", shiftKey: false, ctrlKey: false, metaKey: false, ...init });
     expect(isCaptureToggle(key({}))).toBe(false);

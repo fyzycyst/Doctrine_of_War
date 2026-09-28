@@ -7,19 +7,21 @@ import { create } from "zustand";
  */
 export interface CaptureState {
   captureMode: boolean;
-  /** Keep the in-world playback callouts in capture mode (`&callouts=1`), for gameplay footage. */
+  /** Keep the in-world playback callouts in capture mode (default: they are the pitch; `&callouts=0` hides them). */
   keepCallouts: boolean;
   setCaptureMode: (on: boolean) => void;
 }
 
-function fromUrl(name: string): boolean {
-  if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).get(name) === "1";
+function urlParam(name: string): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get(name);
 }
+
+const fromUrl = (name: string) => urlParam(name) === "1";
 
 export const useCaptureStore = create<CaptureState>((set) => ({
   captureMode: fromUrl("capture"),
-  keepCallouts: fromUrl("callouts"),
+  keepCallouts: urlParam("callouts") !== "0",
   setCaptureMode: (captureMode) => set({ captureMode }),
 }));
 
