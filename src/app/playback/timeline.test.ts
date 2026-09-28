@@ -11,7 +11,7 @@ import {
   type FactionId,
 } from "../../game/engine";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
-import { applyStep, buildTimeline, PHASE_BUDGET_MS, routDirection, STEP_MS, type Step } from "./timeline";
+import { applyStep, buildTimeline, PHASE_BUDGET_MS, routDirection, snapshotBefore, STEP_MS, visibleRuns, type Step } from "./timeline";
 
 const PLAYER: FactionId = "free_banners";
 const factionOf = (id: string) => firstBreach.squads.find((squad) => squad.id === id)?.faction;
@@ -68,6 +68,19 @@ describe("buildTimeline", () => {
     expect(rules[0].linger).toBeGreaterThan(rules[1].linger);
   });
 
+  it("gives each Host squad one callout per phase; later Host firings are caption-only", () => {
+    const { steps } = buildTimeline(
+      [rule("cinder_vanguard", "it_press", 1), rule("cinder_vanguard", "it_march", 2), rule("greyford_shields", "stl_brace", 2), rule("greyford_shields", "stl_hold", 3)],
+      "readable",
+      ctx,
+    );
+    const rules = steps.filter((step) => step.kind === "rule");
+    expect(rules.map((step) => step.quiet)).toEqual([false, true, false, false]);
+    expect(rules[1].linger).toBe(0);
+    // The player's change of rule is a full callout, not a repeat.
+    expect(rules[3].repeat).toBe(false);
+  });
+
   it("lays steps end to end and halves every step at Fast", () => {
     const events = curatedPhases()[0];
     const readable = buildTimeline(events, "readable", ctx);
@@ -79,7 +92,7 @@ describe("buildTimeline", () => {
     expect(fast.totalMs).toBeLessThanOrEqual(readable.totalMs / 2 + fast.steps.length);
   });
 
-  it("fits every curated First Breach phase in the budget: ≤ 20 s Readable, ≤ 10 s Fast", () => {
+  it("fits every curated First Breach phase in the budget: ≤ 24 s Readable, ≤ 12 s Fast", () => {
     for (const events of curatedPhases()) {
       expect(buildTimeline(events, "readable", ctx).totalMs).toBeLessThanOrEqual(PHASE_BUDGET_MS);
       expect(buildTimeline(events, "fast", ctx).totalMs).toBeLessThanOrEqual(PHASE_BUDGET_MS / 2 + 50);
@@ -126,11 +139,14 @@ describe("applyStep", () => {
     kind: "move",
     beat: event.beat,
     event,
+    index: 0,
     at: 0,
     duration: 0,
     linger: 0,
     repeat: false,
+    quiet: false,
     path: [],
+    runs: [],
     emerges: false,
     vanishes: false,
     ...extra,
@@ -190,7 +206,9 @@ describe("routDirection", () => {
     const center = boardCenter(firstBreach.board);
     for (const hex of firstBreach.board.hexes) {
       for (const faction of ["free_banners", "ashen_host"] as const) {
-        const [dx, dz] = routDirection(firstBreach.board, hex.coord, faction);
+        const direction = routDirection(firstBreach.board, hex.coord, faction);
+        if (!direction) continue;
+        const [dx, dz] = direction;
         const [ox, oz] = hexToWorld(hex.coord, center);
         const target = hexNeighbors(hex.coord).find((neighbour) => {
           const [nx, nz] = hexToWorld(neighbour, center);
@@ -203,9 +221,89 @@ describe("routDirection", () => {
       }
     }
     // Greyford Shields at the Siege Approach, beside the gate: they must not run east into the wall.
-    const [dx] = routDirection(firstBreach.board, { q: 3, r: 2 }, "free_banners");
+    const [dx] = routDirection(firstBreach.board, { q: 3, r: 2 }, "free_banners")!;
     expect(dx).toBeGreaterThan(0);
-    const [hx] = routDirection(firstBreach.board, { q: 1, r: 2 }, "ashen_host");
+    const [hx] = routDirection(firstBreach.board, { q: 1, r: 2 }, "ashen_host")!;
     expect(hx).toBeLessThan(0);
+  });
+
+  it("has no line of flight when every neighbour is wall or deep river", () => {
+    const centre = { q: 1, r: 1 };
+    const board = {
+      width: 3,
+      height: 3,
+      hexes: [
+        { coord: centre, terrain: "field" as const },
+        ...hexNeighbors(centre).map((coord, i) => ({ coord, terrain: i % 2 ? ("wall" as const) : ("river" as const) })),
+      ],
+    };
+    expect(routDirection(board, centre, "free_banners")).toBeNull();
+  });
+});
+
+describe("emerging squads", () => {
+  it("appear as they were when first seen, and take later losses only when those land", () => {
+    const final = visibleState(createInitialState(firstBreach, { fortune: "off" }), PLAYER);
+    const runnersEnd = { ...final.squads.find((squad) => squad.id === "ember_runners")!, strength: 60, cohesion: 40 };
+    const end = { ...final, squads: final.squads.map((squad) => (squad.id === "ember_runners" ? runnersEnd : squad)) };
+    const start = { ...final, squads: final.squads.filter((squad) => squad.id !== "ember_runners") };
+    const path = [
+      { q: 1, r: 1 },
+      { q: 2, r: 1 },
+    ];
+    const events: EngineEvent[] = [
+      { ...base, beat: 1, kind: "move", squadId: "ember_runners", path, from: null, to: path[1], reason: "advance" },
+      rule("greyford_shields", "stl_brace", 1),
+      {
+        ...base,
+        beat: 2,
+        kind: "engagement",
+        attackerId: "ember_runners",
+        defenderId: "dawnwatch_archers",
+        attackerHex: path[1],
+        defenderHex: { q: 2, r: 2 },
+        charge: false,
+        reckless: false,
+        strengthChanges: { ember_runners: -10, dawnwatch_archers: -3 },
+        cohesionChanges: { ember_runners: -8 },
+      },
+      { ...base, beat: 3, kind: "rally", sourceId: "ashbound_thralls", targetId: "ember_runners", restored: 6 },
+    ];
+    const known = (id: string, step: Step) => snapshotBefore(end.squads.find((squad) => squad.id === id), events, step.index);
+    const { steps } = buildTimeline(events, "readable", ctx);
+
+    const runners = (view: typeof start) => view.squads.find((squad) => squad.id === "ember_runners");
+    const shown: Array<[string, number | undefined, number | undefined]> = [];
+    let view = start;
+    for (const step of steps) {
+      view = applyStep(view, step, known);
+      shown.push([step.kind, runners(view)?.strength, runners(view)?.cohesion]);
+    }
+    // On emergence: the end state with the later clash and rally undone.
+    expect(shown.find(([kind]) => kind === "move")).toEqual(["move", 70, 42]);
+    expect(shown.find(([kind]) => kind === "clash")).toEqual(["clash", 60, 34]);
+    expect(shown.find(([kind]) => kind === "rally")).toEqual(["rally", 60, 40]);
+    expect(runners(view)).toMatchObject({ strength: runnersEnd.strength, cohesion: runnersEnd.cohesion });
+  });
+});
+
+describe("moves through unseen hexes", () => {
+  it("splits a projected path at every unseen gap", () => {
+    const path = [
+      { q: 0, r: 2 },
+      { q: 1, r: 2 },
+      // (1,3) was out of sight and cut from the projection.
+      { q: 2, r: 3 },
+      { q: 3, r: 3 },
+    ];
+    expect(visibleRuns(path)).toEqual([path.slice(0, 2), path.slice(2)]);
+    expect(visibleRuns(path.slice(0, 2))).toEqual([path.slice(0, 2)]);
+    const [, step] = buildTimeline(
+      [{ ...base, beat: 1, kind: "move", squadId: "ford_reavers", path, from: path[0], to: path[3], reason: "advance" }],
+      "readable",
+      ctx,
+    ).steps;
+    expect(step.runs).toHaveLength(2);
+    expect(step.duration).toBe(STEP_MS.movePerHex * 2 + STEP_MS.fogGap);
   });
 });

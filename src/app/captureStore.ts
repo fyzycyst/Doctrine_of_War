@@ -7,15 +7,23 @@ import { create } from "zustand";
  */
 export interface CaptureState {
   captureMode: boolean;
+  /** Keep the in-world playback callouts in capture mode (`&callouts=1`), for gameplay footage. */
+  keepCallouts: boolean;
   setCaptureMode: (on: boolean) => void;
 }
 
-function fromUrl(): boolean {
+function fromUrl(name: string): boolean {
   if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).get("capture") === "1";
+  return new URLSearchParams(window.location.search).get(name) === "1";
 }
 
 export const useCaptureStore = create<CaptureState>((set) => ({
-  captureMode: fromUrl(),
+  captureMode: fromUrl("capture"),
+  keepCallouts: fromUrl("callouts"),
   setCaptureMode: (captureMode) => set({ captureMode }),
 }));
+
+/** Ctrl/⌘ + Shift + H toggles capture mode, so footage can start mid-battle. */
+export function isCaptureToggle(event: Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey">): boolean {
+  return event.shiftKey && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "h";
+}

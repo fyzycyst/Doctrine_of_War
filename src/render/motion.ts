@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { resolveReducedMotion, useMotionStore } from "../app/motionStore";
+import { useAppStore, type MotionPreference } from "../app/store";
 
 const QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -17,13 +17,18 @@ export function useOsPrefersReducedMotion(): boolean {
   return reduced;
 }
 
+/** The OS preference, overridden by the in-game Settings ("reduce" / "full"). */
+export function resolveReducedMotion(setting: MotionPreference, osPrefersReduced: boolean): boolean {
+  return setting === "system" ? osPrefersReduced : setting === "reduce";
+}
+
 /**
- * Resolved reduced motion for the renderer: the OS preference, overridden by
- * the app setting (`useMotionStore.reducedMotion`: "system" | "on" | "off").
+ * Resolved reduced motion for the renderer and UI. Single source of truth:
+ * `useAppStore.motion`, written by Settings.
  */
 export function useReducedMotion(): boolean {
   const os = useOsPrefersReducedMotion();
-  const setting = useMotionStore((s) => s.reducedMotion);
+  const setting = useAppStore((s) => s.motion);
   return resolveReducedMotion(setting, os);
 }
 

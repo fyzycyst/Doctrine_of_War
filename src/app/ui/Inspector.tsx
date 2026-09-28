@@ -46,7 +46,14 @@ export function Inspector() {
         <div>
           <h2>{squad.name}</h2>
           <p className="insp-sub">
-            {ROLE_NAME[squad.role]} · {own ? resolveRank(squad.resolve) : squad.lastKnown ? "last seen" : "in sight"}
+            {ROLE_NAME[squad.role]} ·{" "}
+            {own
+              ? resolveRank(squad.resolve)
+              : squad.lastKnown
+                ? squad.lastSeen
+                  ? `last seen phase ${squad.lastSeen.phase}${squad.lastSeen.beat ? `, beat ${squad.lastSeen.beat}` : ""}`
+                  : "last seen"
+                : "in sight"}
             {squad.renown && <span className="renown"> · “{squad.renown.title}”</span>}
           </p>
         </div>

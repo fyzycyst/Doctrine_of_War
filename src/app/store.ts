@@ -2,10 +2,16 @@ import { create } from "zustand";
 import type { HexCoord } from "../game/board";
 
 export type RenderQuality = "high" | "low";
+/** "system" follows prefers-reduced-motion; the others override it (Settings). */
+export type MotionPreference = "system" | "reduce" | "full";
 
 type UiState = {
   quality: RenderQuality;
   setQuality: (quality: RenderQuality) => void;
+  /** Full device DPR on high quality (Settings: "Ultra"). */
+  ultra: boolean;
+  motion: MotionPreference;
+  setDisplay: (patch: { ultra?: boolean; motion?: MotionPreference }) => void;
   /** Diorama picking (T05): written by the renderer's raycasts, read by UI. */
   hoveredHex: HexCoord | null;
   hoveredSquadId: string | null;
@@ -24,6 +30,9 @@ const sameHex = (a: HexCoord | null, b: HexCoord | null) =>
 export const useAppStore = create<UiState>((set) => ({
   quality: "high",
   setQuality: (quality) => set({ quality }),
+  ultra: false,
+  motion: "system",
+  setDisplay: (patch) => set(patch),
   hoveredHex: null,
   hoveredSquadId: null,
   selectedHex: null,

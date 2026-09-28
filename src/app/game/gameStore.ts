@@ -24,6 +24,7 @@ import {
 import { ashAndBanner, applyCampaign, startCampaign, type CampaignDefinition, type CampaignState } from "../../game/campaign";
 import type { CalloutSpec } from "../playback/director";
 import type { Pace } from "../playback/timeline";
+import { useSettings } from "../settingsStore";
 import { useAppStore } from "../store";
 import { applyDeployment, checkPlacement, initialDeployment, type Deployment, type PlacementCheck } from "./deploy";
 
@@ -182,7 +183,7 @@ export const useGame = create<GameState>((set, get) => ({
     def: ashAndBanner,
     state: startCampaign(ashAndBanner),
   }),
-  pace: "readable",
+  pace: useSettings.getState().defaultPace,
   runId: 0,
   shakeAt: 0,
   playbackSpeed: 1,

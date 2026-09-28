@@ -1,8 +1,8 @@
 // The one place the app mounts the Diorama. Everything the renderer draws comes from
 // the player's visibleState via the renderer's own mappers (src/render/fromEngine.ts).
 // Weather/fog props (T08) and the playback animationRef (T06) plug in here.
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Canvas } from "@react-three/fiber";
+import { useCallback, useEffect, useMemo, useState, type RefObject } from "react";
 import { useAmbience } from "../../audio";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { DioramaCamera, wideShot } from "../../render/camera/DioramaCamera";
@@ -11,21 +11,15 @@ import { lightingFor, visibilityFromView, weatherFor } from "../../render/fromEn
 import { boardRadius } from "../../render/hexWorld";
 import { LookProvider } from "../../render/look/LookContext";
 import { PostFX } from "../../render/post/PostFX";
-import { canvasDpr } from "../../render/quality";
+import { useCanvasDpr } from "../../render/quality";
 import { emberDusk } from "../../render/skins";
 import { deploymentHexes } from "../game/deploy";
 import { useGame, useShownView } from "../game/gameStore";
 import { toDioramaSquads } from "../game/view";
 import { useAppStore } from "../store";
+import { FrameProbe } from "./FrameProbe";
 import { usePrefersReducedMotion } from "./motion";
 import { PlaybackStage } from "./PlaybackStage";
-
-declare global {
-  interface Window {
-    /** Read by scripts/capture-app.mjs to know when the scene has settled. */
-    __battleBoard?: { ready: boolean; frames: number };
-  }
-}
 
 export function BattleBoard({
   still = false,
@@ -40,7 +34,7 @@ export function BattleBoard({
   const view = useShownView();
   const stage = useGame((s) => s.stage);
   const clearSelection = useAppStore((s) => s.clearSelection);
-  const quality = useAppStore((s) => s.quality);
+  const dpr = useCanvasDpr();
   const [figuresReady, setFiguresReady] = useState(false);
   const onFiguresReady = useCallback(() => setFiguresReady(true), []);
 
@@ -63,7 +57,7 @@ export function BattleBoard({
     <div className={`board ${shaking ? "shake" : ""}`} aria-hidden="true">
       <Canvas
         shadows="soft"
-        dpr={canvasDpr(quality)}
+        dpr={dpr}
         camera={{ fov: 30, near: 0.1, far: 200, position: [0, 10, 14] }}
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         onPointerMissed={() => clearSelection()}
@@ -86,15 +80,6 @@ export function BattleBoard({
       </Canvas>
     </div>
   );
-}
-
-function FrameProbe({ ready }: { ready: boolean }) {
-  const frames = useRef(0);
-  useFrame(() => {
-    frames.current += 1;
-    window.__battleBoard = { ready: ready && frames.current > 90, frames: frames.current };
-  });
-  return null;
 }
 
 /** A short board shake when the gate is struck (never under reduced motion). */
