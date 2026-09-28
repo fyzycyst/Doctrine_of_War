@@ -1,0 +1,51 @@
+// Command UI screenshot capture: `npm run capture:app [-- <filter>]`.
+// Loads the real app (not the Look Lab) at a given stage via the dev-only URL boot
+// (src/app/boot.ts) at 1600x1000 and 1280x800, and saves PNGs to captures/app/.
+import { spawn } from "node:child_process";
+import path from "node:path";
+import electronPath from "electron";
+import { createServer } from "vite";
+
+const SIZES = [
+  [1600, 1000],
+  [1280, 800],
+];
+const STAGES = [
+  { name: "briefing", query: "stage=briefing" },
+  { name: "deploy", query: "stage=deploy&select=greyford_shields" },
+  { name: "command", query: "stage=command&select=greyford_shields" },
+  { name: "command-enemy", query: "stage=command&select=cinder_vanguard" },
+  { name: "report", query: "stage=report&plan=intended" },
+  { name: "outcome", query: "stage=outcome&plan=intended" },
+  { name: "ember-command", query: "scenario=emberFord&stage=command&select=kestrel_lancers" },
+];
+const jobs = STAGES.flatMap((stage) =>
+  SIZES.map(([width, height]) => ({
+    name: `${stage.name}-${width}`,
+    query: `${stage.query}&still=1`,
+    probe: "__battleBoard",
+    width,
+    height,
+  })),
+);
+
+const filter = process.argv[2];
+const selected = filter ? jobs.filter((j) => j.name.includes(filter)) : jobs;
+if (selected.length === 0) {
+  console.error(`No capture jobs match "${filter}". Jobs: ${jobs.map((j) => j.name).join(", ")}`);
+  process.exit(1);
+}
+
+const server = await createServer({ server: { port: 5198, strictPort: false }, logLevel: "warn" });
+await server.listen();
+const url = server.resolvedUrls.local[0];
+console.log(`vite dev server at ${url}`);
+
+const outDir = path.resolve("captures/app");
+const child = spawn(electronPath, [path.resolve("scripts/capture-electron.mjs")], {
+  stdio: "inherit",
+  env: { ...process.env, CAPTURE_CONFIG: JSON.stringify({ url, jobs: selected, outDir }) },
+});
+const code = await new Promise((resolve) => child.on("exit", resolve));
+await server.close();
+process.exit(code ?? 0);
