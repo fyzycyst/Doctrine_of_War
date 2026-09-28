@@ -69,4 +69,59 @@ describe("Electron save file", () => {
     await fs.writeFile(saveFilePath(dir), "x".repeat(MAX_SAVE_BYTES + 1));
     await expect(readSaveFile(dir)).rejects.toThrow(/exceeds/);
   });
+
+  describe("never follows symlinks", () => {
+    let victim: string;
+    const secret = "not a save: private data";
+
+    beforeEach(async () => {
+      victim = path.join(dir, "victim.txt");
+      await fs.writeFile(victim, secret);
+    });
+
+    it("refuses to read through a save file that is a link", async () => {
+      await fs.symlink(victim, saveFilePath(dir));
+      await expect(readSaveFile(dir)).rejects.toThrow(/not a regular file/);
+    });
+
+    it("refuses to write over a save file that is a link, leaving its target alone", async () => {
+      await fs.symlink(victim, saveFilePath(dir));
+      await expect(writeSaveFile(dir, JSON.stringify({ version: 1 }))).rejects.toThrow(/not a regular file/);
+      expect(await fs.readFile(victim, "utf8")).toBe(secret);
+      expect((await fs.lstat(saveFilePath(dir))).isSymbolicLink()).toBe(true);
+    });
+
+    it("refuses to write through a planted temp-file link", async () => {
+      const temp = `${saveFilePath(dir)}.planted.tmp`;
+      await fs.symlink(victim, temp);
+      await expect(writeSaveFile(dir, JSON.stringify({ version: 1 }), () => "planted")).rejects.toThrow(/EEXIST/);
+      expect(await fs.readFile(victim, "utf8")).toBe(secret);
+      expect((await fs.lstat(temp)).isSymbolicLink()).toBe(true);
+      expect(await readSaveFile(dir)).toBeNull();
+    });
+
+    it("refuses a dangling temp-file link too", async () => {
+      const target = path.join(dir, "created-through-link.txt");
+      await fs.symlink(target, `${saveFilePath(dir)}.dangling.tmp`);
+      await expect(writeSaveFile(dir, JSON.stringify({ version: 1 }), () => "dangling")).rejects.toThrow(/EEXIST/);
+      await expect(fs.stat(target)).rejects.toThrow(/ENOENT/);
+    });
+
+    it("refuses a userData folder that is a link", async () => {
+      const real = path.join(dir, "real");
+      const linked = path.join(dir, "linked");
+      await fs.mkdir(real);
+      await fs.writeFile(saveFilePath(real), JSON.stringify({ version: 1 }));
+      await fs.symlink(real, linked);
+      await expect(readSaveFile(linked)).rejects.toThrow(/plain directory/);
+      await expect(writeSaveFile(linked, JSON.stringify({ version: 2 }))).rejects.toThrow(/plain directory/);
+      expect(JSON.parse(await fs.readFile(saveFilePath(real), "utf8")).version).toBe(1);
+    });
+
+    it("refuses a save path that is a directory", async () => {
+      await fs.mkdir(saveFilePath(dir));
+      await expect(readSaveFile(dir)).rejects.toThrow(/not a regular file/);
+      await expect(writeSaveFile(dir, JSON.stringify({ version: 1 }))).rejects.toThrow(/not a regular file/);
+    });
+  });
 });
