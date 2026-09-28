@@ -85,7 +85,12 @@ export function bootFromUrl(search: string): BootOptions {
     const flow = useFlow.getState();
     const played = Number(params.get("campaignAt")) || 0;
     if (screen !== "title") {
-      useFlow.setState({ campaign: campaignAfter(flow.definition, played, { fortune: "on" }) });
+      const campaign = campaignAfter(flow.definition, played, { fortune: "on" });
+      // `&complete=1`: preview the epilogue before the last battles exist.
+      const complete = params.get("complete") === "1";
+      useFlow.setState({
+        campaign: complete ? { ...campaign, battleIndex: flow.definition.battles.length, status: "complete" } : campaign,
+      });
     }
     flow.go(screen);
   }

@@ -9,8 +9,10 @@ import {
   currentBattle,
   defaultStore,
   loadCampaignFrom,
+  recordBattle,
   saveCampaignTo,
   startCampaign,
+  type BattleRecord,
   type CampaignDefinition,
   type CampaignState,
   type SaveStore,
@@ -48,6 +50,17 @@ export interface FlowState {
   /** Opens a battle's briefing, with the campaign's companies (current battle only). */
   openBattle: (battleId: string) => void;
   clearNotice: () => void;
+  /** The last battle's campaign record (for the outcome screen's Resolve changes). */
+  lastRecord: BattleRecord | null;
+  /**
+   * Settles a finished campaign battle into the campaign (recordBattle) and autosaves.
+   * Runs once per battle: a battle loaded from an older campaign state is ignored.
+   */
+  recordOutcome: () => Promise<void>;
+  /** After a defeat: the same battle again with the same companies (campaign rules). */
+  retryBattle: (seed: "same" | "new") => void;
+  /** After a settled battle: the map, or the ending once the campaign is complete. */
+  leaveBattle: () => void;
 }
 
 /** First attempt: the scenario's curated seed. A retry draws a fresh one. */
@@ -65,6 +78,7 @@ export const useFlow = create<FlowState>((set, get) => ({
   store: defaultStore(),
   saveError: null,
   notice: null,
+  lastRecord: null,
 
   go: (screen) => set({ screen, notice: null }),
   clearNotice: () => set({ notice: null }),
@@ -126,6 +140,34 @@ export const useFlow = create<FlowState>((set, get) => ({
     }
   },
 
+  recordOutcome: async () => {
+    const game = useGame.getState();
+    const { definition, campaign } = get();
+    // Only the battle this campaign state opened: never a standalone battle, never twice.
+    if (!campaign || !game.campaign || game.campaign.state !== campaign || game.engine.status === "command") {
+      return;
+    }
+    const next = recordBattle(definition, campaign, game.engine);
+    set({ lastRecord: next.history[next.history.length - 1] ?? null });
+    await get().commitCampaign(next);
+  },
+
+  retryBattle: (seedMode) => {
+    const { definition, campaign } = get();
+    const game = useGame.getState();
+    if (!campaign) {
+      game.retry(seedMode);
+      return;
+    }
+    const seed = seedMode === "same" ? game.setup.seed : 1 + Math.floor(Math.random() * 99_999);
+    game.loadBattle(game.baseScenario, { ...game.setup, seed }, "deploy", { def: definition, state: campaign });
+  },
+
+  leaveBattle: () => {
+    const { definition, campaign } = get();
+    set({ screen: campaign && !currentBattle(definition, campaign) ? "ending" : "campaign", notice: null });
+  },
+
   commitCampaign: async (campaign) => {
     set({ campaign });
     try {
@@ -136,3 +178,11 @@ export const useFlow = create<FlowState>((set, get) => ({
     }
   },
 }));
+
+// A battle that reaches its outcome is settled into the campaign at once, so the
+// result is saved even if the player quits from the outcome screen.
+useGame.subscribe((state, previous) => {
+  if (state.stage === "outcome" && previous.stage !== "outcome") {
+    void useFlow.getState().recordOutcome();
+  }
+});

@@ -14,6 +14,8 @@ const STAGES = [
   { name: "title", query: "screen=title", settleMs: 2500 },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
+  { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },
+  { name: "ending", query: "screen=ending&campaignAt=2&complete=1", settleMs: 2500 },
   { name: "briefing", query: "stage=briefing" },
   { name: "deploy", query: "stage=deploy&select=greyford_shields" },
   { name: "command", query: "stage=command&select=greyford_shields" },
