@@ -56,7 +56,7 @@ function CalloutCard({ callout }: { callout: Callout }) {
   if (callout.kind === "rule") {
     const [when, then] = callout.text.split(" → ");
     return (
-      <div className={classes}>
+      <div className={classes} data-callout-id={callout.id}>
         {!callout.repeat && (
           <span className="callout-head">
             {callout.faction && <Sigil faction={callout.faction} size={14} />}
@@ -71,7 +71,7 @@ function CalloutCard({ callout }: { callout: Callout }) {
     );
   }
   return (
-    <div className={classes}>
+    <div className={classes} data-callout-id={callout.id}>
       <span className="callout-title">{callout.title}</span>
       <span className="callout-text">{callout.text}</span>
     </div>

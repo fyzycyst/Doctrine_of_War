@@ -233,3 +233,32 @@ describe("PlaybackDirector: gate hits", () => {
     expect(headless.hooks.shake).toHaveBeenCalledOnce();
   });
 });
+
+describe("PlaybackDirector: pause and resume", () => {
+  it("holds at the next slice until resumed, and skip still ends it", async () => {
+    const run = setup();
+    let slices = 0;
+    let director: PlaybackDirector | null = null;
+    run.hooks.sleep = () => {
+      slices += 1;
+      if (slices === 3) director!.pause();
+      return Promise.resolve();
+    };
+    director = new PlaybackDirector(run.timeline, run.hooks);
+    const finished = director.run();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const held = slices;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(slices).toBe(held);
+    director.resume();
+    await expect(finished).resolves.toBe("done");
+    expect(slices).toBeGreaterThan(held);
+
+    const again = setup();
+    const paused = new PlaybackDirector(again.timeline, again.hooks);
+    paused.pause();
+    const ending = paused.run();
+    paused.skip();
+    await expect(ending).resolves.toBe("skipped");
+  });
+});

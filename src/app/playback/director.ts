@@ -78,6 +78,8 @@ export const WAIT_SLICE_MS = 120;
 export class PlaybackDirector {
   private cancelled = false;
   private held = false;
+  private paused = false;
+  private resumers = new Set<() => void>();
   private animationScale = 1;
   private wakers = new Set<() => void>();
 
@@ -95,6 +97,19 @@ export class PlaybackDirector {
     this.cancelled = true;
     this.wakers.forEach((wake) => wake());
     this.wakers.clear();
+    this.resumers.forEach((resume) => resume());
+    this.resumers.clear();
+  }
+
+  /** Hold playback at the next slice boundary (the first-battle guide reads a callout). */
+  pause() {
+    this.paused = true;
+  }
+
+  resume() {
+    this.paused = false;
+    this.resumers.forEach((resume) => resume());
+    this.resumers.clear();
   }
 
   /** Freeze on the current step until skip() (dev capture stills). */
@@ -136,6 +151,9 @@ export class PlaybackDirector {
   private async wait(ms: number): Promise<void> {
     let remaining = ms;
     while (remaining > 0 && !this.cancelled && !this.held) {
+      while (this.paused && !this.cancelled) {
+        await new Promise<void>((resolve) => this.resumers.add(resolve));
+      }
       const slice = Math.min(remaining, WAIT_SLICE_MS);
       const scale = this.scale();
       this.syncAnimations(scale);

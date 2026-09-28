@@ -14,6 +14,10 @@ import { Roster } from "./app/ui/Roster";
 import { SealOrders } from "./app/ui/SealOrders";
 import { useBoardDeployment } from "./app/ui/useBoardDeployment";
 import { useCaptureStore } from "./app/captureStore";
+import { CoachLayer } from "./app/guide/CoachLayer";
+import { DoctrineIntro } from "./app/guide/DoctrineIntro";
+import { FIRST_BATTLE } from "./app/guide/coach";
+import { useGuide } from "./app/guide/guideStore";
 
 /**
  * The command shell: the diorama full-bleed, with the command UI laid over it.
@@ -24,6 +28,10 @@ function App({ still = false, pauseAt }: { still?: boolean; pauseAt?: string }) 
   const hand = useRef<HandHandle>(null);
   const animation = useRef<SquadAnimationApi | null>(null);
   const captureMode = useCaptureStore((s) => s.captureMode);
+  // The first campaign battle opens with "What is a doctrine?" (once).
+  const introSeen = useGuide((s) => s.introSeen);
+  const firstBattle = useGame((s) => s.campaign !== null && s.baseScenario.id === FIRST_BATTLE);
+  const showIntro = !introSeen && firstBattle;
   useBoardDeployment();
 
   return (
@@ -33,7 +41,7 @@ function App({ still = false, pauseAt }: { still?: boolean; pauseAt?: string }) 
         // Capture mode: the diorama only. Playback still runs (headless) so battles can be filmed.
         stage === "resolving" && <Playback animation={animation} pauseAt={pauseAt} headless />
       ) : stage === "briefing" ? (
-        <Briefing />
+        showIntro ? <DoctrineIntro /> : <Briefing />
       ) : (
         <main className="hud">
           <CommandBar />
@@ -48,6 +56,7 @@ function App({ still = false, pauseAt }: { still?: boolean; pauseAt?: string }) 
           )}
           {stage === "resolving" && <Playback animation={animation} pauseAt={pauseAt} />}
           {stage === "report" && <PhaseReport />}
+          <CoachLayer />
           {stage === "outcome" && <Outcome />}
         </main>
       )}

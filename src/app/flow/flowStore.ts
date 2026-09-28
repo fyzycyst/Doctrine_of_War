@@ -40,6 +40,8 @@ export interface FlowState {
   notice: string | null;
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
+  howToOpen: boolean;
+  setHowToOpen: (open: boolean) => void;
 
   go: (screen: Screen) => void;
   /** Looks for a usable save (for the title's Continue). */
@@ -84,6 +86,8 @@ export const useFlow = create<FlowState>((set, get) => ({
   lastRecord: null,
   settingsOpen: false,
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  howToOpen: false,
+  setHowToOpen: (howToOpen) => set({ howToOpen }),
 
   go: (screen) => set({ screen, notice: null }),
   clearNotice: () => set({ notice: null }),
