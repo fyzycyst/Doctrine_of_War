@@ -1,12 +1,11 @@
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { Suspense, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
+import { lazy, Suspense, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
 import { useAppStore } from "../app/store";
 import { hexKey, type BoardLayout, type HexCoord } from "../game/board";
 import { GroundMist, type MistDensityMap } from "./atmosphere/GroundMist";
 import { Fires } from "./atmosphere/Fires";
 import { Particles } from "./atmosphere/Particles";
 import { SkyDome } from "./atmosphere/SkyDome";
-import { KayKitSquads } from "./figures/KayKitSquads";
 import { SquadAnimator, type AnimatorScene, type SquadAnimationApi } from "./figures/squadAnimation";
 import { SquadMarkers } from "./figures/SquadMarkers";
 import { ToySoldierSquads } from "./figures/ToySoldierSquads";
@@ -21,6 +20,15 @@ import { BoardHighlights } from "./terrain/BoardHighlights";
 import { buildIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
 import { Water } from "./terrain/Water";
+
+/**
+ * Figure approach (b), the CC0 KayKit pack, is lab-only: the module (and its
+ * gitignored GLBs) only exist in dev builds. In production `figures="kaykit"`
+ * falls back to the toy soldiers, and the import is dead code the bundler drops.
+ */
+const KayKitSquads = import.meta.env.DEV
+  ? lazy(async () => ({ default: (await import("./figures/KayKitSquads")).KayKitSquads }))
+  : null;
 
 /**
  * The living diorama: floating island built from a BoardLayout, atmosphere,
@@ -199,7 +207,7 @@ export function Diorama({
       <BoardHighlights island={island} deploymentHexes={deploymentHexes} />
       <SquadMarkers placed={placed} animator={animator} />
       <Suspense fallback={null}>
-        {figures === "kaykit" ? (
+        {figures === "kaykit" && KayKitSquads ? (
           <KayKitSquads placed={placed} />
         ) : (
           <ToySoldierSquads placed={placed} animator={animator} onSquadClick={onFigureClick} onSquadHover={setHoveredSquad} />

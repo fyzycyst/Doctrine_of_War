@@ -39,9 +39,6 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Fetch CC0 figures (gitignored, needed by the 3D board)
-        run: npm run fetch:cc0
-
       - name: Test
         run: npm test
 

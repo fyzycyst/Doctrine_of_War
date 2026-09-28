@@ -20,7 +20,7 @@ Licence text: http://creativecommons.org/publicdomain/zero/1.0/
 Host drums, fire crackle) and the `horn`, `dread` and `reveal` SFX are generated with Web Audio in
 `src/audio/engine.ts`. `rout` layers the RPG Audio footsteps and cloth over a synthesized falling tone.
 
-## 3D figures (optional fallback, not committed; `npm run fetch:cc0`)
+## 3D figures (dev-only Look Lab fallback, not committed and never shipped; `npm run fetch:cc0`)
 
 | Asset | Author | Licence | URL |
 | --- | --- | --- | --- |
