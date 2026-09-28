@@ -39,11 +39,13 @@ export function playBattle(scenario: EngineScenario, orders: Orders, seed: numbe
 
 export function balancePlans(scenario: EngineScenario): BalancePlan[] {
   const playerSquads = scenario.squads.filter((squad) => squad.faction === scenario.playerFaction);
-  const plans: BalancePlan[] = [];
-  if (scenario.referencePlans) {
-    plans.push({ name: "intended", kind: "intended", orders: scenario.referencePlans.intended });
-    plans.push({ name: "bad", kind: "bad", orders: scenario.referencePlans.bad });
+  if (!scenario.referencePlans) {
+    throw new Error(`Scenario ${scenario.id} has no referencePlans; the balance guardrails need intended and bad plans`);
   }
+  const plans: BalancePlan[] = [
+    { name: "intended", kind: "intended", orders: scenario.referencePlans.intended },
+    { name: "bad", kind: "bad", orders: scenario.referencePlans.bad },
+  ];
   for (const doctrineId of scenario.playerDoctrineIds) {
     plans.push({
       name: `all ${doctrineId}`,
@@ -55,6 +57,9 @@ export function balancePlans(scenario: EngineScenario): BalancePlan[] {
 }
 
 export function runBalance(scenario: EngineScenario, seeds: number, fortune: FortuneMode = "on"): BalanceRow[] {
+  if (!Number.isInteger(seeds) || seeds < 1) {
+    throw new Error(`Seed count must be a positive integer, got ${seeds}`);
+  }
   return balancePlans(scenario).map((plan) => {
     let wins = 0;
     let objectiveSum = 0;
@@ -74,10 +79,16 @@ export function runBalance(scenario: EngineScenario, seeds: number, fortune: For
   });
 }
 
-/** Human-readable guardrail failures; empty when the scenario is in balance. */
+/** Human-readable guardrail failures; empty only when the scenario is provably in balance (fails closed). */
 export function guardrailFailures(rows: BalanceRow[]): string[] {
   const pct = (value: number) => `${Math.round(value * 100)}%`;
-  return rows.flatMap((row) => {
+  const missing = (["intended", "bad"] as const)
+    .filter((kind) => !rows.some((row) => row.kind === kind))
+    .map((kind) => `no ${kind} plan was played`);
+  return missing.concat(rows.flatMap((row) => {
+    if (!Number.isFinite(row.winRate) || row.games < 1) {
+      return [`${row.name} has no valid win rate (${row.wins}/${row.games})`];
+    }
     if (row.kind === "intended" && row.winRate < GUARDRAILS.intendedMin) {
       return [`intended plan wins ${pct(row.winRate)} (< ${pct(GUARDRAILS.intendedMin)})`];
     }
@@ -88,7 +99,7 @@ export function guardrailFailures(rows: BalanceRow[]): string[] {
       return [`${row.name} wins ${pct(row.winRate)} (>= ${pct(GUARDRAILS.monoMax)})`];
     }
     return [];
-  });
+  }));
 }
 
 export function formatTable(scenario: EngineScenario, rows: BalanceRow[]): string {

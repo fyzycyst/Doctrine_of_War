@@ -4,6 +4,7 @@ import { boardNeighbors, getHex, hexDistance, terrainDefenseBonus, type HexCoord
 import { checkRout, clamp, type EngineContext } from "./context";
 import { firstContact } from "./fortune";
 import { planAdvance, planFallBack } from "./movement";
+import { perceive, perceivedAdjacentEnemies } from "./perception";
 import { resolveTarget, type ResolvedTarget } from "./rules";
 import type { Action, DoctrinePassives, EngineSquad, SquadRole } from "./types";
 import { adjacentEnemies, alliesOf, byDistance, speedOf, type ActiveSquad } from "./world";
@@ -277,7 +278,7 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
         return;
       }
       // No way through: fight whoever bars the way instead.
-      const blocker = byDistance(adjacentEnemies(ctx.state, squad), squad.hex)[0];
+      const blocker = byDistance(perceivedAdjacentEnemies(perceive(ctx, squad)), squad.hex)[0];
       if (blocker) {
         engage(ctx, squad, blocker, false);
       } else {
@@ -308,7 +309,7 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
     }
 
     case "fallBack": {
-      const path = planFallBack(ctx.state, ctx.scenario.board, squad, action.hexes);
+      const path = planFallBack(ctx.state, ctx.scenario.board, squad, action.hexes, perceive(ctx, squad).enemies);
       if (path.length < 2) {
         // Cornered: nowhere to go, so the squad stands and braces.
         hold(squad);

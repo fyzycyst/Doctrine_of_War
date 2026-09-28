@@ -16,6 +16,13 @@ export type Resolve = "-3" | "-2" | "-1" | "0" | "1" | "2" | "3";
 
 export type Weather = "clear" | "rain" | "mist" | "ashWind";
 
+/**
+ * "nightFires": darkness cuts sight by 1, but burning crossings light the water, so a
+ * squad on a ford or next to the river can be seen from 1 hex further. Also a
+ * lighting cue for the renderer.
+ */
+export type TimeOfDay = "day" | "nightFires";
+
 export interface Forecast {
   /** Weather for phase 1 (and for the whole battle when fortune is off). */
   start: Weather;
@@ -146,6 +153,13 @@ export type WinCondition =
   /** Victory once every listed squad is routed or destroyed; defeat at the end of maxPhases. */
   | { kind: "destroySquads"; squadIds: string[] };
 
+/** Extra ways the player can lose, on top of the win condition's own defeat rules. */
+export type DefeatCondition =
+  /** The opposing side gets `count` squads off the board via `edgeHexes`. */
+  | { kind: "enemyEscape"; edgeHexes: HexCoord[]; count: number }
+  /** `count` player squads are routed or destroyed ("the line breaks"). */
+  | { kind: "squadsLost"; count: number };
+
 export interface HostPhaseOrders {
   phase: number;
   /** One line describing the Host's intent; used as the report title. */
@@ -170,6 +184,11 @@ export interface EngineScenario {
   /** The opponent (non-player) side's doctrine assignments per phase. */
   hostSchedule: HostPhaseOrders[];
   winCondition: WinCondition;
+  defeatConditions?: DefeatCondition[];
+  /** Defaults to "day". */
+  timeOfDay?: TimeOfDay;
+  /** A fortune-on seed that plays the intended plan to a clean win (first playthrough, video capture). */
+  curatedSeed?: number;
   /** Defaults to clear skies that never shift. */
   forecast?: Forecast;
   /** Reference plans for the balance harness and tutorial hints. */
@@ -257,6 +276,11 @@ interface EventBase {
   phase: number;
   /** 1..3; 0 for phase-level events. */
   beat: number;
+  /**
+   * The factions that witnessed this event, fixed when it happened (fog of war).
+   * Playback and reports for a faction must use eventsFor(events, faction).
+   */
+  visibleTo: FactionId[];
 }
 
 export type EngineEvent =

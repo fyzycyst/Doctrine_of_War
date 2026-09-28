@@ -8,8 +8,9 @@ import type {
   TargetSelector,
 } from "./types";
 import type { RuleContext } from "./context";
-import { perceivedEnemies } from "./fog";
-import { alliesOf, byDistance, isOverextended, type ActiveSquad } from "./world";
+import { exitHexesFor } from "./outcome";
+import { looksOverextended, perceive, type PerceivedWorld } from "./perception";
+import { byDistance, type ActiveSquad } from "./world";
 
 export type { RuleContext };
 
@@ -34,11 +35,15 @@ function defendedObjectives(ctx: RuleContext, squad: ActiveSquad, objectiveId?: 
   );
 }
 
-// Enemy lists below come from perceivedEnemies: under fog, the player's squads
-// only react to enemies their side can currently see.
-export function evaluateCondition(ctx: RuleContext, squad: ActiveSquad, condition: Condition): boolean {
-  const enemies = perceivedEnemies(ctx, squad);
-  const allies = alliesOf(ctx.state, squad);
+// Conditions and selectors read only the perceived world (see perception.ts):
+// under fog, the player's squads react only to what their side can see.
+export function evaluateCondition(
+  ctx: RuleContext,
+  squad: ActiveSquad,
+  condition: Condition,
+  world: PerceivedWorld = perceive(ctx, squad),
+): boolean {
+  const { enemies, allies } = world;
 
   switch (condition.kind) {
     case "always":
@@ -61,7 +66,7 @@ export function evaluateCondition(ctx: RuleContext, squad: ActiveSquad, conditio
       return allies.some((ally) => ally[condition.stat] < condition.value);
     case "enemyOverextended":
       return within(enemies, squad.hex, condition.range ?? DEFAULT_OVEREXTENDED_RANGE).some((enemy) =>
-        isOverextended(ctx.state, enemy),
+        looksOverextended(world, enemy),
       );
     case "atObjective":
       return ctx.state.objectives.some(
@@ -91,8 +96,9 @@ export function resolveTarget(
   ctx: RuleContext,
   squad: ActiveSquad,
   selector: TargetSelector,
+  world: PerceivedWorld = perceive(ctx, squad),
 ): ResolvedTarget | null {
-  const enemies = perceivedEnemies(ctx, squad);
+  const { enemies, allies } = world;
   let chosen: ActiveSquad | undefined;
 
   switch (selector.kind) {
@@ -106,13 +112,13 @@ export function resolveTarget(
     }
     case "overextendedEnemy": {
       const pool = within(enemies, squad.hex, selector.range ?? DEFAULT_OVEREXTENDED_RANGE).filter(
-        (enemy) => isOverextended(ctx.state, enemy),
+        (enemy) => looksOverextended(world, enemy),
       );
       chosen = byDistance(pool, squad.hex)[0];
       break;
     }
     case "weakestAlly":
-      chosen = sortByStat(alliesOf(ctx.state, squad), selector.stat, squad.hex)[0];
+      chosen = sortByStat(allies, selector.stat, squad.hex)[0];
       break;
     case "objective": {
       const objective = ctx.state.objectives.find(
@@ -124,10 +130,8 @@ export function resolveTarget(
       return objective ? { kind: "objective", objective } : null;
     }
     case "exitEdge": {
-      const win = ctx.scenario.winCondition;
-      return win.kind === "escapeEdge" && squad.faction === ctx.scenario.playerFaction
-        ? { kind: "hexes", hexes: win.edgeHexes }
-        : null;
+      const hexes = exitHexesFor(ctx.scenario, squad.faction);
+      return hexes ? { kind: "hexes", hexes } : null;
     }
   }
 
@@ -140,5 +144,6 @@ export function chooseRule(
   squad: ActiveSquad,
   doctrine: Doctrine,
 ): DoctrineRule | undefined {
-  return doctrine.rules.find((rule) => evaluateCondition(ctx, squad, rule.when));
+  const world = perceive(ctx, squad);
+  return doctrine.rules.find((rule) => evaluateCondition(ctx, squad, rule.when, world));
 }

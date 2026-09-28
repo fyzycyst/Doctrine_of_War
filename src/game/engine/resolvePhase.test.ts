@@ -265,6 +265,45 @@ describe("win conditions", () => {
     expect(run(scen).state.status).toBe("defeat");
   });
 
+  it("enemyEscape: the Host runs for exit hexes and enough escapes is a defeat", () => {
+    const runner = doctrine("runner_ah", AH, [[{ kind: "always" }, { kind: "advance", toward: { kind: "exitEdge" } }]]);
+    const scen = scenario({
+      winCondition: { kind: "destroySquads", squadIds: ["h1"] },
+      defeatConditions: [{ kind: "enemyEscape", edgeHexes: [{ q: 6, r: 0 }, { q: 6, r: 1 }], count: 2 }],
+      squads: [
+        squad("p", FB, { q: 0, r: 4 }),
+        squad("h1", AH, { q: 4, r: 0 }, { doctrineId: "runner_ah" }),
+        squad("h2", AH, { q: 5, r: 1 }, { doctrineId: "runner_ah" }),
+      ],
+    });
+    const { state, events } = run(scen, {}, library(runner));
+    expect(events.filter((event) => event.kind === "exit").map((event) => ("squadId" in event ? event.squadId : ""))).toEqual(["h2", "h1"]);
+    expect(state.status).toBe("defeat");
+    expect(events.at(-1)).toMatchObject({ kind: "outcome", reason: expect.stringMatching(/broke through/) });
+  });
+
+  it("squadsLost: the line breaks when enough player squads are gone", () => {
+    const hunter = doctrine("hunter3", AH, [[{ kind: "always" }, { kind: "attack", target: { kind: "nearestEnemy" } }]]);
+    const scen = scenario({
+      defeatConditions: [{ kind: "squadsLost", count: 1 }],
+      squads: [
+        squad("h", AH, { q: 1, r: 2 }, { doctrineId: "hunter3", strength: 100 }),
+        squad("p", FB, { q: 2, r: 2 }, { cohesion: 1 }),
+        squad("p2", FB, { q: 6, r: 4 }),
+      ],
+    });
+    const { state, events } = run(scen, {}, library(hunter));
+    expect(state.status).toBe("defeat");
+    expect(events.at(-1)).toMatchObject({ kind: "outcome", reason: expect.stringMatching(/line broke/) });
+  });
+
+  it("rejects defeat conditions that can never trigger", () => {
+    const withDefeat = (defeatConditions: EngineScenario["defeatConditions"]) =>
+      scenario({ defeatConditions, squads: [squad("p", FB, { q: 6, r: 4 }), squad("h", AH, { q: 0, r: 0 })] });
+    expect(() => createInitialState(withDefeat([{ kind: "enemyEscape", edgeHexes: [], count: 1 }]))).toThrow(/enemyEscape/);
+    expect(() => createInitialState(withDefeat([{ kind: "squadsLost", count: 0 }]))).toThrow(/squadsLost/);
+  });
+
   it("any mode: defeat when every player squad has left the field", () => {
     const hunter = doctrine("hunter2", AH, [[{ kind: "always" }, { kind: "attack", target: { kind: "nearestEnemy" } }]]);
     const scen = scenario({

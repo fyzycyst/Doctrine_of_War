@@ -6,9 +6,9 @@ import { sameHex } from "../board";
 import { executeAction } from "./actions";
 import type { EngineContext, EventBody } from "./context";
 import { doctrineLibrary } from "./doctrines";
-import { dreadFromSight, refreshIntel } from "./fog";
+import { dreadFromSight, eventsFor, eventVisibility, observeDeparture, refreshIntel } from "./fog";
 import { phaseStartWeather, stressCheck } from "./fortune";
-import { evaluateOutcome, validateWinCondition } from "./outcome";
+import { evaluateOutcome, exitHexesFor, validateWinCondition } from "./outcome";
 import { buildReport } from "./report";
 import { createRng } from "./rng";
 import { chooseRule } from "./rules";
@@ -23,7 +23,7 @@ import type {
   Orders,
   PhaseResult,
 } from "./types";
-import { isActive } from "./world";
+import { getSquad, isActive } from "./world";
 
 export const BEATS_PER_PHASE = 3;
 
@@ -111,10 +111,16 @@ function opponentOf(scenario: EngineScenario, faction: FactionId): FactionId {
   return other.faction;
 }
 
-/** After anything that moves or removes squads: update fog, then dread from new sightings. */
+/**
+ * After anything that moves or removes squads: update fog, then dread from new
+ * sightings. Dread can rout an observer, which changes what its side sees, so
+ * refresh again until nothing more routs (each dread pair fires once, so this ends).
+ */
 function afterChange(ctx: EngineContext) {
   refreshIntel(ctx, ctx.emit, ctx.beat, ctx.phase);
-  dreadFromSight(ctx);
+  while (dreadFromSight(ctx)) {
+    refreshIntel(ctx, ctx.emit, ctx.beat, ctx.phase);
+  }
 }
 
 export function resolvePhase(
@@ -150,7 +156,12 @@ export function resolvePhase(
     beat: 0,
     // Events are deep-copied so playback data never aliases state or scenario coordinates.
     emit: (event: EventBody) => {
-      events.push({ ...structuredClone(event), phase, beat: ctx.beat } as EngineEvent);
+      const visibleTo = eventVisibility(ctx, event);
+      events.push({ ...structuredClone(event), phase, beat: ctx.beat, visibleTo } as EngineEvent);
+      if (event.kind === "rout" || event.kind === "exit") {
+        const status = event.kind === "exit" ? "escaped" : event.cause === "strength" ? "destroyed" : "routed";
+        observeDeparture(ctx, getSquad(state, event.squadId), event.hex, status);
+      }
     },
   };
 
@@ -217,20 +228,16 @@ export function resolvePhase(
 
   state.rngState = rng.state;
   const title = `Phase ${phase}: ${hostPhase?.intent ?? "The armies clash."}`;
-  return { state, events, report: buildReport(phase, title, events, state) };
+  // The report is the player's account: only what the player's side witnessed.
+  const report = buildReport(phase, title, eventsFor(events, scenario.playerFaction), state);
+  return { state, events, report };
 }
 
-/** A player squad standing on an escape-edge hex after its activation leaves the board. */
+/** A squad standing on one of its side's exit hexes after its activation leaves the board. */
 function exitIfOnEdge(ctx: EngineContext, squad: EngineSquad) {
-  const win = ctx.scenario.winCondition;
+  const exits = exitHexesFor(ctx.scenario, squad.faction);
   const hex = squad.hex;
-  if (
-    win.kind !== "escapeEdge" ||
-    squad.faction !== ctx.scenario.playerFaction ||
-    squad.status !== "active" ||
-    !hex ||
-    !win.edgeHexes.some((edge) => sameHex(edge, hex))
-  ) {
+  if (!exits || squad.status !== "active" || !hex || !exits.some((edge) => sameHex(edge, hex))) {
     return;
   }
   ctx.emit({ kind: "exit", squadId: squad.id, hex });

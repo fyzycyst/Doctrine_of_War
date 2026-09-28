@@ -28,6 +28,17 @@ resolvePhase(state, orders, scenario, { doctrines? }) → { state, events, repor
   come from scenario data and are exempt.
 - `options.doctrines`: the doctrine lookup (defaults to the built-in library), so a
   future editor can pass edited doctrines without touching the engine.
+- **Renderer and UI contract: play back `eventsFor(events, scenario.playerFaction)` only.**
+  Every event carries `visibleTo: FactionId[]`, which is fixed when the event happens:
+  - the acting side always sees its own events;
+  - the other side sees an event only if it could see where it happened at that moment
+    (for a `move`, any hex of the path; for a `ruleFired`, the acting squad);
+  - both sides see an engagement, the defender always sees damage to its objective,
+    and weather and outcomes are public.
+
+  `report.lines` is already built from the player's filtered stream. The raw `events`
+  array is for tests, the balance harness and a debug/capture mode, never for normal
+  playback. With fortune off, every event is visible to everyone.
 - Call it once per phase. `state.phase` advances until `state.status` becomes
   `"victory"` or `"defeat"`. Calling it again after that throws.
 
@@ -70,7 +81,8 @@ report title is the schedule entry's `intent`.
 | `fallBack {hexes}` | Step away from the enemy (maximise nearest-enemy distance, then total distance). Ignores ZOC. If it is cornered, it braces instead. |
 | `rally` | +`12 + passives.cohesion + resolve` cohesion to the weakest adjacent ally (capped at 100). |
 
-**Movement.** Speed is 1 hex (cavalry 2). In rain, entering a ford ends the move. Squads cannot enter walls, objective hexes,
+**Movement.** Speed is 1 hex (cavalry 2). In rain, entering a ford ends the move.
+Deep `river` hexes, like walls, cannot be entered; `ford` hexes can. Squads cannot enter walls, objective hexes,
 off-board hexes or occupied hexes. Paths are found by BFS in `hexNeighbors` order, so
 tie-breaks are deterministic. If no goal hex is reachable, the squad moves to the
 reachable hex closest to the goal, and never further away. **Zone of control:** a move
@@ -111,7 +123,11 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
 - `EngineScenario`: board, squads (with start hexes and optional `renown {title}`),
   objectives (`hex`, `defender`), `playerDoctrineIds`, `hostSchedule: {phase, intent, orders}[]`,
   `winCondition`, optional `forecast {start, shiftChance, shifts}`, and optional
-  `referencePlans {intended, bad}` (used by the balance harness and tutorial hints).
+  `referencePlans {intended, bad}` (used by the balance harness and tutorial hints),
+  optional `timeOfDay` (`"nightFires"`: sight −1, but a squad on a ford or beside the
+  river is lit and seen from 1 hex further), and `curatedSeed` (a fortune-on seed that
+  plays the intended plan to a clean win, used for the first playthrough and for video
+  capture; `scenarios.test.ts` asserts it).
 - `WinCondition` (from the player's side):
   - `holdObjective`: defeat at integrity 0, victory after `maxPhases`.
   - `escapeEdge {edgeHexes, count}`: a player squad standing on an edge hex after its
@@ -119,6 +135,12 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   - `destroySquads {squadIds}`: victory once all of them are routed or destroyed. The
     list must be non-empty and name only existing, non-player squads; otherwise
     `createInitialState` throws.
+  - Optional `defeatConditions` add more ways to lose:
+    - `enemyEscape {edgeHexes, count}`: the opposing side gets `count` squads off
+      through those hexes. Its `exitEdge` selector points at them, and a Host squad
+      standing on one after its activation exits.
+    - `squadsLost {count}`: that many player squads are routed or destroyed ("the line
+      breaks").
   - In every mode it is defeat when no player squad is left on the field. For
     `escapeEdge` and `destroySquads`, reaching the end of `maxPhases` is also defeat.
 - Events (`phase`, `beat` on each, where beat 0 means phase-level): `ruleFired`, `move {path, reason}`,
@@ -129,8 +151,9 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
 
 The library (`doctrines.ts`) holds the Free Banners doctrines *Shield the Line*,
 *Fighting Withdrawal*, *Rescue Standard*, *Clean Counterstroke* and *Hold for Dawn*, and
-the Ashen Host doctrines *Iron Tide*, *Break the Gate*, *No Step Back*, *Cull the Weak*
-and *Terror Push*. Every rule list ends with an `always` catch-all.
+the Ashen Host doctrines *Iron Tide*, *Break the Gate*, *No Step Back*, *Cull the Weak*,
+*Terror Push*, *Through the Embers* (cross and cut through blockers toward the exits)
+and *Slip the Leash* (outriders: never fight, run for the exits). Every rule list ends with an `always` catch-all.
 
 ## Friction & fortune (`fortune.ts`, `fog.ts`)
 
@@ -142,14 +165,15 @@ chance outcome is an event with its own callout.
 | **Courage & cowardice** | A squad under stress (enemy adjacent, or cohesion < 50) rolls once when its rule fires. The chance depends on Resolve (−3 Broken … +3 Veteran): waver 30% → 3%, surge 2% → 13%. **Waver:** the rule does not fire this beat. **Surge:** +5 cohesion and +3 attack/defense until the squad's next activation, and a fall-back rule becomes a *Heroic stand* (hold). | `fortune` |
 | **Renown & dread** | Squads may carry `renown {title}` (scenario data now, earned in the campaign in T09). The first time a squad sights or engages an enemy renowned squad, it loses `5 × max(0, renowned.resolve − own.resolve)` cohesion (×1.5 for Host renown in ash-wind). This happens once per pair (`state.dreaded`), works for both factions, and can rout. | `dread` |
 | **Weather** | Phase 1 uses `forecast.start`. At each later phase start, with probability `shiftChance`, it shifts to a different entry in `shifts`. **Rain:** entering a ford ends a move, and counter passives are halved. **Mist:** sight −1. **Ash-wind:** Host dread ×1.5, and Host squads get +1 cohesion passive. | `weatherShift` |
-| **Fog of war** | Sight is 2 hexes (+1 standing on a ridge, −1 in mist, minimum 1). Ruins strictly between two squads block sight; neighbours always see each other. `state.intel[faction][enemyId]` keeps the last sighting. **The engine resolves on the true state.** The player's squads base their conditions and targets only on enemies their side currently sees. **The Host is omniscient for now.** | `sighted` (when an enemy comes into view) |
+| **Fog of war** | Sight is 2 hexes (+1 standing on a ridge, −1 in mist, minimum 1). Ruins strictly between two squads block sight; neighbours always see each other. `state.intel[faction][enemyId]` keeps the last sighting. **The engine resolves on the true state.** Every decision a squad makes (conditions, targets, fall-back direction, who bars the way) reads the **perceived world** from `perceive()` in `perception.ts`: the enemies its side sees now, with an enemy's support judged only from visible enemies. Combat, blocking and zones of control stay on the true state. **The Host is omniscient for now** (an invading host with outriders). | `sighted` (when an enemy comes into view) |
 
 `visibleState(state, faction)` is the pure filter for the UI and renderer:
 - own squads and enemies in sight are shown as they are;
 - enemies seen before are shown at their last-known hex with their stats from that
   sighting, `doctrineId: null` and `lastKnown: true`;
 - enemies never seen are omitted;
-- `rngState` and `intel` are never exposed;
+- it is built from an explicit allowlist of fields (`VisibleState`, `VisibleSquad`), so
+  `rngState`, `intel`, `contacts` and `dreaded` are never exposed;
 - with fortune off it reveals everything.
 
 ## Balance harness
@@ -163,4 +187,8 @@ objective integrity, and exits 1 if a guardrail fails:
 - the bad plan wins ≤ 35%;
 - no mono plan wins ≥ 60%.
 
-`balance.test.ts` runs the same check with 60 seeds on every `npm test`.
+`balance.test.ts` runs the same check with 60 seeds on every `npm test`. Every
+scenario in `scenarios/index.ts` must pass. The scenarios so far:
+- *The First Breach*: the tutorial, which teaches holding and rallying.
+- *Ember Ford*: battle 1, which teaches Clean Counterstroke against overextension, kept
+  steady by a rally banner.
