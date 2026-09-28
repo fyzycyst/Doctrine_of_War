@@ -23,11 +23,16 @@ export const FIELD_TEST_MAX = 300;
 export const FIELD_TEST_BATCH = 20;
 export const FIELD_TEST_BUDGET_MS = 3000;
 /**
- * Stopping early is peeking at the data, so the bar for it is stricter than for the
- * final verdict: 0.01 at a checkpoint, against 0.05 for "clearly" once the budget is spent.
+ * A Haybittle–Peto-style boundary. Looking at the data every 20 seeds and again at the end
+ * spends error at every look, so an early stop needs overwhelming evidence (p < 0.001) and
+ * the final "clearly" is set just under 5%. "Run longer" is one more final look, so its
+ * bar is stricter still. By exact enumeration under the null (sequential.test.ts), the
+ * chance of a false "Clearly" is at most 4.6% for a single run, whatever seed count the
+ * time budget stops at, and at most 4.9% with Run longer.
  */
-export const EARLY_STOP_P = 0.01;
-export const CLEAR_P = 0.05;
+export const EARLY_STOP_P = 0.001;
+export const CLEAR_P = 0.045;
+export const CLEAR_P_EXTENDED = 0.01;
 /** Below this, a lean is worth mentioning, as "not certain". */
 export const LEAN_P = 0.25;
 
@@ -72,7 +77,12 @@ export interface FieldTestResult {
   behind: number;
   /** Why the run ended: an unmistakable difference, the seed budget, or the time budget. */
   stoppedBy: "clear" | "runs" | "time";
+  /** Continued by "Run longer": its final look is held to CLEAR_P_EXTENDED. */
+  extended: boolean;
 }
+
+/** Whether the runner looks for an early stop after `runs` seeds (the enumeration mirrors this). */
+export const isCheckpoint = (runs: number, minRuns = FIELD_TEST_MIN) => runs >= minRuns && runs % FIELD_TEST_BATCH === 0;
 
 const MAX_BATTLE_PHASES = 40;
 const RANK: Record<Outcome, number> = { victory: 2, stalemate: 1, defeat: 0 };
@@ -128,7 +138,7 @@ export function runFieldTest(
   const budgetMs = input.budgetMs ?? FIELD_TEST_BUDGET_MS;
   const started = now();
   const result: FieldTestResult = from
-    ? { ...from, base: { ...from.base }, variant: { ...from.variant }, stoppedBy: "runs" }
+    ? { ...from, base: { ...from.base }, variant: { ...from.variant }, stoppedBy: "runs", extended: true }
     : {
         runs: 0,
         base: { victories: 0, stalemates: 0, defeats: 0 },
@@ -136,6 +146,7 @@ export function runFieldTest(
         ahead: 0,
         behind: 0,
         stoppedBy: "runs",
+        extended: false,
       };
   while (result.runs < maxRuns) {
     const seed = input.firstSeed + result.runs;
@@ -147,8 +158,7 @@ export function runFieldTest(
     if (RANK[variant] < RANK[base]) result.behind += 1;
     result.runs += 1;
     onProgress?.(result.runs, maxRuns);
-    const checkpoint = result.runs >= minRuns && result.runs % FIELD_TEST_BATCH === 0;
-    if (checkpoint && signTestP(result.ahead, result.behind) < EARLY_STOP_P) {
+    if (isCheckpoint(result.runs, minRuns) && signTestP(result.ahead, result.behind) < EARLY_STOP_P) {
       result.stoppedBy = "clear";
       break;
     }
@@ -196,7 +206,7 @@ const battles = (n: number) => `${n} ${n === 1 ? "battle" : "battles"}`;
 export function verdict(result: FieldTestResult, scenario: EngineScenario): Verdict {
   const p = signTestP(result.ahead, result.behind);
   const better = result.ahead > result.behind;
-  const clear = result.stoppedBy === "clear" || p < CLEAR_P;
+  const clear = result.stoppedBy === "clear" || p < (result.extended ? CLEAR_P_EXTENDED : CLEAR_P);
   let headline: string;
   let tone: VerdictTone;
   if (result.ahead === result.behind || p >= LEAN_P) {

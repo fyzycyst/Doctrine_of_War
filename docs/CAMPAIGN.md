@@ -116,6 +116,17 @@ doctrine families in meaningful roles, and swapping out any one family costs at 
   - writes are serialized and atomic (a fresh exclusive `0600` temp file, fsync, rename);
   - symlinks are never followed (the save, temp files or userData itself), and reads
     are bounded to 256 KiB.
+  - **Accepted risk:** userData is checked with `lstat` and the file is then opened by
+    path, so a process that swaps the userData folder for a symlink in between can
+    redirect a read; exploiting that needs write access to the user's own Library
+    folder, which already grants control of the app's data, so it is out of scope.
+- **Doctrine variants** (T16, Experimental) live in their own versioned store,
+  `{"version": 1, "variants": […]}` (at most 24, 64 KiB): `localStorage` key
+  `doctrine-of-war:variants` on the web, or a second fixed file,
+  `userData/doctrine-variants.json`, on its own IPC channels with the same checks as
+  the save (main-side validation refuses any variant the game would drop). Changes are
+  stored before they are shown, so a refused write changes nothing. A campaign battle
+  fought with a variant records `customOrders: true` in its history; there is no penalty.
 - **CSP**: production builds (web and Electron) get a `Content-Security-Policy` meta
   from `vite.config.ts` (`PRODUCTION_CSP` in `electron/security.ts`): `script-src 'self'
   'wasm-unsafe-eval'` (the meshopt WASM decoder `useGLTF` uses), no `'unsafe-eval'`,

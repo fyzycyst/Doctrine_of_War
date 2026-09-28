@@ -34,23 +34,27 @@ interface VariantsState {
   load: () => Promise<void>;
   /** Validates, then saves (replacing a variant with the same id). */
   save: (variant: DoctrineVariant) => Promise<SaveResult>;
-  remove: (id: string) => Promise<void>;
+  /** false (with a notice) when storage refused the change: the variant stays. */
+  remove: (id: string) => Promise<boolean>;
 }
 
 const reason = (error: unknown) => (error instanceof Error ? error.message : "unknown error");
 
 export const useVariants = create<VariantsState>((set, get) => {
+  /**
+   * Stores first, publishes after. Nothing optimistic: the battle reacts to a published
+   * change (a deleted variant's pending orders are dropped), so a change that storage then
+   * refused would lose those orders even if the list were rolled back.
+   */
   async function write(next: CheckedVariant[]): Promise<boolean> {
-    const previous = get().variants;
-    set({ variants: next });
     try {
       await get().store.write(serializeVariants(next.map((item) => item.variant)));
-      set({ notice: null });
-      return true;
     } catch (error) {
-      set({ variants: previous, notice: `Your variants could not be saved (${reason(error)}).` });
+      set({ notice: `Your variants could not be saved (${reason(error)}).` });
       return false;
     }
+    set({ variants: next, notice: null });
+    return true;
   }
 
   return {
@@ -90,9 +94,7 @@ export const useVariants = create<VariantsState>((set, get) => {
       return (await write(next)) ? checked : { ok: false, errors: [get().notice ?? "Could not save."] };
     },
 
-    remove: async (id) => {
-      await write(get().variants.filter((item) => item.variant.id !== id));
-    },
+    remove: (id) => write(get().variants.filter((item) => item.variant.id !== id)),
   };
 });
 
