@@ -1,0 +1,88 @@
+# DRAFT, not active. To enable it, copy it to .github/workflows/release.yml (see
+# docs/RELEASE.md). CI changes need the project lead's explicit approval.
+#
+# On a version tag (v*): test, build signed and notarized DMGs (arm64 + x64) from
+# repository secrets, verify Gatekeeper and the stapled ticket, and attach the DMGs to
+# a DRAFT GitHub release for a human to review and publish.
+#
+# Repository secrets (Settings > Secrets and variables > Actions), created by the user:
+#   MAC_CERT_P12_BASE64      base64 of the exported "Developer ID Application" .p12
+#   MAC_CERT_PASSWORD        password of that .p12
+#   APPLE_API_KEY_P8_BASE64  base64 of the App Store Connect API key file (AuthKey_XXXX.p8)
+#   APPLE_API_KEY_ID         the key's ID
+#   APPLE_API_ISSUER         the issuer ID (UUID)
+name: Release (macOS)
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # create the draft release and upload the DMGs
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mac:
+    runs-on: macos-14 # Apple silicon; electron-builder also builds the x64 DMG here
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Fetch CC0 figures (gitignored, needed by the 3D board)
+        run: npm run fetch:cc0
+
+      - name: Test
+        run: npm test
+
+      - name: Write the App Store Connect API key to a temp file
+        env:
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+        run: |
+          key="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$key"
+          chmod 600 "$key"
+          echo "APPLE_API_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Build, sign and notarize
+        env:
+          # electron-builder imports the base64 .p12 into a temporary keychain.
+          CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          npm run build
+          ELECTRON=1 npx vite build
+          # electron-builder.cjs logs "macOS build mode: notarized" and fails if signing
+          # is impossible (forceCodeSigning). Never publish from electron-builder itself.
+          npx electron-builder --mac --publish never
+
+      - name: Verify Gatekeeper and the notarization ticket
+        run: |
+          app="release/mac-arm64/Doctrine of War.app"
+          spctl -a -vv -t exec "$app"
+          xcrun stapler validate "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+
+      - name: Draft a GitHub release with the DMGs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/*.dmg \
+            --draft --verify-tag --generate-notes \
+            --title "Doctrine of War $GITHUB_REF_NAME"
+
+      - name: Remove the API key file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
