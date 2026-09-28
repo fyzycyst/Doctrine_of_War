@@ -19,7 +19,16 @@ declare global {
  * from the player's projected events and drives the director against the diorama.
  * Remounts per run (key = runId), so a replay starts clean.
  */
-export function Playback({ animation, pauseAt }: { animation: RefObject<SquadAnimationApi | null>; pauseAt?: string }) {
+export function Playback({
+  animation,
+  pauseAt,
+  headless = false,
+}: {
+  animation: RefObject<SquadAnimationApi | null>;
+  pauseAt?: string;
+  /** No bar (capture mode): the phase still plays on the board. */
+  headless?: boolean;
+}) {
   const runId = useGame((s) => s.runId);
   const director = useRef<PlaybackDirector | null>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
@@ -104,7 +113,7 @@ export function Playback({ animation, pauseAt }: { animation: RefObject<SquadAni
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  return <PlaybackBar skipRef={skipButton} onSkip={() => director.current?.skip()} />;
+  return headless ? null : <PlaybackBar skipRef={skipButton} onSkip={() => director.current?.skip()} />;
 }
 
 /** Dev capture boots straight into playback; wait for the board so the still has figures. */

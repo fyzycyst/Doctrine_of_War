@@ -4,6 +4,7 @@ import { TitleScene } from "../../render/showcase/TitleScene";
 import { FrameProbe } from "../ui/FrameProbe";
 import { battleTitle, OUTCOME_WORD } from "./campaignView";
 import { LedgerRow } from "./CampaignScreen";
+import { useCaptureStore } from "../captureStore";
 import { useFlow } from "./flowStore";
 
 /**
@@ -16,7 +17,8 @@ export function EndScreen() {
   const go = useFlow((s) => s.go);
   const begin = useFlow((s) => s.beginCampaign);
   const primary = useRef<HTMLButtonElement>(null);
-  useEffect(() => primary.current?.focus({ preventScroll: true }), []);
+  const captureMode = useCaptureStore((s) => s.captureMode);
+  useEffect(() => primary.current?.focus({ preventScroll: true }), [captureMode]);
 
   if (!campaign) return null;
   const next = currentBattle(definition, campaign);
@@ -30,6 +32,7 @@ export function EndScreen() {
         subtitle={definition.title}
         inCanvas={<FrameProbe />}
       />
+      {!captureMode && (
       <section className="panel epilogue" aria-labelledby="epilogue-title">
         <h2 id="epilogue-title">{complete ? "Epilogue" : "The chronicle so far"}</h2>
         <p className="epilogue-text">
@@ -87,6 +90,7 @@ export function EndScreen() {
           )}
         </div>
       </section>
+      )}
     </div>
   );
 }

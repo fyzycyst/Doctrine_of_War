@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import App from "../App";
+import { isCaptureToggle, useCaptureStore } from "./captureStore";
 import { CampaignScreen } from "./flow/CampaignScreen";
 import { EndScreen } from "./flow/EndScreen";
 import { useFlow } from "./flow/flowStore";
@@ -14,13 +16,25 @@ export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: st
   const settingsOpen = useFlow((s) => s.settingsOpen);
   const setSettingsOpen = useFlow((s) => s.setSettingsOpen);
   const openSettings = () => setSettingsOpen(true);
+  const captureMode = useCaptureStore((s) => s.captureMode);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (isCaptureToggle(event)) {
+        event.preventDefault();
+        const capture = useCaptureStore.getState();
+        capture.setCaptureMode(!capture.captureMode);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <>
       {screen === "title" && <TitleScreen onSettings={openSettings} />}
       {screen === "campaign" && <CampaignScreen onSettings={openSettings} />}
       {screen === "battle" && <App still={still} pauseAt={pauseAt} />}
       {screen === "ending" && <EndScreen />}
-      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && !captureMode && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </>
   );
 }

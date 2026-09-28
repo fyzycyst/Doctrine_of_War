@@ -8,6 +8,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { BoardLayout } from "../../game/board";
 import type { CameraShot } from "../../render/camera/DioramaCamera";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
+import { useCaptureStore } from "../captureStore";
 import { useGame, type Callout } from "../game/gameStore";
 import { Sigil } from "./glyphs";
 
@@ -19,7 +20,9 @@ const LEAN = 0.18;
 const LEAN_RATE = 1.6;
 
 export function PlaybackStage({ board, shot, reducedMotion }: { board: BoardLayout; shot: CameraShot; reducedMotion: boolean }) {
-  const callouts = useGame((s) => s.callouts);
+  const allCallouts = useGame((s) => s.callouts);
+  const hidden = useCaptureStore((s) => s.captureMode && !s.keepCallouts);
+  const callouts = hidden ? [] : allCallouts;
   const center = useMemo(() => boardCenter(board), [board]);
   return (
     <>
