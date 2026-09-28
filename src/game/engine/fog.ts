@@ -16,6 +16,7 @@ import type {
   SquadStatus,
   Weather,
   TimeOfDay,
+  SquadSnapshot,
 } from "./types";
 import { isActive, type ActiveSquad } from "./world";
 
@@ -178,7 +179,7 @@ export function refreshIntel(ctx: RuleContext, emit?: EngineContext["emit"], bea
         continue;
       }
       if (!known?.visible) {
-        emit?.({ kind: "sighted", faction, squadId: enemy.id, byId: spotter.id, hex: enemy.hex });
+        emit?.({ kind: "sighted", faction, squadId: enemy.id, byId: spotter.id, hex: enemy.hex, snapshot: snapshotOf(enemy) });
       }
       intel[enemy.id] = {
         visible: true,
@@ -301,6 +302,28 @@ export function witnessEvent(
   }
 
   const redactions: Partial<Record<FactionId, Redaction>> = {};
+  // Enemies an event shows a faction for the first time: not in its sight before this.
+  const actorIds = (): string[] => {
+    switch (event.kind) {
+      case "engagement":
+        return [event.attackerId, event.defenderId];
+      case "rally":
+        return [event.sourceId, event.targetId].filter((id): id is string => id !== null);
+      case "objectiveDamage":
+        return event.attackerId ? [event.attackerId] : [];
+      case "dread":
+        return [event.squadId, ...(event.sourceId ? [event.sourceId] : [])];
+      case "ruleFired":
+      case "blocked":
+      case "fortune":
+      case "move":
+      case "rout":
+      case "exit":
+        return [event.squadId];
+      default:
+        return [];
+    }
+  };
   const actorSeen = (faction: FactionId, squadId: string | null) => {
     if (squadId === null || factionOf(squadId) === faction) {
       return true;
@@ -313,6 +336,21 @@ export function witnessEvent(
     redactions[faction] = { ...current, hidden: [...(current.hidden ?? []), actor] };
   };
   for (const faction of visibleTo) {
+    const intel = ctx.state.intel[faction] ?? {};
+    const introduces = actorIds()
+      .map((id) => ctx.state.squads.find((squad) => squad.id === id))
+      .filter(
+        (squad): squad is EngineSquad =>
+          squad !== undefined &&
+          squad.faction !== faction &&
+          squad.hex !== null &&
+          !intel[squad.id]?.visible &&
+          factionSees(ctx, faction, squad.hex),
+      )
+      .map(snapshotOf);
+    if (introduces.length > 0) {
+      redactions[faction] = { ...redactions[faction], introduces };
+    }
     // Audit of actor fields by kind. ruleFired/blocked/fortune/move/rout/exit are only
     // witnessed by a side that saw their one actor; engagements are between neighbours,
     // who always see each other; sightings belong to the observer. The rest can be
@@ -352,6 +390,9 @@ export function projectEvent(event: EngineEvent, faction: FactionId): EngineEven
     if (actor === "targetId" && projected.kind === "rally") {
       projected.targetId = null;
     }
+  }
+  if (redaction?.introduces) {
+    projected.introduces = redaction.introduces;
   }
   if (redaction?.pathSeen && projected.kind === "move") {
     const seen = redaction.pathSeen;
@@ -410,6 +451,12 @@ export interface VisibleState {
   timeOfDay: EngineState["timeOfDay"];
   objectives: EngineState["objectives"];
   squads: VisibleSquad[];
+}
+
+/** A squad's in-sight fields at this moment (the same allowlist as VisibleSquad). */
+export function snapshotOf(squad: EngineSquad): SquadSnapshot {
+  const { lastKnown: _lastKnown, lastSeen: _lastSeen, ...fields } = showSquad(squad);
+  return { ...fields, doctrineId: squad.doctrineId };
 }
 
 function showSquad(squad: EngineSquad, overrides: Partial<VisibleSquad> = {}): VisibleSquad {

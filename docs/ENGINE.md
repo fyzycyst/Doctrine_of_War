@@ -44,7 +44,11 @@ resolvePhase(state, orders, scenario, { doctrines? }) → { state, events, repor
     is null when the defender could not see who struck, and the report reads
     "Greyford Gate took 12 damage from an unseen company";
   - `visibleTo` is reduced to the viewer, and the raw-only `redactions` field is
-    removed.
+    removed;
+  - an event that first brings an enemy into the viewer's sight carries `introduces`: a
+    `SquadSnapshot` of each such squad at that moment. `sighted` events carry a
+    `snapshot`. Both use the same field allowlist as `VisibleSquad`, so playback can
+    place emerging squads exactly.
 
   Audit of actor fields by event kind:
   - `ruleFired`, `blocked`, `fortune`, `move`, `rout` and `exit` have a single actor

@@ -320,6 +320,11 @@ interface EventBase {
    * eventsFor() applies these and strips the field, so projections never carry it.
    */
   redactions?: Partial<Record<FactionId, Redaction>>;
+  /**
+   * Projections only: enemies this event brings into the viewer's sight for the first
+   * time (they were not in view before it), as they are at that moment.
+   */
+  introduces?: SquadSnapshot[];
 }
 
 /** Parts of an event a witnessing faction did not see. */
@@ -328,6 +333,8 @@ export interface Redaction {
   pathSeen?: boolean[];
   /** Actor ids the faction could not see; eventsFor() sets them to null. */
   hidden?: RedactedActor[];
+  /** Enemies this event first brings into the faction's view (see EventBase.introduces). */
+  introduces?: SquadSnapshot[];
 }
 
 export type RedactedActor = "attackerId" | "sourceId" | "targetId";
@@ -394,7 +401,31 @@ export type EngineEvent =
       squadId: string;
       byId: string;
       hex: HexCoord;
+      /** What the sighting side can now see of the squad, at that moment. */
+      snapshot: SquadSnapshot;
     });
+
+/**
+ * A squad as a watching side sees it at one moment: the in-sight fields of
+ * VisibleSquad. Carried by `sighted` events, and by projected events that first
+ * bring an enemy into view (`introduces`), so playback can place emerging squads exactly.
+ */
+export interface SquadSnapshot {
+  id: string;
+  name: string;
+  faction: FactionId;
+  role: SquadRole;
+  hex: HexCoord | null;
+  strength: number;
+  cohesion: number;
+  resolve: number;
+  doctrineId: string;
+  status: SquadStatus;
+  braced: boolean;
+  surging: boolean;
+  renown?: Renown;
+  noncombatant?: boolean;
+}
 
 export interface PhaseReport {
   phase: number;

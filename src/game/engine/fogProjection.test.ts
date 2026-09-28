@@ -36,9 +36,10 @@ function hexesIn(value: unknown, found: HexCoord[] = []): HexCoord[] {
   return found;
 }
 
-function checkBattle(scenario: EngineScenario, orders: Orders, seed: number): { checked: number; leaks: string[] } {
+function checkBattle(scenario: EngineScenario, orders: Orders, seed: number): { checked: number; leaks: string[]; introduced: number } {
   const leaks: string[] = [];
   let checked = 0;
+  let introduced = 0;
   const onEmit = (event: EngineEvent, state: EngineState) => {
     const [projected] = eventsFor([event], VIEWER);
     if (!projected) {
@@ -59,6 +60,26 @@ function checkBattle(scenario: EngineScenario, orders: Orders, seed: number): { 
         leaks.push(`${scenario.id}#${seed} phase ${event.phase} beat ${event.beat} ${event.kind}: unseen squad ${id}`);
       }
     }
+    // Snapshots (sightings, and squads an event first brings into view) must be exact and in sight.
+    const snapshots = [...(projected.kind === "sighted" ? [projected.snapshot] : []), ...(projected.introduces ?? [])];
+    for (const shot of snapshots) {
+      const squad = state.squads.find((item) => item.id === shot.id);
+      if (!squad || !squad.hex || !seen(squad.hex)) {
+        leaks.push(`${scenario.id}#${seed} ${event.kind}: snapshot of unseen squad ${shot.id}`);
+        continue;
+      }
+      const truth = { hex: squad.hex, strength: squad.strength, cohesion: squad.cohesion, status: squad.status, doctrineId: squad.doctrineId };
+      const shown = { hex: shot.hex, strength: shot.strength, cohesion: shot.cohesion, status: shot.status, doctrineId: shot.doctrineId };
+      if (JSON.stringify(truth) !== JSON.stringify(shown)) {
+        leaks.push(`${scenario.id}#${seed} ${event.kind}: snapshot of ${shot.id} differs from the true state`);
+      }
+      const allowed = ["id", "name", "faction", "role", "hex", "strength", "cohesion", "resolve", "doctrineId", "status", "braced", "surging", "renown", "noncombatant"];
+      const extra = Object.keys(shot).filter((key) => !allowed.includes(key));
+      if (extra.length > 0) {
+        leaks.push(`${scenario.id}#${seed} ${event.kind}: snapshot exposes ${extra.join(", ")}`);
+      }
+      introduced += 1;
+    }
     // A squad knows its own path; the property is about what the Banners learn of the enemy.
     const ownMove = projected.kind === "move" && state.squads.find((squad) => squad.id === projected.squadId)?.faction === VIEWER;
     for (const hex of ownMove ? [] : hexesIn(projected)) {
@@ -72,7 +93,7 @@ function checkBattle(scenario: EngineScenario, orders: Orders, seed: number): { 
   while (state.status === "command") {
     state = resolvePhase(state, orders, scenario, { onEmit }).state;
   }
-  return { checked, leaks };
+  return { checked, leaks, introduced };
 }
 
 describe("fog projection property", () => {
@@ -89,13 +110,17 @@ describe("fog projection property", () => {
     for (const [planName, orders] of Object.entries(plans)) {
       it(`${scenario.title} (${planName}): the Banners' projected stream only mentions what they could see`, () => {
         let checked = 0;
+        let introduced = 0;
         const leaks: string[] = [];
         for (const seed of seeds) {
           const result = checkBattle(scenario, orders, seed);
           checked += result.checked;
+          introduced += result.introduced;
           leaks.push(...result.leaks);
         }
         expect(checked).toBeGreaterThan(100);
+        // Snapshots are checked whenever they occur; `introduced` counts them for debugging.
+        void introduced;
         expect(leaks).toEqual([]);
       });
     }
