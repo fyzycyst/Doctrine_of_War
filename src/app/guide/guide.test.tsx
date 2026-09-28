@@ -119,6 +119,21 @@ describe("first-battle coach marks", () => {
     expect(guide().step).toBe("chronicle");
   });
 
+  it("never pauses playback in capture mode (the marks are hidden there)", async () => {
+    const { useCaptureStore } = await import("../captureStore");
+    useCaptureStore.setState({ captureMode: true });
+    act(() => useGuide.setState({ step: "watch" }));
+    firstBattleAt("command");
+    render(<Root />);
+    act(() => {
+      useGame.setState({ playbackSpeed: 200 });
+      useGame.getState().sealOrders();
+    });
+    await waitFor(() => expect(useGame.getState().stage).toBe("report"), { timeout: 5000 });
+    expect(guide().watchCallout).toBeNull();
+    useCaptureStore.setState({ captureMode: false });
+  });
+
   it("stays out of every other battle", () => {
     act(() => useGame.getState().loadBattle({ ...firstBreach, id: "ember_ford_like" }, { fortune: "off", seed: 1 }, "command"));
     useFlow.setState({ screen: "battle" });

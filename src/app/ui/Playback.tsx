@@ -3,6 +3,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { playSfx } from "../../audio";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { emberDusk } from "../../render/skins";
+import { useCaptureStore } from "../captureStore";
 import { useGame } from "../game/gameStore";
 import { FIRST_BATTLE } from "../guide/coach";
 import { useGuide } from "../guide/guideStore";
@@ -78,6 +79,7 @@ export function Playback({
           guide.coach === "active" &&
           guide.step === "watch" &&
           guide.watchCallout === null &&
+          !useCaptureStore.getState().captureMode &&
           game.baseScenario.id === FIRST_BATTLE &&
           spec.kind === "rule" &&
           spec.faction === game.scenario.playerFaction &&
