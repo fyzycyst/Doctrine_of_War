@@ -25,9 +25,9 @@
   --display: "Cinzel", Georgia, serif;
   --body: "Alegreya Sans", system-ui, sans-serif;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  /* How far a resting card sits below the fold, and the space the hand reserves. */
-  --hand-rest: 74px;
-  --hand-height: 200px;
+  /* How much of a resting card shows (title, flavor, rule 1), and the space the hand reserves. */
+  --hand-peek: 172px;
+  --hand-height: 176px;
   font-family: var(--body);
   color: var(--bone);
   background: var(--ink);
@@ -80,10 +80,12 @@ h3 {
 
 /* ------------------------------------------------------------------ shell */
 
+/* clip, not hidden: a hidden box can still be scrolled by focus(), which would slide
+   the whole HUD when a low card or tab takes focus. */
 .shell {
   position: fixed;
   inset: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .board {
@@ -100,6 +102,7 @@ h3 {
   grid-template-rows: auto minmax(0, 1fr) auto;
   column-gap: 16px;
   padding: 0 16px;
+  overflow: clip;
   pointer-events: none;
 }
 
@@ -787,11 +790,12 @@ h3 {
 
 .doctrine-card.in-hand {
   width: 184px;
-  height: 274px;
+  min-height: 274px;
   flex: none;
   cursor: pointer;
   transform-origin: 50% 120%;
-  transform: translateY(calc(var(--hand-rest) + var(--drop, 0px))) rotate(var(--rot, 0deg));
+  /* Percentages are of the card's own height, so every card peeks the same amount. */
+  transform: translateY(calc(100% - var(--hand-peek) + var(--drop, 0px))) rotate(var(--rot, 0deg));
   transition: transform 0.22s var(--ease), box-shadow 0.22s, border-color 0.22s;
 }
 
@@ -799,8 +803,9 @@ h3 {
   margin-left: -24px;
 }
 
+/* Lift on hover, and lift the card the keyboard is on while focus is in the hand. */
 .doctrine-card.in-hand:hover,
-.doctrine-card.in-hand:focus-visible {
+.hand-cards:focus-within .doctrine-card.in-hand.active {
   z-index: 3;
   transform: translateY(-4px) rotate(0deg);
   outline: none;
@@ -814,12 +819,12 @@ h3 {
 
 .doctrine-card.in-hand.chosen {
   z-index: 2;
-  transform: translateY(calc(var(--hand-rest) - 14px + var(--drop, 0px))) rotate(var(--rot, 0deg));
+  transform: translateY(calc(100% - var(--hand-peek) - 18px + var(--drop, 0px))) rotate(var(--rot, 0deg));
   border-color: var(--gold-hi);
 }
 
 .doctrine-card.in-hand.chosen:hover,
-.doctrine-card.in-hand.chosen:focus-visible {
+.hand-cards:focus-within .doctrine-card.in-hand.chosen.active {
   transform: translateY(-4px) rotate(0deg);
 }
 
@@ -1554,7 +1559,7 @@ h3 {
 
 @media (max-height: 880px) {
   :root {
-    --hand-rest: 116px;
+    --hand-peek: 150px;
     --hand-height: 154px;
   }
 

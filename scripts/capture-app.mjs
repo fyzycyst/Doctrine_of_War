@@ -15,6 +15,12 @@ const STAGES = [
   { name: "deploy", query: "stage=deploy&select=greyford_shields" },
   { name: "command", query: "stage=command&select=greyford_shields" },
   { name: "command-enemy", query: "stage=command&select=cinder_vanguard" },
+  {
+    name: "command-lift",
+    query: "stage=command&select=mercy_standard",
+    eval: `document.querySelectorAll('.hand [role="option"]')[1]?.focus()`,
+    keys: ["Right"],
+  },
   { name: "report", query: "stage=report&plan=intended" },
   { name: "outcome", query: "stage=outcome&plan=intended" },
   { name: "ember-command", query: "scenario=emberFord&stage=command&select=kestrel_lancers" },
@@ -23,6 +29,8 @@ const jobs = STAGES.flatMap((stage) =>
   SIZES.map(([width, height]) => ({
     name: `${stage.name}-${width}`,
     query: `${stage.query}&still=1`,
+    eval: stage.eval,
+    keys: stage.keys,
     probe: "__battleBoard",
     width,
     height,

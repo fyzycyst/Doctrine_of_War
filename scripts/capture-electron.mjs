@@ -16,7 +16,9 @@ app.dock?.hide();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Jobs default to the Look Lab. An app job (scripts/capture-app.mjs) passes its own
-// `query` (no lab params), `probe` (the window global to wait on) and `width`/`height`.
+// `query` (no lab params), `probe` (the window global to wait on), `width`/`height`,
+// and optionally `eval` (a snippet run in the page before the shot), `keys` (real key
+// presses, so :focus-visible applies) and `settleMs`.
 async function waitForSettle(win, probe = "__lookLab") {
   const start = Date.now();
   let last = null;
@@ -48,7 +50,14 @@ app.whenReady().then(async () => {
       win.setContentSize(width, height);
       await win.loadURL(job.probe ? `${url}?${job.query}` : `${url}?lab=1&${job.query}&ui=0&still=1`);
       const state = await waitForSettle(win, job.probe);
-      if (job.probe) await sleep(job.settleMs ?? 900); // let UI transitions finish
+      // An app job may run a snippet first (e.g. focus a card), then let transitions finish.
+      if (job.eval) await win.webContents.executeJavaScript(job.eval);
+      for (const keyCode of job.keys ?? []) {
+        win.webContents.sendInputEvent({ type: "keyDown", keyCode });
+        win.webContents.sendInputEvent({ type: "keyUp", keyCode });
+        await sleep(120);
+      }
+      if (job.probe) await sleep(job.settleMs ?? 900);
       let image = await win.webContents.capturePage();
       // Retina displays capture at 2x; downsample to the window size unless asked not to.
       if (process.env.CAPTURE_SCALE !== "2" && image.getSize().width !== width) {
