@@ -19,6 +19,7 @@ import { pickBoardHex, resolveClick } from "./picking";
 import { BoardHighlights } from "./terrain/BoardHighlights";
 import { buildIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
+import { WallsAndObjectiveFX } from "./terrain/ObjectiveFX";
 import { Water } from "./terrain/Water";
 
 /**
@@ -193,6 +194,17 @@ export function Diorama({
         material={material}
         castShadow
         receiveShadow
+        onPointerMove={onIslandMove}
+        onPointerOut={() => {
+          setHoveredHex(null);
+          setHoveredSquad(null);
+        }}
+        onClick={onIslandClick}
+      />
+      <WallsAndObjectiveFX
+        island={island}
+        material={material}
+        animator={animator}
         onPointerMove={onIslandMove}
         onPointerOut={() => {
           setHoveredHex(null);

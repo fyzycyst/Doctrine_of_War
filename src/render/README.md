@@ -32,6 +32,13 @@ imported (see `fromEngine.ts`); engine logic may not.
   - `brace(id, { hold })`: crouch, tighten ranks and lean into the shields, then release.
   - `reveal(id)`: fog of war. The squad resolves out of the mist (see Fog of war below).
   - `reset(id?)` clears persistent animation state.
+  - **Playback controls:** `setTimeScale(n)` sets tween speed (1 is normal, 0.5 is half, 0 is
+    frozen), and `pause()` / `resume()` freeze every tween and restore the previous speed. There
+    are no casts needed; they are on `SquadAnimationApi`.
+  - `shakeObjective(hex, intensity = 1)`: an objective takes a hit. The walls and gatehouse (their
+    own mesh, `island.wallGeometry`) jolt with a damped shudder, which is skipped under reduced
+    motion. A dust cloud billows from the gate's outer face and a few stones fall. It resolves when
+    the effect ends, and it follows the animator clock, so pause and time scale apply to it.
 - **Weather (T08):** `<LookProvider weather="clear|rain|mist|ashWind">` (use `weatherFor(view.weather)`).
   Each skin owns `weather: Record<WeatherKind, WeatherPreset>` overlays that are layered on the
   time-of-day preset: mist, particles (rain streaks, ash flurries blowing east), wetness (darker,

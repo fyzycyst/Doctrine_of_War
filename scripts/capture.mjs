@@ -41,6 +41,7 @@ const jobs = [
   anim("rout", "mercy_standard", 1.1),
   anim("rally", "dawnwatch_archers", 0.4),
   anim("brace", "greyford_shields", 0.6),
+  anim("shake", "greyford_shields", 0.42),
   { name: "dusk-kaykit", query: "preset=dusk&figures=b" },
   { name: "dusk-toy-low", query: "preset=dusk&figures=a&quality=low" },
   { name: "chronicle-stub-toy", query: "preset=dusk&figures=a&skin=illuminatedChronicle" },

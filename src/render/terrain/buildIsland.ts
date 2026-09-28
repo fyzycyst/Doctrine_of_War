@@ -48,6 +48,8 @@ export interface Anchor {
 
 export interface IslandBuild {
   geometry: THREE.BufferGeometry;
+  /** Walls, towers and gatehouse as their own mesh (so an objective hit can jolt them); null if none. */
+  wallGeometry: THREE.BufferGeometry | null;
   hexes: IslandHex[];
   water: WaterHex[];
   waterLevel: number;
@@ -270,7 +272,8 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   }
 
   drawRoads(b, layout, hexes, roadColor, T[`field`].top, rand);
-  const wall = drawWalls(b, layout, hexes, skin, rand);
+  const wb = new GeoBuilder();
+  const wall = drawWalls(wb, layout, hexes, skin, rand);
   gateBanner = wall.gateBanner;
   fireAnchors.push(...wall.torches);
   drawTown(b, hexes, skin, rand);
@@ -312,6 +315,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
 
   return {
     geometry: b.build(),
+    wallGeometry: wb.vertexCount > 0 ? wb.build() : null,
     hexes,
     water,
     waterLevel,

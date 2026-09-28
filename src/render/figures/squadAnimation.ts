@@ -89,6 +89,26 @@ export interface SquadAnimationApi {
   reveal(squadId: string, opts?: { duration?: number }): Promise<void>;
   /** Clears all persistent animation state (one squad, or all). */
   reset(squadId?: string): void;
+  /** Playback speed for every tween (1 = normal, 0.5 = half, 0 = frozen). */
+  setTimeScale(scale: number): void;
+  /** Freeze every tween where it is; `resume()` restores the previous speed. */
+  pause(): void;
+  resume(): void;
+  /**
+   * An objective takes a hit: the gate/wall jolts (scaled by `intensity`,
+   * 0..1+), with a dust burst and a few falling stones at `hex`.
+   */
+  shakeObjective(hex: HexCoord, intensity?: number): Promise<void>;
+}
+
+/** An objective hit in progress (read by the renderer's ObjectiveFX). */
+export interface ObjectiveShake {
+  id: number;
+  at: WorldPoint;
+  intensity: number;
+  /** Seconds since the hit. */
+  t: number;
+  duration: number;
 }
 
 /** What the animator needs from the scene (kept abstract for tests). */
@@ -155,6 +175,9 @@ export class SquadAnimator implements SquadAnimationApi {
   private tweens: Tween[] = [];
   /** 1 = normal speed; 0 freezes every tween (used by the lab for stills). */
   timeScale = 1;
+  private pausedScale: number | null = null;
+  private shakes: Array<{ id: number; at: WorldPoint; intensity: number; start: number; duration: number; resolve: () => void }> = [];
+  private shakeIds = 0;
   private states = new Map<string, SquadAnimState>();
 
   constructor(private scene: AnimatorScene) {}
@@ -199,6 +222,13 @@ export class SquadAnimator implements SquadAnimationApi {
         return f;
       });
     }
+    if (this.shakes.length) {
+      const done = this.shakes.filter((s) => this.time - s.start >= s.duration);
+      if (done.length) {
+        this.shakes = this.shakes.filter((s) => !done.includes(s));
+        done.forEach((s) => s.resolve());
+      }
+    }
     const finished: Tween[] = [];
     for (const tw of this.tweens) {
       const st = this.state(tw.squadId);
@@ -229,6 +259,35 @@ export class SquadAnimator implements SquadAnimationApi {
     const st = this.states.get(id);
     if (!st) return false;
     return st.routed || st.fallen.has(index) ? (st.figures[index]?.fade ?? 0) <= 0 : false;
+  }
+
+  setTimeScale(scale: number) {
+    this.timeScale = Math.max(0, scale);
+    this.pausedScale = null;
+  }
+
+  pause() {
+    if (this.pausedScale === null) this.pausedScale = this.timeScale;
+    this.timeScale = 0;
+  }
+
+  resume() {
+    this.timeScale = this.pausedScale ?? (this.timeScale || 1);
+    this.pausedScale = null;
+  }
+
+  shakeObjective(hex: HexCoord, intensity = 1): Promise<void> {
+    const at = this.scene.hexWorld(hex);
+    if (!at) return Promise.resolve();
+    const duration = 1.4;
+    return new Promise((resolve) => {
+      this.shakes.push({ id: (this.shakeIds += 1), at, intensity: Math.max(0, intensity), start: this.time, duration, resolve });
+    });
+  }
+
+  /** Objective hits still playing, with their local time. */
+  activeShakes(): ObjectiveShake[] {
+    return this.shakes.map((s) => ({ id: s.id, at: s.at, intensity: s.intensity, t: this.time - s.start, duration: s.duration }));
   }
 
   reset(squadId?: string) {

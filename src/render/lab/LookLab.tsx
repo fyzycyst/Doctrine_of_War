@@ -42,8 +42,8 @@ import { fogOfWar, LAB_SCENES, stepToward, type LabSceneId } from "./labScene";
  * Exposes `window.__lookLab = { ready, frames, fps }` for the capture script.
  */
 
-type AnimName = "march" | "lunge" | "fall" | "rout" | "rally" | "brace";
-const ANIMS: AnimName[] = ["march", "lunge", "fall", "rout", "rally", "brace"];
+type AnimName = "march" | "lunge" | "fall" | "rout" | "rally" | "brace" | "shake";
+const ANIMS: AnimName[] = ["march", "lunge", "fall", "rout", "rally", "brace", "shake"];
 
 type LabState = {
   preset: TimeOfDay;
@@ -277,6 +277,10 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
   const play = useCallback(
     (name: AnimName, squadId: string | null) => {
       const api = animations.current;
+      if (api && name === "shake") {
+        const objective = scene.board.hexes.find((h) => h.objectiveId) ?? scene.board.hexes.find((h) => h.terrain === "wall");
+        return objective ? api.shakeObjective(objective.coord, 1) : Promise.resolve();
+      }
       const squad = scene.squads.find((s) => s.id === squadId);
       if (!api || !squad) return Promise.resolve();
       const occupied = new Set(scene.squads.map((s) => hexKey(s.hex)));
@@ -295,6 +299,10 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
           return api.rout(squad.id);
         case "rally":
           return api.rally(squad.id);
+        case "shake": {
+          const objective = scene.board.hexes.find((h) => h.objectiveId) ?? scene.board.hexes.find((h) => h.terrain === "wall");
+          return objective ? api.shakeObjective(objective.coord, 1) : Promise.resolve();
+        }
         case "brace":
           return api.brace(squad.id);
       }
@@ -387,7 +395,7 @@ function After({ seconds, run }: { seconds: number; run: () => void }) {
 /** Freeze every tween (figures, weather, fog) for a still; set from inside the scene. */
 let freezeAtmosphere: (() => void) | null = null;
 function freezeAll(animator: SquadAnimationApi | null) {
-  if (animator) (animator as SquadAnimator).timeScale = 0;
+  animator?.pause();
   freezeAtmosphere?.();
 }
 function AtmosphereFreezer() {
@@ -420,7 +428,7 @@ function AutoAnimation({
       started.current = t;
       void run();
     } else if (freezeAt !== undefined && t - started.current >= freezeAt) {
-      (animator.current as SquadAnimator | null)!.timeScale = 0;
+      animator.current?.pause();
     }
   });
   return null;
