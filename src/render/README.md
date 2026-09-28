@@ -73,8 +73,12 @@ imported (see `fromEngine.ts`); engine logic may not.
       Banner flag. `stalemate`: half-lit, flag at half height. `lost`: ashen, Host flag.
     - A dotted march path runs between the islands, gold up to the current battle.
     - Hover shows a DOM label projected from 3D (the current battle is always labelled).
-    - Clicking a non-locked island calls `onSelect(id)`. The camera fits the whole archipelago
-      and pans gently.
+    - Clicking a non-locked island calls `onSelect(id)` and dollies in on it (click-to-zoom).
+      Focus is controlled with `focusedId` / `onFocusChange(id | null)`, or left uncontrolled. The
+      built-in "← Back to the map" button and Escape return to the overview; hide them with
+      `showBackButton={false}` to use your own. The overview fits the whole archipelago and pans
+      gently.
+    - The march route is a dotted ink trail with small glowing pips only up to the current battle.
   - **Capture mode:** `useCaptureStore` (`src/app/captureStore.ts`), on with `?capture=1`.
   - **Cinematic paths:** `camera/cameraPath.ts` has keyframed `CameraPath`s with a pure
     `sampleCameraPath`, and `cinematicPaths(board)` returns `craneInGate`, `bannerDolly`,

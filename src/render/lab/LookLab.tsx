@@ -173,11 +173,14 @@ const CAMPAIGN_MOCKS: Record<"a" | "b", CampaignMapBattle[]> = {
 
 function CampaignLab({ seq, mock }: { seq: boolean; mock: "a" | "b" }) {
   const [picked, setPicked] = useState<string | null>(null);
+  const [focus, setFocus] = useState<string | null>(() => new URLSearchParams(window.location.search).get("focus"));
   return (
     <div style={{ position: "fixed", inset: 0 }}>
       <CampaignMap
         battles={CAMPAIGN_MOCKS[mock]}
         onSelect={setPicked}
+        focusedId={focus}
+        onFocusChange={setFocus}
         frameloop={seq ? "never" : "always"}
         inCanvas={<LabProbes ready seq={seq} />}
       >

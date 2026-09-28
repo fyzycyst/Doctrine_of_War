@@ -52,6 +52,7 @@ jobs.push(
   { name: "title", query: "view=title&seq=1", sequence: { frames: 2, fps: 0.1 } },
   { name: "campaign-a", query: "view=campaign&campaignMock=a" },
   { name: "campaign-b", query: "view=campaign&campaignMock=b" },
+  { name: "campaign-focus", query: "view=campaign&campaignMock=a&focus=battle_1" },
   { name: "path-craneInGate", query: "preset=dusk&figures=a&path=craneInGate&seq=1", sequence: { frames: 3, fps: 0.35 } },
   { name: "path-riverPush", query: "scenario=emberFord&preset=nightFires&figures=a&path=riverPush&seq=1", sequence: { frames: 3, fps: 0.4 } },
 );
