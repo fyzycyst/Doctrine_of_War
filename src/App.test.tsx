@@ -18,6 +18,7 @@ const game = () => useGame.getState();
 
 beforeEach(() => {
   useAppStore.getState().clearSelection();
+  useAppStore.getState().setHoveredSquad(null);
   loadFirstBreach();
 });
 
@@ -79,6 +80,35 @@ describe("command flow on The First Breach (fortune off)", () => {
     expect(game().stage).toBe("outcome");
     expect(screen.getByRole("heading", { level: 2, name: /Victory|Defeat|Stalemate/ })).toBeInTheDocument();
     expect(game().log).toHaveLength(3);
+  });
+
+  it("opens the confirmation as a native modal and returns focus on Review orders", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await toCommand(user);
+    const seal = screen.getByRole("button", { name: "Seal Orders" });
+    await user.click(seal);
+    const confirm = screen.getByRole("alertdialog", { name: "Seal with standing doctrines?" });
+    expect(confirm.tagName).toBe("DIALOG");
+    expect(confirm).toHaveAttribute("data-modal", "true");
+    expect(within(confirm).getByRole("button", { name: "Seal anyway" })).toHaveFocus();
+    await user.click(within(confirm).getByRole("button", { name: "Review orders" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(seal).toHaveFocus();
+  });
+
+  it("shows the report as a modal and hands focus back to the roster after Next Phase", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await toCommand(user);
+    act(() => game().sealOrders());
+    const report = screen.getByRole("dialog", { name: /./ });
+    expect(report.tagName).toBe("DIALOG");
+    expect(report).toHaveAttribute("data-modal", "true");
+    const next = within(report).getByRole("button", { name: "Next Phase" });
+    expect(next).toHaveFocus();
+    await user.click(next);
+    expect(screen.getByRole("option", { name: /Greyford Shields/ })).toHaveFocus();
   });
 
   it("seals without asking when every company has new orders", async () => {

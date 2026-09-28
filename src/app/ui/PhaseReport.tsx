@@ -1,6 +1,7 @@
 import { Castle, CloudRain, Crown, Eye, Flag, Skull, Sparkles, Swords, Wind, type LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useGame } from "../game/gameStore";
+import { Modal, rosterFocus } from "./Modal";
 import { buildChronicle, firedOrders, reportHeadline, splitRule, WEATHER_NAME, type ChronicleTone, type FiredOrders } from "../game/view";
 
 const TONE_ICON: Record<ChronicleTone, LucideIcon> = {
@@ -44,7 +45,6 @@ export function PhaseReport() {
   const nextPhase = useGame((s) => s.nextPhase);
   const entry = log[log.length - 1];
   const button = useRef<HTMLButtonElement>(null);
-  useEffect(() => button.current?.focus(), [entry]);
 
   // `engine` is used only to name the companies the (already filtered) events mention.
   const chronicle = useMemo(() => (entry ? buildChronicle(entry.events, engine) : []), [entry, engine]);
@@ -62,8 +62,7 @@ export function PhaseReport() {
   const over = entry.status !== "command";
 
   return (
-    <div className="report-scrim">
-      <section className="report" role="dialog" aria-modal="false" aria-labelledby="report-title">
+    <Modal className="report" labelledBy="report-title" initialFocus={button} returnFocus={rosterFocus}>
         <header>
           <p className="report-eyebrow">Chronicle · Phase {entry.phase}</p>
           <h2 id="report-title">{reportHeadline(entry.title)}</h2>
@@ -116,8 +115,7 @@ export function PhaseReport() {
             {over ? "See the outcome" : "Next Phase"}
           </button>
         </footer>
-      </section>
-    </div>
+    </Modal>
   );
 }
 

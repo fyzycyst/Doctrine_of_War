@@ -1128,24 +1128,28 @@ h3 {
 
 /* ----------------------------------------------------------------- report */
 
-.report-scrim {
-  grid-column: 3;
-  grid-row: 2 / 4;
-  display: contents;
-}
-
+/* A modal <dialog> docked on the right; its backdrop stays clear so the board shows. */
 .report {
-  grid-column: 2 / 4;
-  grid-row: 2 / 4;
-  justify-self: end;
-  align-self: stretch;
-  display: flex;
+  position: fixed;
+  inset: 72px 16px 16px auto;
+  margin: 0;
+  padding: 0;
+  width: min(460px, calc(100vw - 32px));
+  height: auto;
+  max-height: none;
   flex-direction: column;
-  width: min(460px, 100%);
-  margin-bottom: 16px;
+  color: var(--bone);
   background: var(--glass-strong);
   overflow: hidden;
   animation: slide-in 0.35s var(--ease) both;
+}
+
+.report[open] {
+  display: flex;
+}
+
+.report::backdrop {
+  background: transparent;
 }
 
 .report header {
@@ -1360,19 +1364,14 @@ h3 {
 
 /* ---------------------------------------------------------------- outcome */
 
-.outcome-scrim,
-.modal-scrim {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+.outcome::backdrop,
+.modal::backdrop {
   background: radial-gradient(ellipse at center, rgba(8, 6, 10, 0.45), rgba(8, 6, 10, 0.82));
-  z-index: 5;
 }
 
 .outcome {
-  width: min(520px, 100%);
+  width: min(520px, calc(100vw - 48px));
+  color: var(--bone);
   padding: 26px 32px 28px;
   text-align: center;
   background: var(--glass-strong);
@@ -1432,8 +1431,9 @@ h3 {
 /* ------------------------------------------------------------------ modal */
 
 .modal {
-  width: min(440px, 100%);
+  width: min(440px, calc(100vw - 48px));
   padding: 20px 22px;
+  color: var(--bone);
   background: var(--glass-strong);
 }
 
