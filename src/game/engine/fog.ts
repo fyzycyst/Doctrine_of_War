@@ -3,14 +3,16 @@
 // base their rule conditions and targets on, and (b) what visibleState() reveals
 // to the UI and renderer. The Host (non-player side) is omniscient for now.
 // Everything here is inert when state.fortune is "off".
-import { getHex, hexDistance, type HexCoord } from "../board";
-import { checkRout, fortuneOn, type EngineContext, type RuleContext } from "./context";
-import type { EngineSquad, EngineState, FactionId } from "./types";
-import { enemiesOf, isActive, type ActiveSquad } from "./world";
+import { boardNeighbors, getHex, hexDistance, type HexCoord } from "../board";
+import { checkRout, fortuneOn, type EngineContext, type EventBody, type RuleContext } from "./context";
+import type { EngineEvent, EngineSquad, EngineState, FactionId, SquadStatus } from "./types";
+import { isActive, type ActiveSquad } from "./world";
 
 export const BASE_SIGHT = 2;
 export const RIDGE_SIGHT_BONUS = 1;
 export const MIST_SIGHT_PENALTY = 1;
+export const NIGHT_SIGHT_PENALTY = 1;
+export const LIT_SIGHT_BONUS = 1;
 /** Cohesion lost per point of Resolve the renowned squad has over the viewer. */
 export const DREAD_PER_RESOLVE = 5;
 export const ASH_WIND_DREAD_MULTIPLIER = 1.5;
@@ -45,32 +47,64 @@ export function hexLine(a: HexCoord, b: HexCoord): HexCoord[] {
 export function sightRange(ctx: RuleContext, observer: ActiveSquad): number {
   const ridge = getHex(ctx.scenario.board, observer.hex)?.terrain === "ridge" ? RIDGE_SIGHT_BONUS : 0;
   const mist = ctx.state.weather === "mist" ? MIST_SIGHT_PENALTY : 0;
-  return Math.max(1, BASE_SIGHT + ridge - mist);
+  const night = ctx.scenario.timeOfDay === "nightFires" ? NIGHT_SIGHT_PENALTY : 0;
+  return Math.max(1, BASE_SIGHT + ridge - mist - night);
 }
 
-/** In range, and no ruin hex strictly between the two (adjacent squads always see each other). */
-export function canSee(ctx: RuleContext, observer: ActiveSquad, target: ActiveSquad): boolean {
-  const distance = hexDistance(observer.hex, target.hex);
-  if (distance > sightRange(ctx, observer)) {
+/** At night, a squad on a ford or beside the burning river is lit and seen from 1 hex further. */
+export function isLit(ctx: RuleContext, hex: HexCoord): boolean {
+  if (ctx.scenario.timeOfDay !== "nightFires") {
     return false;
   }
-  return hexLine(observer.hex, target.hex)
-    .slice(1, -1)
-    .every((hex) => getHex(ctx.scenario.board, hex)?.terrain !== "ruin");
+  const here = getHex(ctx.scenario.board, hex)?.terrain;
+  return here === "ford" || boardNeighbors(ctx.scenario.board, hex).some((neighbor) => neighbor.terrain === "river");
 }
 
 /**
- * The enemies a squad may base its rule conditions and targets on: all of them for
- * an omniscient side (the Host, or anyone when fortune is off), otherwise only
- * those its faction currently has in sight.
+ * In range (1 further if the hex is lit by the burning river), and no ruin hex strictly
+ * between the two (neighbouring hexes are always seen).
  */
-export function perceivedEnemies(ctx: RuleContext, squad: ActiveSquad): ActiveSquad[] {
-  const enemies = enemiesOf(ctx.state, squad);
-  if (!fortuneOn(ctx) || squad.faction !== ctx.scenario.playerFaction) {
-    return enemies;
+export function canSeeHex(ctx: RuleContext, observer: ActiveSquad, hex: HexCoord): boolean {
+  const distance = hexDistance(observer.hex, hex);
+  if (distance > sightRange(ctx, observer) + (isLit(ctx, hex) ? LIT_SIGHT_BONUS : 0)) {
+    return false;
   }
-  const intel = ctx.state.intel[squad.faction] ?? {};
-  return enemies.filter((enemy) => intel[enemy.id]?.visible);
+  return hexLine(observer.hex, hex)
+    .slice(1, -1)
+    .every((between) => getHex(ctx.scenario.board, between)?.terrain !== "ruin");
+}
+
+export function canSee(ctx: RuleContext, observer: ActiveSquad, target: ActiveSquad): boolean {
+  return canSeeHex(ctx, observer, target.hex);
+}
+
+/** Whether any active squad of `faction` can see `hex` right now. */
+export function factionSees(ctx: RuleContext, faction: FactionId, hex: HexCoord): boolean {
+  return ctx.state.squads.some(
+    (squad) => squad.faction === faction && isActive(squad) && canSeeHex(ctx, squad, hex),
+  );
+}
+
+/**
+ * A squad leaves the board (rout, destruction, escape) at `hex`. Each opposing side
+ * that can see that hex learns it; the others keep their last-known silhouette.
+ */
+export function observeDeparture(ctx: RuleContext, squad: EngineSquad, hex: HexCoord, status: SquadStatus) {
+  if (!fortuneOn(ctx)) {
+    return;
+  }
+  for (const faction of factions(ctx.state)) {
+    if (faction === squad.faction || !factionSees(ctx, faction, hex)) {
+      continue;
+    }
+    const intel = (ctx.state.intel[faction] ??= {});
+    intel[squad.id] = {
+      ...(intel[squad.id] ?? { strength: squad.strength, cohesion: squad.cohesion, phase: ctx.state.phase, beat: 0 }),
+      visible: false,
+      hex: null,
+      status,
+    };
+  }
 }
 
 function factions(state: EngineState): FactionId[] {
@@ -93,10 +127,10 @@ export function refreshIntel(ctx: RuleContext, emit?: EngineContext["emit"], bea
       }
       const known = intel[enemy.id];
       if (!isActive(enemy)) {
+        // Gone from the board. Only an observed departure (observeDeparture) updates
+        // status and position; an unseen rout leaves the last-known silhouette.
         if (known) {
           known.visible = false;
-          known.status = enemy.status;
-          known.hex = null;
         }
         continue;
       }
@@ -145,11 +179,15 @@ export function applyDread(ctx: EngineContext, viewer: EngineSquad, source: Engi
   checkRout(ctx, viewer);
 }
 
-/** Dread for every squad that can personally see a renowned enemy it has not yet faced. */
-export function dreadFromSight(ctx: EngineContext) {
+/**
+ * Dread for every squad that can personally see a renowned enemy it has not yet faced.
+ * Returns true if any squad routed (so the caller must refresh intel).
+ */
+export function dreadFromSight(ctx: EngineContext): boolean {
   if (!fortuneOn(ctx)) {
-    return;
+    return false;
   }
+  const activeBefore = ctx.state.squads.filter(isActive).length;
   const renowned = ctx.state.squads.filter((squad): squad is ActiveSquad => isActive(squad) && Boolean(squad.renown));
   for (const source of renowned) {
     for (const viewer of ctx.state.squads) {
@@ -158,22 +196,121 @@ export function dreadFromSight(ctx: EngineContext) {
       }
     }
   }
+  return ctx.state.squads.filter(isActive).length < activeBefore;
+}
+
+// ---------------------------------------------------------------------------
+// Who witnessed an event
+// ---------------------------------------------------------------------------
+
+/**
+ * The factions that witness `event` at the moment it happens. The acting side always
+ * does; the other side does only if it can see where it happened (for a move, any
+ * hex of the path). Both sides of an engagement witness it. Objective damage is
+ * always known to the defender. Weather and outcomes are public; a sighting belongs
+ * to the side that made it. With fortune off, everyone sees everything.
+ */
+export function eventVisibility(ctx: RuleContext, event: EventBody): FactionId[] {
+  const everyone = factions(ctx.state);
+  if (!fortuneOn(ctx)) {
+    return everyone;
+  }
+  const factionOf = (squadId: string) => ctx.state.squads.find((squad) => squad.id === squadId)?.faction;
+  const hexOf = (squadId: string) => ctx.state.squads.find((squad) => squad.id === squadId)?.hex ?? null;
+  const witnessed = (owners: (FactionId | undefined)[], hexes: (HexCoord | null)[]) =>
+    everyone.filter(
+      (faction) => owners.includes(faction) || hexes.some((hex) => hex !== null && factionSees(ctx, faction, hex)),
+    );
+
+  switch (event.kind) {
+    case "outcome":
+    case "weatherShift":
+      return everyone;
+    case "sighted":
+      return [event.faction];
+    case "ruleFired":
+    case "blocked":
+    case "fortune":
+      return witnessed([factionOf(event.squadId)], [hexOf(event.squadId)]);
+    case "move":
+      return witnessed([factionOf(event.squadId)], event.path);
+    case "rout":
+    case "exit":
+      return witnessed([factionOf(event.squadId)], [event.hex]);
+    case "engagement":
+      return witnessed([factionOf(event.attackerId), factionOf(event.defenderId)], [event.attackerHex, event.defenderHex]);
+    case "rally":
+      return witnessed([factionOf(event.sourceId)], [hexOf(event.sourceId), hexOf(event.targetId)]);
+    case "objectiveDamage": {
+      const defender = ctx.state.objectives.find((objective) => objective.id === event.objectiveId)?.defender;
+      return witnessed([factionOf(event.attackerId), defender], [event.hex]);
+    }
+    case "dread":
+      return witnessed([factionOf(event.squadId)], [hexOf(event.squadId)]);
+  }
+}
+
+/** The event stream as `faction` experienced it. Playback and reports use this, never the raw stream. */
+export function eventsFor(events: EngineEvent[], faction: FactionId): EngineEvent[] {
+  return events.filter((event) => event.visibleTo.includes(faction));
 }
 
 // ---------------------------------------------------------------------------
 // What a faction is allowed to know
 // ---------------------------------------------------------------------------
 
-export interface VisibleSquad extends Omit<EngineSquad, "doctrineId"> {
+/** The UI-safe view of one squad. Fields are copied by name: nothing else leaks. */
+export interface VisibleSquad {
+  id: string;
+  name: string;
+  faction: FactionId;
+  role: EngineSquad["role"];
+  hex: HexCoord | null;
+  strength: number;
+  cohesion: number;
+  resolve: number;
   /** null for an enemy that is not in sight right now. */
   doctrineId: string | null;
+  status: SquadStatus;
+  braced: boolean;
+  surging: boolean;
+  renown?: { title: string };
   /** true: an enemy shown where it was last seen, with the stats it had then. */
   lastKnown: boolean;
 }
 
-export interface VisibleState extends Omit<EngineState, "squads" | "intel" | "rngState"> {
+/** The UI-safe view of a battle. An explicit allowlist: no rng, intel, contacts or dread bookkeeping. */
+export interface VisibleState {
   viewer: FactionId;
+  scenarioId: string;
+  phase: number;
+  maxPhases: number;
+  status: EngineState["status"];
+  fortune: EngineState["fortune"];
+  seed: number;
+  weather: EngineState["weather"];
+  objectives: EngineState["objectives"];
   squads: VisibleSquad[];
+}
+
+function showSquad(squad: EngineSquad, overrides: Partial<VisibleSquad> = {}): VisibleSquad {
+  return {
+    id: squad.id,
+    name: squad.name,
+    faction: squad.faction,
+    role: squad.role,
+    hex: squad.hex ? { ...squad.hex } : null,
+    strength: squad.strength,
+    cohesion: squad.cohesion,
+    resolve: squad.resolve,
+    doctrineId: squad.doctrineId,
+    status: squad.status,
+    braced: squad.braced,
+    surging: squad.surging,
+    ...(squad.renown ? { renown: { title: squad.renown.title } } : {}),
+    lastKnown: false,
+    ...overrides,
+  };
 }
 
 /**
@@ -183,35 +320,44 @@ export interface VisibleState extends Omit<EngineState, "squads" | "intel" | "rn
  * reveals everything.
  */
 export function visibleState(state: EngineState, viewer: FactionId): VisibleState {
-  const { intel: allIntel, rngState: _hidden, squads, ...rest } = state;
-  const intel = allIntel[viewer] ?? {};
-  const visible: VisibleSquad[] = [];
+  const intel = state.intel[viewer] ?? {};
+  const squads: VisibleSquad[] = [];
 
-  for (const squad of squads) {
-    const reveal = { ...squad, hex: squad.hex ? { ...squad.hex } : null, lastKnown: false };
+  for (const squad of state.squads) {
     if (state.fortune === "off" || squad.faction === viewer) {
-      visible.push(reveal);
+      squads.push(showSquad(squad));
       continue;
     }
     const known = intel[squad.id];
     if (!known) {
       continue;
     }
-    if (known.visible) {
-      visible.push(reveal);
-    } else {
-      visible.push({
-        ...squad,
-        hex: known.hex ? { ...known.hex } : null,
-        strength: known.strength,
-        cohesion: known.cohesion,
-        status: known.status,
-        doctrineId: null,
-        braced: false,
-        surging: false,
-        lastKnown: true,
-      });
-    }
+    squads.push(
+      known.visible
+        ? showSquad(squad)
+        : showSquad(squad, {
+            hex: known.hex ? { ...known.hex } : null,
+            strength: known.strength,
+            cohesion: known.cohesion,
+            status: known.status,
+            doctrineId: null,
+            braced: false,
+            surging: false,
+            lastKnown: true,
+          }),
+    );
   }
-  return { ...rest, viewer, squads: visible };
+
+  return {
+    viewer,
+    scenarioId: state.scenarioId,
+    phase: state.phase,
+    maxPhases: state.maxPhases,
+    status: state.status,
+    fortune: state.fortune,
+    seed: state.seed,
+    weather: state.weather,
+    objectives: state.objectives.map((objective) => ({ ...objective, hex: { ...objective.hex } })),
+    squads,
+  };
 }

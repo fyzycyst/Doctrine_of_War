@@ -100,7 +100,7 @@ describe("movement", () => {
 
   it("falls back away from the enemy, ignoring zones of control", () => {
     const kit = actionContext(scenario({ squads: [squad("a", FB, { q: 3, r: 2 }), squad("e", AH, { q: 2, r: 2 })] }));
-    const path = planFallBack(kit.state, kit.ctx.scenario.board, kit.get("a"), 2);
+    const path = planFallBack(kit.state, kit.ctx.scenario.board, kit.get("a"), 2, [kit.get("e")]);
     expect(path).toHaveLength(3);
     expect(path[0]).toEqual({ q: 3, r: 2 });
     expect(path[2]).toEqual({ q: 5, r: 2 });

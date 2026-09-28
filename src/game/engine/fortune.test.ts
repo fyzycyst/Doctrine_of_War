@@ -201,7 +201,16 @@ describe("renown & dread", () => {
       (event) => event.kind === "dread",
     );
     expect(dreadOn).toEqual([
-      { kind: "dread", phase: 1, beat: 0, squadId: "v", sourceId: "champ", title: "The Gatebreakers", shock: 15 },
+      {
+        kind: "dread",
+        phase: 1,
+        beat: 0,
+        visibleTo: ["free_banners", "ashen_host"],
+        squadId: "v",
+        sourceId: "champ",
+        title: "The Gatebreakers",
+        shock: 15,
+      },
     ]);
     const off = resolvePhase(createInitialState(scen), {}, scen, { doctrines: library() });
     expect(kinds(off.events)).not.toContain("dread");

@@ -98,8 +98,8 @@ export function planAdvance(
   return path;
 }
 
-function fallBackScore(state: EngineState, squad: ActiveSquad, hex: HexCoord): number {
-  const distances = enemiesOf(state, squad).map((enemy) => hexDistance(enemy.hex, hex));
+function fallBackScore(threats: ActiveSquad[], hex: HexCoord): number {
+  const distances = threats.map((enemy) => hexDistance(enemy.hex, hex));
   return Math.min(...distances) * 100 + distances.reduce((sum, value) => sum + value, 0);
 }
 
@@ -113,23 +113,25 @@ export function planFallBack(
   board: BoardLayout,
   squad: ActiveSquad,
   hexes: number,
+  /** The enemies the squad is falling back from: what it perceives, not the true state. */
+  threats: ActiveSquad[],
 ): HexCoord[] {
   const path: HexCoord[] = [{ ...squad.hex }];
-  if (enemiesOf(state, squad).length === 0) {
+  if (threats.length === 0) {
     return path;
   }
 
   for (let step = 0; step < hexes; step += 1) {
     const current = path[path.length - 1];
     let best: HexCoord | undefined;
-    let bestScore = fallBackScore(state, squad, current);
+    let bestScore = fallBackScore(threats, current);
 
     for (const neighbor of boardNeighbors(board, current)) {
       const visitedAlready = path.some((hex) => sameHex(hex, neighbor.coord));
       if (visitedAlready || !canEnter(state, board, neighbor.coord)) {
         continue;
       }
-      const score = fallBackScore(state, squad, neighbor.coord);
+      const score = fallBackScore(threats, neighbor.coord);
       if (score > bestScore) {
         best = { ...neighbor.coord };
         bestScore = score;

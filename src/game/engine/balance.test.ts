@@ -15,6 +15,15 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
     expect(plans.map((plan) => plan.kind)).toEqual(["intended", "bad", "mono", "mono", "mono", "mono", "mono"]);
   });
 
+  it("fails closed: bad seed counts, missing reference plans, missing rows and NaN rates", () => {
+    expect(() => runBalance(scenarios[0], 0)).toThrow(/positive integer/);
+    expect(() => runBalance(scenarios[0], Number.NaN)).toThrow(/positive integer/);
+    expect(() => balancePlans({ ...scenarios[0], referencePlans: undefined })).toThrow(/no referencePlans/);
+    expect(guardrailFailures([])).toEqual(["no intended plan was played", "no bad plan was played"]);
+    const nan: BalanceRow = { name: "intended", kind: "intended", orders: {}, games: 0, wins: 0, winRate: Number.NaN, meanObjective: null };
+    expect(guardrailFailures([nan])).toContain("intended has no valid win rate (0/0)");
+  });
+
   it("flags each kind of guardrail breach", () => {
     const row = (kind: BalanceRow["kind"], winRate: number): BalanceRow => ({
       name: kind,

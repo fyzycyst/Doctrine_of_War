@@ -2,8 +2,8 @@
 import type { Rng } from "./rng";
 import type { DoctrineLibrary, EngineEvent, EngineScenario, EngineSquad, EngineState } from "./types";
 
-/** An event without its phase/beat stamp; resolvePhase adds those. */
-export type EventBody<E = EngineEvent> = E extends EngineEvent ? Omit<E, "phase" | "beat"> : never;
+/** An event without its phase/beat/visibility stamp; resolvePhase adds those. */
+export type EventBody<E = EngineEvent> = E extends EngineEvent ? Omit<E, "phase" | "beat" | "visibleTo"> : never;
 
 export interface RuleContext {
   state: EngineState;

@@ -163,6 +163,7 @@ export const emberDusk: Skin = {
     field: { top: "#86904f", height: 0.3 },
     road: { top: "#86904f", height: 0.3, accent: P.road },
     ford: { top: "#4a4636", height: 0.08, accent: P.water },
+    river: { top: P.water, height: -0.12, accent: P.water },
     ridge: { top: "#8a8670", height: 0.72, accent: P.stone },
     wall: { top: "#7e7a68", height: 0.38, accent: P.stone },
     ruin: { top: "#7d7b5e", height: 0.36, accent: P.stone },

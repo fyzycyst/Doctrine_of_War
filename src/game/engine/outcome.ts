@@ -1,9 +1,27 @@
 // Win-condition evaluation. Checked after every activation (so a battle can end
 // mid-beat) and once more, with `final: true`, after the last beat of maxPhases.
-import type { EngineScenario, EngineState } from "./types";
+import type { HexCoord } from "../board";
+import type { EngineScenario, EngineState, FactionId } from "./types";
 
-/** Throws on win-condition data that could never be evaluated correctly. */
+/**
+ * The hexes through which `faction` may leave the board: the player's escape edge,
+ * or, for the opposing side, the edge of an `enemyEscape` defeat condition.
+ */
+export function exitHexesFor(scenario: EngineScenario, faction: FactionId): HexCoord[] | null {
+  if (faction === scenario.playerFaction) {
+    return scenario.winCondition.kind === "escapeEdge" ? scenario.winCondition.edgeHexes : null;
+  }
+  const escape = scenario.defeatConditions?.find((condition) => condition.kind === "enemyEscape");
+  return escape?.kind === "enemyEscape" ? escape.edgeHexes : null;
+}
+
+/** Throws on win/defeat-condition data that could never be evaluated correctly. */
 export function validateWinCondition(scenario: EngineScenario) {
+  for (const condition of scenario.defeatConditions ?? []) {
+    if (condition.count < 1 || (condition.kind === "enemyEscape" && condition.edgeHexes.length === 0)) {
+      throw new Error(`Scenario ${scenario.id}: invalid ${condition.kind} defeat condition`);
+    }
+  }
   const win = scenario.winCondition;
   if (win.kind !== "destroySquads") {
     return;
@@ -58,6 +76,22 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
         return { status: "victory", reason: "Every marked enemy company is broken." };
       }
       break;
+    }
+  }
+
+  for (const condition of scenario.defeatConditions ?? []) {
+    if (condition.kind === "enemyEscape") {
+      const through = state.squads.filter(
+        (squad) => squad.faction !== scenario.playerFaction && squad.status === "escaped",
+      ).length;
+      if (through >= condition.count) {
+        return { status: "defeat", reason: `${through} enemy companies broke through behind the line.` };
+      }
+    } else {
+      const lost = playerSquads.filter((squad) => squad.status === "routed" || squad.status === "destroyed").length;
+      if (lost >= condition.count) {
+        return { status: "defeat", reason: `The line broke: ${lost} companies are lost.` };
+      }
     }
   }
 

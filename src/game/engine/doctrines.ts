@@ -108,8 +108,8 @@ export const doctrines: Doctrine[] = [
       {
         id: "cc_strike",
         label: "If an enemy is overextended → counter-charge it",
-        when: { kind: "enemyOverextended", range: 3 },
-        then: { kind: "counterCharge", target: { kind: "overextendedEnemy", range: 3 } },
+        when: { kind: "enemyOverextended", range: 2 },
+        then: { kind: "counterCharge", target: { kind: "overextendedEnemy", range: 2 } },
       },
       {
         id: "cc_answer",
@@ -256,6 +256,42 @@ export const doctrines: Doctrine[] = [
         label: "Otherwise → surge toward the objective",
         when: { kind: "always" },
         then: { kind: "advance", toward: { kind: "objective", side: "enemy" } },
+      },
+    ],
+  },
+  {
+    id: "through_the_embers",
+    faction: "ashen_host",
+    name: "Through the Embers",
+    flavor: "Wade the burning water and do not stop on the far bank. Whoever stands in the way is fuel.",
+    passives: { defense: 0, cohesion: 1, counter: 2 },
+    rules: [
+      {
+        id: "tte_cut",
+        label: "If enemy adjacent → cut down the nearest enemy",
+        when: { kind: "enemyAdjacent" },
+        then: { kind: "attack", target: { kind: "nearestEnemy" } },
+      },
+      {
+        id: "tte_push",
+        label: "Otherwise → push for the far edge",
+        when: { kind: "always" },
+        then: { kind: "advance", toward: { kind: "exitEdge" } },
+      },
+    ],
+  },
+  {
+    id: "slip_the_leash",
+    faction: "ashen_host",
+    name: "Slip the Leash",
+    flavor: "Outriders do not fight. They find the gap the fighting leaves and run through it.",
+    passives: { defense: 1, cohesion: 0, counter: 0 },
+    rules: [
+      {
+        id: "stl2_run",
+        label: "Always → run for the roads behind the line",
+        when: { kind: "always" },
+        then: { kind: "advance", toward: { kind: "exitEdge" } },
       },
     ],
   },
