@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { FactionId } from "../../game/engine/types";
 import { GeoBuilder, color, trs } from "../geo/GeoBuilder";
+import { mulberry32 } from "../hexWorld";
 import type { FactionStyle } from "../skins/types";
 
 /**
@@ -167,3 +168,71 @@ export function buildCart(height: number): THREE.BufferGeometry {
   g.scale(s, s, s);
   return g;
 }
+
+/**
+ * A siege ram (the Cinderram), in two parts so the hides can burn away on
+ * screen (sunrise):
+ * - "frame": a wheeled timber shed with an iron-shod ram beam slung under a
+ *   gabled frame of rafters, the head glowing like a coal, a few charred
+ *   scraps on the rafters;
+ * - "hides": the soaked ox-hides heaped over that frame (dark, lumpy, with
+ *   embers smouldering along the ridge: the ram's line of light at the wide
+ *   shot), hanging down the sides.
+ * Faces +x like the figures; pivot at the centre of the footprint.
+ */
+export function buildRam(height: number, part: "frame" | "hides"): THREE.BufferGeometry {
+  const b = new GeoBuilder();
+  const rand = mulberry32(7);
+  const wood = color("#5a4030");
+  const dark = color("#33261c");
+  const iron = color("#2c2826");
+  const hide = color("#5a4436");
+  const hideWet = color("#6e5646");
+  if (part === "frame") {
+    // Chassis and six solid wheels.
+    b.add(G.box, trs(0, 0.075, 0, 0, 0, 0, 0.58, 0.035, 0.24), wood);
+    for (const side of [-1, 1]) {
+      b.add(G.box, trs(0, 0.075, side * 0.12, 0, 0, 0, 0.62, 0.03, 0.03), dark);
+      for (const x of [-0.2, 0, 0.2]) {
+        b.add(G.cyl8, trs(x, 0.055, side * 0.145, Math.PI / 2, 0, 0, 0.055, 0.025, 0.055), dark);
+        b.add(G.cyl6, trs(x, 0.055, side * 0.16, Math.PI / 2, 0, 0, 0.014, 0.012, 0.014), iron);
+      }
+      // Corner posts.
+      for (const x of [-0.25, 0.25]) b.add(G.box, trs(x, 0.16, side * 0.11, 0, 0, 0, 0.025, 0.17, 0.025), wood);
+    }
+    // Ram beam slung under the roof, iron head with an ember-hot tip.
+    b.add(G.cyl6, trs(0.06, 0.17, 0, 0, 0, Math.PI / 2, 0.028, 0.6, 0.028), wood);
+    b.add(G.cone4, trs(0.4, 0.17, 0, 0, 0, -Math.PI / 2, 0.05, 0.12, 0.05), color("#ff6a20"), 0, undefined, 1);
+    b.add(G.box, trs(0.34, 0.17, 0, 0, 0, 0, 0.03, 0.07, 0.07), iron);
+    for (const x of [-0.12, 0.12]) b.add(G.box, trs(x, 0.21, 0, 0, 0, 0, 0.008, 0.07, 0.008), iron);
+    // Gable rafters (just inside the hides) and a ridge pole.
+    for (const x of [-0.26, -0.09, 0.09, 0.26]) {
+      for (const side of [-1, 1]) b.add(G.box, trs(x, 0.32, side * 0.064, -side * 0.52, 0, 0, 0.02, 0.27, 0.02), dark);
+    }
+    b.add(G.box, trs(0, 0.43, 0, 0, 0, 0, 0.6, 0.02, 0.02), dark);
+    // Charred scraps still clinging to the rafters.
+    b.add(G.box, trs(-0.18, 0.33, 0.066, -0.52, 0, 0, 0.14, 0.12, 0.008), color("#1e1814"), 0.04, rand, 0.15);
+    b.add(G.box, trs(0.2, 0.31, -0.075, 0.52, 0, 0, 0.1, 0.1, 0.008), color("#1e1814"), 0.04, rand, 0.15);
+  } else {
+    // Gabled roof as a triangular prism along x, heaped with sagging hides.
+    // rx −π/2 turns the prism's first edge up: a ridge, not a trough.
+    b.add(new THREE.CylinderGeometry(0.17, 0.17, 0.6, 3), trs(0, 0.285, 0, -Math.PI / 2, Math.PI / 2, 0, 1), hide, 0.04, rand);
+    for (let i = 0; i < 7; i += 1) {
+      const x = -0.26 + i * 0.087 + (rand() - 0.5) * 0.03;
+      const side = i % 2 === 0 ? 1 : -1;
+      b.add(G.ball, trs(x, 0.3 + rand() * 0.03, side * (0.05 + rand() * 0.04), rand(), rand(), rand(), 0.07, 0.035, 0.09), i % 3 === 0 ? hideWet : hide, 0.05, rand);
+    }
+    // Hides hanging down the sides like skirts.
+    for (const side of [-1, 1]) b.add(G.box, trs(0, 0.17, side * 0.135, 0.12 * side, 0, 0, 0.56, 0.1, 0.012), hide, 0.04, rand);
+    b.add(G.box, trs(0, 0.452, 0, 0, 0, 0, 0.56, 0.014, 0.024), color("#ff7a30"), 0, undefined, 0.55);
+  }
+  const g = b.build();
+  // A touch over figure scale so the engine dominates its hex.
+  const s = (height / REF_HEIGHT) * RAM_SCALE;
+  g.scale(s, s, s);
+  return g;
+}
+
+/** Ram geometry scale relative to a figure; the roof top sits at 0.455 of the reference height. */
+export const RAM_SCALE = 1.25;
+export const RAM_ROOF_TOP = 0.455;

@@ -6,13 +6,15 @@ import { useCaptureStore } from "../../app/captureStore";
 import { useAppStore, type RenderQuality } from "../../app/store";
 import { emberFord } from "../../game/engine/scenarios/emberFord";
 import { firstBreach } from "../../game/engine/scenarios/firstBreach";
+import { holdForDawn } from "../../game/engine/scenarios/holdForDawn";
+import { saltmarshColumn } from "../../game/engine/scenarios/saltmarshColumn";
 import { cinematicPaths, type CinematicPathId } from "../camera/cameraPath";
 import { CinematicCamera } from "../camera/CinematicCamera";
 import { CampaignMap, type CampaignMapBattle } from "../showcase/CampaignMap";
 import { TitleScene } from "../showcase/TitleScene";
 import { playSfx, SFX_NAMES, useAmbience } from "../../audio";
 import { hexKey } from "../../game/board";
-import { closeShot, DioramaCamera, wideShot, type CameraShot } from "../camera/DioramaCamera";
+import { closeShot, DioramaCamera, wideShotFor, type CameraShot } from "../camera/DioramaCamera";
 import { Diorama } from "../Diorama";
 import type { SquadAnimationApi, SquadAnimator } from "../figures/squadAnimation";
 import type { FigureApproach } from "../figures/types";
@@ -168,14 +170,14 @@ const CAMPAIGN_MOCKS: Record<"a" | "b", CampaignMapBattle[]> = {
   a: [
     { id: "tutorial", title: "The First Breach", timeOfDay: "dusk", status: "won", board: firstBreach.board },
     { id: "battle_1", title: "Ember Ford", timeOfDay: "nightFires", status: "current", board: emberFord.board },
-    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "locked", placeholder: "saltmarsh" },
-    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "locked", placeholder: "holdForDawn" },
+    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "locked", board: saltmarshColumn.board },
+    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "locked", board: holdForDawn.board },
   ],
   b: [
     { id: "tutorial", title: "The First Breach", timeOfDay: "dusk", status: "won", board: firstBreach.board },
     { id: "battle_1", title: "Ember Ford", timeOfDay: "nightFires", status: "stalemate", board: emberFord.board },
-    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "lost", placeholder: "saltmarsh" },
-    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "current", placeholder: "holdForDawn" },
+    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "lost", board: saltmarshColumn.board },
+    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "current", board: holdForDawn.board },
   ],
 };
 
@@ -264,7 +266,7 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
             return [x + 0.9, 0.4, z + 0.6] as [number, number, number];
           })()
         : scene.focus;
-    const base = state.cam === "close" ? closeShot(focus) : wideShot(boardRadius(scene.board));
+    const base = state.cam === "close" ? closeShot(focus) : wideShotFor(scene.board);
     return {
       ...base,
       azimuth: initial.shot.azimuth ?? base.azimuth,

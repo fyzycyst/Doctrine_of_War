@@ -49,13 +49,17 @@ export function Particles({ extent = 9 }: { extent?: number }) {
       ) : (
         <Embers count={Math.round(320 * rate * scale)} extent={extent} />
       )}
-      <Rain count={Math.round(1400 * 2.6 * scale)} extent={extent} layer={rainLayer} />
+      <Rain count={Math.round(1400 * RAIN_WEATHER_RATE * scale)} extent={extent} layer={rainLayer} />
       <Embers count={Math.round(320 * 3.2 * scale)} extent={extent} layer={ashLayer} />
     </>
   );
 }
 
 type Uniforms = Record<string, THREE.IUniform>;
+
+/** Rain-weather streak density (x1400); kept sparse so the board stays the hero. */
+const RAIN_WEATHER_RATE = 1.6;
+const rainCamera = new THREE.Vector3();
 
 /** A weather-driven particle layer: per-frame opacity plus uniform overrides. */
 interface Layer {
@@ -98,6 +102,7 @@ function Embers({ count, extent, layer }: { count: number; extent: number; layer
           uAsh: { value: 0 },
           uWind: { value: 0 },
           uOpacity: { value: 1 },
+          uFocus: { value: 20 },
         },
         vertexShader: /* glsl */ `
           attribute vec4 aSeed;
@@ -158,8 +163,9 @@ function Embers({ count, extent, layer }: { count: number; extent: number; layer
   }, [material, preset, layer]);
 
   const points = useRef<THREE.Points>(null);
-  useFrame((_, dt) => {
+  useFrame(({ camera }, dt) => {
     material.uniforms.uTime.value += dt * motion;
+    material.uniforms.uFocus.value = camera.getWorldPosition(rainCamera).length();
     if (layer) {
       const o = layer.opacity();
       material.uniforms.uOpacity.value = o;
@@ -207,15 +213,19 @@ function Rain({ count, extent, layer }: { count: number; extent: number; layer?:
         vertexShader: /* glsl */ `
           attribute vec4 aSeed;
           attribute float aEnd;
-          uniform float uTime, uSpeed, uExtent;
+          uniform float uTime, uSpeed, uExtent, uFocus;
           varying float vA;
           void main() {
             float H = 9.0;
             float y = 7.0 - mod(uTime * uSpeed * (0.8 + aSeed.w * 0.4) + aSeed.x * H, H);
             vec3 vel = normalize(vec3(0.25, -1.0, 0.08));
-            vec3 pos = vec3((aSeed.y * 2.0 - 1.0) * uExtent, y, (aSeed.z * 2.0 - 1.0) * uExtent) + vel * aEnd * 0.28;
-            vA = mix(0.0, 1.0, aEnd) * smoothstep(-2.0, 0.5, y);
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            vec3 pos = vec3((aSeed.y * 2.0 - 1.0) * uExtent, y, (aSeed.z * 2.0 - 1.0) * uExtent) + vel * aEnd * 0.2;
+            vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+            // Fade streaks well in front of the board (no giant foreground
+            // streaks): uFocus is the camera's distance to the board.
+            float nearFade = smoothstep(uFocus * 0.45, uFocus * 0.8, -mv.z);
+            vA = mix(0.0, 1.0, aEnd) * smoothstep(-2.0, 0.5, y) * nearFade;
+            gl_Position = projectionMatrix * mv;
           }
         `,
         fragmentShader: /* glsl */ `
@@ -223,7 +233,7 @@ function Rain({ count, extent, layer }: { count: number; extent: number; layer?:
           uniform float uOpacity;
           varying float vA;
           void main() {
-            gl_FragColor = vec4(uColor, 0.38 * vA * uOpacity);
+            gl_FragColor = vec4(uColor, 0.26 * vA * uOpacity);
           }
         `,
       }),

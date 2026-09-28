@@ -44,8 +44,14 @@ const jobs = [
   })),
   { name: "emberFord-dusk", query: "scenario=emberFord&preset=dusk&figures=a" },
   { name: "saltmarsh-rain", query: "scenario=saltmarsh&preset=rainGrey&figures=a&weather=rain" },
-  { name: "saltmarsh-column-close", query: "scenario=saltmarsh&preset=dusk&figures=a&cam=close&focusHex=3,2" },
-  { name: "holdForDawn-fade", query: "scenario=holdForDawn&preset=predawn&figures=a&fadeTo=sunrise&fadeAt=0.8" },
+  { name: "saltmarsh-column-close", query: "scenario=saltmarsh&preset=rainGrey&figures=a&weather=rain&cam=close&focusHex=3,2" },
+  { name: "saltmarsh-reeds-close", query: "scenario=saltmarsh&preset=rainGrey&figures=a&weather=rain&cam=close&focusHex=0,3" },
+  { name: "holdForDawn-predawn", query: "scenario=holdForDawn&preset=predawn&figures=a&weather=ashWind" },
+  { name: "holdForDawn-sunrise", query: "scenario=holdForDawn&preset=sunrise&figures=a&weather=ashWind" },
+  { name: "holdForDawn-ram-close", query: "scenario=holdForDawn&preset=predawn&figures=a&weather=ashWind&cam=close&focusHex=1,3" },
+  { name: "holdForDawn-ram-sunrise", query: "scenario=holdForDawn&preset=sunrise&figures=a&weather=ashWind&cam=close&focusHex=1,3" },
+  { name: "holdForDawn-gate-close", query: "scenario=holdForDawn&preset=predawn&figures=a&weather=ashWind&cam=close&focusHex=7,3" },
+  { name: "holdForDawn-fade", query: "scenario=holdForDawn&preset=predawn&figures=a&weather=ashWind&fadeTo=sunrise&fadeAt=0.8" },
   { name: "dusk-picking", query: "preset=dusk&figures=a&deploy=1&select=greyford_shields&hover=2,2" },
   anim("march", "stoneford_riders", 0.9),
   anim("lunge", "greyford_shields", 0.3),
@@ -66,6 +72,12 @@ jobs.push(
   { name: "campaign-b", query: "view=campaign&campaignMock=b" },
   { name: "campaign-focus", query: "view=campaign&campaignMock=a&focus=battle_1" },
   { name: "path-craneInGate", query: "preset=dusk&figures=a&path=craneInGate&seq=1", sequence: { frames: 3, fps: 0.35 } },
+  // The Cinderram's hides burning away at the sunrise switch (fadeAt), as a deterministic strip.
+  {
+    name: "holdForDawn-burn",
+    query: "scenario=holdForDawn&preset=predawn&figures=a&weather=ashWind&cam=close&focusHex=1,3&fadeTo=sunrise&fadeAt=0.3&still=1&seq=1",
+    sequence: { frames: 5, fps: 1 / 0.3, start: 0.1 },
+  },
   { name: "path-riverPush", query: "scenario=emberFord&preset=nightFires&figures=a&path=riverPush&seq=1", sequence: { frames: 3, fps: 0.4 } },
 );
 
