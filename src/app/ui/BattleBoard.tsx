@@ -14,6 +14,7 @@ import { deploymentHexes } from "../game/deploy";
 import { useGame } from "../game/gameStore";
 import { toDioramaSquads } from "../game/view";
 import { useAppStore } from "../store";
+import { usePrefersReducedMotion } from "./motion";
 
 declare global {
   interface Window {
@@ -33,6 +34,8 @@ export function BattleBoard({ still = false }: { still?: boolean }) {
   const squads = useMemo(() => toDioramaSquads(view), [view]);
   const zone = useMemo(() => (stage === "deploy" ? deploymentHexes(scenario) : undefined), [stage, scenario]);
   const shot = useMemo(() => wideShot(boardRadius(scenario.board)), [scenario.board]);
+  // Reduced motion: no idle camera drift. (Embers, water and fire shimmer are render-owned; see T08.)
+  const reducedMotion = usePrefersReducedMotion();
   return (
     <div className="board" aria-hidden="true">
       <Canvas
@@ -43,7 +46,7 @@ export function BattleBoard({ still = false }: { still?: boolean }) {
         onPointerMissed={() => clearSelection()}
       >
         <LookProvider skin={emberDusk} timeOfDay={lightingFor(scenario.timeOfDay)}>
-          <DioramaCamera shot={shot} drift={!still} />
+          <DioramaCamera shot={shot} drift={!still && !reducedMotion} />
           <Diorama
             key={scenario.id}
             board={scenario.board}
