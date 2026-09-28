@@ -166,7 +166,13 @@ export type WinCondition =
    * Victory once `count` (default: all) of the listed squads are routed or destroyed;
    * otherwise the timeout rules apply at the end of maxPhases.
    */
-  | { kind: "destroySquads"; squadIds: string[]; count?: number };
+  | { kind: "destroySquads"; squadIds: string[]; count?: number }
+  /**
+   * Two stages: hold `objectiveId` (defeat the moment it falls); from `dawnPhase` on,
+   * breaking `count` (default all) of `squadIds` wins. Holding to the end without
+   * breaking them falls to the timeout rules.
+   */
+  | { kind: "holdThenBreak"; objectiveId: string; dawnPhase: number; squadIds: string[]; count?: number };
 
 /** Extra ways the player can lose, on top of the win condition's own defeat rules. */
 export type DefeatCondition =

@@ -20,6 +20,12 @@ export function conditionsInWords(scenario: EngineScenario): { win: string; lose
       winText = `Get ${win.count} companies off the field through the far edge within ${phases}.`;
       lose.push("Time runs out before enough companies escape.");
       break;
+    case "holdThenBreak":
+      winText = `Keep ${objective(win.objectiveId)} standing until dawn (phase ${win.dawnPhase}), then break ${
+        win.squadIds.length === 1 ? "the marked enemy company" : `the ${win.squadIds.length} marked enemy companies`
+      } before ${phases} are out.`;
+      lose.push(`${objective(win.objectiveId)} is battered down.`);
+      break;
     case "destroySquads":
       winText = `Rout or destroy ${win.squadIds.length === 1 ? "the marked enemy company" : `all ${win.squadIds.length} marked enemy companies`} within ${phases}.`;
       lose.push("Time runs out with a marked company still in the field.");

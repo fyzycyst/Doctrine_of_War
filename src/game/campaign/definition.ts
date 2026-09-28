@@ -1,5 +1,4 @@
-// The hackathon campaign: tutorial, then three battles (tech plan §5). Saltmarsh
-// Column and Hold for Dawn are placeholders until T12 builds them.
+// The hackathon campaign: tutorial, then three battles (tech plan §5).
 import type { CampaignDefinition } from "./types";
 
 export const ashAndBanner: CampaignDefinition = {
@@ -15,6 +14,11 @@ export const ashAndBanner: CampaignDefinition = {
     { id: "kestrel_lancers", name: "Kestrel Lancers", role: "cavalry" },
     { id: "mill_lane_guard", name: "Mill Lane Guard", role: "frontline" },
     { id: "reedmarsh_levy", name: "Reedmarsh Levy", role: "frontline" },
+    // Companies raised in the hill fort for the last stand join fresh.
+    { id: "gatewarden_spears", name: "Gatewarden Spears", role: "frontline" },
+    { id: "hillfort_slingers", name: "Hillfort Slingers", role: "skirmish" },
+    { id: "lamplight_sisters", name: "Lamplight Sisters", role: "support" },
+    { id: "dawnrider_lances", name: "Dawnrider Lances", role: "cavalry" },
   ],
   battles: [
     {
@@ -57,6 +61,24 @@ export const ashAndBanner: CampaignDefinition = {
         mill_lane_guard: "mill_lane_guard",
       },
     },
-    { id: "battle_3", title: "Hold for Dawn", scenarioId: "hold_for_dawn", placeholder: true, slots: {} },
+    {
+      id: "battle_3",
+      title: "Hold for Dawn",
+      scenarioId: "hold_for_dawn",
+      // Every company that is left, and the hill fort's own.
+      slots: {
+        greyford_shields: "greyford_shields",
+        gatewarden_spears: "gatewarden_spears",
+        mill_lane_guard: "mill_lane_guard",
+        reedmarsh_levy: "reedmarsh_levy",
+        dawnwatch_archers: "dawnwatch_archers",
+        hillfort_slingers: "hillfort_slingers",
+        mercy_standard: "mercy_standard",
+        lamplight_sisters: "lamplight_sisters",
+        stoneford_riders: "stoneford_riders",
+        kestrel_lancers: "kestrel_lancers",
+        dawnrider_lances: "dawnrider_lances",
+      },
+    },
   ],
 };

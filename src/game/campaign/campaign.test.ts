@@ -56,10 +56,10 @@ const everyone = (doctrineId: string) => (scenario: EngineScenario): Orders =>
   Object.fromEntries(scenario.squads.filter((squad) => squad.faction === scenario.playerFaction).map((squad) => [squad.id, doctrineId]));
 
 describe("campaign definition", () => {
-  it("is valid against the scenarios it uses (placeholders are allowed)", () => {
+  it("is valid against the scenarios it uses, and every battle is playable", () => {
     expect(validateCampaignDefinition(def, scenarios)).toEqual([]);
     expect(def.battles.map((battle) => battle.scenarioId)).toEqual(["first_breach", "ember_ford", "saltmarsh_column", "hold_for_dawn"]);
-    expect(def.battles.slice(3).every((battle) => battle.placeholder)).toBe(true);
+    expect(def.battles.some((battle) => battle.placeholder)).toBe(false);
     expect(JSON.parse(JSON.stringify(def))).toEqual(def);
   });
 
@@ -126,8 +126,9 @@ describe("roster and scenario injection", () => {
 
   it("refuses the wrong scenario, placeholders and a finished campaign", () => {
     expect(() => applyCampaign(def, startCampaign(def), emberFord)).toThrow(/is first_breach, not ember_ford/);
-    const atPlaceholder: CampaignState = { ...startCampaign(def), battleIndex: 3 };
-    expect(() => applyCampaign(def, atPlaceholder, emberFord)).toThrow(/not playable yet/);
+    const unbuilt: CampaignDefinition = { ...def, battles: [...def.battles.slice(0, 3), { ...def.battles[3], slots: {}, placeholder: true }] };
+    const atPlaceholder: CampaignState = { ...startCampaign(unbuilt), battleIndex: 3 };
+    expect(() => applyCampaign(unbuilt, atPlaceholder, emberFord)).toThrow(/not playable yet/);
     const done: CampaignState = { ...startCampaign(def), battleIndex: 4, status: "complete" };
     expect(currentBattle(def, done)).toBeNull();
     expect(() => applyCampaign(def, done, firstBreach)).toThrow(/complete/);

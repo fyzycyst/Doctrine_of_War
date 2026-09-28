@@ -181,6 +181,14 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
     routed or destroyed. The
     list must be non-empty and name only existing, non-player squads; otherwise
     `createInitialState` throws.
+  - `holdThenBreak {objectiveId, dawnPhase, squadIds, count?}`: a staged win. Before
+    `dawnPhase` the player holds (losing the player-defended objective is an immediate
+    defeat, before or after dawn); from `dawnPhase` on it is a victory once `count`
+    (default: all) of the target squads are routed or destroyed. Breaking them earlier
+    does not end the battle early. `winStage(scenario, phase)` returns `"hold"`,
+    `"break"` or null (other win kinds) for the UI. Bad data (an objective the player
+    does not defend, a dawn phase outside 1..`maxPhases`, player or missing targets)
+    throws at `createInitialState`.
   - Optional `defeatConditions` add more ways to lose:
     - `enemyEscape {edgeHexes, count}`: the opposing side gets `count` squads off
       through those hexes. Its `exitEdge` selector points at them, and a Host squad
@@ -188,7 +196,7 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
     - `squadsLost {count}`: that many player squads are routed or destroyed ("the line
       breaks").
   - `timeoutOutcome: "defeat" | "stalemate"` (default `"defeat"`) decides what running out
-    of phases means for `escapeEdge` and `destroySquads`. A stalemate must be earned:
+    of phases means for `escapeEdge`, `destroySquads` and `holdThenBreak`. A stalemate must be earned:
     `stalemateRequires {minEnemyBroken, targetsOnly?}` turns a timeout with too few
     enemies broken into a defeat. For `escapeEdge` with `mustEscape`, the timeout is a
     stalemate only if every must-escape squad got out and at most one short of `count`. With `"stalemate"`, the battle
@@ -196,7 +204,8 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
     "advance, with a Resolve penalty". `holdObjective` always wins on time. The balance
     harness reports stalemates as their own column; they never count as wins.
   - In every mode it is defeat when no player squad is left on the field. For
-    `escapeEdge` and `destroySquads`, reaching the end of `maxPhases` is also defeat.
+    `escapeEdge`, `destroySquads` and `holdThenBreak`, reaching the end of `maxPhases` is
+    also defeat.
 - Events (`phase`, `beat` on each, where beat 0 means phase-level): `ruleFired`, `move {path, reason}`,
   `blocked`, `engagement {charge, reckless}`, `rally`, `rout`, `exit`, `objectiveDamage`,
   `outcome`, `fortune {outcome: surge|waver}`, `dread {title, shock}`, `weatherShift {from, to}`,
@@ -207,8 +216,11 @@ The library (`doctrines.ts`) holds the Free Banners doctrines *Shield the Line*,
 *Fighting Withdrawal*, *Rescue Standard*, *Clean Counterstroke* and *Hold for Dawn*, and
 the Ashen Host doctrines *Iron Tide*, *Break the Gate*, *No Step Back*, *Cull the Weak*,
 *Terror Push*, *Through the Embers* (cross and cut through blockers toward the exits),
-*Slip the Leash* (outriders: never fight, run for the exits) and *Lie in Wait* (hold
-hidden until the schedule springs the ambush). *Keep the Column Moving* is the
+*Slip the Leash* (outriders: never fight, run for the exits), *Lie in Wait* (hold
+hidden until the schedule springs the ambush), *Under Wet Hides* (a ram's night
+doctrine: batter the gate, ram whoever is adjacent, else drive on the gate; passives
+defense +6 and cohesion +12, so blows glance off) and *The Nerve Fails* (always fall
+back 2 hexes; the schedule hands it out at dawn). *Keep the Column Moving* is the
 noncombatant column's own doctrine and is never offered to the player. Every rule list ends with an `always` catch-all.
 
 ## Friction & fortune (`fortune.ts`, `fog.ts`)
@@ -253,6 +265,10 @@ scenario in `scenarios/index.ts` must pass. The scenarios so far:
 - *The Saltmarsh Column*: battle 2, which teaches Fighting Withdrawal with a Rescue
   Standard escorting the refugee column, while the hunters come out of the mist in
   waves.
+- *Hold for Dawn*: battle 3, the finale (`holdThenBreak`). Shields hold the front line
+  against the Cinderram under its hides, the standards behind them keep them standing,
+  and the counterstroke companies wait for sunrise, when the Host falls back and the ram
+  is exposed. Losing three companies breaks the line.
 
 **Scenario design principle.** Every battle's intended plan uses at least two doctrine
 families in meaningful roles. Its scenario test ablates each family (swapping it for

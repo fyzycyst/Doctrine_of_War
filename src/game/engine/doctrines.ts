@@ -337,6 +337,48 @@ export const doctrines: Doctrine[] = [
       },
     ],
   },
+  {
+    id: "under_wet_hides",
+    faction: "ashen_host",
+    name: "Under Wet Hides",
+    flavor: "The ram crawls on under soaked ox-hides. Nothing thrown from the wall bites until they burn away.",
+    passives: { defense: 6, cohesion: 12, counter: 2 },
+    rules: [
+      {
+        id: "uwh_batter",
+        label: "If at the gate → batter it",
+        when: { kind: "atObjective" },
+        then: { kind: "attack", target: { kind: "objective", side: "enemy" } },
+      },
+      {
+        id: "uwh_ram",
+        label: "If an enemy bars the way → ram it",
+        when: { kind: "enemyAdjacent" },
+        then: { kind: "attack", target: { kind: "nearestEnemy" } },
+      },
+      {
+        id: "uwh_drive",
+        label: "Otherwise → drive on the gate",
+        when: { kind: "always" },
+        then: { kind: "attack", target: { kind: "objective", side: "enemy" } },
+      },
+    ],
+  },
+  {
+    id: "the_nerve_fails",
+    faction: "ashen_host",
+    name: "The Nerve Fails",
+    flavor: "The sun is up and the wall still stands. No one wants to be the last to die at it.",
+    passives: { defense: 0, cohesion: -2, counter: 0 },
+    rules: [
+      {
+        id: "tnf_recoil",
+        label: "Always → recoil 2 hexes from the wall",
+        when: { kind: "always" },
+        then: { kind: "fallBack", hexes: 2 },
+      },
+    ],
+  },
 ];
 
 export const doctrineLibrary: DoctrineLibrary = Object.fromEntries(
