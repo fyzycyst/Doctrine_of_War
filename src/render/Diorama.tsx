@@ -18,6 +18,7 @@ import type { FactionId } from "../game/engine/types";
 import { createIslandMaterial, createOutlineMaterial } from "./materials";
 import { pickBoardHex, resolveClick } from "./picking";
 import { BoardHighlights } from "./terrain/BoardHighlights";
+import { ExitMarkers } from "./terrain/ExitMarkers";
 import { buildIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
 import { WallsAndObjectiveFX } from "./terrain/ObjectiveFX";
@@ -62,6 +63,7 @@ export function Diorama({
   figures = "toy",
   mistDensity,
   deploymentHexes,
+  exitHexes,
   visibility,
   animationRef,
   onFiguresReady,
@@ -73,6 +75,11 @@ export function Diorama({
   mistDensity?: MistDensityMap;
   /** Hexes to tint as a pulsing deployment zone. */
   deploymentHexes?: HexCoord[];
+  /**
+   * Hexes to mark as a "way out" (e.g. Saltmarsh's southern edge): a soft pale
+   * glow toward the off-board side and faint chevrons drifting off the board.
+   */
+  exitHexes?: HexCoord[];
   /** Fog of war; omit for everything visible. */
   visibility?: DioramaVisibility;
   animationRef?: Ref<SquadAnimationApi>;
@@ -232,6 +239,7 @@ export function Diorama({
       <Fires island={island} />
       {island.gateBanner && <GateBanner anchor={island.gateBanner} />}
       <BoardHighlights island={island} deploymentHexes={deploymentHexes} />
+      {exitHexes && exitHexes.length > 0 && <ExitMarkers board={board} island={island} hexes={exitHexes} />}
       <SquadMarkers placed={placed} animator={animator} waterLevel={island.waterLevel} />
       <Suspense fallback={null}>
         {figures === "kaykit" && KayKitSquads ? (
