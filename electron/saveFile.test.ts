@@ -2,8 +2,14 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MAX_SAVE_BYTES as CAMPAIGN_MAX_SAVE_BYTES } from "../src/game/campaign/save";
+import { startCampaign } from "../src/game/campaign/campaign";
+import { ashAndBanner } from "../src/game/campaign/definition";
+import { MAX_SAVE_BYTES as CAMPAIGN_MAX_SAVE_BYTES, saveCampaign } from "../src/game/campaign/save";
 import { checkSavePayload, MAX_SAVE_BYTES, readSaveFile, SAVE_FILE_NAME, saveFilePath, writeSaveFile } from "./saveFile";
+
+/** A real, loadable save; `extra` envelope keys are ignored by loadCampaign. */
+const validSave = (extra: Record<string, unknown> = {}) =>
+  JSON.stringify({ ...JSON.parse(saveCampaign(startCampaign(ashAndBanner))), ...extra });
 
 describe("Electron save file", () => {
   let dir: string;
@@ -23,30 +29,38 @@ describe("Electron save file", () => {
 
   it("reads null before the first save, then round-trips atomically", async () => {
     expect(await readSaveFile(dir)).toBeNull();
-    const payload = JSON.stringify({ version: 1, campaign: { campaignId: "ash_and_banner" } });
+    const payload = validSave();
     await writeSaveFile(dir, payload);
     expect(await readSaveFile(dir)).toBe(payload);
     expect(await fs.readdir(dir)).toEqual([SAVE_FILE_NAME]);
   });
 
-  it("rejects payloads that are not a size-capped, versioned JSON object", async () => {
+  it("rejects anything the game's own loadCampaign would refuse", async () => {
+    const fresh = JSON.parse(validSave()).campaign;
     const bad: unknown[] = [
       42,
       { version: 1 },
       "not json",
       "[1,2]",
       '{"campaign":{}}',
-      JSON.stringify({ version: 1, pad: "x".repeat(MAX_SAVE_BYTES) }),
+      // Review probe: a shallow version check let this destroy a valid save.
+      '{"version":2,"campaign":{}}',
+      '{"version":1,"campaign":{}}',
+      JSON.stringify({ version: 1, campaign: { ...fresh, campaignId: "other_war" } }),
+      JSON.stringify({ version: 1, campaign: { ...fresh, battleIndex: 1 } }),
+      validSave({ pad: "x".repeat(MAX_SAVE_BYTES) }),
     ];
+    const good = validSave();
+    await writeSaveFile(dir, good);
     for (const data of bad) {
       expect(() => checkSavePayload(data)).toThrow();
       await expect(writeSaveFile(dir, data)).rejects.toThrow();
     }
-    expect(await readSaveFile(dir)).toBeNull();
+    expect(await readSaveFile(dir)).toBe(good);
   });
 
   it("serializes overlapping writes: every save lands, the last one wins, no temp files remain", async () => {
-    const save = (tag: string) => JSON.stringify({ version: 1, tag, pad: "x".repeat(200 * 1024) });
+    const save = (tag: string) => validSave({ tag, pad: "x".repeat(200 * 1024) });
     for (let round = 0; round < 20; round += 1) {
       const a = save(`a${round}`);
       const b = save(`b${round}`);
@@ -60,7 +74,7 @@ describe("Electron save file", () => {
   it("a rejected write does not block the queue", async () => {
     await expect(writeSaveFile(dir, "not json")).rejects.toThrow();
     await expect(writeSaveFile(path.join(dir, "missing", "\0bad"), "{}")).rejects.toThrow();
-    const payload = JSON.stringify({ version: 1 });
+    const payload = validSave();
     await writeSaveFile(dir, payload);
     expect(await readSaveFile(dir)).toBe(payload);
   });
@@ -86,7 +100,7 @@ describe("Electron save file", () => {
 
     it("refuses to write over a save file that is a link, leaving its target alone", async () => {
       await fs.symlink(victim, saveFilePath(dir));
-      await expect(writeSaveFile(dir, JSON.stringify({ version: 1 }))).rejects.toThrow(/not a regular file/);
+      await expect(writeSaveFile(dir, validSave())).rejects.toThrow(/not a regular file/);
       expect(await fs.readFile(victim, "utf8")).toBe(secret);
       expect((await fs.lstat(saveFilePath(dir))).isSymbolicLink()).toBe(true);
     });
@@ -94,7 +108,7 @@ describe("Electron save file", () => {
     it("refuses to write through a planted temp-file link", async () => {
       const temp = `${saveFilePath(dir)}.planted.tmp`;
       await fs.symlink(victim, temp);
-      await expect(writeSaveFile(dir, JSON.stringify({ version: 1 }), () => "planted")).rejects.toThrow(/EEXIST/);
+      await expect(writeSaveFile(dir, validSave(), () => "planted")).rejects.toThrow(/EEXIST/);
       expect(await fs.readFile(victim, "utf8")).toBe(secret);
       expect((await fs.lstat(temp)).isSymbolicLink()).toBe(true);
       expect(await readSaveFile(dir)).toBeNull();
@@ -103,7 +117,7 @@ describe("Electron save file", () => {
     it("refuses a dangling temp-file link too", async () => {
       const target = path.join(dir, "created-through-link.txt");
       await fs.symlink(target, `${saveFilePath(dir)}.dangling.tmp`);
-      await expect(writeSaveFile(dir, JSON.stringify({ version: 1 }), () => "dangling")).rejects.toThrow(/EEXIST/);
+      await expect(writeSaveFile(dir, validSave(), () => "dangling")).rejects.toThrow(/EEXIST/);
       await expect(fs.stat(target)).rejects.toThrow(/ENOENT/);
     });
 
@@ -111,17 +125,17 @@ describe("Electron save file", () => {
       const real = path.join(dir, "real");
       const linked = path.join(dir, "linked");
       await fs.mkdir(real);
-      await fs.writeFile(saveFilePath(real), JSON.stringify({ version: 1 }));
+      await fs.writeFile(saveFilePath(real), validSave());
       await fs.symlink(real, linked);
       await expect(readSaveFile(linked)).rejects.toThrow(/plain directory/);
-      await expect(writeSaveFile(linked, JSON.stringify({ version: 2 }))).rejects.toThrow(/plain directory/);
+      await expect(writeSaveFile(linked, validSave({ tag: 2 }))).rejects.toThrow(/plain directory/);
       expect(JSON.parse(await fs.readFile(saveFilePath(real), "utf8")).version).toBe(1);
     });
 
     it("refuses a save path that is a directory", async () => {
       await fs.mkdir(saveFilePath(dir));
       await expect(readSaveFile(dir)).rejects.toThrow(/not a regular file/);
-      await expect(writeSaveFile(dir, JSON.stringify({ version: 1 }))).rejects.toThrow(/not a regular file/);
+      await expect(writeSaveFile(dir, validSave())).rejects.toThrow(/not a regular file/);
     });
   });
 });

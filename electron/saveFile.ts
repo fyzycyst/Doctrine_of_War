@@ -1,22 +1,23 @@
 // The campaign save file in Electron's userData folder. Main-process only.
-// Exactly one fixed file: no path ever comes from the renderer. Payloads are
-// size-capped and must be a JSON object with a numeric version; full validation
-// happens in the renderer's loadCampaign().
+// Exactly one fixed file: no path ever comes from the renderer. Before anything is
+// written, main runs the same full loadCampaign() validation the renderer uses, so a
+// compromised renderer cannot replace a good save with one the game would refuse.
 // Symlinks are never followed: a link planted at the save, a temp file or the
 // userData folder itself is refused rather than read through or written through.
 import { randomUUID } from "node:crypto";
 import { constants, promises as fs } from "node:fs";
 import path from "node:path";
+import { ashAndBanner } from "../src/game/campaign/definition";
+import { loadCampaign, MAX_SAVE_BYTES } from "../src/game/campaign/save";
 
+export { MAX_SAVE_BYTES };
 export const SAVE_FILE_NAME = "campaign-save.json";
-/** Mirrors MAX_SAVE_BYTES in src/game/campaign/save.ts (a test keeps them equal). */
-export const MAX_SAVE_BYTES = 256 * 1024;
 
 export function saveFilePath(userDataDir: string): string {
   return path.join(userDataDir, SAVE_FILE_NAME);
 }
 
-/** Returns the payload if it is an acceptable save string; throws otherwise. */
+/** Returns the payload if it is a save this campaign would load; throws otherwise. */
 export function checkSavePayload(data: unknown): string {
   if (typeof data !== "string") {
     throw new Error("save payload must be a string");
@@ -24,15 +25,7 @@ export function checkSavePayload(data: unknown): string {
   if (Buffer.byteLength(data, "utf8") > MAX_SAVE_BYTES) {
     throw new Error(`save payload exceeds ${MAX_SAVE_BYTES} bytes`);
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(data);
-  } catch {
-    throw new Error("save payload is not JSON");
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed) || typeof (parsed as { version?: unknown }).version !== "number") {
-    throw new Error("save payload is not a versioned save");
-  }
+  loadCampaign(data, ashAndBanner);
   return data;
 }
 
