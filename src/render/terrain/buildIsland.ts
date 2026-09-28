@@ -23,6 +23,8 @@ export interface WaterHex {
   x: number;
   z: number;
   level: number;
+  /** Deep river channel (1) vs shallow ford (0). */
+  deep: number;
 }
 
 export interface Waterfall {
@@ -48,6 +50,8 @@ export interface IslandBuild {
   water: WaterHex[];
   waterLevel: number;
   waterfall?: Waterfall;
+  /** Unit (x, z) direction the water flows (toward the waterfall). */
+  flow: [number, number];
   /** Surface height of each board hex, for placing squads. */
   surface: Map<string, number>;
   center: { x: number; z: number };
@@ -97,19 +101,27 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   const fordHexes = layout.hexes.filter((hex) => hex.terrain === "ford");
   const shore = islandShore(layout, 2, 0.6);
 
-  // River: carry the ford's water out through the shore on the Host (west) side
-  // and over the island edge as a waterfall.
+  // Water routing. A board with `river` hexes gets a sunken channel that runs off
+  // the board at both ends: a spring pool upstream and a waterfall downstream.
+  // A board with only fords drains them west, through the shore, over the edge.
   const riverKeys = new Set<string>();
   let waterfall: Waterfall | undefined;
-  const shoreKeys = new Set(shore.map((s) => hexKey(s.coord)));
-  if (fordHexes.length > 0) {
-    const westMost = [...fordHexes].sort((a, c) => worldX(a.coord) - worldX(c.coord))[0];
-    let cursor = westMost.coord;
-    for (let step = 0; step < 2; step += 1) {
-      // Step to the west-most neighbour that is not on the board.
+  const shoreKeys = new Set(shore.map((s2) => hexKey(s2.coord)));
+  const boardWater = layout.hexes.filter((hex) => hex.terrain === "ford" || hex.terrain === "river");
+  const hasRiver = layout.hexes.some((hex) => hex.terrain === "river");
+  let upstream: HexCoord | null = null;
+  let flowDir: [number, number] = [-1, 0];
+  const extend = (from: HexCoord, dir: [number, number], steps: number) => {
+    let cursor = from;
+    for (let step = 0; step < steps; step += 1) {
+      const [cx, cz] = hexToWorld(cursor, center);
       const next = hexNeighbors(cursor)
-        .filter((n) => !boardByKey.has(hexKey(n)))
-        .sort((a, c) => worldX(a) - worldX(c) + (worldZ(a) - worldZ(c)) * 0.3)[0];
+        .filter((n) => !boardByKey.has(hexKey(n)) && !riverKeys.has(hexKey(n)))
+        .map((n) => {
+          const [nx, nz] = hexToWorld(n, center);
+          return { n, score: (nx - cx) * dir[0] + (nz - cz) * dir[1] };
+        })
+        .sort((a, c) => c.score - a.score)[0]?.n;
       if (!next) break;
       riverKeys.add(hexKey(next));
       if (!shoreKeys.has(hexKey(next))) {
@@ -118,7 +130,25 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
       }
       cursor = next;
     }
+  };
+  if (hasRiver) {
+    // Flow along the river's long axis, north (upstream) to south (downstream).
+    const sorted = [...boardWater].sort((a, c) => worldZ(a.coord) - worldZ(c.coord) || worldX(a.coord) - worldX(c.coord));
+    const up = sorted[0].coord;
+    const down = sorted[sorted.length - 1].coord;
+    const [ux, uz] = hexToWorld(up, center);
+    const [dx, dz] = hexToWorld(down, center);
+    const len = Math.hypot(dx - ux, dz - uz) || 1;
+    const dir: [number, number] = [(dx - ux) / len, (dz - uz) / len];
+    flowDir = dir;
+    extend(down, dir, 2);
+    upstream = up;
+    extend(up, [-dir[0], -dir[1]], 1);
+  } else if (boardWater.length > 0) {
+    const westMost = [...boardWater].sort((a, c) => worldX(a.coord) - worldX(c.coord))[0];
+    extend(westMost.coord, [-1, -0.3], 2);
   }
+  const upstreamKey = upstream ? hexKey(upstream) : null;
 
   function worldX(c: HexCoord) {
     return hexToWorld(c, center)[0];
@@ -137,7 +167,8 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
     const key = hexKey(s.coord);
     const isRiver = riverKeys.has(key);
     const r = hexRandom(s.coord, 3);
-    const top = isRiver ? T.ford.height : s.ring === 1 ? 0.2 + r * 0.08 : -0.02 + r * 0.1;
+    const bed = hasRiver ? T.river.height : T.ford.height;
+    const top = isRiver ? bed : s.ring === 1 ? 0.2 + r * 0.08 : -0.02 + r * 0.1;
     hexes.push({ coord: s.coord, x, z, top, kind: isRiver ? "river" : "shore" });
   }
 
@@ -156,18 +187,26 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   for (const hex of hexes) {
     const hr = mulberry32(hexKey(hex.coord).length * 977 + hex.coord.q * 131 + hex.coord.r * 7919);
     const topColorHex =
-      hex.kind === "board" ? T[hex.terrain!].top : hex.kind === "river" ? T.ford.top : I.shoreTop;
+      hex.kind === "board" ? T[hex.terrain!].top : hex.kind === "river" ? (hasRiver ? T.river.top : T.ford.top) : I.shoreTop;
     const topColor = jitterColor(color(topColorHex), jitter, hr);
     addColumn(b, hex, topColor, cliffTop, hr);
     if (hex.kind === "board") surface.set(hexKey(hex.coord), hex.top);
-    if (hex.terrain === "ford" || hex.kind === "river") water.push({ x: hex.x, z: hex.z, level: waterLevel });
+    if (hex.terrain === "ford" || hex.terrain === "river" || hex.kind === "river") {
+      const deep = hex.terrain === "river" || (hex.kind === "river" && hasRiver) ? 1 : 0;
+      water.push({ x: hex.x, z: hex.z, level: waterLevel, deep });
+    }
   }
 
   // --- One continuous jagged rock mass under the whole island --------------
   addRockMass(b, hexes, radius, cliffTop, cliffBottom, strata);
 
   // Waterfall over the outer edge of the last river hex.
-  const riverHexes = hexes.filter((h) => h.kind === "river");
+  const riverHexes = hexes.filter((h) => h.kind === "river" && !isUpstreamSpring(h));
+  function isUpstreamSpring(h: IslandHex) {
+    if (!upstreamKey) return false;
+    const up = boardByKey.get(upstreamKey)!.coord;
+    return hexDistance(h.coord, up) === 1 && riverKeys.has(hexKey(h.coord)) && h.z < worldZ(up);
+  }
   if (riverHexes.length > 0) {
     const last = riverHexes[riverHexes.length - 1];
     const outward = new THREE.Vector2(last.x, last.z).normalize();
@@ -208,6 +247,9 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
         case "ford":
           dressFord(b, hex, hr, stone, foliage);
           break;
+        case "river":
+          dressRiver(b, hex, hr, stone, foliage);
+          break;
         case "ruin":
           dressRuin(b, hex, hr, stone, foliageDark);
           break;
@@ -218,6 +260,8 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
       }
     } else if (hex.kind === "shore") {
       dressShore(b, hex, hr, foliage, foliageDark, trunk, stone, center, radius);
+    } else if (hasRiver) {
+      dressRiver(b, hex, hr, stone, foliage);
     } else {
       dressFord(b, hex, hr, stone, foliage);
     }
@@ -252,6 +296,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
     water,
     waterLevel,
     waterfall,
+    flow: hasRiver || !waterfall ? flowDir : [waterfall.dirX, waterfall.dirZ],
     surface,
     center,
     radius,
@@ -523,6 +568,18 @@ function dressRidge(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: TH
   }
 }
 
+/** Deep channel: no stepping stones, just reeds and wet rocks along the banks. */
+function dressRiver(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: THREE.Color, leaf: THREE.Color) {
+  for (let i = 0; i < 6; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.72, 0.88);
+    tuft(b, x, hex.top + 0.1, z, leaf, rand, 2.2);
+  }
+  for (let i = 0; i < 2; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.6, 0.8);
+    rock(b, x, hex.top + 0.12, z, 0.05 + rand() * 0.05, stone.clone().multiplyScalar(0.6), rand);
+  }
+}
+
 function dressFord(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: THREE.Color, leaf: THREE.Color) {
   // Stepping stones across the ford, plus reeds at the banks.
   const lane = (rand() - 0.5) * 0.5;
@@ -627,6 +684,22 @@ function drawRoads(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], roadC
     const toWall = layout.hexes.find((h) => hexKey(h.coord) === hexKey(best))?.terrain === "wall";
     edges.push([from, to, toWall]);
     inflow.add(hexKey(best));
+  }
+  if (!goal) {
+    // No gate to converge on: link neighbouring road hexes, and let roads run
+    // down into fords (half strips, since the ford bed sits lower).
+    const typeAt = (c: HexCoord) => layout.hexes.find((x) => x.coord.q === c.q && x.coord.r === c.r)?.terrain;
+    for (const road of roads) {
+      const from = byKey.get(hexKey(road.coord))!;
+      for (const n of hexNeighbors(road.coord)) {
+        const t = typeAt(n);
+        const to = byKey.get(hexKey(n));
+        if (!to) continue;
+        if (t === "road" && hexKey(n) > hexKey(road.coord)) edges.push([from, to, false]);
+        if (t === "ford") edges.push([from, to, true]);
+        inflow.add(hexKey(road.coord));
+      }
+    }
   }
   // Roads that nothing flows into lead off toward the attackers (west).
   for (const road of roads) {

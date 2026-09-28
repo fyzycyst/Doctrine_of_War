@@ -20,14 +20,14 @@ export function Water({ island }: { island: IslandBuild }) {
       const g = new THREE.CircleGeometry(1.0, 6);
       g.rotateX(-Math.PI / 2);
       g.translate(w.x, w.level, w.z);
+      g.setAttribute("aDeep", new THREE.Float32BufferAttribute(new Array(g.getAttribute("position").count).fill(w.deep), 1));
       return g;
     });
     return mergeGeometries(parts);
   }, [island]);
 
   const flow = useMemo(() => {
-    const f = island.waterfall;
-    return f ? new THREE.Vector2(f.dirX, f.dirZ) : new THREE.Vector2(-1, 0);
+    return new THREE.Vector2(island.flow[0], island.flow[1]);
   }, [island]);
 
   const material = useMemo(
@@ -49,9 +49,12 @@ export function Water({ island }: { island: IslandBuild }) {
         ]),
         vertexShader: /* glsl */ `
           #include <fog_pars_vertex>
+          attribute float aDeep;
           varying vec2 vPos;
           varying vec3 vWorld;
+          varying float vDeep;
           void main() {
+            vDeep = aDeep;
             vec4 world = modelMatrix * vec4(position, 1.0);
             vPos = world.xz;
             vWorld = world.xyz;
@@ -68,6 +71,7 @@ export function Water({ island }: { island: IslandBuild }) {
           uniform vec2 uFlow;
           varying vec2 vPos;
           varying vec3 vWorld;
+          varying float vDeep;
           ${NOISE_GLSL}
           void main() {
             vec2 perp = vec2(-uFlow.y, uFlow.x);
@@ -79,7 +83,8 @@ export function Water({ island }: { island: IslandBuild }) {
             // Dark, deep water that mirrors the sky above it (look-lock #5).
             vec3 viewDir = normalize(cameraPosition - vWorld);
             float fres = pow(1.0 - max(viewDir.y, 0.0), 2.0);
-            vec3 base = mix(uDeep, uColor, 0.1 + 0.35 * n);
+            // Deep river channels run darker than the shallow fords.
+            vec3 base = mix(uDeep, uColor, (0.1 + 0.35 * n) * (1.0 - 0.7 * vDeep));
             vec3 col = mix(base, uSky, 0.35 + 0.45 * fres);
             col *= 0.85 + 0.3 * n2;
             // Long thin glints running with the current.
@@ -158,7 +163,11 @@ export function Water({ island }: { island: IslandBuild }) {
     u.uGlow.value = preset.waterGlow;
     u.uFlow.value.copy(flow);
     fall.uniforms.uColor.value.set(skin.island.water);
-    fall.uniforms.uFoam.value.set("#e8eef0").lerp(new THREE.Color(preset.sky.horizon), 0.35);
+    // Foam follows the light level so the fall doesn't glow white at night.
+    fall.uniforms.uFoam.value
+      .set("#e8eef0")
+      .lerp(new THREE.Color(preset.sky.horizon), 0.35)
+      .multiplyScalar(THREE.MathUtils.clamp(preset.sun.intensity / 3.5, 0.2, 1));
     fall.uniforms.uGlowColor.value.set(preset.fires.color);
     fall.uniforms.uGlow.value = preset.waterGlow;
   }, [material, fall, skin, preset, flow]);

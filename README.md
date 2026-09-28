@@ -43,6 +43,21 @@ npm run dev
 
 Then open the local URL printed by Vite.
 
+**npm 11 gotcha:** npm 11's install-scripts policy skips Electron's postinstall, so the
+Electron binary is never downloaded and `npm run dev:mac` / `npm run capture` fail. After
+`npm install`, run once:
+
+```bash
+node node_modules/electron/install.js
+```
+
+### Look Lab and screenshots
+
+- `npm run dev`, then open `/?lab=1` for the dev-only diorama lab (`&scenario=firstBreach|emberFord`,
+  `&board=stress`, `&preset=`, `&skin=`, `&quality=low`; see `src/render/README.md`).
+- `npm run capture [-- <filter>]` saves 1600×1000 PNGs of the lab into `captures/` (gitignored).
+- `npm run fetch:cc0` downloads the optional CC0 KayKit figures (figure approach b).
+
 ## Checks
 
 ```bash

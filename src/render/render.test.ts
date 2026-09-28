@@ -64,7 +64,7 @@ describe("skins", () => {
       for (const key of TIME_OF_DAY_KEYS) {
         expect(skin.lighting[key].id).toBe(key);
       }
-      for (const terrain of ["road", "ridge", "ford", "wall", "field", "ruin"] as const) {
+      for (const terrain of ["road", "ridge", "ford", "wall", "field", "ruin", "river"] as const) {
         expect(skin.terrain[terrain].top).toMatch(/^#[0-9a-f]{6}$/i);
       }
     }
@@ -74,5 +74,18 @@ describe("skins", () => {
     expect(getSkin("nope").id).toBe("emberDusk");
     expect(isTimeOfDay("sunrise")).toBe(true);
     expect(isTimeOfDay("noon")).toBe(false);
+  });
+});
+
+describe("engine mapping", () => {
+  it("maps engine scenarios to diorama squads and lighting", async () => {
+    const { dioramaSquads, lightingFor } = await import("./fromEngine");
+    const { emberFord } = await import("../game/engine/scenarios/emberFord");
+    const squads = dioramaSquads(emberFord.squads);
+    expect(squads).toHaveLength(emberFord.squads.length);
+    expect(squads.find((s) => s.id === "pyre_sworn")?.renowned).toBe(true);
+    expect(squads.find((s) => s.faction === "free_banners")?.facing).toBeCloseTo(Math.PI);
+    expect(lightingFor(emberFord.timeOfDay)).toBe("nightFires");
+    expect(lightingFor(undefined)).toBe("dusk");
   });
 });

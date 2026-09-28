@@ -1,6 +1,7 @@
 # src/render: the living diorama
 
-Draws engine state and never decides outcomes (tech plan §2 invariant).
+Draws engine state and never decides outcomes (tech plan §2 invariant). Engine *types* may be
+imported (see `fromEngine.ts`); engine logic may not.
 
 - `skins/`: **the look as data.** A `Skin` owns terrain and faction palettes, material style
   (standard/toon, outline flag), figure style, island colours and a `lighting` map keyed by
@@ -8,15 +9,41 @@ Draws engine state and never decides outcomes (tech plan §2 invariant).
   time of day; the active skin decides how it looks. `emberDusk` is the full skin;
   `illuminatedChronicle` is a rough stub that proves swapping.
 - `look/LookContext.tsx`: `LookProvider` + `useLook()` give every component `{ skin, preset, quality }`.
-- `Diorama.tsx`: composes the island, water, fires, mist, particles, squads and light rig from a
-  `BoardLayout` + `DioramaSquad[]`. Render it inside `<Canvas><LookProvider>`.
-- `terrain/buildIsland.ts`: pure builder from a `BoardLayout` to one merged vertex-coloured geometry
-  (tiles, cliffs, props, roads, walls/gate, town), plus anchors (water, waterfall, fires, gate banner).
-- `atmosphere/`: backdrop and cloud sea, ground mist (per-hex `densityByHex` = future fog of war),
+- `fromEngine.ts`: `dioramaSquads(scenario.squads)` and `lightingFor(scenario.timeOfDay)`, mapping
+  the engine scenario format to what `Diorama` takes.
+- `Diorama.tsx`: composes the island, water, fires, mist, particles, squads, highlights and light
+  rig from a `BoardLayout` + `DioramaSquad[]`. Render it inside `<Canvas><LookProvider>`. Props:
+  `figures`, `mistDensity` (fog of war), `deploymentHexes` (pulsing zone), `animationRef`.
+- **Picking:** raycasts on the island and figures go through the pure helpers in `picking.ts`
+  (`worldToHex`, `pickBoardHex`, `resolveClick`) into the app store: `hoveredHex`,
+  `hoveredSquadId`, `selectedHex`, `selectedSquadId` (`setHoveredHex`, `selectHex`, `selectSquad`,
+  `clearSelection`). `terrain/BoardHighlights.tsx` draws the hover/selection outlines; the squad
+  selection halo lives in `figures/SquadMarkers.tsx`.
+- **Squad animations** (`figures/squadAnimation.ts`): `animationRef.current` is a
+  `SquadAnimationApi`. Every call returns a Promise that resolves when the animation ends:
+  - `march(id, path: HexCoord[], { secondsPerHex })`: walks hex to hex (hops height changes),
+    turns to face the move, and stays at the last hex until the squad's `hex` prop catches up.
+  - `lunge(id, targetHex)`: the front ranks surge half a hex toward the target, jab, fall back.
+  - `fall(id, n)`: the next `n` figures in survival order topple and dither out; lowering
+    `strength` afterwards removes the same slots, so there is no pop.
+  - `rout(id, { direction? })`: figures scatter toward the faction's home edge and fade; the
+    banner drops and the ring goes out. Hidden until `reset(id)`.
+  - `rally(id)`: an upright snap and hop, a banner lift and flare, and a ring flash.
+  - `brace(id, { hold })`: crouch, tighten ranks and lean into the shields, then release.
+  - `reset(id?)` clears persistent animation state.
+- `terrain/buildIsland.ts`: a pure builder from a `BoardLayout` to one merged vertex-coloured
+  geometry: tiles, a continuous jagged rock underside, props, roads, walls/gate, town, and sunken
+  `river` channels that run off the board into a waterfall. It also returns anchors (water, flow,
+  fires, gate banner).
+- `atmosphere/`: backdrop and cloud sea, ground mist (per-hex `densityByHex` = fog of war),
   embers/ash/rain, fires.
-- `figures/`: (a) instanced toy soldiers, (b) KayKit CC0 figures, shared banners, cohesion rings and
-  contact shadows (`SquadMarkers`).
-- `camera/`, `post/`, `lighting/`: clamped orbit + idle drift, post stack (bloom, separable
-  tilt-shift, tone mapping, grade), light rig.
-- `lab/`: dev-only Look Lab at `?lab=1` (`&preset= &skin= &figures=a|b &quality= &cam=wide|close
-  &fog=1 &ui=0 &still=1`). `npm run capture [-- filter]` saves PNGs to `captures/`.
+- `figures/`: (a) instanced toy soldiers (with ember glints and a dithered `aFade`), (b) KayKit
+  CC0 figures (fallback only), and shared banners, cohesion rings, renown crests and contact
+  shadows (`SquadMarkers`).
+- `camera/`, `post/`, `lighting/`: clamped orbit + idle drift (`wideShot(boardRadius)`,
+  `closeShot(target)`), the post stack (bloom, separable tilt-shift, tone mapping, grade), and the
+  light rig.
+- `lab/`: the dev-only Look Lab at `?lab=1` (`&scenario=firstBreach|emberFord`, `&board=stress`,
+  `&preset= &skin= &figures=a|b &quality= &cam=wide|close &az= &polar= &dist= &fog=1 &deploy=1
+  &select=<id> &hover=q,r &anim=<name>&animSquad=<id>&animFreeze=<s> &ui=0 &still=1`).
+  `npm run capture [-- filter]` saves PNGs to `captures/`.

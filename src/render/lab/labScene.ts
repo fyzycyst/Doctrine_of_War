@@ -1,18 +1,22 @@
 import { hexDistance, hexKey, hexNeighbors, type BoardLayout, type HexCoord } from "../../game/board";
+import { emberFord } from "../../game/engine/scenarios/emberFord";
+import { firstBreach } from "../../game/engine/scenarios/firstBreach";
 import { readabilityScenario } from "../../game/readabilityScenario";
-import { firstBreachScenario } from "../../game/scenario";
-import type { Scenario } from "../../game/types";
 import type { DioramaSquad } from "../figures/types";
+import { dioramaSquads, lightingFor } from "../fromEngine";
 import { boardCenter, hexToWorld } from "../hexWorld";
+import type { TimeOfDay } from "../skins/types";
 
 /**
- * Lab scenes: the tutorial (First Breach) and the 14-squad readability fixture.
- * Squads sit on their scenario hexes, Banners facing west, Host facing east.
- * First Breach shows one depleted Host squad and one renowned Banner squad.
+ * Lab scenes, mapped from the engine's scenario format (what the real game will
+ * feed the Diorama) through `fromEngine`: First Breach, Ember Ford, and the
+ * legacy 14-squad readability fixture. First Breach shows one depleted Host
+ * squad and one renowned Banner squad.
  */
 export interface LabScene {
   board: BoardLayout;
   squads: DioramaSquad[];
+  timeOfDay: TimeOfDay;
   deployment: HexCoord[];
   fogDemo: Record<string, number>;
   /** Objective hex centre in world space, for the close shot. */
@@ -24,24 +28,18 @@ const OVERRIDES: Record<string, Partial<DioramaSquad>> = {
   greyford_shields: { cohesion: 64, renowned: true },
 };
 
-function toScene(scenario: Scenario): LabScene {
-  const board = scenario.board!;
-  const squads = scenario.squads
-    .filter((s) => s.hex)
-    .map((s) => ({
-      id: s.id,
-      faction: s.faction,
-      hex: s.hex!,
-      strength: s.strength,
-      cohesion: s.cohesion,
-      facing: s.faction === "free_banners" ? Math.PI : 0,
-      ...OVERRIDES[s.id],
-    }));
-  const objective = board.hexes.find((h) => h.objectiveId) ?? board.hexes[0];
+function toScene(
+  board: BoardLayout,
+  squads: DioramaSquad[],
+  timeOfDay: TimeOfDay,
+  overrides: Record<string, Partial<DioramaSquad>> = {},
+): LabScene {
+  const objective = board.hexes.find((h) => h.objectiveId) ?? board.hexes[Math.floor(board.hexes.length / 2)];
   const [fx, fz] = hexToWorld(objective.coord, boardCenter(board));
   return {
     board,
-    squads,
+    squads: squads.map((s) => ({ ...s, ...overrides[s.id] })),
+    timeOfDay,
     deployment: board.hexes.filter((h) => h.deploymentFaction === "free_banners").map((h) => h.coord),
     fogDemo: Object.fromEntries(
       board.hexes.filter((h) => h.deploymentFaction === "ashen_host").map((h) => [hexKey(h.coord), 3]),
@@ -51,8 +49,13 @@ function toScene(scenario: Scenario): LabScene {
 }
 
 export const LAB_SCENES = {
-  breach: toScene(firstBreachScenario),
-  stress: toScene(readabilityScenario),
+  firstBreach: toScene(firstBreach.board, dioramaSquads(firstBreach.squads), lightingFor(firstBreach.timeOfDay), OVERRIDES),
+  emberFord: toScene(emberFord.board, dioramaSquads(emberFord.squads), lightingFor(emberFord.timeOfDay)),
+  stress: toScene(
+    readabilityScenario.board!,
+    dioramaSquads(readabilityScenario.squads.filter((s) => s.hex).map((s) => ({ ...s, hex: s.hex! }))),
+    "dusk",
+  ),
 } as const;
 
 export type LabSceneId = keyof typeof LAB_SCENES;

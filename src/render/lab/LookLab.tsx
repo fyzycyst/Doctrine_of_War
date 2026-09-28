@@ -15,8 +15,9 @@ import { LAB_SCENES, stepToward, type LabSceneId } from "./labScene";
 
 /**
  * Dev-only Look Lab (`?lab=1`). Full-screen diorama with a small switcher.
- * URL params: preset, skin, figures (a|b), quality (high|low), board
- * (breach|stress), cam (wide|close), az/polar/dist (shot overrides), fog=1,
+ * URL params: preset (defaults to the scenario's time of day), skin, figures
+ * (a|b), quality (high|low), scenario (firstBreach|emberFord), board=stress
+ * (14-squad fixture), dpr=<n> (render scale override, for perf checks), cam (wide|close), az/polar/dist (shot overrides), fog=1,
  * deploy=1, select=<squadId>, hover=q,r, ui=0, still=1 (no idle drift), and for stills of an animation:
  * anim=<march|lunge|fall|rout|rally|brace>&animSquad=<id>&animFreeze=<seconds>.
  *
@@ -48,12 +49,14 @@ function readParams() {
   const figures = p.get("figures");
   const num = (k: string) => (p.get(k) === null ? undefined : Number(p.get(k)));
   const anim = p.get("anim");
+  const board: LabSceneId =
+    p.get("board") === "stress" ? "stress" : p.get("scenario") === "emberFord" ? "emberFord" : "firstBreach";
   return {
     state: {
-      preset: isTimeOfDay(preset) ? preset : "dusk",
+      preset: isTimeOfDay(preset) ? preset : LAB_SCENES[board].timeOfDay,
       skin: getSkin(p.get("skin")).id,
       figures: figures === "b" || figures === "kaykit" ? "kaykit" : "toy",
-      board: p.get("board") === "stress" ? "stress" : "breach",
+      board,
       cam: p.get("cam") === "close" ? "close" : "wide",
       fog: p.get("fog") === "1",
       deploy: p.get("deploy") === "1",
@@ -66,6 +69,7 @@ function readParams() {
     animSquad: p.get("animSquad"),
     animFreeze: num("animFreeze"),
     select: p.get("select"),
+    dpr: num("dpr"),
     hover: p.get("hover"),
   };
 }
@@ -102,7 +106,13 @@ export function LookLab() {
     p.set("preset", state.preset);
     p.set("skin", state.skin);
     p.set("figures", state.figures === "kaykit" ? "b" : "a");
-    p.set("board", state.board);
+    if (state.board === "stress") {
+      p.set("board", "stress");
+      p.delete("scenario");
+    } else {
+      p.set("scenario", state.board);
+      p.delete("board");
+    }
     p.set("cam", state.cam);
     p.set("quality", quality);
     for (const flag of ["fog", "deploy"] as const) {
@@ -163,7 +173,7 @@ export function LookLab() {
     <div style={{ position: "fixed", inset: 0, background: "#0d0c12" }}>
       <Canvas
         shadows="soft"
-        dpr={quality === "high" ? [1, 2] : 1}
+        dpr={initial.dpr ?? (quality === "high" ? [1, 2] : 1)}
         camera={{ fov: 30, near: 0.1, far: 200, position: [0, 10, 14] }}
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         onPointerMissed={() => clearSelection()}
@@ -338,8 +348,11 @@ function LabPanel({
         </Chip>
       ))}
       <span style={label}>Board · Figures</span>
-      <Chip active={state.board === "breach"} onClick={() => onChange({ board: "breach" })}>
+      <Chip active={state.board === "firstBreach"} onClick={() => onChange({ board: "firstBreach", preset: LAB_SCENES.firstBreach.timeOfDay })}>
         First Breach
+      </Chip>
+      <Chip active={state.board === "emberFord"} onClick={() => onChange({ board: "emberFord", preset: LAB_SCENES.emberFord.timeOfDay })}>
+        Ember Ford
       </Chip>
       <Chip active={state.board === "stress"} onClick={() => onChange({ board: "stress" })}>
         14 squads

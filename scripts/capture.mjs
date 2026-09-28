@@ -15,9 +15,13 @@ const anim = (name, squad, freeze) => ({
 const jobs = [
   ...PRESETS.map((preset) => ({ name: `${preset}-toy`, query: `preset=${preset}&figures=a` })),
   { name: "dusk-toy-close", query: "preset=dusk&figures=a&cam=close" },
+  { name: "dusk-underside", query: "preset=dusk&figures=a&polar=64&az=-22" },
   { name: "stress-dusk", query: "preset=dusk&figures=a&board=stress" },
   { name: "stress-dusk-low", query: "preset=dusk&figures=a&board=stress&quality=low" },
+  { name: "stress-dusk-dpr1", query: "preset=dusk&figures=a&board=stress&dpr=1" },
   { name: "stress-nightFires", query: "preset=nightFires&figures=a&board=stress" },
+  { name: "emberFord-nightFires", query: "scenario=emberFord&preset=nightFires&figures=a" },
+  { name: "emberFord-dusk", query: "scenario=emberFord&preset=dusk&figures=a" },
   { name: "dusk-picking", query: "preset=dusk&figures=a&deploy=1&select=greyford_shields&hover=2,2" },
   anim("march", "stoneford_riders", 0.9),
   anim("lunge", "greyford_shields", 0.3),

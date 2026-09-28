@@ -50,3 +50,21 @@ describe("picking", () => {
     expect(sameHexOrNull(null, { q: 1, r: 1 })).toBe(false);
   });
 });
+
+describe("picking store", () => {
+  it("records hover/selection and skips no-op hover writes", async () => {
+    const { useAppStore } = await import("../app/store");
+    const s = useAppStore.getState();
+    s.setHoveredHex({ q: 1, r: 2 });
+    const before = useAppStore.getState();
+    useAppStore.getState().setHoveredHex({ q: 1, r: 2 });
+    expect(useAppStore.getState()).toBe(before);
+    s.selectSquad("greyford_shields");
+    s.selectHex({ q: 3, r: 2 });
+    expect(useAppStore.getState().selectedSquadId).toBe("greyford_shields");
+    expect(useAppStore.getState().selectedHex).toEqual({ q: 3, r: 2 });
+    s.clearSelection();
+    expect(useAppStore.getState().selectedSquadId).toBeNull();
+    expect(useAppStore.getState().selectedHex).toBeNull();
+  });
+});
