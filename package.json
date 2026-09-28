@@ -1,5 +1,6 @@
 {
   "name": "doctrine-of-war-ash-and-banner",
+  "productName": "Doctrine of War",
   "private": true,
   "version": "0.1.0",
   "type": "module",
