@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { FactionId } from "../../game/types";
+import type { FactionId } from "../../game/engine/types";
 import { GeoBuilder, color, trs } from "../geo/GeoBuilder";
 import type { FactionStyle } from "../skins/types";
 

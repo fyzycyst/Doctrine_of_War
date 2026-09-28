@@ -30,7 +30,30 @@ imported (see `fromEngine.ts`); engine logic may not.
     banner drops and the ring goes out. Hidden until `reset(id)`.
   - `rally(id)`: an upright snap and hop, a banner lift and flare, and a ring flash.
   - `brace(id, { hold })`: crouch, tighten ranks and lean into the shields, then release.
+  - `reveal(id)`: fog of war. The squad resolves out of the mist (see Fog of war below).
   - `reset(id?)` clears persistent animation state.
+- **Weather (T08):** `<LookProvider weather="clear|rain|mist|ashWind">` (use `weatherFor(view.weather)`).
+  Each skin owns `weather: Record<WeatherKind, WeatherPreset>` overlays that are layered on the
+  time-of-day preset: mist, particles (rain streaks, ash flurries blowing east), wetness (darker,
+  glossier terrain and water ripples), light, sky tint and grading. A change cross-fades over 2.5 s
+  (`atmosphere/atmosphereRuntime.ts`; the pure `mixWeather` is tested).
+- **Fog of war (T08):** `<Diorama visibility={visibilityFromView(view, scenario)}>` (in
+  `fromEngine.ts`; it approximates the seen hexes until the engine exports `visibleHexes()`, so
+  swapping is one line). Unseen board hexes fill with a tall, dim mist and the terrain under them
+  desaturates. Squads with `lastKnown: true` (mapped from `VisibleSquad.lastKnown` by
+  `dioramaSquads`) draw as dark dithered silhouettes with a colourless rag banner and a dashed ring.
+  **Reveal hook:** when a squad that was hidden or a ghost becomes visible, the Diorama plays
+  `reveal(id)` (figures rise and resolve, the banner unfurls, the ring draws on) while the mist over
+  its hex tears open, then calls `onReveal(squadIds)`. Playback can also call
+  `animationRef.current.reveal(id)` directly.
+- **Audio (T08), stable path `src/audio`:** `playSfx(name)` with `clash | horn | card | seal |
+  rout | dread | reveal`; `useAmbience({ timeOfDay, weather, water, hostDrums })` (or
+  `setAmbience`) cross-fades the synthesized beds (wind, rain, river, drums, fire); call
+  `unlockAudio()` from a user gesture (`useAmbience` does it on the first pointerdown). Mute and
+  volume live in `useAudioStore` (`src/app/audioStore.ts`, persisted to localStorage). Sources and
+  licences are in `/CREDITS.md`.
+- **Render scale:** `canvasDpr(quality, ultra?)` in `quality.ts`: high caps at DPR 1.5, low is 1,
+  and ultra (opt-in) is full device DPR.
 - `terrain/buildIsland.ts`: a pure builder from a `BoardLayout` to one merged vertex-coloured
   geometry: tiles, a continuous jagged rock underside, props, roads, walls/gate, town, and sunken
   `river` channels that run off the board into a waterfall. It also returns anchors (water, flow,

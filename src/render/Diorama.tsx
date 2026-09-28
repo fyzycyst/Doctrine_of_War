@@ -1,5 +1,5 @@
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { Suspense, useEffect, useImperativeHandle, useMemo, type Ref } from "react";
+import { Suspense, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
 import { useAppStore } from "../app/store";
 import { hexKey, type BoardLayout, type HexCoord } from "../game/board";
 import { GroundMist, type MistDensityMap } from "./atmosphere/GroundMist";
@@ -13,7 +13,8 @@ import { ToySoldierSquads } from "./figures/ToySoldierSquads";
 import { placeSquads, type DioramaSquad, type FigureApproach } from "./figures/types";
 import { hexToWorld } from "./hexWorld";
 import { LightRig } from "./lighting/LightRig";
-import { useLook } from "./look/LookContext";
+import { AtmosphereTicker, useLook } from "./look/LookContext";
+import type { FactionId } from "../game/engine/types";
 import { createIslandMaterial, createOutlineMaterial } from "./materials";
 import { pickBoardHex, resolveClick } from "./picking";
 import { BoardHighlights } from "./terrain/BoardHighlights";
@@ -29,16 +30,30 @@ import { Water } from "./terrain/Water";
  * - Picking writes `hoveredHex`, `hoveredSquadId`, `selectedHex` and
  *   `selectedSquadId` to the app store.
  * - `animationRef` receives the `SquadAnimationApi` (march, lunge, fall, rout,
- *   rally, brace, reset) for playback to drive.
+ *   rally, brace, reveal, reset) for playback to drive.
+ * - `visibility` turns on fog of war: unseen board hexes fill with a tall, dim
+ *   mist and desaturate; `lastKnown` enemies draw as silhouettes; a squad that
+ *   becomes visible plays `reveal` while the mist over it parts.
+ * - Weather comes from the <LookProvider weather> and cross-fades by itself.
  */
+
+/** Fog-of-war input, from the engine's `visibleState` for the player's faction. */
+export interface DioramaVisibility {
+  /** Board hexes the viewer can see right now. */
+  visibleHexes: HexCoord[];
+  /** Enemies shown where they were last seen (engine `lastKnown: true`). */
+  lastKnown: Array<{ squadId: string; hex: HexCoord; faction: FactionId; strength?: number; cohesion?: number }>;
+}
 export function Diorama({
   board,
   squads,
   figures = "toy",
   mistDensity,
   deploymentHexes,
+  visibility,
   animationRef,
   onFiguresReady,
+  onReveal,
 }: {
   board: BoardLayout;
   squads: DioramaSquad[];
@@ -46,10 +61,14 @@ export function Diorama({
   mistDensity?: MistDensityMap;
   /** Hexes to tint as a pulsing deployment zone. */
   deploymentHexes?: HexCoord[];
+  /** Fog of war; omit for everything visible. */
+  visibility?: DioramaVisibility;
   animationRef?: Ref<SquadAnimationApi>;
   onFiguresReady?: () => void;
+  /** Squads that just came out of the fog (e.g. to play the `reveal` SFX). */
+  onReveal?: (squadIds: string[]) => void;
 }) {
-  const { skin, preset } = useLook();
+  const { skin, preset, atmosphere } = useLook();
   const island = useMemo(() => buildIsland(board, skin), [board, skin]);
   const material = useMemo(() => createIslandMaterial(skin.material), [skin.material]);
   const outline = useMemo(
@@ -63,7 +82,27 @@ export function Diorama({
     material.userData.fade.uFadeColor.value.set(preset.cliffFade);
   }, [material, preset.cliffFade]);
 
-  const placed = useMemo(() => placeSquads(squads, island, skin.figures.maxFigures), [squads, island, skin.figures.maxFigures]);
+  // Last-known enemies join the draw list as silhouettes (unless also visible).
+  // Squads may already carry `lastKnown` (from `dioramaSquads(view.squads)`);
+  // `visibility.lastKnown` adds any ghost not already in the list.
+  const drawn = useMemo<DioramaSquad[]>(() => {
+    if (!visibility) return squads;
+    const live = new Set(squads.map((s) => s.id));
+    const ghosts = visibility.lastKnown
+      .filter((g) => !live.has(g.squadId))
+      .map((g) => ({
+        id: g.squadId,
+        faction: g.faction,
+        hex: g.hex,
+        strength: g.strength ?? 66,
+        cohesion: g.cohesion ?? 60,
+        facing: g.faction === "free_banners" ? Math.PI : 0,
+        lastKnown: true,
+      }));
+    return [...squads, ...ghosts];
+  }, [squads, visibility]);
+
+  const placed = useMemo(() => placeSquads(drawn, island, skin.figures.maxFigures), [drawn, island, skin.figures.maxFigures]);
 
   // The animator reads placement through this scene adapter (props only, no engine).
   const scene = useMemo<AnimatorScene>(() => {
@@ -88,11 +127,35 @@ export function Diorama({
   animator.setScene(scene);
   useImperativeHandle(animationRef, () => animator, [animator]);
 
+  // Fog field: eases toward the new visibility (instant on first mount).
+  const fogInit = useRef(false);
+  useEffect(() => {
+    atmosphere.setFog(
+      board.hexes.map((h) => h.coord),
+      visibility ? visibility.visibleHexes : null,
+      !fogInit.current,
+    );
+    fogInit.current = true;
+  }, [atmosphere, board, visibility]);
+
+  // Reveal: squads that are drawn live now but were hidden or ghosts before.
+  const shown = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const now = new Set(drawn.filter((s) => !s.lastKnown).map((s) => s.id));
+    const before = shown.current;
+    shown.current = now;
+    if (!before || !visibility) return;
+    const revealed = [...now].filter((id) => !before.has(id));
+    if (revealed.length === 0) return;
+    revealed.forEach((id) => void animator.reveal(id));
+    onReveal?.(revealed);
+  }, [drawn, visibility, animator, onReveal]);
+
   const setHoveredHex = useAppStore((s) => s.setHoveredHex);
   const setHoveredSquad = useAppStore((s) => s.setHoveredSquad);
   const selectHex = useAppStore((s) => s.selectHex);
   const selectSquad = useAppStore((s) => s.selectSquad);
-  const squadRefs = useMemo(() => squads.map((s) => ({ id: s.id, hex: s.hex })), [squads]);
+  const squadRefs = useMemo(() => drawn.map((s) => ({ id: s.id, hex: s.hex })), [drawn]);
 
   const onIslandMove = (e: ThreeEvent<PointerEvent>) => {
     const hex = pickBoardHex(e.point, board, island.center);
@@ -107,12 +170,13 @@ export function Diorama({
   };
   const onFigureClick = (id: string) => {
     selectSquad(id);
-    selectHex(squads.find((s) => s.id === id)?.hex ?? null);
+    selectHex(drawn.find((s) => s.id === id)?.hex ?? null);
   };
 
   return (
     <>
-      {/* Ticks first so every consumer below sees this frame's poses. */}
+      {/* Tickers first so every consumer below sees this frame's state. */}
+      <AtmosphereTicker />
       <AnimatorTicker animator={animator} />
       <SkyDome />
       <LightRig shadowRadius={island.radius * 0.8} />

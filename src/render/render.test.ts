@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { firstBreachScenario } from "../game/scenario";
+import { firstBreach as firstBreachScenario } from "../game/engine/scenarios/firstBreach";
 import { hexKey } from "../game/board";
 import { boardCenter, hexToWorld, islandShore } from "./hexWorld";
 import { SKINS, getSkin, isTimeOfDay, TIME_OF_DAY_KEYS } from "./skins";
 import { cohesionArc, figureCount, formationSlots } from "./squadLayout";
 
-const board = firstBreachScenario.board!;
+const board = firstBreachScenario.board;
 
 describe("squad layout", () => {
   it("maps strength to 1..9 figures and falls with strength", () => {
@@ -87,5 +87,32 @@ describe("engine mapping", () => {
     expect(squads.find((s) => s.faction === "free_banners")?.facing).toBeCloseTo(Math.PI);
     expect(lightingFor(emberFord.timeOfDay)).toBe("nightFires");
     expect(lightingFor(undefined)).toBe("dusk");
+  });
+});
+
+describe("fog adapter", () => {
+  it("derives visible hexes and ghosts from a VisibleState-like view", async () => {
+    const { visibilityFromView, dioramaSquads } = await import("./fromEngine");
+    const view = {
+      viewer: "free_banners" as const,
+      fortune: "on" as const,
+      weather: "clear" as const,
+      squads: [
+        { id: "a", faction: "free_banners" as const, hex: { q: 3, r: 2 }, status: "active", strength: 80, cohesion: 70, lastKnown: false },
+        { id: "g", faction: "ashen_host" as const, hex: { q: 0, r: 0 }, status: "active", strength: 60, cohesion: 50, lastKnown: true },
+      ],
+    };
+    const vis = visibilityFromView(view, { board })!;
+    const keys = new Set(vis.visibleHexes.map((h) => `${h.q},${h.r}`));
+    expect(keys.has("3,2")).toBe(true);
+    expect(keys.has("1,2")).toBe(true); // 2 hexes away
+    expect(keys.has("0,0")).toBe(false);
+    expect(vis.lastKnown).toEqual([{ squadId: "g", hex: { q: 0, r: 0 }, faction: "ashen_host", strength: 60, cohesion: 50 }]);
+    // Mist shortens sight; fortune off means no fog at all.
+    const misty = visibilityFromView({ ...view, weather: "mist" }, { board })!;
+    expect(new Set(misty.visibleHexes.map((h) => `${h.q},${h.r}`)).has("1,2")).toBe(false);
+    expect(visibilityFromView({ ...view, fortune: "off" }, { board })).toBeUndefined();
+    // Ghost flag survives the squad mapper.
+    expect(dioramaSquads(view.squads.map((s) => ({ ...s, hex: s.hex! }))).find((s) => s.id === "g")?.lastKnown).toBe(true);
   });
 });

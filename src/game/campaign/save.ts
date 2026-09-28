@@ -3,6 +3,7 @@
 // with a CampaignSaveError, never half-loaded. The loaded state is rebuilt field by
 // field from validated values, so unknown keys (and __proto__ tricks) are dropped.
 import type { SquadRole, SquadStatus } from "../engine/types";
+import { rosterFor, settleCompany } from "./campaign";
 import {
   RESOLVE_MAX,
   RESOLVE_MIN,
@@ -79,7 +80,8 @@ function int(value: unknown, path: string, min: number, max: number): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
     fail(path, `must be an integer in ${min}..${max}`);
   }
-  return value;
+  // JSON allows -0; normalize it so a loaded state is identical to a played one.
+  return value === 0 ? 0 : value;
 }
 
 function oneOf<T extends string>(value: unknown, path: string, options: readonly T[]): T {
@@ -170,18 +172,71 @@ export function loadCampaign(json: unknown, definition?: CampaignDefinition): Ca
   if (new Set(ids).size !== ids.length) fail("campaign.companies", "has duplicate ids");
 
   if (definition) {
-    if (state.campaignId !== definition.id) fail("campaign.campaignId", `must be ${definition.id}`);
-    const complete = state.battleIndex >= definition.battles.length;
-    if ((state.status === "complete") !== complete) fail("campaign.status", "does not match battleIndex");
-    for (const item of state.companies) {
-      if (!definition.companies.some((known) => known.id === item.id)) fail("campaign.companies", `has unknown company ${item.id}`);
-    }
-    for (const entry of state.history) {
-      if (!definition.battles.some((battle) => battle.id === entry.battleId)) fail("campaign.history", `has unknown battle ${entry.battleId}`);
-      for (const line of entry.companies) {
-        if (!ids.includes(line.companyId)) fail("campaign.history", `references company ${line.companyId} not in the roster`);
-      }
-    }
+    checkAgainstDefinition(state, definition);
   }
   return state;
+}
+
+const sameCompany = (a: CampaignCompany, b: CampaignCompany) =>
+  a.id === b.id &&
+  a.name === b.name &&
+  a.role === b.role &&
+  a.resolve === b.resolve &&
+  (a.renown?.title ?? null) === (b.renown?.title ?? null) &&
+  a.battlesFought === b.battlesFought &&
+  a.casualties.routed === b.casualties.routed &&
+  a.casualties.destroyed === b.casualties.destroyed &&
+  a.reformed === b.reformed;
+
+/**
+ * A save must be reachable by playing this campaign: the history is replayed from a
+ * fresh start with the campaign rules, and battle order, scenarios, attempts, slot
+ * results, battleIndex and the whole roster (identity, role, Resolve, renown and every
+ * counter) must match what that replay produces.
+ */
+function checkAgainstDefinition(state: CampaignState, def: CampaignDefinition): void {
+  if (state.campaignId !== def.id) fail("campaign.campaignId", `must be ${def.id}`);
+  const complete = state.battleIndex >= def.battles.length;
+  if ((state.status === "complete") !== complete) fail("campaign.status", "does not match battleIndex");
+  for (const item of state.companies) {
+    if (!def.companies.some((known) => known.id === item.id)) fail("campaign.companies", `has unknown company ${item.id}`);
+  }
+
+  let roster: CampaignCompany[] = [];
+  let battleIndex = 0;
+  state.history.forEach((entry, n) => {
+    const path = `campaign.history[${n}]`;
+    if (!def.battles.some((battle) => battle.id === entry.battleId)) fail(path, `has unknown battle ${entry.battleId}`);
+    const battle = def.battles[battleIndex];
+    if (!battle || battle.placeholder) fail(path, `records ${entry.battleId}, but no playable battle comes next`);
+    if (entry.battleId !== battle.id) fail(`${path}.battleId`, `must be ${battle.id} (battles are fought in order)`);
+    if (entry.scenarioId !== battle.scenarioId) fail(`${path}.scenarioId`, `must be ${battle.scenarioId}`);
+    const attempt = state.history.slice(0, n).filter((item) => item.battleId === battle.id).length + 1;
+    if (entry.attempt !== attempt) fail(`${path}.attempt`, `must be ${attempt}`);
+
+    const slots = Object.entries(battle.slots);
+    if (entry.companies.length !== slots.length) fail(`${path}.companies`, `must have one result per slot (${slots.length})`);
+    roster = rosterFor(def, { ...state, companies: roster }, battle);
+    let broken = 0;
+    // Slot order matters: renown titles already taken depend on it, as in recordBattle.
+    for (const [squadId, companyId] of slots) {
+      const line = entry.companies.find((item) => item.squadId === squadId);
+      if (!line) fail(`${path}.companies`, `has no result for slot ${squadId}`);
+      if (line.companyId !== companyId) fail(`${path}.companies`, `slot ${squadId} must be ${companyId}`);
+      const company = roster.find((item) => item.id === companyId)!;
+      if (line.resolveBefore !== company.resolve) fail(`${path}.companies`, `${companyId} Resolve before must be ${company.resolve}`);
+      const earned = settleCompany(roster, company, line.ended, entry.outcome);
+      if (line.resolveAfter !== company.resolve) fail(`${path}.companies`, `${companyId} Resolve after must be ${company.resolve}`);
+      if (line.renownEarned !== earned) fail(`${path}.companies`, `${companyId} renown earned must be ${earned ?? "none"}`);
+      if (line.ended === "routed" || line.ended === "destroyed") broken += 1;
+    }
+    if (entry.companiesBroken !== broken) fail(`${path}.companiesBroken`, `must be ${broken}`);
+    if (entry.outcome !== "defeat") battleIndex += 1;
+  });
+
+  if (state.battleIndex !== battleIndex) fail("campaign.battleIndex", `must be ${battleIndex} for this history`);
+  if (state.companies.length !== roster.length) fail("campaign.companies", `must be the ${roster.length} companies that have fought`);
+  state.companies.forEach((item, index) => {
+    if (!sameCompany(item, roster[index])) fail(`campaign.companies[${index}]`, `does not match the history (expected ${roster[index].id})`);
+  });
 }
