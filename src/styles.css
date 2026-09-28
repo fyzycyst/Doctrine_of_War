@@ -3005,3 +3005,73 @@ h3 {
 .roster.dense .meter {
   height: 3px;
 }
+
+/* The war's results fold away late in the campaign; the ledger tightens for a big army. */
+.campaign-screen .results summary {
+  margin: 14px 0 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ledger.dense .ledger-row {
+  grid-template-columns: 18px 1fr;
+  gap: 6px;
+  padding: 3px 0;
+}
+
+.ledger.dense .ledger-glyph {
+  height: 20px;
+}
+
+.ledger.dense .ledger-glyph .glyph {
+  width: 12px;
+  height: 12px;
+}
+
+.ledger.dense .ledger-body {
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  column-gap: 8px;
+}
+
+.ledger.dense .ledger-name {
+  font-size: 12px;
+}
+
+.ledger.dense .ledger-sub {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ledger.dense .ledger-stats {
+  display: none;
+}
+
+/* The ending's ledger runs in two columns so a full army fits without scrolling. */
+.end-ledger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.end-ledger .ledger-row:nth-child(2) {
+  border-top: 0;
+}
+
+.end-screen .epilogue-columns {
+  grid-template-columns: 2.4fr 1fr;
+}
+
+@media (max-height: 880px) {
+  .end-screen .epilogue {
+    bottom: 16px;
+    max-height: calc(100% - 240px);
+    padding-top: 14px;
+  }
+}

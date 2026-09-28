@@ -45,7 +45,7 @@ export function CampaignScreen({ onSettings }: { onSettings?: () => void }) {
           <h1>{definition.title}</h1>
         </header>
 
-        <aside className="panel ledger" aria-labelledby="ledger-title">
+        <aside className={`panel ledger ${companies.length > 8 ? "dense" : ""}`} aria-labelledby="ledger-title">
           <h2 id="ledger-title">Army ledger</h2>
           {mustering && <p className="quiet">Mustering for {next?.title}</p>}
           <ul>
@@ -70,8 +70,11 @@ export function CampaignScreen({ onSettings }: { onSettings?: () => void }) {
             </ol>
           </nav>
           {campaign.history.length > 0 && (
-            <>
-              <h3>Results</h3>
+            // Late in the war the full record would cover the islands: fold it away.
+            <details className="results" open={campaign.history.length < 3}>
+              <summary>
+                Results <span className="mono">({campaign.history.length})</span>
+              </summary>
               <ol className="history">
                 {campaign.history.map((record, index) => (
                   <li key={index} className={`outcome-${record.outcome}`}>
@@ -86,7 +89,7 @@ export function CampaignScreen({ onSettings }: { onSettings?: () => void }) {
                   </li>
                 ))}
               </ol>
-            </>
+            </details>
           )}
         </aside>
 
@@ -124,7 +127,10 @@ export function CampaignScreen({ onSettings }: { onSettings?: () => void }) {
 export function LedgerRow({ company }: { company: CampaignCompany }) {
   const broken = company.casualties.routed + company.casualties.destroyed;
   return (
-    <li className="ledger-row">
+    <li
+      className="ledger-row"
+      title={`${company.name} · ${resolveRank(company.resolve)} ${company.resolve > 0 ? "+" : ""}${company.resolve}${company.renown ? ` · “${company.renown.title}”` : ""} · ${company.battlesFought} ${company.battlesFought === 1 ? "battle" : "battles"}`}
+    >
       <span className="ledger-glyph" title={ROLE_NAME[company.role]}>
         <RoleGlyph role={company.role} size={16} />
       </span>
