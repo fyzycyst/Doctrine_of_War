@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -17,6 +17,7 @@ function loadFirstBreach(fortune: "on" | "off" = "off", seed = 1) {
 const game = () => useGame.getState();
 
 beforeEach(() => {
+  useGame.setState({ playbackSpeed: 1, pace: "readable" });
   useAppStore.getState().clearSelection();
   useAppStore.getState().setHoveredSquad(null);
   loadFirstBreach();
@@ -64,6 +65,10 @@ describe("command flow on The First Breach (fortune off)", () => {
     expect(within(confirm).getAllByRole("listitem")).toHaveLength(3);
     await user.click(within(confirm).getByRole("button", { name: "Seal anyway" }));
 
+    // The phase plays out on the board; Skip jumps to the final state and the report.
+    expect(game().stage).toBe("resolving");
+    await user.click(screen.getByRole("button", { name: /Skip/ }));
+
     // Report for phase 1, then play on until the battle ends.
     expect(screen.getByText("Chronicle · Phase 1")).toBeInTheDocument();
     expect(screen.getByText(/seed/)).toHaveTextContent("#1");
@@ -74,6 +79,7 @@ describe("command flow on The First Breach (fortune off)", () => {
       if (game().stage === "command") {
         await user.click(screen.getByRole("button", { name: "Seal Orders" }));
         await user.click(screen.getByRole("button", { name: "Seal anyway" }));
+        await user.click(screen.getByRole("button", { name: /Skip/ }));
       }
       await user.click(screen.getByRole("button", { name: /Next Phase|See the outcome/ }));
     }
@@ -101,7 +107,10 @@ describe("command flow on The First Breach (fortune off)", () => {
     const user = userEvent.setup();
     render(<App />);
     await toCommand(user);
-    act(() => game().sealOrders());
+    act(() => {
+      game().sealOrders();
+      game().finishPlayback();
+    });
     const report = screen.getByRole("dialog", { name: /./ });
     expect(report.tagName).toBe("DIALOG");
     expect(report).toHaveAttribute("data-modal", "true");
@@ -120,7 +129,7 @@ describe("command flow on The First Breach (fortune off)", () => {
     }
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(game().stage).toBe("report");
+    expect(game().stage).toBe("resolving");
   });
 });
 
@@ -202,6 +211,7 @@ describe("retry", () => {
     act(() => {
       for (let guard = 0; guard < 5 && game().stage !== "outcome"; guard += 1) {
         if (game().stage === "command") game().sealOrders();
+        game().finishPlayback();
         game().nextPhase();
       }
     });
@@ -286,13 +296,83 @@ describe("keyboard and board selection", () => {
   });
 });
 
+describe("phase playback", () => {
+  async function sealPhase(user: ReturnType<typeof userEvent.setup>) {
+    await toCommand(user);
+    act(() => game().sealOrders());
+    expect(game().stage).toBe("resolving");
+  }
+
+  it("plays the phase on the board, then opens the report on its own", async () => {
+    const user = userEvent.setup();
+    loadFirstBreach("on", 146);
+    render(<App />);
+    const before = game().view.squads.map((squad) => [squad.id, squad.strength]);
+    act(() => useGame.setState({ playbackSpeed: 200 }));
+    await sealPhase(user);
+
+    // The roster follows playback, not the resolved end state.
+    expect(game().display?.squads.map((squad) => [squad.id, squad.strength])).toEqual(before);
+    expect(screen.getByRole("button", { name: /Skip/ })).toHaveFocus();
+    expect(screen.getByRole("img", { name: /The phase begins|Beat \d of 3/ })).toBeInTheDocument();
+
+    await waitFor(() => expect(game().stage).toBe("report"), { timeout: 5000 });
+    expect(game().display).toBeNull();
+    expect(screen.getByText("Chronicle · Phase 1")).toBeInTheDocument();
+  });
+
+  it("skips to the final state with Space", async () => {
+    const user = userEvent.setup();
+    loadFirstBreach("on", 146);
+    render(<App />);
+    await sealPhase(user);
+    await user.keyboard(" ");
+    await waitFor(() => expect(game().stage).toBe("report"));
+    expect(game().display).toBeNull();
+    expect(screen.getByRole("button", { name: "Next Phase" })).toBeInTheDocument();
+  });
+
+  it("skips with Escape too, and the pace toggle is live during playback", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await sealPhase(user);
+    await user.click(screen.getByRole("button", { name: "Fast" }));
+    expect(game().pace).toBe("fast");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(game().stage).toBe("report"));
+  });
+
+  it("replays the phase from the report without re-running the engine", async () => {
+    const user = userEvent.setup();
+    loadFirstBreach("on", 146);
+    render(<App />);
+    await sealPhase(user);
+    await user.click(screen.getByRole("button", { name: /Skip/ }));
+    const engine = game().engine;
+    const log = game().log;
+    const runId = game().runId;
+
+    await user.click(screen.getByRole("button", { name: /Replay phase/ }));
+    expect(game().stage).toBe("resolving");
+    expect(game().runId).toBe(runId + 1);
+    expect(game().display).toEqual(log[0].start);
+    await user.click(screen.getByRole("button", { name: /Skip/ }));
+    await waitFor(() => expect(game().stage).toBe("report"));
+    expect(game().engine).toBe(engine);
+    expect(game().log).toBe(log);
+  });
+});
+
 describe("selection after a phase", () => {
   it("moves the selection off a company that routed", async () => {
     const user = userEvent.setup();
     render(<App />);
     await toCommand(user);
     await user.click(screen.getByRole("option", { name: /Dawnwatch Archers/ }));
-    act(() => game().sealOrders());
+    act(() => {
+      game().sealOrders();
+      game().finishPlayback();
+    });
     // Rout the selected company in the resolved state, as the engine would.
     const engine = structuredClone(game().engine);
     const archers = engine.squads.find((squad) => squad.id === "dawnwatch_archers")!;

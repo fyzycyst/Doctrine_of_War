@@ -3,7 +3,9 @@
 //
 //   ?scenario=emberFord    pick a scenario (id or camelCase name)
 //   &fortune=off &seed=7   battle setup
-//   &stage=deploy|command|report|outcome   fast-forward (orders: &plan=intended|bad)
+//   &stage=deploy|command|resolving|report|outcome   fast-forward (orders: &plan=intended|bad)
+//   &phase=2               which phase to stop in (command, resolving, report)
+//   &pauseAt=rule|rule-mine|surge|rout|…   freeze playback on the first callout of that kind
 //   &select=<squadId>      select a squad
 //   &still=1               no idle camera drift (captures)
 import { scenarios, type EngineScenario } from "../game/engine";
@@ -12,6 +14,7 @@ import { useAppStore } from "./store";
 
 export interface BootOptions {
   still: boolean;
+  pauseAt?: string;
 }
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -20,7 +23,7 @@ function findScenario(key: string | null): EngineScenario | undefined {
   return key ? scenarios.find((item) => normalize(item.id) === normalize(key)) : undefined;
 }
 
-const ORDER: Stage[] = ["briefing", "deploy", "command", "report", "outcome"];
+const ORDER: Stage[] = ["briefing", "deploy", "command", "resolving", "report", "outcome"];
 
 export function bootFromUrl(search: string): BootOptions {
   const params = new URLSearchParams(search);
@@ -44,21 +47,28 @@ export function bootFromUrl(search: string): BootOptions {
   const stage = params.get("stage") as Stage | null;
   const goal = stage ? ORDER.indexOf(stage) : -1;
   const plan = params.get("plan");
-  for (let guard = 0; goal > 0 && guard < 50; guard += 1) {
+  const phase = Math.max(1, Number(params.get("phase")) || 1);
+  for (let guard = 0; goal > 0 && guard < 60; guard += 1) {
     const now = useGame.getState();
-    if (ORDER.indexOf(now.stage) >= goal) {
-      break;
-    }
+    const played = now.log.length;
     if (now.stage === "briefing") now.takeCommand();
-    else if (now.stage === "deploy") now.confirmDeployment();
-    else if (now.stage === "command") {
+    else if (now.stage === "deploy") {
+      if (goal <= ORDER.indexOf("deploy")) break;
+      now.confirmDeployment();
+    } else if (now.stage === "command") {
+      if (stage === "command" && played + 1 >= phase) break;
       const orders = plan === "bad" ? now.scenario.referencePlans?.bad : plan ? now.scenario.referencePlans?.intended : undefined;
       for (const [squadId, doctrineId] of Object.entries(orders ?? {})) now.assignDoctrine(squadId, doctrineId);
       now.sealOrders();
+    } else if (now.stage === "resolving") {
+      // Leave this phase's playback running; skip earlier ones.
+      if (stage === "resolving" && played >= phase) break;
+      now.finishPlayback();
     } else if (now.stage === "report") {
-      // Reaching "report" stops at the first report; "outcome" keeps playing phases.
-      if (goal === ORDER.indexOf("report")) break;
+      if (stage === "report" && played >= phase) break;
       now.nextPhase();
+    } else {
+      break;
     }
   }
 
@@ -66,5 +76,5 @@ export function bootFromUrl(search: string): BootOptions {
   if (select) {
     useAppStore.getState().selectSquad(select);
   }
-  return { still: params.get("still") === "1" };
+  return { still: params.get("still") === "1", pauseAt: params.get("pauseAt") ?? undefined };
 }

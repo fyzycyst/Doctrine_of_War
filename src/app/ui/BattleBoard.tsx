@@ -2,7 +2,9 @@
 // the player's visibleState via the renderer's own mappers (src/render/fromEngine.ts).
 // Weather/fog props (T08) and the playback animationRef (T06) plug in here.
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useAmbience } from "../../audio";
+import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { DioramaCamera, wideShot } from "../../render/camera/DioramaCamera";
 import { Diorama } from "../../render/Diorama";
 import { lightingFor, visibilityFromView, weatherFor } from "../../render/fromEngine";
@@ -12,10 +14,11 @@ import { PostFX } from "../../render/post/PostFX";
 import { canvasDpr } from "../../render/quality";
 import { emberDusk } from "../../render/skins";
 import { deploymentHexes } from "../game/deploy";
-import { useGame } from "../game/gameStore";
+import { useGame, useShownView } from "../game/gameStore";
 import { toDioramaSquads } from "../game/view";
 import { useAppStore } from "../store";
 import { usePrefersReducedMotion } from "./motion";
+import { PlaybackStage } from "./PlaybackStage";
 
 declare global {
   interface Window {
@@ -24,9 +27,17 @@ declare global {
   }
 }
 
-export function BattleBoard({ still = false }: { still?: boolean }) {
+export function BattleBoard({
+  still = false,
+  animationRef,
+}: {
+  still?: boolean;
+  /** The squad animator, for the playback director (T06). */
+  animationRef?: RefObject<SquadAnimationApi | null>;
+}) {
   const scenario = useGame((s) => s.scenario);
-  const view = useGame((s) => s.view);
+  // During playback this is the director's layer, so squads move as the phase plays.
+  const view = useShownView();
   const stage = useGame((s) => s.stage);
   const clearSelection = useAppStore((s) => s.clearSelection);
   const quality = useAppStore((s) => s.quality);
@@ -38,10 +49,18 @@ export function BattleBoard({ still = false }: { still?: boolean }) {
   const shot = useMemo(() => wideShot(boardRadius(scenario.board)), [scenario.board]);
   // Reduced motion: no idle camera drift. (Embers, water and fire shimmer are render-owned; see T08.)
   const reducedMotion = usePrefersReducedMotion();
+  const shaking = useGateShake(reducedMotion);
+  const water = useMemo(() => scenario.board.hexes.some((hex) => hex.terrain === "river" || hex.terrain === "ford"), [scenario.board]);
+  useAmbience({
+    timeOfDay: lightingFor(scenario.timeOfDay),
+    weather: weatherFor(view.weather),
+    water,
+    hostDrums: view.squads.some((squad) => squad.faction !== view.viewer && squad.status === "active"),
+  });
   // T08 fog of war: the renderer's adapter over the same filtered view.
   const visibility = useMemo(() => visibilityFromView(view, scenario), [view, scenario]);
   return (
-    <div className="board" aria-hidden="true">
+    <div className={`board ${shaking ? "shake" : ""}`} aria-hidden="true">
       <Canvas
         shadows="soft"
         dpr={canvasDpr(quality)}
@@ -57,8 +76,10 @@ export function BattleBoard({ still = false }: { still?: boolean }) {
             squads={squads}
             deploymentHexes={zone}
             visibility={visibility}
+            animationRef={animationRef}
             onFiguresReady={onFiguresReady}
           />
+          <PlaybackStage board={scenario.board} shot={shot} reducedMotion={reducedMotion} />
           <PostFX />
           <FrameProbe ready={figuresReady} />
         </LookProvider>
@@ -74,4 +95,17 @@ function FrameProbe({ ready }: { ready: boolean }) {
     window.__battleBoard = { ready: ready && frames.current > 90, frames: frames.current };
   });
   return null;
+}
+
+/** A short board shake when the gate is struck (never under reduced motion). */
+function useGateShake(reducedMotion: boolean) {
+  const shakeAt = useGame((s) => s.shakeAt);
+  const [shaking, setShaking] = useState(false);
+  useEffect(() => {
+    if (!shakeAt || reducedMotion) return undefined;
+    setShaking(true);
+    const timer = setTimeout(() => setShaking(false), 380);
+    return () => clearTimeout(timer);
+  }, [shakeAt, reducedMotion]);
+  return shaking;
 }

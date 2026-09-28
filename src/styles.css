@@ -1400,7 +1400,7 @@ h3 {
 
 .report-foot {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 8px 12px;
   padding: 12px 20px 16px;
@@ -1605,4 +1605,342 @@ h3 {
 /* Leave room for the wax seal on the chosen card's name. */
 .doctrine-card.chosen .card-head {
   padding-right: 22px;
+}
+
+/* --------------------------------------------------------------- playback */
+
+.mute {
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.report-foot .btn-quiet,
+.skip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.playback-bar {
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 100%;
+  margin-bottom: 18px;
+  padding: 8px 10px 8px 16px;
+  border: 1px solid var(--gold-line);
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.beat-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.beat-label {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold-hi);
+}
+
+.playback-caption {
+  margin: 0;
+  min-width: 0;
+  width: 380px;
+  font-size: 14px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skip {
+  padding: 5px 10px 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.skip kbd {
+  padding: 0 5px;
+  border: 1px solid rgba(239, 227, 200, 0.25);
+  border-radius: 3px;
+  font: 11px var(--body);
+  color: var(--muted);
+}
+
+/* Callouts: anchored over squads (drei <Html>) or, for weather, on screen. */
+.callout {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 11px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--bone);
+  font-family: var(--body);
+  pointer-events: none;
+  transform-origin: 50% 100%;
+  animation: callout-pop 0.28s var(--ease) both;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+}
+
+.callout-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.callout-text {
+  font-size: 13px;
+}
+
+/* The doctrine made visible: a small order-scroll banner in the card's style. */
+.callout-rule {
+  position: relative;
+  padding: 7px 14px 8px;
+  border: 1px solid var(--gold);
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(212, 166, 74, 0.16), transparent 70%),
+    linear-gradient(180deg, var(--card-hi), var(--card));
+  box-shadow: inset 0 0 0 2px var(--card), inset 0 0 0 3px rgba(212, 166, 74, 0.35);
+}
+
+.callout-rule::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--card);
+  border-right: 1px solid var(--gold);
+  border-bottom: 1px solid var(--gold);
+}
+
+/* Your own orders are the headline: a touch larger than the Host's. */
+.callout-rule.mine:not(.repeat) {
+  padding: 9px 16px 10px;
+}
+
+.callout-rule.mine:not(.repeat) .callout-title {
+  font-size: 13px;
+}
+
+.callout-rule.mine:not(.repeat) .callout-line {
+  font-size: 15.5px;
+}
+
+.callout-rule.theirs {
+  border-color: #b5543a;
+  box-shadow: inset 0 0 0 2px var(--card), inset 0 0 0 3px rgba(224, 138, 98, 0.35);
+}
+
+.callout-rule.theirs::after {
+  border-color: #b5543a;
+}
+
+.callout-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--gold-hi);
+}
+
+.callout-rule.theirs .callout-head {
+  color: var(--rust-text);
+}
+
+.callout-rule .callout-title {
+  color: var(--bone);
+}
+
+.callout-line {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.callout .rule-when {
+  font-weight: 500;
+}
+
+.callout .rule-then {
+  color: var(--gold-hi);
+}
+
+.callout-rule.repeat {
+  padding: 4px 10px 5px;
+  opacity: 0.92;
+}
+
+.callout-rule.repeat .callout-line {
+  font-size: 12.5px;
+}
+
+.callout-surge {
+  border: 1px solid var(--gold-hi);
+  background: linear-gradient(180deg, #f6d27e, #c8932f);
+  color: #2a1a08;
+  box-shadow: 0 0 22px rgba(240, 198, 107, 0.65);
+}
+
+.callout-surge .callout-title {
+  font-size: 15px;
+}
+
+.callout-waver {
+  border: 1px dashed rgba(239, 227, 200, 0.55);
+  background: rgba(40, 38, 42, 0.88);
+  color: #cfc8bb;
+  font-style: italic;
+}
+
+.callout-waver .callout-title {
+  color: #ebe5d8;
+}
+
+.callout-dread {
+  border: 1px solid #7a1f18;
+  background: radial-gradient(120% 120% at 50% 100%, #5a0f0b, #1a0b0b 70%);
+  color: #f3c2b4;
+  animation: callout-pop 0.28s var(--ease) both, dread-swell 1.4s ease-in-out 0.2s both;
+}
+
+.callout-dread .callout-title {
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+}
+
+.callout-rout {
+  border: 1px solid rgba(239, 227, 200, 0.3);
+  background: rgba(24, 20, 22, 0.9);
+  color: var(--muted);
+}
+
+.callout-rout .callout-text {
+  color: var(--rust-text);
+}
+
+.callout-rally {
+  border: 1px solid var(--lapis-text);
+  background: rgba(24, 38, 70, 0.92);
+}
+
+.callout-rally .callout-text {
+  color: var(--lapis-text);
+}
+
+.callout-sighted {
+  border: 1px solid rgba(143, 176, 232, 0.5);
+  background: rgba(16, 20, 30, 0.88);
+  font-size: 12px;
+}
+
+.callout-gate {
+  position: relative;
+  border: 1px solid var(--ember);
+  background: rgba(40, 18, 10, 0.92);
+}
+
+.callout-gate .callout-text {
+  font-variant-numeric: tabular-nums;
+  color: #ffb07a;
+}
+
+/* A crack of dust from the struck gate. */
+.dust {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 90px;
+  height: 60px;
+  margin-left: -45px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 60%, rgba(214, 190, 150, 0.7) 0 8px, transparent 18px),
+    radial-gradient(circle at 60% 40%, rgba(190, 165, 130, 0.6) 0 10px, transparent 22px),
+    radial-gradient(circle at 75% 70%, rgba(170, 150, 120, 0.5) 0 7px, transparent 16px);
+  animation: dust 1.1s ease-out both;
+}
+
+.callout-weather.screen {
+  position: absolute;
+  top: 78px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 8px 22px 9px;
+  border: 1px solid var(--gold-line);
+  background: var(--glass-strong);
+}
+
+.callout-weather .callout-text {
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  color: var(--gold-hi);
+}
+
+.board.shake {
+  animation: shake 0.38s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes callout-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes dread-swell {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(180, 30, 20, 0);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(180, 30, 20, 0.75);
+  }
+}
+
+@keyframes dust {
+  from {
+    opacity: 0.9;
+    transform: translateY(-20px) scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(1.4);
+  }
+}
+
+@keyframes shake {
+  20% {
+    transform: translate(-3px, 1px);
+  }
+  40% {
+    transform: translate(3px, -1px);
+  }
+  60% {
+    transform: translate(-2px, 1px);
+  }
+  80% {
+    transform: translate(1px, 0);
+  }
 }

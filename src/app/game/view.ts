@@ -62,8 +62,7 @@ export function isOnField(squad: VisibleSquad): squad is VisibleSquad & { hex: N
 
 /**
  * Squads for the diorama: everyone the player can see, via the renderer's own mapper.
- * Last-known enemies are drawn where they were last seen.
- * TODO(T05/T08): mark them as ghost silhouettes once DioramaSquad has a lastKnown flag.
+ * Last-known enemies carry `lastKnown` and draw as ghosts (T08).
  */
 export function toDioramaSquads(view: VisibleState): DioramaSquad[] {
   return dioramaSquads(view.squads.filter(isOnField));

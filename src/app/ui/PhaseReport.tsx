@@ -1,4 +1,4 @@
-import { Castle, CloudRain, Crown, Eye, Flag, Skull, Sparkles, Swords, Wind, type LucideIcon } from "lucide-react";
+import { Castle, CloudRain, Crown, Eye, Flag, RotateCcw, Skull, Sparkles, Swords, Wind, type LucideIcon } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { useGame } from "../game/gameStore";
 import {
@@ -53,6 +53,7 @@ export function PhaseReport() {
   const log = useGame((s) => s.log);
   const view = useGame((s) => s.view);
   const nextPhase = useGame((s) => s.nextPhase);
+  const replay = useGame((s) => s.replayPhase);
   const entry = log[log.length - 1];
   const button = useRef<HTMLButtonElement>(null);
 
@@ -127,6 +128,9 @@ export function PhaseReport() {
           <p className="report-meta">
             {WEATHER_NAME[entry.weather]} · seed <span className="mono">#{entry.seed}</span>
           </p>
+          <button type="button" className="btn-quiet" onClick={replay}>
+            <RotateCcw size={14} aria-hidden="true" /> Replay phase
+          </button>
           <button ref={button} type="button" className="btn-command" onClick={nextPhase}>
             {over ? "See the outcome" : "Next Phase"}
           </button>
