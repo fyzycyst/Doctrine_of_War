@@ -11,6 +11,7 @@ const SIZES = [
   [1280, 800],
 ];
 const STAGES = [
+  { name: "title", query: "screen=title", settleMs: 2500 },
   { name: "briefing", query: "stage=briefing" },
   { name: "deploy", query: "stage=deploy&select=greyford_shields" },
   { name: "command", query: "stage=command&select=greyford_shields" },

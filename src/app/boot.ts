@@ -1,5 +1,5 @@
 // Dev-only URL boot for the scenario picker and screenshot capture. Production always
-// starts at the First Breach briefing on its curated seed with fortune on (gameStore).
+// starts at the title screen (flowStore); `?screen=campaign|ending` opens those in dev.
 //
 //   ?scenario=emberFord    pick a scenario (id or camelCase name)
 //   &fortune=off &seed=7   battle setup
@@ -9,6 +9,7 @@
 //   &select=<squadId>      select a squad
 //   &still=1               no idle camera drift (captures)
 import { scenarios, type EngineScenario } from "../game/engine";
+import { useFlow } from "./flow/flowStore";
 import { useGame, type Stage } from "./game/gameStore";
 import { useAppStore } from "./store";
 
@@ -31,6 +32,11 @@ export function bootFromUrl(search: string): BootOptions {
   const fortune = params.get("fortune");
   const seed = Number(params.get("seed"));
   const game = useGame.getState();
+
+  // Any battle parameter skips the title and campaign map (dev and captures only).
+  if (scenario || fortune || seed || params.get("stage")) {
+    useFlow.getState().go("battle");
+  }
 
   if (scenario || fortune || seed) {
     // Another scenario than the campaign's current battle is played standalone.
@@ -70,6 +76,11 @@ export function bootFromUrl(search: string): BootOptions {
     } else {
       break;
     }
+  }
+
+  const screen = params.get("screen");
+  if (screen === "title" || screen === "campaign" || screen === "ending") {
+    useFlow.getState().go(screen);
   }
 
   const select = params.get("select");
