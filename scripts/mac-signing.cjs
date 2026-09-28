@@ -3,6 +3,7 @@
 // it only checks which variables are present.
 //
 //   CSC_LINK (+ CSC_KEY_PASSWORD) or CSC_NAME   Developer ID Application certificate
+//     (CSC_NAME is "Your Name (TEAMID)", WITHOUT the "Developer ID Application:" prefix)
 //   APPLE_API_KEY, APPLE_API_KEY_ID, APPLE_API_ISSUER   App Store Connect API key (notarytool)
 //
 // No env: identity null, exactly the unsigned local DMGs the project always built.

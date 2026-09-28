@@ -19,7 +19,7 @@ describe("mac signing config", () => {
     expect(result.forceCodeSigning).toBe(true);
     expect(result.mac).toMatchObject({ hardenedRuntime: true, entitlements: "build/entitlements.mac.plist", notarize: false });
     expect(result.mac).not.toHaveProperty("identity");
-    expect(macSigning({ CSC_NAME: "Developer ID Application: Someone (TEAMID)" }).mode).toBe("signed");
+    expect(macSigning({ CSC_NAME: "Someone (TEAMID)" }).mode).toBe("signed");
   });
 
   it("certificate + API key: notarized", () => {
