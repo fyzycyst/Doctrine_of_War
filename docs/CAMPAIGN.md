@@ -28,7 +28,8 @@ Code: `src/game/campaign/` (pure TypeScript; the campaign-map UI lives in the ap
 
 | Battle outcome | Company ended the battle… | Resolve |
 | --- | --- | --- |
-| victory or stalemate (the campaign advances) | steady (on the field, or escaped) | +1 |
+| victory (the campaign advances) | steady (on the field, or escaped) | +1 |
+| stalemate (the campaign advances) | steady | +0 (a stalemate earns nothing) |
 | victory | routed | −1 |
 | stalemate | routed | −2 (−1 plus the stalemate penalty) |
 | victory or stalemate | destroyed | **reforms at −2** and loses its renown title |
@@ -44,6 +45,37 @@ Code: `src/game/campaign/` (pure TypeScript; the campaign-map UI lives in the ap
   deterministic, original generator seeded by the company id (for example
   "The Fordwardens" or "The Unbowed"), rerolled if another company already holds the
   same title. The title is kept when Resolve later dips, and lost only on destruction.
+
+## Balancing campaign battles
+
+Carried-over Resolve and renown change a battle a lot, so `npm run balance` checks
+every campaign battle after the first against three rosters:
+
+| Roster | What it is | Guardrails |
+| --- | --- | --- |
+| baseline | the scenario as authored | full: intended wins ≥ 75%, bad ≤ 35%, every mono plan advances < 60% |
+| strong | the curated path (every earlier battle won with its intended plan on its curated seed), replayed live | full |
+| rough | a plausible bad run: the strong roster's best company destroyed and reformed at −2 (renown lost), the next two at −1 | **floor only**: intended advances ≥ 75%, bad advances ≤ 35%, no mono cap |
+
+**Why rough is only a floor.** The rough roster makes sure a struggling player can
+still win. Policing doctrine dominance there fights the escalation instead:
+- anything that makes a battered army winnable also makes blunt plans winnable;
+- on a broken army, "just do the one thing" working is acceptable.
+
+Doctrine dominance is policed on the baseline and strong rosters, and each battle's
+scenario tests include an **ablation test**. The intended plan uses at least two
+doctrine families in meaningful roles, and swapping out any one family costs at least
+15 points of advance rate.
+
+**The Host has heard of you** (`hostEscalation`, applied by `applyCampaign`):
+- The Host scales to the army that takes the field, relative to the roster the
+  scenario was authored for, in **both** directions.
+- *Fame* is the fielded companies' Resolve sum plus 2 per renowned company. Each point
+  of fame above (below) the authored roster's adds (removes) 2 strength on every Host
+  company, capped at ±12. Every 4 points shift Host Resolve by 1, capped at ±1.
+- Veterans draw the Host's hardest companies; a battered army faces a Host that holds
+  its best back. It is deliberately small: it keeps strong-roster battles tense rather
+  than rebalancing them.
 
 ## Saves
 

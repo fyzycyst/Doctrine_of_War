@@ -102,8 +102,9 @@ describe("roster and scenario injection", () => {
     expect(pikesSlot).toMatchObject({ name: "Greyford Shields", resolve: 3, renown: { title: "The Gatebreakers" } });
     // Companies joining here arrive fresh at Resolve 0 (the scenario's authored -1 is overridden).
     expect(applied.squads.find((squad) => squad.id === "mill_lane_guard")).toMatchObject({ name: "Mill Lane Guard", resolve: 0 });
-    // Host squads keep their own data, including the Unquenched's renown.
-    expect(applied.squads.find((squad) => squad.id === "pyre_sworn")).toEqual(emberFord.squads.find((squad) => squad.id === "pyre_sworn"));
+    // Host squads keep their identity and renown, hardened by the army's fame (see hostEscalation).
+    const pyre = emberFord.squads.find((squad) => squad.id === "pyre_sworn")!;
+    expect(applied.squads.find((squad) => squad.id === "pyre_sworn")).toEqual({ ...pyre, strength: pyre.strength + 10, resolve: 3 });
     expect(emberFord).toEqual(pristine);
     expect(rosterFor(def, state, def.battles[1]).map((company) => company.id)).toEqual([
       "greyford_shields",
@@ -161,12 +162,12 @@ describe("Resolve rules", () => {
     expect(next.companies.find((company) => company.id === "dawnwatch_archers")?.resolve).toBe(-3);
   });
 
-  it("stalemate advances but costs routed companies an extra point", () => {
+  it("stalemate advances but earns nothing, and costs routed companies an extra point", () => {
     const efState: CampaignState = { ...startCampaign(def), battleIndex: 1 };
     const final = finished(applyCampaign(def, efState, emberFord), "stalemate", { kestrel_lancers: "routed" });
     const next = recordBattle(def, efState, final);
     expect(next.companies.find((company) => company.id === "kestrel_lancers")?.resolve).toBe(-2);
-    expect(next.companies.find((company) => company.id === "mill_lane_guard")?.resolve).toBe(1);
+    expect(next.companies.find((company) => company.id === "mill_lane_guard")?.resolve).toBe(0);
     expect(next.battleIndex).toBe(2);
     expect(next.history[0].outcome).toBe("stalemate");
   });
@@ -229,7 +230,13 @@ describe("campaign flow with the real engine", () => {
   it("a stalemate at Ember Ford advances to the (placeholder) next battle; a defeat is retried", () => {
     const afterTutorial = play(startCampaign(def), firstBreach.referencePlans!.intended, "on", firstBreach.curatedSeed).next;
 
-    const stalemate = play(afterTutorial, everyone("rescue_standard"));
+    // Rally banners alone never test the vanguard: that timeout is a defeat now.
+    expect(play(afterTutorial, everyone("rescue_standard")).final.status).toBe("defeat");
+    // Find a night where the intended plan tests the vanguard but runs out of time.
+    let stalemate = play(afterTutorial, emberFord.referencePlans!.intended, "on", 1);
+    for (let seed = 2; seed <= 400 && stalemate.final.status !== "stalemate"; seed += 1) {
+      stalemate = play(afterTutorial, emberFord.referencePlans!.intended, "on", seed);
+    }
     expect(stalemate.final.status).toBe("stalemate");
     expect(stalemate.next.battleIndex).toBe(2);
     expect(currentBattle(def, stalemate.next)).toMatchObject({ id: "battle_2", placeholder: true });

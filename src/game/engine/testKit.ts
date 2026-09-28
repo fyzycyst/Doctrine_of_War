@@ -3,7 +3,7 @@
 import type { BoardLayout, HexCoord, TerrainType } from "../board";
 import type { EngineContext, EventBody } from "./context";
 import { doctrineLibrary } from "./doctrines";
-import { createInitialState, type BattleOptions } from "./resolvePhase";
+import { createInitialState, resolvePhase, type BattleOptions } from "./resolvePhase";
 import { createRng } from "./rng";
 import type {
   Action,
@@ -116,6 +116,19 @@ export function actionContext(
   };
   const get = (id: string) => state.squads.find((item) => item.id === id) as ActiveSquad;
   return { state, ctx, events, get };
+}
+
+/** Share of seeds (fortune on) in which `orders` advance the campaign: victory or stalemate. */
+export function advanceRate(scen: EngineScenario, orders: Record<string, string>, seeds = 60): number {
+  let advanced = 0;
+  for (let seed = 1; seed <= seeds; seed += 1) {
+    let state = createInitialState(scen, { seed, fortune: "on" });
+    while (state.status === "command") {
+      state = resolvePhase(state, orders, scen).state;
+    }
+    advanced += state.status === "victory" || state.status === "stalemate" ? 1 : 0;
+  }
+  return advanced / seeds;
 }
 
 export const kinds = (events: (EngineEvent | EventBody)[]) => events.map((event) => event.kind);

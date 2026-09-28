@@ -87,13 +87,27 @@ export function createInitialState(scenario: EngineScenario, options: BattleOpti
   return state;
 }
 
+/**
+ * Whether the player may give `squadId` this doctrine: anything in the scenario's
+ * playerDoctrineIds, or the squad's own scenario-default doctrine (always legal to
+ * resend, even if a scenario leaves it off the list).
+ */
+export function isOrderAllowed(scenario: EngineScenario, squadId: string, doctrineId: string): boolean {
+  const squad = scenario.squads.find((item) => item.id === squadId);
+  return Boolean(
+    squad &&
+      squad.faction === scenario.playerFaction &&
+      (scenario.playerDoctrineIds.includes(doctrineId) || squad.doctrineId === doctrineId),
+  );
+}
+
 function assign(
   state: EngineState,
   doctrines: DoctrineLibrary,
   orders: Orders,
   faction: FactionId,
   source: string,
-  allowed?: string[],
+  allowed?: (squadId: string, doctrineId: string) => boolean,
 ) {
   for (const [squadId, doctrineId] of Object.entries(orders)) {
     const squad = state.squads.find((item) => item.id === squadId);
@@ -101,7 +115,7 @@ function assign(
     if (!squad || !doctrine || squad.faction !== faction || doctrine.faction !== faction) {
       throw new Error(`Invalid ${source} order: ${squadId} -> ${doctrineId}`);
     }
-    if (allowed && !allowed.includes(doctrineId)) {
+    if (allowed && !allowed(squadId, doctrineId)) {
       throw new Error(`Invalid ${source} order: ${doctrineId} is not available in this scenario`);
     }
     squad.doctrineId = doctrineId;
@@ -148,7 +162,9 @@ export function resolvePhase(
     assign(state, doctrines, hostPhase.orders, opponentOf(scenario, scenario.playerFaction), "host schedule");
   }
   // Player orders must come from the scenario's doctrine list; starting doctrines are exempt.
-  assign(state, doctrines, orders, scenario.playerFaction, "player", scenario.playerDoctrineIds);
+  assign(state, doctrines, orders, scenario.playerFaction, "player", (squadId, doctrineId) =>
+    isOrderAllowed(scenario, squadId, doctrineId),
+  );
 
   const events: EngineEvent[] = [];
   const rng = createRng(state.rngState);
@@ -234,9 +250,9 @@ export function resolvePhase(
   }
 
   state.rngState = rng.state;
-  const title = `Phase ${phase}: ${hostPhase?.intent ?? "The armies clash."}`;
+  const intent = hostPhase?.intent ?? "The armies clash.";
   // The report is the player's account: only what the player's side witnessed.
-  const report = buildReport(phase, title, eventsFor(events, scenario.playerFaction), state);
+  const report = buildReport(phase, intent, eventsFor(events, scenario.playerFaction), state);
   return { state, events, report };
 }
 

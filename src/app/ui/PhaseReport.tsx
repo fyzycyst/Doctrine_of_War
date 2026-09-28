@@ -1,7 +1,7 @@
 import { Castle, CloudRain, Crown, Eye, Flag, Skull, Sparkles, Swords, Wind, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useGame } from "../game/gameStore";
-import { buildChronicle, firedOrders, reportHeadline, splitRule, WEATHER_NAME, type ChronicleTone, type FiredOrders } from "../game/view";
+import { buildChronicle, firedOrders, splitRule, WEATHER_NAME, type ChronicleTone, type FiredOrders } from "../game/view";
 
 const TONE_ICON: Record<ChronicleTone, LucideIcon> = {
   order: Flag,
@@ -39,18 +39,18 @@ export function ObjectiveStatus() {
 /** The chronicle of one phase, built only from the player's filtered event stream. */
 export function PhaseReport() {
   const log = useGame((s) => s.log);
-  const engine = useGame((s) => s.engine);
+  const view = useGame((s) => s.view);
   const scenario = useGame((s) => s.scenario);
   const nextPhase = useGame((s) => s.nextPhase);
   const entry = log[log.length - 1];
   const button = useRef<HTMLButtonElement>(null);
   useEffect(() => button.current?.focus(), [entry]);
 
-  // `engine` is used only to name the companies the (already filtered) events mention.
-  const chronicle = useMemo(() => (entry ? buildChronicle(entry.events, engine) : []), [entry, engine]);
+  // `view` (the player's visibleState) only names the companies the projected events mention.
+  const chronicle = useMemo(() => (entry ? buildChronicle(entry.events, view) : []), [entry, view]);
   const fired = useMemo(
-    () => (entry ? firedOrders(entry.events, engine, scenario.playerFaction) : []),
-    [entry, engine, scenario.playerFaction],
+    () => (entry ? firedOrders(entry.events, view, scenario.playerFaction) : []),
+    [entry, view, scenario.playerFaction],
   );
   if (!entry) {
     return null;
@@ -66,7 +66,7 @@ export function PhaseReport() {
       <section className="report" role="dialog" aria-modal="false" aria-labelledby="report-title">
         <header>
           <p className="report-eyebrow">Chronicle · Phase {entry.phase}</p>
-          <h2 id="report-title">{reportHeadline(entry.title)}</h2>
+          <h2 id="report-title">{entry.intent}</h2>
         </header>
 
         <div className="report-body">

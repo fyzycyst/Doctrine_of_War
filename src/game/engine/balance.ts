@@ -9,7 +9,7 @@ export const GUARDRAILS = {
   intendedMin: 0.75,
   /** The named bad plan must win at most this often. */
   badMax: 0.35,
-  /** No "everyone on doctrine X" plan may win this often. */
+  /** No "everyone on doctrine X" plan may ADVANCE (win or stalemate) this often. */
   monoMax: 0.6,
 };
 
@@ -86,8 +86,15 @@ export function runBalance(scenario: EngineScenario, seeds: number, fortune: For
   });
 }
 
+/**
+ * "full": every guardrail. "floor": a winnability floor only (the intended plan
+ * advances >= intendedMin, the bad plan advances <= badMax, no mono cap), used for
+ * the campaign's "rough" reference roster.
+ */
+export type GuardrailPolicy = "full" | "floor";
+
 /** Human-readable guardrail failures; empty only when the scenario is provably in balance (fails closed). */
-export function guardrailFailures(rows: BalanceRow[]): string[] {
+export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = "full"): string[] {
   const pct = (value: number) => `${Math.round(value * 100)}%`;
   const missing = (["intended", "bad"] as const)
     .filter((kind) => !rows.some((row) => row.kind === kind))
@@ -96,14 +103,24 @@ export function guardrailFailures(rows: BalanceRow[]): string[] {
     if (!Number.isFinite(row.winRate) || row.games < 1) {
       return [`${row.name} has no valid win rate (${row.wins}/${row.games})`];
     }
+    if (policy === "floor") {
+      const advance = row.winRate + row.stalemateRate;
+      if (row.kind === "intended" && advance < GUARDRAILS.intendedMin) {
+        return [`intended plan advances ${pct(advance)} (< ${pct(GUARDRAILS.intendedMin)})`];
+      }
+      if (row.kind === "bad" && advance > GUARDRAILS.badMax) {
+        return [`bad plan advances ${pct(advance)} (> ${pct(GUARDRAILS.badMax)})`];
+      }
+      return [];
+    }
     if (row.kind === "intended" && row.winRate < GUARDRAILS.intendedMin) {
       return [`intended plan wins ${pct(row.winRate)} (< ${pct(GUARDRAILS.intendedMin)})`];
     }
     if (row.kind === "bad" && row.winRate > GUARDRAILS.badMax) {
       return [`bad plan wins ${pct(row.winRate)} (> ${pct(GUARDRAILS.badMax)})`];
     }
-    if (row.kind === "mono" && row.winRate >= GUARDRAILS.monoMax) {
-      return [`${row.name} wins ${pct(row.winRate)} (>= ${pct(GUARDRAILS.monoMax)})`];
+    if (row.kind === "mono" && row.winRate + row.stalemateRate >= GUARDRAILS.monoMax) {
+      return [`${row.name} advances ${pct(row.winRate + row.stalemateRate)} (>= ${pct(GUARDRAILS.monoMax)})`];
     }
     return [];
   }));

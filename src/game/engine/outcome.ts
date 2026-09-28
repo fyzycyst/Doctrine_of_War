@@ -26,6 +26,9 @@ export function validateWinCondition(scenario: EngineScenario) {
   if (win.kind !== "destroySquads") {
     return;
   }
+  if (win.count !== undefined && (!Number.isInteger(win.count) || win.count < 1 || win.count > win.squadIds.length)) {
+    throw new Error(`Scenario ${scenario.id}: destroySquads count must be 1..${win.squadIds.length}`);
+  }
   if (win.squadIds.length === 0) {
     throw new Error(`Scenario ${scenario.id}: destroySquads needs at least one target`);
   }
@@ -72,7 +75,8 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
         const squad = state.squads.find((item) => item.id === id);
         return squad !== undefined && (squad.status === "routed" || squad.status === "destroyed");
       };
-      if (win.squadIds.length > 0 && win.squadIds.every(broken)) {
+      const needed = win.count ?? win.squadIds.length;
+      if (win.squadIds.length > 0 && win.squadIds.filter(broken).length >= needed) {
         return { status: "victory", reason: "Every marked enemy company is broken." };
       }
       break;
@@ -100,11 +104,24 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
   }
 
   if (final) {
-    return win.kind === "holdObjective"
-      ? { status: "victory", reason: "The line held until dawn." }
-      : scenario.timeoutOutcome === "stalemate"
-        ? { status: "stalemate", reason: "Neither side broke: the Host did not get through, and its vanguard still stands." }
-        : { status: "defeat", reason: "Time ran out before the task was done." };
+    if (win.kind === "holdObjective") {
+      return { status: "victory", reason: "The line held until dawn." };
+    }
+    if (scenario.timeoutOutcome === "stalemate") {
+      const needed = scenario.stalemateRequires;
+      const targets = needed?.targetsOnly && win.kind === "destroySquads" ? win.squadIds : null;
+      const broken = state.squads.filter(
+        (squad) =>
+          squad.faction !== scenario.playerFaction &&
+          (squad.status === "routed" || squad.status === "destroyed") &&
+          (targets === null || targets.includes(squad.id)),
+      ).length;
+      if (!needed || broken >= needed.minEnemyBroken) {
+        return { status: "stalemate", reason: "Neither side broke: the Host did not get through, and its vanguard still stands." };
+      }
+      return { status: "defeat", reason: "Time ran out and the enemy was never truly tested." };
+    }
+    return { status: "defeat", reason: "Time ran out before the task was done." };
   }
 
   return null;

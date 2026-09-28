@@ -150,8 +150,11 @@ export type WinCondition =
   | { kind: "holdObjective"; objectiveId: string }
   /** Victory once `count` player squads leave the board via `edgeHexes`; defeat at the end of maxPhases. */
   | { kind: "escapeEdge"; edgeHexes: HexCoord[]; count: number }
-  /** Victory once every listed squad is routed or destroyed; defeat at the end of maxPhases. */
-  | { kind: "destroySquads"; squadIds: string[] };
+  /**
+   * Victory once `count` (default: all) of the listed squads are routed or destroyed;
+   * otherwise the timeout rules apply at the end of maxPhases.
+   */
+  | { kind: "destroySquads"; squadIds: string[]; count?: number };
 
 /** Extra ways the player can lose, on top of the win condition's own defeat rules. */
 export type DefeatCondition =
@@ -190,6 +193,12 @@ export interface EngineScenario {
    * (holdObjective always wins on time). Default "defeat".
    */
   timeoutOutcome?: "defeat" | "stalemate";
+  /**
+   * A stalemate must be earned: at least `minEnemyBroken` enemy companies routed or
+   * destroyed (counting only the win condition's targets when `targetsOnly`), or
+   * the timeout is a defeat.
+   */
+  stalemateRequires?: { minEnemyBroken: number; targetsOnly?: boolean };
   /** Defaults to "day". */
   timeOfDay?: TimeOfDay;
   /** A fortune-on seed that plays the intended plan to a clean win (first playthrough, video capture). */
@@ -372,7 +381,10 @@ export type EngineEvent =
 
 export interface PhaseReport {
   phase: number;
+  /** "Phase N: <intent>". */
   title: string;
+  /** The Host's intent for the phase on its own (the host schedule's line). */
+  intent: string;
   seed: number;
   weather: Weather;
   lines: string[];

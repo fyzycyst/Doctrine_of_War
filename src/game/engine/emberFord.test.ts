@@ -5,6 +5,7 @@ import { doctrineLibrary } from "./doctrines";
 import { isLit, sightRange } from "./fog";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { emberFord } from "./scenarios/emberFord";
+import { advanceRate } from "./testKit";
 import type { EngineEvent, Orders } from "./types";
 
 const intended = emberFord.referencePlans!.intended;
@@ -36,7 +37,7 @@ describe("Ember Ford", () => {
     const board = emberFord.board;
     expect([board.width, board.height, board.hexes.length]).toEqual([7, 6, 42]);
     const terrain = (q: number, r: number) => getHex(board, { q, r })?.terrain;
-    expect(Array.from({ length: 6 }, (_, r) => terrain(3, r))).toEqual(["river", "ford", "river", "river", "ford", "river"]);
+    expect(Array.from({ length: 6 }, (_, r) => terrain(4, r))).toEqual(["river", "ford", "river", "river", "ford", "river"]);
     expect(board.hexes.filter((hex) => hex.terrain === "ridge")).toHaveLength(1);
     expect(board.hexes.filter((hex) => hex.terrain === "ruin").length).toBeGreaterThanOrEqual(2);
     expect(emberFord.timeOfDay).toBe("nightFires");
@@ -52,9 +53,12 @@ describe("Ember Ford", () => {
       occupied.add(hexKey(setup.hex));
       expect(doctrineLibrary[setup.doctrineId]?.faction).toBe(setup.faction);
     }
-    // Banners hold the far (east) bank, the Host the near (west) bank.
-    expect(banners.every((squad) => squad.hex.q > 3)).toBe(true);
-    expect(host.every((squad) => squad.hex.q < 3)).toBe(true);
+    // Banners hold the far (east) bank; the Host holds the near bank, except its two
+    // outriders, who crossed upstream and lurk beside the roads.
+    expect(banners.every((squad) => squad.hex.q > 4)).toBe(true);
+    const outriders = ["cinderhook_raiders", "soot_hounds"];
+    expect(host.filter((squad) => !outriders.includes(squad.id)).every((squad) => squad.hex.q < 4)).toBe(true);
+    expect(host.filter((squad) => outriders.includes(squad.id)).every((squad) => squad.hex.q > 4)).toBe(true);
     expect(banners.length).toBeGreaterThanOrEqual(6);
     expect(banners.length).toBeLessThanOrEqual(8);
     expect(banners.some((squad) => squad.role === "cavalry")).toBe(true);
@@ -77,10 +81,21 @@ describe("Ember Ford", () => {
     expect(emberFord.playerDoctrineIds).toHaveLength(5);
   });
 
-  it("ends in a stalemate, not a defeat, when the night runs out with nobody through", () => {
+  it("ends in a stalemate only if the vanguard was actually tested", () => {
     expect(emberFord.timeoutOutcome).toBe("stalemate");
-    // A line of rally banners never breaks the vanguard, but never lets it through either.
-    expect(battle(everyone("rescue_standard"), 1, "off").state.status).toBe("stalemate");
+    expect(emberFord.stalemateRequires).toEqual({ minEnemyBroken: 1, targetsOnly: true });
+    // A line of rally banners never breaks a vanguard company: the timeout is a defeat.
+    const passive = battle(everyone("rescue_standard"), 1, "off");
+    expect(passive.state.status).toBe("defeat");
+    expect(passive.events.at(-1)).toMatchObject({ kind: "outcome", reason: expect.stringMatching(/never truly tested/) });
+    // The intended plan that breaks some of the vanguard but runs out of night: stalemate.
+    let close = battle(intended, 1, "on");
+    for (let seed = 2; seed <= 200 && close.state.status !== "stalemate"; seed += 1) {
+      close = battle(intended, seed, "on");
+    }
+    expect(close.state.status).toBe("stalemate");
+    const broken = close.state.squads.filter((squad) => ["pyre_sworn", "emberline_spears", "ashbound_levies"].includes(squad.id) && squad.status !== "active");
+    expect(broken.length).toBeGreaterThanOrEqual(1);
   });
 
   it("fields exactly one renowned Host champion", () => {
@@ -98,12 +113,24 @@ describe("Ember Ford", () => {
 
   it("teaches Counterstroke against overextension, kept steady by a rally banner", () => {
     const intendedRate = winRate(intended);
-    expect(intendedRate).toBeGreaterThanOrEqual(0.7);
-    // Without the Lanternbearers' rally, dread and attrition break the counterstroke.
+    expect(intendedRate).toBeGreaterThanOrEqual(0.75);
+    // Without a standard, dread and attrition crack the line and the outriders slip through.
     expect(winRate(everyone("clean_counterstroke"))).toBeLessThan(intendedRate - 0.3);
     // A line that only holds never breaks the vanguard.
     expect(winRate(everyone("shield_the_line"))).toBe(0);
   });
+
+  it("needs both doctrine families: ablating either costs at least 15 points of advance rate", () => {
+    const base = advanceRate(emberFord, intended);
+    const ablations: Record<string, Orders> = {
+      "banner -> Counterstroke": { ...intended, lanternbearers: "clean_counterstroke" },
+      "Counterstroke -> Shield the Line": { ...everyone("shield_the_line"), lanternbearers: "rescue_standard" },
+      "Counterstroke -> Hold for Dawn": { ...everyone("hold_for_dawn"), lanternbearers: "rescue_standard" },
+    };
+    for (const [label, orders] of Object.entries(ablations)) {
+      expect(base - advanceRate(emberFord, orders), label).toBeGreaterThanOrEqual(0.15);
+    }
+  }, 60_000);
 
   it("strikes crossers cleanly and punishes charges into supported companies", () => {
     const { events } = battle(intended, 2, "on");

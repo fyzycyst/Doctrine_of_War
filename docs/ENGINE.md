@@ -155,7 +155,8 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   - `holdObjective`: defeat at integrity 0, victory after `maxPhases`.
   - `escapeEdge {edgeHexes, count}`: a player squad standing on an edge hex after its
     activation exits; victory at `count` exits.
-  - `destroySquads {squadIds}`: victory once all of them are routed or destroyed. The
+  - `destroySquads {squadIds, count?}`: victory once `count` of them (default: all) are
+    routed or destroyed. The
     list must be non-empty and name only existing, non-player squads; otherwise
     `createInitialState` throws.
   - Optional `defeatConditions` add more ways to lose:
@@ -165,7 +166,9 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
     - `squadsLost {count}`: that many player squads are routed or destroyed ("the line
       breaks").
   - `timeoutOutcome: "defeat" | "stalemate"` (default `"defeat"`) decides what running out
-    of phases means for `escapeEdge` and `destroySquads`. With `"stalemate"`, the battle
+    of phases means for `escapeEdge` and `destroySquads`. A stalemate must be earned:
+    `stalemateRequires {minEnemyBroken, targetsOnly?}` turns a timeout with too few
+    enemies broken into a defeat. With `"stalemate"`, the battle
     ends with `status: "stalemate"`: neither side met its goal. The campaign treats it as
     "advance, with a Resolve penalty". `holdObjective` always wins on time. The balance
     harness reports stalemates as their own column; they never count as wins.
@@ -213,10 +216,34 @@ objective integrity, and exits 1 if a guardrail fails:
 
 - the intended plan wins ≥ 75%;
 - the bad plan wins ≤ 35%;
-- no mono plan wins ≥ 60%.
+- no mono plan **advances** (wins plus stalemates) ≥ 60%.
 
 `balance.test.ts` runs the same check with 60 seeds on every `npm test`. Every
 scenario in `scenarios/index.ts` must pass. The scenarios so far:
 - *The First Breach*: the tutorial, which teaches holding and rallying.
 - *Ember Ford*: battle 1, which teaches Clean Counterstroke against overextension, kept
-  steady by a rally banner.
+  steady by a rally banner. Crossers climb out right beside the two roads, and Host
+  outriders lurk by both roads.
+
+**Scenario design principle.** Every battle's intended plan uses at least two doctrine
+families in meaningful roles. Its scenario test ablates each family (swapping it for
+another doctrine) and requires each swap to cost at least 15 points of advance rate.
+
+## UI surface
+
+- **Deployment** (`deployment.ts`):
+  - `deploymentHexes(scenario)` lists the player's deployment zone.
+  - `checkPlacement` and `validateDeployment(scenario, placements)` return a
+    plain-language reason for each squad whose placement is illegal.
+  - `applyDeployment` returns a copy of the scenario with the placements applied, and
+    throws on an illegal one.
+- **Narration** reads names from a `NameSource`, which the player's `VisibleState`
+  satisfies, so the UI never touches raw state. An unknown id is narrated as "an unseen
+  company".
+- **Reports:** `report.intent` is the Host's line for the phase on its own; `title` is
+  "Phase N: intent".
+- **`VisibleSquad.lastSeen`** is `{phase, beat}` of the last sighting (null for own
+  squads, or with fortune off). `visibleHexes(state, scenario, faction)` lists the hexes
+  in sight (every hex with fortune off), for the fog-mist renderer.
+- **Orders:** `isOrderAllowed(scenario, squadId, doctrineId)` accepts any doctrine in
+  `playerDoctrineIds`, and always the squad's own scenario default.
