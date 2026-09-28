@@ -256,6 +256,24 @@ describe("keyboard and board selection", () => {
   });
 });
 
+describe("inspector hover", () => {
+  it("previews a hovered squad and falls back to the pinned selection", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await toCommand(user);
+    await user.click(screen.getByRole("option", { name: /Greyford Shields/ }));
+    expect(screen.getByRole("complementary", { name: "Inspector: Greyford Shields" })).toBeInTheDocument();
+
+    act(() => useAppStore.getState().setHoveredSquad("cinder_vanguard"));
+    expect(screen.getByRole("complementary", { name: "Inspector: Cinder Vanguard" })).toBeInTheDocument();
+    // The hand still belongs to the pinned company.
+    expect(screen.getByRole("listbox", { name: "Doctrine for Greyford Shields" })).toBeInTheDocument();
+
+    act(() => useAppStore.getState().setHoveredSquad(null));
+    expect(screen.getByRole("complementary", { name: "Inspector: Greyford Shields" })).toBeInTheDocument();
+  });
+});
+
 describe("battle setup", () => {
   it("builds the battle from the engine's own initial state", () => {
     expect(game().engine).toEqual(createInitialState(firstBreach, { fortune: "off", seed: 1 }));

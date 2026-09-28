@@ -466,6 +466,11 @@ h3 {
   scrollbar-width: thin;
 }
 
+/* A hover preview: same content, a quieter frame than the pinned selection. */
+.inspector.previewing {
+  border-style: dashed;
+}
+
 .inspector-empty {
   padding: 10px 14px;
   background: rgba(18, 15, 22, 0.6);
