@@ -72,6 +72,12 @@ jobs.push(
   { name: "campaign-b", query: "view=campaign&campaignMock=b" },
   { name: "campaign-focus", query: "view=campaign&campaignMock=a&focus=battle_1" },
   { name: "path-craneInGate", query: "preset=dusk&figures=a&path=craneInGate&seq=1", sequence: { frames: 3, fps: 0.35 } },
+  // The Cinderram's hides burning away at the sunrise switch (fadeAt), as a deterministic strip.
+  {
+    name: "holdForDawn-burn",
+    query: "scenario=holdForDawn&preset=predawn&figures=a&weather=ashWind&cam=close&focusHex=1,3&fadeTo=sunrise&fadeAt=0.3&still=1&seq=1",
+    sequence: { frames: 5, fps: 1 / 0.3, start: 0.1 },
+  },
   { name: "path-riverPush", query: "scenario=emberFord&preset=nightFires&figures=a&path=riverPush&seq=1", sequence: { frames: 3, fps: 0.4 } },
 );
 
