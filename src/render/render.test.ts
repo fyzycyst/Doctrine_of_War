@@ -187,3 +187,13 @@ describe("exit markers", () => {
   });
 });
 
+describe("known exit edge", () => {
+  it("keeps exit hexes out of the fog without duplicating seen ones", async () => {
+    const { knownHexes } = await import("./Diorama");
+    const seen = [{ q: 1, r: 1 }, { q: 2, r: 7 }];
+    const exits = [{ q: 2, r: 7 }, { q: 3, r: 7 }];
+    expect(knownHexes(seen, exits)).toEqual([{ q: 1, r: 1 }, { q: 2, r: 7 }, { q: 3, r: 7 }]);
+    expect(knownHexes(seen)).toBe(seen);
+  });
+});
+
