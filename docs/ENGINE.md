@@ -149,7 +149,8 @@ chance outcome is an event with its own callout.
 - enemies seen before are shown at their last-known hex with their stats from that
   sighting, `doctrineId: null` and `lastKnown: true`;
 - enemies never seen are omitted;
-- `rngState` and `intel` are never exposed;
+- it is built from an explicit allowlist of fields (`VisibleState`, `VisibleSquad`), so
+  `rngState`, `intel`, `contacts` and `dreaded` are never exposed;
 - with fortune off it reveals everything.
 
 ## Balance harness

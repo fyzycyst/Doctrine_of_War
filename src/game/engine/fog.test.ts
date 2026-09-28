@@ -140,6 +140,20 @@ describe("visibleState", () => {
     expect("intel" in view).toBe(false);
   });
 
+  it("exposes only an explicit allowlist of fields", () => {
+    const state = createInitialState(field, on);
+    state.contacts.push("close|scout");
+    state.dreaded.push("scout>close");
+    const view = visibleState(state, FB);
+    expect(Object.keys(view).sort()).toEqual(
+      ["fortune", "maxPhases", "objectives", "phase", "scenarioId", "seed", "squads", "status", "viewer", "weather"].sort(),
+    );
+    expect(Object.keys(view.squads[0]).sort()).toEqual(
+      ["braced", "cohesion", "doctrineId", "faction", "hex", "id", "lastKnown", "name", "resolve", "role", "status", "strength", "surging"].sort(),
+    );
+    expect(JSON.stringify(view)).not.toMatch(/contacts|dreaded|rngState|intel/);
+  });
+
   it("shows a lost enemy at its last-known hex with its doctrine hidden", () => {
     const state = createInitialState(field, on);
     state.squads[1].hex = { q: 6, r: 0 };

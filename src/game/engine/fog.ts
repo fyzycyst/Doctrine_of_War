@@ -188,16 +188,58 @@ export function dreadFromSight(ctx: EngineContext): boolean {
 // What a faction is allowed to know
 // ---------------------------------------------------------------------------
 
-export interface VisibleSquad extends Omit<EngineSquad, "doctrineId"> {
+/** The UI-safe view of one squad. Fields are copied by name: nothing else leaks. */
+export interface VisibleSquad {
+  id: string;
+  name: string;
+  faction: FactionId;
+  role: EngineSquad["role"];
+  hex: HexCoord | null;
+  strength: number;
+  cohesion: number;
+  resolve: number;
   /** null for an enemy that is not in sight right now. */
   doctrineId: string | null;
+  status: SquadStatus;
+  braced: boolean;
+  surging: boolean;
+  renown?: { title: string };
   /** true: an enemy shown where it was last seen, with the stats it had then. */
   lastKnown: boolean;
 }
 
-export interface VisibleState extends Omit<EngineState, "squads" | "intel" | "rngState"> {
+/** The UI-safe view of a battle. An explicit allowlist: no rng, intel, contacts or dread bookkeeping. */
+export interface VisibleState {
   viewer: FactionId;
+  scenarioId: string;
+  phase: number;
+  maxPhases: number;
+  status: EngineState["status"];
+  fortune: EngineState["fortune"];
+  seed: number;
+  weather: EngineState["weather"];
+  objectives: EngineState["objectives"];
   squads: VisibleSquad[];
+}
+
+function showSquad(squad: EngineSquad, overrides: Partial<VisibleSquad> = {}): VisibleSquad {
+  return {
+    id: squad.id,
+    name: squad.name,
+    faction: squad.faction,
+    role: squad.role,
+    hex: squad.hex ? { ...squad.hex } : null,
+    strength: squad.strength,
+    cohesion: squad.cohesion,
+    resolve: squad.resolve,
+    doctrineId: squad.doctrineId,
+    status: squad.status,
+    braced: squad.braced,
+    surging: squad.surging,
+    ...(squad.renown ? { renown: { title: squad.renown.title } } : {}),
+    lastKnown: false,
+    ...overrides,
+  };
 }
 
 /**
@@ -207,35 +249,44 @@ export interface VisibleState extends Omit<EngineState, "squads" | "intel" | "rn
  * reveals everything.
  */
 export function visibleState(state: EngineState, viewer: FactionId): VisibleState {
-  const { intel: allIntel, rngState: _hidden, squads, ...rest } = state;
-  const intel = allIntel[viewer] ?? {};
-  const visible: VisibleSquad[] = [];
+  const intel = state.intel[viewer] ?? {};
+  const squads: VisibleSquad[] = [];
 
-  for (const squad of squads) {
-    const reveal = { ...squad, hex: squad.hex ? { ...squad.hex } : null, lastKnown: false };
+  for (const squad of state.squads) {
     if (state.fortune === "off" || squad.faction === viewer) {
-      visible.push(reveal);
+      squads.push(showSquad(squad));
       continue;
     }
     const known = intel[squad.id];
     if (!known) {
       continue;
     }
-    if (known.visible) {
-      visible.push(reveal);
-    } else {
-      visible.push({
-        ...squad,
-        hex: known.hex ? { ...known.hex } : null,
-        strength: known.strength,
-        cohesion: known.cohesion,
-        status: known.status,
-        doctrineId: null,
-        braced: false,
-        surging: false,
-        lastKnown: true,
-      });
-    }
+    squads.push(
+      known.visible
+        ? showSquad(squad)
+        : showSquad(squad, {
+            hex: known.hex ? { ...known.hex } : null,
+            strength: known.strength,
+            cohesion: known.cohesion,
+            status: known.status,
+            doctrineId: null,
+            braced: false,
+            surging: false,
+            lastKnown: true,
+          }),
+    );
   }
-  return { ...rest, viewer, squads: visible };
+
+  return {
+    viewer,
+    scenarioId: state.scenarioId,
+    phase: state.phase,
+    maxPhases: state.maxPhases,
+    status: state.status,
+    fortune: state.fortune,
+    seed: state.seed,
+    weather: state.weather,
+    objectives: state.objectives.map((objective) => ({ ...objective, hex: { ...objective.hex } })),
+    squads,
+  };
 }
