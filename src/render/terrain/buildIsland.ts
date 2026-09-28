@@ -23,6 +23,8 @@ export interface WaterHex {
   x: number;
   z: number;
   level: number;
+  /** Deep river channel (1) vs shallow ford (0). */
+  deep: number;
 }
 
 export interface Waterfall {
@@ -48,6 +50,8 @@ export interface IslandBuild {
   water: WaterHex[];
   waterLevel: number;
   waterfall?: Waterfall;
+  /** Unit (x, z) direction the water flows (toward the waterfall). */
+  flow: [number, number];
   /** Surface height of each board hex, for placing squads. */
   surface: Map<string, number>;
   center: { x: number; z: number };
@@ -57,7 +61,9 @@ export interface IslandBuild {
 }
 
 const CAP_RADIUS = 0.95;
-const BEVEL = 0.05;
+const BEVEL = 0.035;
+/** Hex columns stop here; below it the island is one continuous rock mass. */
+const RIM_Y = -0.28;
 const WATER_ABOVE_BED = 0.11;
 
 // Reusable primitive geometries (low-poly on purpose).
@@ -95,19 +101,27 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   const fordHexes = layout.hexes.filter((hex) => hex.terrain === "ford");
   const shore = islandShore(layout, 2, 0.6);
 
-  // River: carry the ford's water out through the shore on the Host (west) side
-  // and over the island edge as a waterfall.
+  // Water routing. A board with `river` hexes gets a sunken channel that runs off
+  // the board at both ends: a spring pool upstream and a waterfall downstream.
+  // A board with only fords drains them west, through the shore, over the edge.
   const riverKeys = new Set<string>();
   let waterfall: Waterfall | undefined;
-  const shoreKeys = new Set(shore.map((s) => hexKey(s.coord)));
-  if (fordHexes.length > 0) {
-    const westMost = [...fordHexes].sort((a, c) => worldX(a.coord) - worldX(c.coord))[0];
-    let cursor = westMost.coord;
-    for (let step = 0; step < 2; step += 1) {
-      // Step to the west-most neighbour that is not on the board.
+  const shoreKeys = new Set(shore.map((s2) => hexKey(s2.coord)));
+  const boardWater = layout.hexes.filter((hex) => hex.terrain === "ford" || hex.terrain === "river");
+  const hasRiver = layout.hexes.some((hex) => hex.terrain === "river");
+  let upstream: HexCoord | null = null;
+  let flowDir: [number, number] = [-1, 0];
+  const extend = (from: HexCoord, dir: [number, number], steps: number) => {
+    let cursor = from;
+    for (let step = 0; step < steps; step += 1) {
+      const [cx, cz] = hexToWorld(cursor, center);
       const next = hexNeighbors(cursor)
-        .filter((n) => !boardByKey.has(hexKey(n)))
-        .sort((a, c) => worldX(a) - worldX(c) + (worldZ(a) - worldZ(c)) * 0.3)[0];
+        .filter((n) => !boardByKey.has(hexKey(n)) && !riverKeys.has(hexKey(n)))
+        .map((n) => {
+          const [nx, nz] = hexToWorld(n, center);
+          return { n, score: (nx - cx) * dir[0] + (nz - cz) * dir[1] };
+        })
+        .sort((a, c) => c.score - a.score)[0]?.n;
       if (!next) break;
       riverKeys.add(hexKey(next));
       if (!shoreKeys.has(hexKey(next))) {
@@ -116,7 +130,25 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
       }
       cursor = next;
     }
+  };
+  if (hasRiver) {
+    // Flow along the river's long axis, north (upstream) to south (downstream).
+    const sorted = [...boardWater].sort((a, c) => worldZ(a.coord) - worldZ(c.coord) || worldX(a.coord) - worldX(c.coord));
+    const up = sorted[0].coord;
+    const down = sorted[sorted.length - 1].coord;
+    const [ux, uz] = hexToWorld(up, center);
+    const [dx, dz] = hexToWorld(down, center);
+    const len = Math.hypot(dx - ux, dz - uz) || 1;
+    const dir: [number, number] = [(dx - ux) / len, (dz - uz) / len];
+    flowDir = dir;
+    extend(down, dir, 2);
+    upstream = up;
+    extend(up, [-dir[0], -dir[1]], 1);
+  } else if (boardWater.length > 0) {
+    const westMost = [...boardWater].sort((a, c) => worldX(a.coord) - worldX(c.coord))[0];
+    extend(westMost.coord, [-1, -0.3], 2);
   }
+  const upstreamKey = upstream ? hexKey(upstream) : null;
 
   function worldX(c: HexCoord) {
     return hexToWorld(c, center)[0];
@@ -135,7 +167,8 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
     const key = hexKey(s.coord);
     const isRiver = riverKeys.has(key);
     const r = hexRandom(s.coord, 3);
-    const top = isRiver ? T.ford.height : s.ring === 1 ? 0.2 + r * 0.08 : -0.02 + r * 0.1;
+    const bed = hasRiver ? T.river.height : T.ford.height;
+    const top = isRiver ? bed : s.ring === 1 ? 0.2 + r * 0.08 : -0.02 + r * 0.1;
     hexes.push({ coord: s.coord, x, z, top, kind: isRiver ? "river" : "shore" });
   }
 
@@ -150,21 +183,30 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   const cliffBottom = color(I.cliffBottom);
   const strata = color(I.strata);
 
-  // --- Columns (tile tops + cliff sides) -----------------------------------
+  // --- Columns (tile tops + short earthen sides) ----------------------------
   for (const hex of hexes) {
     const hr = mulberry32(hexKey(hex.coord).length * 977 + hex.coord.q * 131 + hex.coord.r * 7919);
-    const d = Math.hypot(hex.x, hex.z) / radius;
-    const bottom = -(1.3 + 3.6 * Math.pow(Math.max(0, 1 - d), 1.2) + hr() * 1.6);
     const topColorHex =
-      hex.kind === "board" ? T[hex.terrain!].top : hex.kind === "river" ? T.ford.top : I.shoreTop;
+      hex.kind === "board" ? T[hex.terrain!].top : hex.kind === "river" ? (hasRiver ? T.river.top : T.ford.top) : I.shoreTop;
     const topColor = jitterColor(color(topColorHex), jitter, hr);
-    addColumn(b, hex, bottom, topColor, cliffTop, cliffBottom, strata, hr);
+    addColumn(b, hex, topColor, cliffTop, hr);
     if (hex.kind === "board") surface.set(hexKey(hex.coord), hex.top);
-    if (hex.terrain === "ford" || hex.kind === "river") water.push({ x: hex.x, z: hex.z, level: waterLevel });
+    if (hex.terrain === "ford" || hex.terrain === "river" || hex.kind === "river") {
+      const deep = hex.terrain === "river" || (hex.kind === "river" && hasRiver) ? 1 : 0;
+      water.push({ x: hex.x, z: hex.z, level: waterLevel, deep });
+    }
   }
 
+  // --- One continuous jagged rock mass under the whole island --------------
+  addRockMass(b, hexes, radius, cliffTop, cliffBottom, strata);
+
   // Waterfall over the outer edge of the last river hex.
-  const riverHexes = hexes.filter((h) => h.kind === "river");
+  const riverHexes = hexes.filter((h) => h.kind === "river" && !isUpstreamSpring(h));
+  function isUpstreamSpring(h: IslandHex) {
+    if (!upstreamKey) return false;
+    const up = boardByKey.get(upstreamKey)!.coord;
+    return hexDistance(h.coord, up) === 1 && riverKeys.has(hexKey(h.coord)) && h.z < worldZ(up);
+  }
   if (riverHexes.length > 0) {
     const last = riverHexes[riverHexes.length - 1];
     const outward = new THREE.Vector2(last.x, last.z).normalize();
@@ -205,6 +247,9 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
         case "ford":
           dressFord(b, hex, hr, stone, foliage);
           break;
+        case "river":
+          dressRiver(b, hex, hr, stone, foliage);
+          break;
         case "ruin":
           dressRuin(b, hex, hr, stone, foliageDark);
           break;
@@ -215,6 +260,8 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
       }
     } else if (hex.kind === "shore") {
       dressShore(b, hex, hr, foliage, foliageDark, trunk, stone, center, radius);
+    } else if (hasRiver) {
+      dressRiver(b, hex, hr, stone, foliage);
     } else {
       dressFord(b, hex, hr, stone, foliage);
     }
@@ -249,6 +296,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
     water,
     waterLevel,
     waterfall,
+    flow: hasRiver || !waterfall ? flowDir : [waterfall.dirX, waterfall.dirZ],
     surface,
     center,
     radius,
@@ -263,16 +311,7 @@ function hr1(h: IslandHex) {
 
 // ---------------------------------------------------------------------------
 
-function addColumn(
-  b: GeoBuilder,
-  hex: IslandHex,
-  bottom: number,
-  topColor: THREE.Color,
-  cliffTop: THREE.Color,
-  cliffBottom: THREE.Color,
-  strata: THREE.Color,
-  rand: () => number,
-) {
+function addColumn(b: GeoBuilder, hex: IslandHex, topColor: THREE.Color, cliffTop: THREE.Color, rand: () => number) {
   const { x, z, top } = hex;
   const v = (px: number, py: number, pz: number) => new THREE.Vector3(x + px, py, z + pz);
   const noise = hex.kind === "board" && hex.terrain !== "road" && hex.terrain !== "wall" ? 0.02 : 0.012;
@@ -297,8 +336,9 @@ function addColumn(
     const [bx, bz] = hexCorner(i, 1);
     bevel.push(v(bx, top - BEVEL, bz));
   }
-  const edgeCol = topColor.clone().multiplyScalar(0.86);
-  const bevelCol = topColor.clone().lerp(cliffTop, 0.45).multiplyScalar(0.8);
+  // Seams are kept soft (look-lock #6): edges only slightly darker than the tile.
+  const edgeCol = topColor.clone().multiplyScalar(0.93);
+  const bevelCol = topColor.clone().lerp(cliffTop, 0.25).multiplyScalar(0.9);
   const centerCol = topColor.clone().multiplyScalar(1.03);
 
   for (let i = 0; i < 6; i += 1) {
@@ -310,38 +350,133 @@ function addColumn(
     b.quad(outer[i], outer[j], bevel[j], bevel[i], bevelCol, bevelCol, bevelCol, bevelCol);
   }
 
-  // Cliff sides: stacked bands that taper and wobble with depth.
-  const height = top - BEVEL - bottom;
-  const bands = Math.max(3, Math.round(height / 0.32));
-  let prevRing = bevel;
-  let prevCol = cliffTop.clone().lerp(bevelCol, 0.3);
-  for (let k = 1; k <= bands; k += 1) {
-    const t = k / bands;
-    const y = top - BEVEL - height * t;
-    const taper = 1 - 0.24 * Math.pow(t, 1.6);
-    const ringPts: THREE.Vector3[] = [];
-    for (let i = 0; i < 6; i += 1) {
-      const [cx, cz] = hexCorner(i, taper * (1 + (rand() - 0.5) * 0.1));
-      ringPts.push(v(cx, y + (rand() - 0.5) * 0.08, cz));
-    }
-    const bandShade = k % 2 === 0 ? 1.06 : 0.9;
-    const col = cliffTop
-      .clone()
-      .lerp(cliffBottom, Math.pow(t, 0.75))
-      .lerp(strata, k % 3 === 0 ? 0.35 : 0)
-      .multiplyScalar(bandShade);
-    for (let i = 0; i < 6; i += 1) {
-      const j = (i + 1) % 6;
-      b.quad(prevRing[i], prevRing[j], ringPts[j], ringPts[i], prevCol, prevCol, col, col);
-    }
-    prevRing = ringPts;
-    prevCol = col;
+  // Short straight earthen side down to the rim; the rock mass continues below.
+  const soil = cliffTop.clone().lerp(bevelCol, 0.25);
+  const bottom: THREE.Vector3[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const [cx, cz] = hexCorner(i, 1);
+    bottom.push(v(cx, RIM_Y - 0.02, cz));
   }
-  // Point the bottom into a jagged tip.
-  const tip = v((rand() - 0.5) * 0.2, bottom - 0.35 - rand() * 0.5, (rand() - 0.5) * 0.2);
   for (let i = 0; i < 6; i += 1) {
     const j = (i + 1) % 6;
-    b.tri(prevRing[i], prevRing[j], tip, prevCol, prevCol, cliffBottom);
+    b.quad(bevel[i], bevel[j], bottom[j], bottom[i], soil, soil, cliffTop, cliffTop);
+  }
+}
+
+/**
+ * Outer boundary of the union of island hexes, as world-space (x, z) points in
+ * the same winding as hex corners (so faces built from it point outward).
+ * Returns the longest closed loop.
+ */
+export function islandBoundary(hexes: Array<{ coord: HexCoord; x: number; z: number }>): Array<[number, number]> {
+  // Neighbour across the edge between corner i and i+1 (flat-top, see hexCorner).
+  const across: HexCoord[] = [
+    { q: 1, r: 0 },
+    { q: 0, r: 1 },
+    { q: -1, r: 1 },
+    { q: -1, r: 0 },
+    { q: 0, r: -1 },
+    { q: 1, r: -1 },
+  ];
+  const keys = new Set(hexes.map((h) => hexKey(h.coord)));
+  const k = (x: number, z: number) => `${Math.round(x * 1000)},${Math.round(z * 1000)}`;
+  const next = new Map<string, [number, number]>();
+  for (const h of hexes) {
+    for (let i = 0; i < 6; i += 1) {
+      const n = across[i];
+      if (keys.has(hexKey({ q: h.coord.q + n.q, r: h.coord.r + n.r }))) continue;
+      const [ax, az] = hexCorner(i, 1);
+      const [bx, bz] = hexCorner((i + 1) % 6, 1);
+      next.set(k(h.x + ax, h.z + az), [h.x + bx, h.z + bz]);
+    }
+  }
+  const visited = new Set<string>();
+  let best: Array<[number, number]> = [];
+  for (const startKey of next.keys()) {
+    if (visited.has(startKey)) continue;
+    const loop: Array<[number, number]> = [];
+    let key = startKey;
+    while (!visited.has(key) && next.has(key)) {
+      visited.add(key);
+      const p = next.get(key)!;
+      loop.push(p);
+      key = k(p[0], p[1]);
+    }
+    if (loop.length > best.length) best = loop;
+  }
+  return best;
+}
+
+/**
+ * The island underside: rings that follow the island outline, bulge slightly,
+ * then taper to a point with jagged, stratified faces plus hanging spikes —
+ * one continuous rock mass instead of per-hex columns (look-lock #1).
+ */
+function addRockMass(
+  b: GeoBuilder,
+  hexes: IslandHex[],
+  radius: number,
+  cliffTop: THREE.Color,
+  cliffBottom: THREE.Color,
+  strata: THREE.Color,
+) {
+  const loop = islandBoundary(hexes);
+  if (loop.length < 3) return;
+  const rand = mulberry32(4242);
+  const cx = loop.reduce((s2, p) => s2 + p[0], 0) / loop.length;
+  const cz = loop.reduce((s2, p) => s2 + p[1], 0) / loop.length;
+  const ph = Array.from({ length: 4 }, () => rand() * Math.PI * 2);
+  const depth = Math.max(3.5, radius * 0.75);
+  const LEVELS = 12;
+
+  const rings: THREE.Vector3[][] = [];
+  const cols: THREE.Color[][] = [];
+  for (let l = 0; l <= LEVELS; l += 1) {
+    const t = l / LEVELS;
+    const yBase = RIM_Y - depth * Math.pow(t, 1.1);
+    // Slight overhang just under the rim, then a long taper.
+    const scale = l === 0 ? 1 : Math.pow(1 - t, 0.8) * (1 + 0.09 * Math.sin(Math.PI * Math.min(1, t * 2.2)));
+    const ring: THREE.Vector3[] = [];
+    const ringCols: THREE.Color[] = [];
+    const bandTint = l % 3 === 1 ? 0.35 : 0;
+    const base = cliffTop.clone().lerp(cliffBottom, Math.pow(t, 0.7)).lerp(strata, bandTint);
+    for (const [px, pz] of loop) {
+      const a = Math.atan2(pz - cz, px - cx);
+      const n =
+        0.5 * Math.sin(3 * a + ph[0] + l * 0.7) + 0.3 * Math.sin(7 * a + ph[1] - l * 1.3) + 0.2 * Math.sin(13 * a + ph[2] + l * 2.1);
+      const jag = l === 0 ? 1 : 1 + 0.17 * n * Math.min(1, t * 3) + (rand() - 0.5) * 0.12 * Math.min(1, t * 4);
+      const y = l === 0 ? yBase : yBase + (rand() - 0.5) * 0.3 * Math.min(1, t * 3);
+      ring.push(new THREE.Vector3(cx + (px - cx) * scale * jag, y, cz + (pz - cz) * scale * jag));
+      ringCols.push(base.clone().multiplyScalar(0.88 + rand() * 0.2));
+    }
+    rings.push(ring);
+    cols.push(ringCols);
+  }
+  for (let l = 0; l < LEVELS; l += 1) {
+    const top = rings[l];
+    const low = rings[l + 1];
+    for (let i = 0; i < top.length; i += 1) {
+      const j = (i + 1) % top.length;
+      b.quad(top[i], top[j], low[j], low[i], cols[l][i], cols[l][j], cols[l + 1][j], cols[l + 1][i]);
+    }
+  }
+  const last = rings[LEVELS];
+  const tip = new THREE.Vector3(cx + (rand() - 0.5) * 0.6, RIM_Y - depth - 1.2, cz + (rand() - 0.5) * 0.6);
+  for (let i = 0; i < last.length; i += 1) {
+    const j = (i + 1) % last.length;
+    b.tri(last[i], last[j], tip, cols[LEVELS][i], cols[LEVELS][j], cliffBottom);
+  }
+
+  // Hanging spikes break up the silhouette.
+  for (let s2 = 0; s2 < 18; s2 += 1) {
+    const l = 2 + Math.floor(rand() * (LEVELS - 5));
+    const ring = rings[l];
+    const p = ring[Math.floor(rand() * ring.length)];
+    const inward = new THREE.Vector3(cx - p.x, 0, cz - p.z).multiplyScalar(0.12 + rand() * 0.1);
+    const h = 0.6 + rand() * 1.6;
+    const r = 0.18 + rand() * 0.3;
+    const c = cols[l][0].clone().multiplyScalar(0.8 + rand() * 0.25);
+    b.add(PRIM.cone6, trs(p.x + inward.x, p.y - h / 2 + 0.1, p.z + inward.z, Math.PI, rand() * 3, (rand() - 0.5) * 0.3, r, h, r), c, 0.2, rand);
   }
 }
 
@@ -430,6 +565,18 @@ function dressRidge(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: TH
   for (let i = 0; i < 3; i += 1) {
     const [x, z] = edgePoint(hex, rand, 0.3, 0.8);
     tuft(b, x, hex.top, z, dark, rand);
+  }
+}
+
+/** Deep channel: no stepping stones, just reeds and wet rocks along the banks. */
+function dressRiver(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: THREE.Color, leaf: THREE.Color) {
+  for (let i = 0; i < 6; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.72, 0.88);
+    tuft(b, x, hex.top + 0.1, z, leaf, rand, 2.2);
+  }
+  for (let i = 0; i < 2; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.6, 0.8);
+    rock(b, x, hex.top + 0.12, z, 0.05 + rand() * 0.05, stone.clone().multiplyScalar(0.6), rand);
   }
 }
 
@@ -537,6 +684,22 @@ function drawRoads(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], roadC
     const toWall = layout.hexes.find((h) => hexKey(h.coord) === hexKey(best))?.terrain === "wall";
     edges.push([from, to, toWall]);
     inflow.add(hexKey(best));
+  }
+  if (!goal) {
+    // No gate to converge on: link neighbouring road hexes, and let roads run
+    // down into fords (half strips, since the ford bed sits lower).
+    const typeAt = (c: HexCoord) => layout.hexes.find((x) => x.coord.q === c.q && x.coord.r === c.r)?.terrain;
+    for (const road of roads) {
+      const from = byKey.get(hexKey(road.coord))!;
+      for (const n of hexNeighbors(road.coord)) {
+        const t = typeAt(n);
+        const to = byKey.get(hexKey(n));
+        if (!to) continue;
+        if (t === "road" && hexKey(n) > hexKey(road.coord)) edges.push([from, to, false]);
+        if (t === "ford") edges.push([from, to, true]);
+        inflow.add(hexKey(road.coord));
+      }
+    }
   }
   // Roads that nothing flows into lead off toward the attackers (west).
   for (const road of roads) {

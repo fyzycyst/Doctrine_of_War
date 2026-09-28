@@ -8,6 +8,8 @@ import * as THREE from "three";
 export class GeoBuilder {
   private positions: number[] = [];
   private colors: number[] = [];
+  /** Per-vertex emissive weight (0 = none); figures use it for ember glints. */
+  private glows: number[] = [];
 
   get vertexCount() {
     return this.positions.length / 3;
@@ -17,6 +19,7 @@ export class GeoBuilder {
   tri(a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3, ca: THREE.Color, cb = ca, cc = ca) {
     this.positions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
     this.colors.push(ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, cc.r, cc.g, cc.b);
+    this.glows.push(0, 0, 0);
   }
 
   quad(a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3, d: THREE.Vector3, ca: THREE.Color, cb = ca, cc = ca, cd = ca) {
@@ -25,7 +28,7 @@ export class GeoBuilder {
   }
 
   /** Merges any three geometry (e.g. a ConeGeometry) with a transform and colour. */
-  add(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4, color: THREE.Color, jitter = 0, rand?: () => number) {
+  add(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4, color: THREE.Color, jitter = 0, rand?: () => number, glow = 0) {
     const g = geometry.index ? geometry.toNonIndexed() : geometry.clone();
     g.applyMatrix4(matrix);
     const pos = g.getAttribute("position");
@@ -34,6 +37,7 @@ export class GeoBuilder {
       for (let k = 0; k < 3; k += 1) {
         this.positions.push(pos.getX(i + k), pos.getY(i + k), pos.getZ(i + k));
         this.colors.push(color.r * shade, color.g * shade, color.b * shade);
+        this.glows.push(glow);
       }
     }
     g.dispose();
@@ -43,6 +47,7 @@ export class GeoBuilder {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(this.positions, 3));
     geometry.setAttribute("color", new THREE.Float32BufferAttribute(this.colors, 3));
+    geometry.setAttribute("glow", new THREE.Float32BufferAttribute(this.glows, 1));
     geometry.computeVertexNormals(); // non-indexed => flat normals
     geometry.computeBoundingSphere();
     return geometry;

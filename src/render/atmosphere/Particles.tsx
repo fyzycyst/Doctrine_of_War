@@ -62,16 +62,19 @@ function Embers({ count, extent }: { count: number; extent: number }) {
             float life = 7.0 + aSeed.x * 7.0;
             float t = mod(uTime * uSpeed + aSeed.y * life, life);
             float k = t / life;
-            vec3 start = vec3(-uExtent - 1.0 + aSeed.z * uExtent * 1.3,
+            // Spawn along the Host's (west) edge and drift east across the whole
+            // board over one lifetime (look-lock #9).
+            vec3 start = vec3(-uExtent * 1.05 + aSeed.z * uExtent * 0.35,
                               -0.2 + aSeed.w * 1.6,
                               (aSeed.y * 2.0 - 1.0) * uExtent * 0.8);
-            vec3 pos = start + vec3(t * 1.1,
+            float vx = (uExtent * 2.0) / life;
+            vec3 pos = start + vec3(t * vx,
                                     t * 0.16 + sin(t * 1.3 + aSeed.x * 20.0) * 0.18,
                                     sin(t * 0.8 + aSeed.z * 10.0) * 0.45);
             vec4 mv = modelViewMatrix * vec4(pos, 1.0);
             gl_Position = projectionMatrix * mv;
             float flicker = 0.55 + 0.45 * sin(uTime * (6.0 + aSeed.w * 8.0) + aSeed.x * 50.0);
-            vAlpha = sin(k * 3.14159) * flicker;
+            vAlpha = smoothstep(0.0, 0.08, k) * (1.0 - smoothstep(0.75, 1.0, k)) * flicker;
             vHot = step(0.35, aSeed.w) * (1.0 - uAsh) + uAsh * step(0.8, aSeed.w);
             float size = (0.6 + aSeed.z * 1.2) * uSize;
             gl_PointSize = size * 26.0 * uPixel / -mv.z;

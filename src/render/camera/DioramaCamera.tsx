@@ -13,10 +13,19 @@ export interface CameraShot {
   distance: number;
 }
 
-export const SHOTS: Record<"wide" | "close", CameraShot> = {
-  wide: { target: [0.3, -0.4, 0.9], azimuth: 0, polar: 57, distance: 22 },
-  close: { target: [2.3, 0.3, 1.1], azimuth: 18, polar: 56, distance: 6.2 },
-};
+/**
+ * Default shot framing the playable board (look-lock #2): centred on the board,
+ * a little higher than eye level, distance scaled to the board's radius so the
+ * shore and cliffs are a frame, not the subject.
+ */
+export function wideShot(boardRadius: number): CameraShot {
+  return { target: [0, 0.1, 0.9], azimuth: -8, polar: 50, distance: boardRadius * 2.75 };
+}
+
+/** Close-up on a point of interest (e.g. the objective), for detail shots. */
+export function closeShot(target: [number, number, number]): CameraShot {
+  return { target: [target[0] - 0.9, target[1] + 0.1, target[2] - 0.6], azimuth: 18, polar: 56, distance: 6.2 };
+}
 
 const deg = THREE.MathUtils.degToRad;
 
@@ -70,8 +79,8 @@ export function DioramaCamera({ shot, drift = true }: { shot: CameraShot; drift?
       maxAzimuthAngle={deg(shot.azimuth + 25)}
       minPolarAngle={deg(34)}
       maxPolarAngle={deg(64)}
-      minDistance={5}
-      maxDistance={26}
+      minDistance={4.5}
+      maxDistance={Math.max(26, shot.distance * 1.4)}
       onStart={() => {
         idle.current.active = true;
       }}

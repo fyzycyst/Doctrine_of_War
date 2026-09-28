@@ -74,8 +74,9 @@ export function GateBanner({ anchor }: { anchor: Anchor }) {
   return (
     <mesh
       material={material}
-      position={[anchor.x, anchor.y - 0.13, anchor.z]}
-      rotation={[0, -Math.PI / 2, 0]}
+      position={[anchor.x - 0.08, anchor.y - 0.13, anchor.z + 0.02]}
+      // Face south-west, toward the default camera (look-lock #8).
+      rotation={[0, -0.62, 0]}
       castShadow
     >
       <planeGeometry args={[0.2, 0.4, 2, 8]} />

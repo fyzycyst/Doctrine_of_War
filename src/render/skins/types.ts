@@ -29,8 +29,12 @@ export interface FactionStyle {
   primary: Hex;
   /** Secondary cloth / trim colour. */
   secondary: Hex;
-  /** Metal trim (helmets, spear tips, banner finial). */
+  /** Helmet / armour metal. */
   metal: Hex;
+  /** Small accents only (plume, belt buckle, shield boss, finial). */
+  trim: Hex;
+  /** Ember glints (emissive spear tips / helm spikes); 0 = none. */
+  glint: number;
   /** Shield face. */
   shield: Hex;
   /** Banner cloth colours and emblem. */

@@ -76,3 +76,9 @@ export function islandShore(layout: BoardLayout, rings = 2, keepOuter = 0.55): S
     return nearBoard && hexRandom(shore.coord, 7) < keepOuter;
   });
 }
+
+/** Radius of the playable board around its centre (hex centres + one hex). */
+export function boardRadius(layout: BoardLayout): number {
+  const center = boardCenter(layout);
+  return Math.max(...layout.hexes.map((hex) => Math.hypot(...hexToWorld(hex.coord, center)))) + HEX_SIZE;
+}

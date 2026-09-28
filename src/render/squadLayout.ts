@@ -20,11 +20,12 @@ export interface FigureSlot {
 }
 
 /**
- * Slots for a loose 3×3 block, front rank first. When figures are lost the
- * missing slots are chosen pseudo-randomly (seeded), so a depleted squad looks
- * ragged rather than simply missing its back rank.
+ * All nine slots of a loose 3×3 block, ordered by survival: index 0 is the last
+ * figure to fall, index 8 the first. Which slots go first is seeded, so a
+ * depleted squad looks ragged rather than simply missing its back rank, and the
+ * order is stable so animations (`fall`) and strength updates agree.
  */
-export function formationSlots(count: number, seed: number, spacing = 0.24): FigureSlot[] {
+export function formationOrder(seed: number, spacing = 0.24): FigureSlot[] {
   const rand = mulberry32(seed);
   const all: FigureSlot[] = [];
   for (let rank = 0; rank < 3; rank += 1) {
@@ -38,16 +39,18 @@ export function formationSlots(count: number, seed: number, spacing = 0.24): Fig
       });
     }
   }
-
-  const n = Math.max(0, Math.min(all.length, count));
-  const removable = all.map((_, index) => index);
-  // Fisher–Yates with the same seeded generator, then drop the first (9 - n).
-  for (let i = removable.length - 1; i > 0; i -= 1) {
+  // Fisher–Yates with the same seeded generator gives the drop order.
+  const order = all.map((_, index) => index);
+  for (let i = order.length - 1; i > 0; i -= 1) {
     const j = Math.floor(rand() * (i + 1));
-    [removable[i], removable[j]] = [removable[j], removable[i]];
+    [order[i], order[j]] = [order[j], order[i]];
   }
-  const dropped = new Set(removable.slice(0, all.length - n));
-  return all.filter((_, index) => !dropped.has(index));
+  return order.reverse().map((index) => all[index]);
+}
+
+/** The `count` surviving slots (a prefix of `formationOrder`). */
+export function formationSlots(count: number, seed: number, spacing = 0.24): FigureSlot[] {
+  return formationOrder(seed, spacing).slice(0, Math.max(0, Math.min(9, count)));
 }
 
 /** Cohesion ring arc: the lit fraction of the ring and the size of the gap. */
