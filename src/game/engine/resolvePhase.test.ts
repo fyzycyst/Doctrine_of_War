@@ -234,6 +234,23 @@ describe("win conditions", () => {
     expect(events.at(-1)).toMatchObject({ kind: "outcome", status: "victory", beat: 1 });
   });
 
+  it("destroySquads count: victory once enough of the listed squads are broken", () => {
+    const striker = doctrine("striker2", FB, [[{ kind: "always" }, { kind: "attack", target: { kind: "nearestEnemy" } }]]);
+    const scen = scenario({
+      initiativeSide: FB,
+      winCondition: { kind: "destroySquads", squadIds: ["h", "h2"], count: 1 },
+      squads: [
+        squad("p", FB, { q: 1, r: 2 }, { doctrineId: "striker2", strength: 100 }),
+        squad("h", AH, { q: 2, r: 2 }, { cohesion: 3 }),
+        squad("h2", AH, { q: 6, r: 4 }),
+      ],
+    });
+    expect(run(scen, {}, library(striker)).state.status).toBe("victory");
+    const withCount = (count: number) => scenario({ ...scen, winCondition: { kind: "destroySquads", squadIds: ["h", "h2"], count } });
+    expect(() => createInitialState(withCount(0))).toThrow(/count must be 1..2/);
+    expect(() => createInitialState(withCount(3))).toThrow(/count must be 1..2/);
+  });
+
   it("destroySquads: rejects empty, missing and mixed target lists at battle start", () => {
     const withTargets = (squadIds: string[]) =>
       scenario({

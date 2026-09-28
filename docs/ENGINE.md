@@ -155,7 +155,8 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   - `holdObjective`: defeat at integrity 0, victory after `maxPhases`.
   - `escapeEdge {edgeHexes, count}`: a player squad standing on an edge hex after its
     activation exits; victory at `count` exits.
-  - `destroySquads {squadIds}`: victory once all of them are routed or destroyed. The
+  - `destroySquads {squadIds, count?}`: victory once `count` of them (default: all) are
+    routed or destroyed. The
     list must be non-empty and name only existing, non-player squads; otherwise
     `createInitialState` throws.
   - Optional `defeatConditions` add more ways to lose:
@@ -221,7 +222,12 @@ objective integrity, and exits 1 if a guardrail fails:
 scenario in `scenarios/index.ts` must pass. The scenarios so far:
 - *The First Breach*: the tutorial, which teaches holding and rallying.
 - *Ember Ford*: battle 1, which teaches Clean Counterstroke against overextension, kept
-  steady by a rally banner.
+  steady by a rally banner. Crossers climb out right beside the two roads, and Host
+  outriders lurk by both roads.
+
+**Scenario design principle.** Every battle's intended plan uses at least two doctrine
+families in meaningful roles. Its scenario test ablates each family (swapping it for
+another doctrine) and requires each swap to cost at least 15 points of advance rate.
 
 ## UI surface
 

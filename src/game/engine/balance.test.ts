@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { balancePlans, formatTable, guardrailFailures, runBalance, type BalanceRow } from "./balance";
+import { ashAndBanner } from "../campaign/definition";
+import { balanceVariantsFor } from "../campaign/rosters";
 import { scenarios } from "./scenarios";
 
 describe("balance guardrails (small-N version of npm run balance)", () => {
   for (const scenario of scenarios) {
-    it(`${scenario.title} meets the guardrails over 60 seeds with fortune on`, () => {
-      const rows = runBalance(scenario, 60, "on");
-      expect(guardrailFailures(rows), formatTable(scenario, rows)).toEqual([]);
-    }, 60_000); // hundreds of simulated battles; the 5 s default times out under full-suite load
+    // Campaign battles are checked on every reference roster (see docs/CAMPAIGN.md).
+    for (const variant of balanceVariantsFor(ashAndBanner, scenarios, scenario)) {
+      it(`${scenario.title} [${variant.kind} roster] meets its guardrails over 60 seeds with fortune on`, () => {
+        const rows = runBalance(variant.scenario, 60, "on");
+        expect(guardrailFailures(rows, variant.policy), formatTable(variant.scenario, rows)).toEqual([]);
+      }, 60_000); // hundreds of simulated battles; the 5 s default times out under full-suite load
+    }
   }
 
   it("builds intended, bad and one mono plan per player doctrine", () => {

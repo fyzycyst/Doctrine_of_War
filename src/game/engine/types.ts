@@ -150,8 +150,11 @@ export type WinCondition =
   | { kind: "holdObjective"; objectiveId: string }
   /** Victory once `count` player squads leave the board via `edgeHexes`; defeat at the end of maxPhases. */
   | { kind: "escapeEdge"; edgeHexes: HexCoord[]; count: number }
-  /** Victory once every listed squad is routed or destroyed; defeat at the end of maxPhases. */
-  | { kind: "destroySquads"; squadIds: string[] };
+  /**
+   * Victory once `count` (default: all) of the listed squads are routed or destroyed;
+   * otherwise the timeout rules apply at the end of maxPhases.
+   */
+  | { kind: "destroySquads"; squadIds: string[]; count?: number };
 
 /** Extra ways the player can lose, on top of the win condition's own defeat rules. */
 export type DefeatCondition =

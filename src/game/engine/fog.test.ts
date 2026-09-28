@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { executeAction } from "./actions";
 import { canSee, eventsFor, hexLine, refreshIntel, sightRange, visibleState } from "./fog";
 import { perceive } from "./perception";
-import { emberFord } from "./scenarios/emberFord";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { evaluateCondition } from "./rules";
 import { actionContext, doctrine, library, openBoard, scenario, squad } from "./testKit";
@@ -175,20 +174,21 @@ describe("event visibility (fog of war for playback)", () => {
 });
 
 describe("event projection", () => {
-  it("clips a move to the hexes the viewer saw: an unseen origin becomes from: null (Ember Ford seed 2)", () => {
-    let state = createInitialState(emberFord, { seed: 2, fortune: "on" });
-    const { events } = resolvePhase(state, emberFord.referencePlans!.intended, emberFord);
-    const raw = events.find((event) => event.kind === "move" && event.squadId === "pyre_sworn");
-    expect(raw).toMatchObject({ path: [{ q: 2, r: 1 }, { q: 3, r: 1 }], from: { q: 2, r: 1 } });
-    const seen = eventsFor(events, FB).find((event) => event.kind === "move" && event.squadId === "pyre_sworn");
-    expect(seen).toMatchObject({ path: [{ q: 3, r: 1 }], from: null, to: { q: 3, r: 1 }, visibleTo: [FB] });
-    expect(seen).not.toHaveProperty("redactions");
-    // The Host saw its own move in full.
-    const own = eventsFor(events, AH).find((event) => event.kind === "move" && event.squadId === "pyre_sworn");
-    expect(own).toMatchObject({ path: [{ q: 2, r: 1 }, { q: 3, r: 1 }], from: { q: 2, r: 1 } });
-    state = createInitialState(emberFord, { seed: 2, fortune: "on" });
-    const report = resolvePhase(state, emberFord.referencePlans!.intended, emberFord).report;
-    expect(report.lines.join("\n")).toMatch(/Pyre-Sworn emerged from the dark at 3,1/);
+  it("clips a move to the hexes the viewer saw: an unseen origin becomes from: null", () => {
+    // The watcher sees 2 hexes. The marcher starts 4 away and walks in: its second step
+    // starts in the dark (3 away) and ends in sight (2 away).
+    const marcher = doctrine("walker_ah", AH, [[{ kind: "always" }, { kind: "advance", toward: { kind: "nearestEnemy" } }]]);
+    const scen = scenario({ squads: [squad("watch", FB, { q: 0, r: 2 }), squad("m", AH, { q: 4, r: 2 }, { doctrineId: "walker_ah" })], maxPhases: 2 });
+    const { events, report } = resolvePhase(createInitialState(scen, on), {}, scen, { doctrines: library(marcher) });
+    const raw = events.filter((event) => event.kind === "move")[1];
+    expect(raw).toMatchObject({ path: [{ q: 3, r: 2 }, { q: 2, r: 2 }], from: { q: 3, r: 2 } });
+    // The first step happened entirely in the dark: the Banners never saw it.
+    const seen = eventsFor(events, FB).filter((event) => event.kind === "move");
+    expect(seen[0]).toMatchObject({ path: [{ q: 2, r: 2 }], from: null, to: { q: 2, r: 2 }, visibleTo: [FB] });
+    expect(seen[0]).not.toHaveProperty("redactions");
+    // The Host saw its own moves in full.
+    expect(eventsFor(events, AH).filter((event) => event.kind === "move")[1]).toMatchObject({ path: raw.kind === "move" ? raw.path : [] });
+    expect(report.lines.join("\n")).toMatch(/m emerged from the dark at 2,2/);
   });
 });
 

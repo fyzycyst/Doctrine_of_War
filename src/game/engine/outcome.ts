@@ -26,6 +26,9 @@ export function validateWinCondition(scenario: EngineScenario) {
   if (win.kind !== "destroySquads") {
     return;
   }
+  if (win.count !== undefined && (!Number.isInteger(win.count) || win.count < 1 || win.count > win.squadIds.length)) {
+    throw new Error(`Scenario ${scenario.id}: destroySquads count must be 1..${win.squadIds.length}`);
+  }
   if (win.squadIds.length === 0) {
     throw new Error(`Scenario ${scenario.id}: destroySquads needs at least one target`);
   }
@@ -72,7 +75,8 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
         const squad = state.squads.find((item) => item.id === id);
         return squad !== undefined && (squad.status === "routed" || squad.status === "destroyed");
       };
-      if (win.squadIds.length > 0 && win.squadIds.every(broken)) {
+      const needed = win.count ?? win.squadIds.length;
+      if (win.squadIds.length > 0 && win.squadIds.filter(broken).length >= needed) {
         return { status: "victory", reason: "Every marked enemy company is broken." };
       }
       break;
