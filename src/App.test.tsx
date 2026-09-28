@@ -286,6 +286,24 @@ describe("keyboard and board selection", () => {
   });
 });
 
+describe("selection after a phase", () => {
+  it("moves the selection off a company that routed", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await toCommand(user);
+    await user.click(screen.getByRole("option", { name: /Dawnwatch Archers/ }));
+    act(() => game().sealOrders());
+    // Rout the selected company in the resolved state, as the engine would.
+    const engine = structuredClone(game().engine);
+    const archers = engine.squads.find((squad) => squad.id === "dawnwatch_archers")!;
+    Object.assign(archers, { status: "routed", hex: null, cohesion: 0 });
+    act(() => game().replaceEngine(engine));
+    await user.click(screen.getByRole("button", { name: "Next Phase" }));
+    expect(useAppStore.getState().selectedSquadId).toBe("greyford_shields");
+    expect(screen.getByRole("listbox", { name: "Doctrine for Greyford Shields" })).toBeInTheDocument();
+  });
+});
+
 describe("inspector hover", () => {
   it("previews a hovered squad and falls back to the pinned selection", async () => {
     const user = userEvent.setup();

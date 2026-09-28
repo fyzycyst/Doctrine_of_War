@@ -112,6 +112,21 @@ function freshBattle(baseScenario: EngineScenario, setup: BattleSetup, stage: St
   };
 }
 
+/**
+ * A selected company that routed, was destroyed or escaped would open the next command
+ * window on a dead inspector with no hand; select the first company still fighting.
+ */
+function reconcileSelection(view: VisibleState) {
+  const app = useAppStore.getState();
+  const selected = view.squads.find((squad) => squad.id === app.selectedSquadId);
+  if (!app.selectedSquadId || selected?.status === "active") {
+    return;
+  }
+  const next = view.squads.find((squad) => squad.faction === view.viewer && squad.status === "active");
+  app.selectSquad(next?.id ?? null);
+  app.selectHex(next?.hex ?? null);
+}
+
 /** A fresh seed for "retry with new fortune". The engine stays pure; chance is picked here. */
 function newSeed(previous: number) {
   let seed = previous;
@@ -205,9 +220,10 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   nextPhase: () => {
-    const { stage, engine } = get();
+    const { stage, engine, view } = get();
     if (stage === "report") {
       set({ stage: engine.status === "command" ? "command" : "outcome" });
+      reconcileSelection(view);
     }
   },
 
