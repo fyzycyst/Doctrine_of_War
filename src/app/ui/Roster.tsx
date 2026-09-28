@@ -2,8 +2,11 @@ import { useRef, type KeyboardEvent } from "react";
 import type { VisibleSquad } from "../../game/engine";
 import { useAppStore } from "../store";
 import { useGame, useShownView } from "../game/gameStore";
-import { getDoctrine, resolveRank } from "../game/view";
-import { RoleGlyph, ROLE_NAME } from "./glyphs";
+import { getDoctrine, resolveRank, rosterName } from "../game/view";
+import { ColumnGlyph, RoleGlyph, ROLE_NAME } from "./glyphs";
+
+/** More companies than this and the roster turns compact. */
+const DENSE_FROM = 7;
 
 const STATUS_WORD: Record<VisibleSquad["status"], string> = {
   active: "",
@@ -65,6 +68,8 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
     const own = squad.faction === view.viewer;
     const doctrine = getDoctrine(own ? (orders[squad.id] ?? squad.doctrineId) : squad.doctrineId);
     const out = squad.status !== "active";
+    // The Column is a charge, not a company: it cannot be ordered, only brought out.
+    const ward = Boolean(squad.noncombatant);
     return (
       <div
         key={squad.id}
@@ -72,16 +77,24 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
         role="option"
         aria-selected={selected}
         tabIndex={squad.id === focusId ? 0 : -1}
-        className={`banner-tab ${own ? "own" : "enemy"} ${selected ? "selected" : ""} ${out ? "out" : ""}`}
+        className={`banner-tab ${own ? "own" : "enemy"} ${ward ? "ward" : ""} ${selected ? "selected" : ""} ${out && !(ward && squad.status === "escaped") ? "out" : ""}`}
         onClick={() => selectSquad(squad.id)}
       >
-        <span className="banner-glyph" title={ROLE_NAME[squad.role]}>
-          <RoleGlyph role={squad.role} />
+        <span className="banner-glyph" title={ward ? "Refugees" : ROLE_NAME[squad.role]}>
+          {ward ? <ColumnGlyph /> : <RoleGlyph role={squad.role} />}
         </span>
         <span className="banner-body">
-          <span className="banner-name">{squad.name}</span>
+          <span className="banner-name">{rosterName(squad)}</span>
           <span className="banner-sub">
-            {out ? (
+            {ward ? (
+              squad.status === "escaped" ? (
+                <span className="must-escape safe">Safe beyond the marsh</span>
+              ) : out ? (
+                STATUS_WORD[squad.status]
+              ) : (
+                <span className="must-escape">Must escape</span>
+              )
+            ) : out ? (
               STATUS_WORD[squad.status]
             ) : own ? (
               <>
@@ -105,7 +118,8 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
   };
 
   return (
-    <nav className="roster" aria-label="Companies">
+    // Big musters (Hold for Dawn fields eleven companies) get compact tabs so all fit.
+    <nav className={`roster ${mine.length > DENSE_FROM ? "dense" : ""}`} aria-label="Companies">
       <div ref={listRef} role="listbox" aria-label="Company roster" onKeyDown={onKeyDown}>
         <div role="group" aria-label="Your companies" className="roster-group">
           {mine.map(tab)}

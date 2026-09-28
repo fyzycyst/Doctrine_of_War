@@ -7,6 +7,11 @@ interface DoctrineOfWarPreload {
     read(): Promise<string | null>;
     write(data: string): Promise<void>;
   };
+  /** Electron only: the doctrine variants file in userData (T16). */
+  variants?: {
+    read(): Promise<string | null>;
+    write(data: string): Promise<void>;
+  };
 }
 
 interface Window {

@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { hexKey, hexNeighbors, hexDistance, type BoardHex, type BoardLayout, type HexCoord } from "../../game/board";
+import { hexKey, hexNeighbors, hexDistance, type BoardHex, type BoardLayout, type HexCoord, type TerrainType } from "../../game/board";
 import { GeoBuilder, color, jitterColor, trs } from "../geo/GeoBuilder";
 import { boardCenter, hexCorner, hexRandom, hexToWorld, islandShore, mulberry32 } from "../hexWorld";
-import type { RenderTerrain, Skin } from "../skins/types";
+import type { Skin } from "../skins/types";
 
 /**
  * Builds the floating-island diorama from a BoardLayout: extruded hex columns
@@ -16,7 +16,7 @@ export interface IslandHex {
   z: number;
   top: number;
   kind: "board" | "shore" | "river";
-  terrain?: RenderTerrain;
+  terrain?: TerrainType;
 }
 
 export interface WaterHex {
@@ -168,8 +168,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   const hexes: IslandHex[] = [];
   for (const hex of layout.hexes) {
     const [x, z] = hexToWorld(hex.coord, center);
-    const terrain = hex.terrain as RenderTerrain;
-    hexes.push({ coord: hex.coord, x, z, top: T[terrain].height, kind: "board", terrain });
+    hexes.push({ coord: hex.coord, x, z, top: T[hex.terrain].height, kind: "board", terrain: hex.terrain });
   }
   for (const s of shore) {
     const [x, z] = hexToWorld(s.coord, center);
@@ -247,7 +246,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   for (const hex of hexes) {
     const hr = mulberry32(hex.coord.q * 7349 + hex.coord.r * 3181 + 11);
     if (hex.kind === "board") {
-      switch (hex.terrain as RenderTerrain) {
+      switch (hex.terrain) {
         case "field":
           dressField(b, hex, hr, foliage, foliageDark);
           break;

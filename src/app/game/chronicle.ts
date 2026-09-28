@@ -3,7 +3,7 @@
 // phase's visible states), never from engine state. Ids the projection hid (null), or
 // squads never seen, read as "an unseen company".
 import type { EngineEvent, FactionId, VisibleState, Weather } from "../../game/engine";
-import { WEATHER_NAME } from "./view";
+import { rosterName, WEATHER_NAME } from "./view";
 
 export type ChronicleTone =
   | "order"
@@ -52,7 +52,8 @@ export interface FiredOrders {
   squadId: string;
   squadName: string;
   mine: boolean;
-  rules: { label: string; count: number }[];
+  /** `experimental`: fired from one of the player's doctrine variants (T16). */
+  rules: { label: string; count: number; experimental: boolean }[];
 }
 
 export interface Names {
@@ -67,7 +68,10 @@ export function namesFor(views: VisibleState[]): Names {
   const squads = new Map(views.flatMap((view) => view.squads).map((squad) => [squad.id, squad]));
   const objectives = new Map(views.flatMap((view) => view.objectives).map((objective) => [objective.id, objective]));
   return {
-    name: (id) => (id ? squads.get(id)?.name : undefined) ?? "an unseen company",
+    name: (id) => {
+      const squad = id ? squads.get(id) : undefined;
+      return squad ? rosterName(squad) : "an unseen company";
+    },
     faction: (id) => (id ? squads.get(id)?.faction : undefined),
     objective: (id) => objectives.get(id)?.name ?? "the objective",
     player: views[0]?.viewer ?? "free_banners",
@@ -216,11 +220,12 @@ export function firedOrders(events: EngineEvent[], names: Names): FiredOrders[] 
       };
       bySquad.set(event.squadId, group);
     }
-    const rule = group.rules.find((item) => item.label === event.label);
+    const experimental = event.doctrineId.startsWith("v-");
+    const rule = group.rules.find((item) => item.label === event.label && item.experimental === experimental);
     if (rule) {
       rule.count += 1;
     } else {
-      group.rules.push({ label: event.label, count: 1 });
+      group.rules.push({ label: event.label, count: 1, experimental });
     }
   }
   return [...bySquad.values()].sort((a, b) => Number(b.mine) - Number(a.mine));

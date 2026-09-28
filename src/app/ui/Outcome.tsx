@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { scenarios } from "../../game/engine";
 import { currentBattle } from "../../game/campaign";
+import type { VisibleSquad } from "../../game/engine";
 import { useFlow } from "../flow/flowStore";
 import { useGame } from "../game/gameStore";
 import { resolveRank } from "../game/view";
@@ -38,7 +39,7 @@ export function Outcome() {
     .find((event) => event.kind === "outcome");
   const reason = outcomeEvent?.kind === "outcome" ? outcomeEvent.reason : copy.line;
   const mine = view.squads.filter((squad) => squad.faction === view.viewer);
-  const standing = mine.filter((squad) => squad.status === "active").length;
+  const tally = companyTally(mine);
 
   // Standalone battles (dev picker): Continue opens the next scenario's briefing.
   const index = scenarios.findIndex((item) => item.id === scenario.id);
@@ -53,9 +54,7 @@ export function Outcome() {
       <p className="report-eyebrow">{scenario.title}</p>
       <h2 id="outcome-title">{copy.word}</h2>
       <p className="outcome-reason">{reason}</p>
-      <p className="outcome-tally">
-        {standing} of {mine.length} companies still standing
-      </p>
+      <p className="outcome-tally">{tally}</p>
       <ObjectiveStatus />
       {inCampaign && record && <ResolveChanges />}
       <p className="report-meta">
@@ -126,4 +125,24 @@ function ResolveChanges() {
       })}
     </ul>
   );
+}
+
+/**
+ * How the companies ended, in words. Escaped companies are a success, not a loss, and
+ * a noncombatant charge (the Column) is reported on its own, not counted as a company.
+ */
+export function companyTally(squads: VisibleSquad[]): string {
+  const companies = squads.filter((squad) => !squad.noncombatant);
+  const count = (status: VisibleSquad["status"]) => companies.filter((squad) => squad.status === status).length;
+  const standing = count("active");
+  const escaped = count("escaped");
+  const lost = companies.length - standing - escaped;
+  const parts = escaped > 0
+    ? [`${escaped} ${escaped === 1 ? "company" : "companies"} escaped`, standing > 0 ? `${standing} still on the field` : "", lost > 0 ? `${lost} lost` : ""]
+    : [`${standing} of ${companies.length} companies still standing`];
+  const ward = squads.find((squad) => squad.noncombatant);
+  if (ward) {
+    parts.unshift(ward.status === "escaped" ? "The Column is safe" : ward.status === "active" ? "The Column is still on the field" : "The Column was lost");
+  }
+  return parts.filter(Boolean).join(" · ");
 }

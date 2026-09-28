@@ -9,7 +9,7 @@ export {
   type BattleOptions,
   type ResolveOptions,
 } from "./resolvePhase";
-export { eventsFor, sightRangeAt, visibleHexes, visibleState, type VisibleSquad, type VisibleState } from "./fog";
+export { eventsFor, sightRangeAt, timeOfDayAt, visibleHexes, visibleState, type VisibleSquad, type VisibleState } from "./fog";
 export {
   applyDeployment,
   checkPlacement,
@@ -25,3 +25,4 @@ export { emberFord } from "./scenarios/emberFord";
 export { saltmarshColumn } from "./scenarios/saltmarshColumn";
 export { holdForDawn } from "./scenarios/holdForDawn";
 export { scenarios } from "./scenarios";
+export * from "./editor";

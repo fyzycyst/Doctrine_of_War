@@ -5,7 +5,8 @@
 //   &fortune=off &seed=7   battle setup
 //   &stage=deploy|command|resolving|report|outcome   fast-forward (orders: &plan=intended|bad)
 //   &phase=2               which phase to stop in (command, resolving, report)
-//   &pauseAt=rule|rule-mine|surge|rout|…   freeze playback on the first callout of that kind
+//   &pauseAt=rule|rule-mine|surge|rout|…|stage   freeze playback on that callout (stage: the dawn moment)
+//   &speed=N               fast-forward playback
 //   &select=<squadId>      select a squad
 //   &still=1               no idle camera drift (captures)
 //   &guide=reset | &coach=select|read|assign|seal|watch|chronicle | &howto=1   guidance
@@ -14,6 +15,7 @@ import { campaignAfter } from "./flow/devCampaign";
 import { useFlow } from "./flow/flowStore";
 import { COACH_STEPS, useGuide, type CoachStep } from "./guide/guideStore";
 import { useGame, type Stage } from "./game/gameStore";
+import { useSettings } from "./settingsStore";
 import { useAppStore } from "./store";
 
 export interface BootOptions {
@@ -64,6 +66,14 @@ export function bootFromUrl(search: string): BootOptions {
   if (params.get("howto") === "1") {
     useFlow.getState().setHowToOpen(true);
   }
+
+  // `&motion=reduce|full`: the Settings motion override (reduced-motion QA).
+  const motion = params.get("motion");
+  if (motion === "reduce" || motion === "full") useSettings.getState().set({ motion });
+
+  // `&speed=N`: fast-forward playback timers (captures of late moments).
+  const speed = Number(params.get("speed"));
+  if (speed > 0) useGame.setState({ playbackSpeed: speed });
 
   const stage = params.get("stage") as Stage | null;
   const goal = stage ? ORDER.indexOf(stage) : -1;

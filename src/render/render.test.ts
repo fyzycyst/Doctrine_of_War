@@ -87,6 +87,19 @@ describe("engine mapping", () => {
     expect(squads.find((s) => s.faction === "free_banners")?.facing).toBeCloseTo(Math.PI);
     expect(lightingFor(emberFord.timeOfDay)).toBe("nightFires");
     expect(lightingFor(undefined)).toBe("dusk");
+    // Every engine hour has its own preset (the real battles use them all).
+    expect(lightingFor("day")).toBe("dusk");
+    expect(lightingFor("rainGrey")).toBe("rainGrey");
+    expect(lightingFor("predawn")).toBe("predawn");
+    expect(lightingFor("sunrise")).toBe("sunrise");
+  });
+
+  it("draws siege squads (the Cinderram) as a siege kind", async () => {
+    const { dioramaSquads } = await import("./fromEngine");
+    const { holdForDawn } = await import("../game/engine/scenarios/holdForDawn");
+    const squads = dioramaSquads(holdForDawn.squads);
+    expect(squads.find((s) => s.id === "cinderram")?.kind).toBe("siege");
+    expect(squads.find((s) => s.id === "kiln_born_oathguard")).toMatchObject({ kind: "combat", renowned: true });
   });
 });
 
@@ -122,17 +135,16 @@ describe("saltmarsh terrain and the Column", () => {
     const { dioramaSquads, isNoncombatant } = await import("./fromEngine");
     const base = { id: "c", faction: "free_banners" as const, hex: { q: 0, r: 0 }, strength: 80, cohesion: 60 };
     expect(isNoncombatant({ noncombatant: true })).toBe(true);
-    expect(isNoncombatant({ role: "noncombatant" })).toBe(true);
-    expect(isNoncombatant({ role: "frontline" })).toBe(false);
+    expect(isNoncombatant({})).toBe(false);
     expect(dioramaSquads([{ ...base, noncombatant: true }])[0].kind).toBe("column");
     expect(dioramaSquads([base])[0].kind).toBe("combat");
   });
 
   it("builds marsh pools and swaying reed banks", async () => {
     const { buildIsland } = await import("./terrain/buildIsland");
-    const { placeholderBoard } = await import("./showcase/placeholderBoards");
+    const { saltmarshColumn } = await import("../game/engine/scenarios/saltmarshColumn");
     const { emberDusk } = await import("./skins");
-    const island = buildIsland(placeholderBoard("saltmarsh"), emberDusk);
+    const island = buildIsland(saltmarshColumn.board, emberDusk);
     expect(island.reedGeometry).not.toBeNull();
     expect(island.water.some((w) => w.radius !== undefined)).toBe(true);
     // Sway weights run from 0 at the root toward 1 at the tip.
@@ -142,3 +154,46 @@ describe("saltmarsh terrain and the Column", () => {
     expect(max).toBeGreaterThan(0.9);
   });
 });
+
+describe("wide shot framing", () => {
+  it("keeps small boards as they were and tightens big ones toward the Banners", async () => {
+    const { wideShot, wideShotFor } = await import("./camera/DioramaCamera");
+    const { boardRadius } = await import("./hexWorld");
+    const { emberFord } = await import("../game/engine/scenarios/emberFord");
+    const { holdForDawn } = await import("../game/engine/scenarios/holdForDawn");
+    expect(wideShotFor(emberFord.board)).toEqual(wideShot(boardRadius(emberFord.board)));
+    const plain = wideShot(boardRadius(holdForDawn.board));
+    const framed = wideShotFor(holdForDawn.board);
+    expect(framed.distance).toBeLessThan(plain.distance * 0.9);
+    // The Banners and the Last Gate are on the east (+x) edge.
+    expect(framed.target[0]).toBeGreaterThan(plain.target[0] + 0.5);
+  });
+});
+
+describe("exit markers", () => {
+  it("points the Saltmarsh southern edge off the board", async () => {
+    const { offBoardDirection } = await import("./terrain/ExitMarkers");
+    const { boardCenter, hexToWorld } = await import("./hexWorld");
+    const { saltmarshColumn } = await import("../game/engine/scenarios/saltmarshColumn");
+    const board = saltmarshColumn.board;
+    const center = boardCenter(board);
+    const [, z6] = hexToWorld({ q: 3, r: 6 }, center);
+    const [, z7] = hexToWorld({ q: 3, r: 7 }, center);
+    const dir = offBoardDirection({ q: 3, r: 7 }, board, center)!;
+    // Same way as stepping from row 6 to row 7 (south), and unit length.
+    expect(Math.sign(dir[1])).toBe(Math.sign(z7 - z6));
+    expect(Math.hypot(dir[0], dir[1])).toBeCloseTo(1);
+    expect(offBoardDirection({ q: 3, r: 3 }, board, center)).toBeNull();
+  });
+});
+
+describe("known exit edge", () => {
+  it("keeps exit hexes out of the fog without duplicating seen ones", async () => {
+    const { knownHexes } = await import("./Diorama");
+    const seen = [{ q: 1, r: 1 }, { q: 2, r: 7 }];
+    const exits = [{ q: 2, r: 7 }, { q: 3, r: 7 }];
+    expect(knownHexes(seen, exits)).toEqual([{ q: 1, r: 1 }, { q: 2, r: 7 }, { q: 3, r: 7 }]);
+    expect(knownHexes(seen)).toBe(seen);
+  });
+});
+

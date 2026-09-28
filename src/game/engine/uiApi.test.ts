@@ -51,6 +51,8 @@ describe("deployment", () => {
     )!;
     expect(checkPlacement(saltmarshColumn, {}, "saltmarsh_column", free)).toEqual({ ok: false, reason: "The Column moves on its own orders." });
     expect(checkPlacement(saltmarshColumn, {}, "greyford_shields", free)).toEqual({ ok: true });
+    const column = saltmarshColumn.squads.find((squad) => squad.id === "saltmarsh_column")!;
+    expect(checkPlacement(saltmarshColumn, {}, "saltmarsh_column", column.hex)).toEqual({ ok: true });
   });
 });
 

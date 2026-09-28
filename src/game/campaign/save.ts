@@ -137,7 +137,14 @@ function record(value: unknown, path: string): BattleRecord {
     enemyBroken: int(raw.enemyBroken, `${path}.enemyBroken`, 0, 1000),
     objectiveIntegrity: raw.objectiveIntegrity === null ? null : int(raw.objectiveIntegrity, `${path}.objectiveIntegrity`, 0, 100),
     companies: array(raw.companies, `${path}.companies`, MAX_COMPANIES).map((item, index) => result(item, `${path}.companies[${index}]`)),
+    // Optional (T16): only `true` is ever written; anything else present is refused.
+    ...(raw.customOrders === undefined ? {} : { customOrders: literalTrue(raw.customOrders, `${path}.customOrders`) }),
   };
+}
+
+function literalTrue(value: unknown, path: string): true {
+  if (value !== true) fail(path, "must be true when present");
+  return true;
 }
 
 /**

@@ -1,7 +1,10 @@
+import { PenLine } from "lucide-react";
 import { forwardRef, useImperativeHandle, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { useAppStore } from "../store";
 import { useGame } from "../game/gameStore";
+import { useFlow } from "../flow/flowStore";
 import { getDoctrine } from "../game/view";
+import { useVariants } from "../variants/variantStore";
 import { DoctrineCardFace } from "./DoctrineCard";
 import { SealMark } from "./glyphs";
 
@@ -19,11 +22,16 @@ export const DoctrineHand = forwardRef<HandHandle>(function DoctrineHand(_, ref)
   const orders = useGame((s) => s.orders);
   const assign = useGame((s) => s.assignDoctrine);
   const selectedId = useAppStore((s) => s.selectedSquadId);
+  const variants = useVariants((s) => s.variants);
+  const setEditor = useFlow((s) => s.setEditor);
   const listRef = useRef<HTMLDivElement>(null);
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
 
   const squad = view.squads.find((item) => item.id === selectedId);
-  const doctrines = scenario.playerDoctrineIds.map(getDoctrine).filter((item) => item !== undefined);
+  // Each allowed doctrine, followed by the player's variants of it (T16, Experimental).
+  const doctrines = scenario.playerDoctrineIds
+    .flatMap((id) => [getDoctrine(id), ...variants.filter((item) => item.variant.baseId === id).map((item) => item.doctrine)])
+    .filter((item) => item !== undefined);
   const current = squad ? (orders[squad.id] ?? squad.doctrineId) : null;
   const currentIndex = Math.max(0, doctrines.findIndex((doctrine) => doctrine.id === current));
   const active = focusIndex ?? currentIndex;
@@ -35,7 +43,8 @@ export const DoctrineHand = forwardRef<HandHandle>(function DoctrineHand(_, ref)
 
   useImperativeHandle(ref, () => ({ focus: () => focusCard(currentIndex) }));
 
-  if (!squad || squad.faction !== view.viewer || squad.status !== "active") {
+  // Noncombatants (the Column) keep their own orders: there is nothing to assign.
+  if (!squad || squad.faction !== view.viewer || squad.status !== "active" || squad.noncombatant) {
     return null;
   }
 
@@ -56,6 +65,10 @@ export const DoctrineHand = forwardRef<HandHandle>(function DoctrineHand(_, ref)
   };
 
   const mid = (doctrines.length - 1) / 2;
+  const activeVariant = variants.find((item) => item.variant.id === doctrines[active]?.id)?.variant;
+  const editTarget = activeVariant
+    ? { variantId: activeVariant.id, baseId: activeVariant.baseId, squadId: squad.id }
+    : { baseId: doctrines[active]?.id, squadId: squad.id };
 
   return (
     <section className="hand" aria-label={`Doctrines for ${squad.name}`}>
@@ -64,6 +77,9 @@ export const DoctrineHand = forwardRef<HandHandle>(function DoctrineHand(_, ref)
         <span className="hand-hint" aria-hidden="true">
           ← → to browse · Enter to assign
         </span>
+        <button type="button" className="hand-edit" onClick={() => setEditor(editTarget)}>
+          <PenLine size={13} aria-hidden="true" /> {activeVariant ? "Edit this variant…" : "Edit a copy…"}
+        </button>
       </p>
       <div
         ref={listRef}

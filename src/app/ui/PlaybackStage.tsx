@@ -5,11 +5,12 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import type { BoardLayout } from "../../game/board";
+import { hexDistance, type BoardLayout } from "../../game/board";
 import type { CameraShot } from "../../render/camera/DioramaCamera";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
 import { useCaptureStore } from "../captureStore";
-import { useGame, type Callout } from "../game/gameStore";
+import { useGame, useShownView, type Callout } from "../game/gameStore";
+import { rosterName } from "../game/view";
 import { Sigil } from "./glyphs";
 
 /** Height above the board at which callouts float (over the squad's banner). */
@@ -27,12 +28,13 @@ export function PlaybackStage({ board, shot, reducedMotion }: { board: BoardLayo
   return (
     <>
       {!reducedMotion && <CameraEmphasis center={center} shot={shot} />}
+      <WardMarkers center={center} />
       {callouts
         .filter((callout) => callout.hex)
         .map((callout) => {
           const [x, z] = hexToWorld(callout.hex!, center);
-          // Stack callouts that share a hex so they never overprint.
-          const stacked = callouts.filter((other) => other.hex && other.id < callout.id && other.hex.q === callout.hex!.q && other.hex.r === callout.hex!.r).length;
+          // Stack callouts on the same or neighbouring hexes so they never overprint.
+          const stacked = calloutStack(callouts, callout);
           return (
             <Html
               key={callout.id}
@@ -48,6 +50,11 @@ export function PlaybackStage({ board, shot, reducedMotion }: { board: BoardLayo
         })}
     </>
   );
+}
+
+/** How many older callouts sit on this callout's hex or a neighbouring one (its stack height). */
+export function calloutStack(callouts: Callout[], callout: Callout): number {
+  return callouts.filter((other) => other.hex && callout.hex && other.id < callout.id && hexDistance(other.hex, callout.hex) <= 1).length;
 }
 
 function CalloutCard({ callout }: { callout: Callout }) {
@@ -75,6 +82,31 @@ function CalloutCard({ callout }: { callout: Callout }) {
       <span className="callout-title">{callout.title}</span>
       <span className="callout-text">{callout.text}</span>
     </div>
+  );
+}
+
+/** While you plan, a pennant over each charge you must bring out (the Saltmarsh Column). */
+function WardMarkers({ center }: { center: { x: number; z: number } }) {
+  const stage = useGame((s) => s.stage);
+  const view = useShownView();
+  const captureMode = useCaptureStore((s) => s.captureMode);
+  if (captureMode || (stage !== "command" && stage !== "deploy")) return null;
+  return (
+    <>
+      {view.squads
+        .filter((squad) => squad.noncombatant && squad.status === "active" && squad.hex)
+        .map((squad) => {
+          const [x, z] = hexToWorld(squad.hex!, center);
+          return (
+            <Html key={squad.id} position={[x, CALLOUT_Y, z]} center zIndexRange={[20, 20]} style={{ pointerEvents: "none" }}>
+              <div className="ward-marker">
+                <span className="callout-title">{rosterName(squad)}</span>
+                <span className="ward-must">Must escape</span>
+              </div>
+            </Html>
+          );
+        })}
+    </>
   );
 }
 

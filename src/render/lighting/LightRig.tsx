@@ -14,7 +14,13 @@ export function sunDirection(azimuthDeg: number, elevationDeg: number): THREE.Ve
  * One rig, swappable values: warm key (sun) with shadows from the Banners'
  * side, cool fill from the Host's side, hemisphere ambient, and scene fog.
  */
-export function LightRig({ shadowRadius = 9 }: { shadowRadius?: number }) {
+/**
+ * `fogOffset` pushes the fog band back by that many world units: presets are
+ * tuned for the wide shot of a board up to Ember Ford's size, and bigger
+ * boards (Saltmarsh, Hold for Dawn) put the camera further out, which would
+ * otherwise bury the island in fog.
+ */
+export function LightRig({ shadowRadius = 9, fogOffset = 0 }: { shadowRadius?: number; fogOffset?: number }) {
   const { preset, quality, atmosphere } = useLook();
   const sun = useRef<THREE.DirectionalLight>(null);
   const fill = useRef<THREE.DirectionalLight>(null);
@@ -39,8 +45,8 @@ export function LightRig({ shadowRadius = 9 }: { shadowRadius?: number }) {
     if (hemi.current) hemi.current.intensity = preset.hemisphere.intensity * m.ambientScale;
     const fog = scene.fog as THREE.Fog | null;
     if (fog) {
-      fog.near = preset.fog.near * m.fogScale;
-      fog.far = preset.fog.far * m.fogScale;
+      fog.near = preset.fog.near * m.fogScale + fogOffset;
+      fog.far = preset.fog.far * m.fogScale + fogOffset;
     }
   });
 

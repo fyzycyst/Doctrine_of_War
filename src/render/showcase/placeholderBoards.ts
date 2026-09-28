@@ -1,5 +1,4 @@
 import type { BoardHex, BoardLayout, TerrainType } from "../../game/board";
-import type { RenderTerrain } from "../skins/types";
 
 /**
  * Placeholder boards for campaign battles whose scenarios are not built yet
@@ -8,11 +7,10 @@ import type { RenderTerrain } from "../skins/types";
  */
 export type PlaceholderKind = "saltmarsh" | "holdForDawn";
 
-function layout(width: number, height: number, terrainAt: (q: number, r: number) => RenderTerrain): BoardLayout {
+function layout(width: number, height: number, terrainAt: (q: number, r: number) => TerrainType): BoardLayout {
   const hexes: BoardHex[] = [];
   for (let q = 0; q < width; q += 1) {
-    // marsh/reeds are render terrains the engine is adding; cast until TerrainType has them.
-    for (let r = 0; r < height; r += 1) hexes.push({ coord: { q, r }, terrain: terrainAt(q, r) as TerrainType });
+    for (let r = 0; r < height; r += 1) hexes.push({ coord: { q, r }, terrain: terrainAt(q, r) });
   }
   return { width, height, hexes };
 }

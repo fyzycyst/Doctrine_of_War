@@ -15,14 +15,8 @@ export const TIME_OF_DAY_KEYS: TimeOfDay[] = ["dusk", "nightFires", "rainGrey", 
 
 export type Hex = string; // "#rrggbb"
 
-/**
- * The engine's TerrainType plus the terrains it is adding for The Saltmarsh
- * Column (marsh, reeds). Skins style all of them so the engine change can't
- * break a `Record<TerrainType, …>`; once TerrainType includes them this is
- * simply equal to it.
- */
-export type RenderTerrain = TerrainType | "marsh" | "reeds";
-export const RENDER_TERRAINS: RenderTerrain[] = ["road", "ridge", "ford", "wall", "field", "ruin", "river", "marsh", "reeds"];
+/** Every engine terrain; skins style each one. */
+export const RENDER_TERRAINS: TerrainType[] = ["road", "ridge", "ford", "wall", "field", "ruin", "river", "marsh", "reeds"];
 
 export interface TerrainStyle {
   /** Top-surface colour of the tile. */
@@ -119,7 +113,8 @@ export interface LightingPreset {
   fill: { color: Hex; intensity: number; azimuth: number; elevation: number };
   hemisphere: { sky: Hex; ground: Hex; intensity: number };
   fog: { color: Hex; near: number; far: number };
-  mist: { color: Hex; density: number; height: number; speed: number };
+  /** `fogOfWar` scales the fog-of-war mist's opacity (default 1): lighter hours need it denser to read as unknown ground. */
+  mist: { color: Hex; density: number; height: number; speed: number; fogOfWar?: number };
   particles: { kind: "embers" | "rain" | "ash"; rate: number; color: Hex; speed: number; size: number };
   /** Point-light fires (braziers, burning river). 0 = none. */
   fires: { color: Hex; intensity: number };
@@ -160,7 +155,7 @@ export interface WeatherPreset {
 export interface Skin {
   id: string;
   label: string;
-  terrain: Record<RenderTerrain, TerrainStyle>;
+  terrain: Record<TerrainType, TerrainStyle>;
   factions: Record<FactionId, FactionStyle>;
   island: IslandStyle;
   material: MaterialStyle;

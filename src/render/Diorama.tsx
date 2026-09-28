@@ -10,13 +10,15 @@ import { SquadAnimator, type AnimatorScene, type SquadAnimationApi } from "./fig
 import { SquadMarkers } from "./figures/SquadMarkers";
 import { ToySoldierSquads } from "./figures/ToySoldierSquads";
 import { placeSquads, type DioramaSquad, type FigureApproach } from "./figures/types";
-import { hexToWorld } from "./hexWorld";
+import { wideShotFor } from "./camera/DioramaCamera";
+import { boardRadius, hexToWorld } from "./hexWorld";
 import { LightRig } from "./lighting/LightRig";
 import { AtmosphereTicker, useLook } from "./look/LookContext";
 import type { FactionId } from "../game/engine/types";
 import { createIslandMaterial, createOutlineMaterial } from "./materials";
 import { pickBoardHex, resolveClick } from "./picking";
 import { BoardHighlights } from "./terrain/BoardHighlights";
+import { ExitMarkers } from "./terrain/ExitMarkers";
 import { buildIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
 import { WallsAndObjectiveFX } from "./terrain/ObjectiveFX";
@@ -61,6 +63,7 @@ export function Diorama({
   figures = "toy",
   mistDensity,
   deploymentHexes,
+  exitHexes,
   visibility,
   animationRef,
   onFiguresReady,
@@ -72,6 +75,11 @@ export function Diorama({
   mistDensity?: MistDensityMap;
   /** Hexes to tint as a pulsing deployment zone. */
   deploymentHexes?: HexCoord[];
+  /**
+   * Hexes to mark as a "way out" (e.g. Saltmarsh's southern edge): a soft pale
+   * glow toward the off-board side and faint chevrons drifting off the board.
+   */
+  exitHexes?: HexCoord[];
   /** Fog of war; omit for everything visible. */
   visibility?: DioramaVisibility;
   animationRef?: Ref<SquadAnimationApi>;
@@ -150,11 +158,11 @@ export function Diorama({
   useEffect(() => {
     atmosphere.setFog(
       board.hexes.map((h) => h.coord),
-      visibility ? visibility.visibleHexes : null,
+      visibility ? knownHexes(visibility.visibleHexes, exitHexes) : null,
       !fogInit.current,
     );
     fogInit.current = true;
-  }, [atmosphere, board, visibility]);
+  }, [atmosphere, board, visibility, exitHexes]);
 
   // Reveal: squads that are drawn live now but were hidden or ghosts before.
   const shown = useRef<Set<string> | null>(null);
@@ -201,7 +209,7 @@ export function Diorama({
       <AtmosphereTicker />
       <AnimatorTicker animator={animator} />
       <SkyDome />
-      <LightRig shadowRadius={island.radius * 0.8} />
+      <LightRig shadowRadius={island.radius * 0.8} fogOffset={fogOffsetFor(board)} />
       <mesh
         geometry={island.geometry}
         material={material}
@@ -231,6 +239,7 @@ export function Diorama({
       <Fires island={island} />
       {island.gateBanner && <GateBanner anchor={island.gateBanner} />}
       <BoardHighlights island={island} deploymentHexes={deploymentHexes} />
+      {exitHexes && exitHexes.length > 0 && <ExitMarkers board={board} island={island} hexes={exitHexes} />}
       <SquadMarkers placed={placed} animator={animator} waterLevel={island.waterLevel} />
       <Suspense fallback={null}>
         {figures === "kaykit" && KayKitSquads ? (
@@ -256,4 +265,22 @@ function ReadySignal({ onReady }: { onReady?: () => void }) {
     onReady?.();
   }, [onReady]);
   return null;
+}
+
+/** Wide-shot distance the skin's fog presets are tuned for (Ember Ford's board). */
+const FOG_REF_DISTANCE = 26;
+/** Push the fog back on boards bigger than that, so their wide shot isn't buried. */
+function fogOffsetFor(board: BoardLayout): number {
+  return Math.max(0, wideShotFor(board).distance - FOG_REF_DISTANCE);
+}
+
+/**
+ * Hexes the fog of war leaves clear: what the player sees, plus a known exit
+ * edge (the player always knows where the way out is, so it never reads as
+ * unknown ground). Squads there are still drawn per `visibility`.
+ */
+export function knownHexes(visible: HexCoord[], exits?: HexCoord[]): HexCoord[] {
+  if (!exits || exits.length === 0) return visible;
+  const seen = new Set(visible.map(hexKey));
+  return [...visible, ...exits.filter((h) => !seen.has(hexKey(h)))];
 }
