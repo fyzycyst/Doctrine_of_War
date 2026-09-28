@@ -134,8 +134,6 @@ describe("PlaybackDirector", () => {
     switched.hooks.pace = () => "fast"; // toggled right after sealing
     await new PlaybackDirector(switched.timeline, switched.hooks).run();
 
-    // Capped settle-waits race their animation and finish in the background: let them drain.
-    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(sumOf(switched.slept)).toBeCloseTo(sumOf(readable.slept) / 2, 0);
   });
 });
@@ -262,5 +260,58 @@ describe("PlaybackDirector: pause and resume", () => {
     const ending = paused.run();
     paused.skip();
     await expect(ending).resolves.toBe("skipped");
+  });
+});
+
+describe("PlaybackDirector: no stray timers", () => {
+  /** A real-timer sleep that honours cancellation, as Playback.tsx provides. */
+  const timerSleep = (ms: number, signal?: AbortSignal) =>
+    new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, ms);
+      signal?.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true },
+      );
+    });
+
+  async function until<T>(promise: Promise<T>): Promise<T> {
+    let settled: { value: T } | null = null;
+    void promise.then((value) => (settled = { value }));
+    for (let guard = 0; !settled && guard < 100_000; guard += 1) await vi.advanceTimersByTimeAsync(10);
+    return (settled as { value: T } | null)!.value;
+  }
+
+  it("leaves no timers once a phase has played: a settled animation cancels its capped wait", async () => {
+    vi.useFakeTimers();
+    try {
+      const run = setup();
+      run.hooks.sleep = timerSleep;
+      const director = new PlaybackDirector(run.timeline, run.hooks);
+      expect(await until(director.run())).toBe("done");
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("leaves no timers after a skip mid-step (Skip, or the board unmounting)", async () => {
+    vi.useFakeTimers();
+    try {
+      const run = setup();
+      run.hooks.sleep = timerSleep;
+      const director = new PlaybackDirector(run.timeline, run.hooks);
+      const finished = director.run();
+      await vi.advanceTimersByTimeAsync(700);
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      director.skip();
+      await expect(finished).resolves.toBe("skipped");
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

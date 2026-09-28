@@ -58,6 +58,7 @@ export function Playback({
         fn();
       }, ms / Math.max(0.001, useGame.getState().playbackSpeed));
       timers.add(timer);
+      return timer;
     };
     const final = game.view;
     const factions = new Map([...entry.start.squads, ...final.squads].map((squad) => [squad.id, squad.faction]));
@@ -110,7 +111,20 @@ export function Playback({
       shake: () => useGame.getState().setPlayback({ shakeAt: performance.now() }),
       sfx: (name) => playSfx(name),
       caption: (caption) => useGame.getState().setPlayback({ caption }),
-      sleep: (ms) => new Promise((resolve) => later(ms, resolve)),
+      sleep: (ms, signal) =>
+        new Promise((resolve) => {
+          const timer = later(ms, resolve);
+          // A cancelled wait clears its timer at once (skip, unmount, a settled animation).
+          signal?.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              timers.delete(timer);
+              resolve();
+            },
+            { once: true },
+          );
+        }),
     });
     director.current = run;
     skipButton.current?.focus({ preventScroll: true });
