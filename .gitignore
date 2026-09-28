@@ -1,10 +1,10 @@
 node_modules/
 dist/
 dist-electron/
-release/
+/release/
 coverage/
 .DS_Store
 tasks/
 
 captures/
-public/assets/cc0/kaykit/*.glb
+lab-assets/cc0/kaykit/*.glb

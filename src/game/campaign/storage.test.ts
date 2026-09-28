@@ -59,6 +59,24 @@ describe("save stores", () => {
     await expect(localStorageStore(null).write("{}")).rejects.toThrow(/not available/);
   });
 
+  it("localStorage method failures become CampaignSaveError", async () => {
+    const quota = new Error("quota");
+    quota.name = "QuotaExceededError";
+    const throwing = {
+      getItem: () => {
+        throw new Error("SecurityError");
+      },
+      setItem: () => {
+        throw quota;
+      },
+    };
+    const store = localStorageStore(throwing);
+    await expect(store.read()).rejects.toThrow(CampaignSaveError);
+    await expect(loadCampaignFrom(store, ashAndBanner)).rejects.toThrow(/could not be read/);
+    await expect(saveCampaignTo(store, startCampaign(ashAndBanner))).rejects.toThrow(CampaignSaveError);
+    await expect(store.write("{}")).rejects.toThrow(/could not be written \(QuotaExceededError\)/);
+  });
+
   it("Electron: goes through the preload bridge", async () => {
     const bridge = memoryBridge();
     const state = startCampaign(ashAndBanner);

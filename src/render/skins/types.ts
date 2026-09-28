@@ -1,5 +1,5 @@
 import type { TerrainType } from "../../game/board";
-import type { FactionId } from "../../game/types";
+import type { FactionId } from "../../game/engine/types";
 
 /**
  * A Skin is the complete "look" of the diorama as data. Scenarios only speak
@@ -14,6 +14,15 @@ export type TimeOfDay = "dusk" | "nightFires" | "rainGrey" | "predawn" | "sunris
 export const TIME_OF_DAY_KEYS: TimeOfDay[] = ["dusk", "nightFires", "rainGrey", "predawn", "sunrise"];
 
 export type Hex = string; // "#rrggbb"
+
+/**
+ * The engine's TerrainType plus the terrains it is adding for The Saltmarsh
+ * Column (marsh, reeds). Skins style all of them so the engine change can't
+ * break a `Record<TerrainType, …>`; once TerrainType includes them this is
+ * simply equal to it.
+ */
+export type RenderTerrain = TerrainType | "marsh" | "reeds";
+export const RENDER_TERRAINS: RenderTerrain[] = ["road", "ridge", "ford", "wall", "field", "ruin", "river", "marsh", "reeds"];
 
 export interface TerrainStyle {
   /** Top-surface colour of the tile. */
@@ -123,13 +132,39 @@ export interface LightingPreset {
   grading: GradingParams;
 }
 
+/** Engine weather (docs/ENGINE.md), layered on top of the time-of-day preset. */
+export type WeatherKind = "clear" | "rain" | "mist" | "ashWind";
+
+export const WEATHER_KINDS: WeatherKind[] = ["clear", "rain", "mist", "ashWind"];
+
+/**
+ * A weather overlay: deltas and multipliers applied to whichever lighting
+ * preset is active, blended by weight so shifts between phases cross-fade.
+ */
+export interface WeatherPreset {
+  id: WeatherKind;
+  label: string;
+  /** Extra ground-mist density (added), its colour pull and extra height. */
+  mist: { densityAdd: number; color: Hex; colorMix: number; heightAdd: number };
+  /** An extra particle layer on top of the preset's own (0 rate = none). */
+  particles: { kind: "rain" | "ash"; rate: number; color: Hex; speed: number };
+  /** 0..1: darker, glossier terrain and ripples on water. */
+  wetness: number;
+  light: { sunScale: number; ambientScale: number; fogScale: number; exposureScale: number };
+  /** Pulls the backdrop toward a colour (grey rain sky, brown ash haze). */
+  sky: { tint: Hex; mix: number };
+  /** Added to the preset grading; `tint` is pushed into the highlights. */
+  grading: { saturation: number; contrast: number; tint: Hex; tintMix: number };
+}
+
 export interface Skin {
   id: string;
   label: string;
-  terrain: Record<TerrainType, TerrainStyle>;
+  terrain: Record<RenderTerrain, TerrainStyle>;
   factions: Record<FactionId, FactionStyle>;
   island: IslandStyle;
   material: MaterialStyle;
   figures: FigureStyle;
   lighting: Record<TimeOfDay, LightingPreset>;
+  weather: Record<WeatherKind, WeatherPreset>;
 }

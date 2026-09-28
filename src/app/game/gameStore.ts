@@ -22,11 +22,14 @@ import {
   isOrderAllowed,
 } from "../../game/engine";
 import { ashAndBanner, applyCampaign, startCampaign, type CampaignDefinition, type CampaignState } from "../../game/campaign";
+import type { CalloutSpec } from "../playback/director";
+import type { Pace } from "../playback/timeline";
+import { useSettings } from "../settingsStore";
 import { useAppStore } from "../store";
 import { applyDeployment, checkPlacement, initialDeployment, type Deployment, type PlacementCheck } from "./deploy";
 
 export type Stage = "briefing" | "deploy" | "command" | "resolving" | "report" | "outcome";
-export type Pace = "readable" | "fast";
+export type { Pace } from "../playback/timeline";
 
 export interface BattleSetup {
   seed: number;
@@ -50,6 +53,8 @@ export interface PhaseLog {
   status: EngineState["status"];
   /** eventsFor(events, playerFaction): the only events the UI may show. */
   events: EngineEvent[];
+  /** What the player saw when the phase began (playback starts here; names come from it). */
+  start: VisibleState;
 }
 
 export interface GameState {
@@ -73,6 +78,23 @@ export interface GameState {
   /** The last thing the UI refused, in plain words (deploy rejections). */
   notice: string | null;
 
+  // Playback (T06). While `stage` is "resolving", the board and roster show `display`,
+  // which the director advances step by step from the phase's opening view.
+  display: VisibleState | null;
+  /** Bumped for each playback (a seal or a replay); the director restarts on it. */
+  runId: number;
+  /** 0 before the first beat. */
+  beat: number;
+  callouts: Callout[];
+  /** The hex the camera leans toward, if any. */
+  focus: HexCoord | null;
+  /** Time (performance.now) of the last gate hit, to shake the board. */
+  shakeAt: number;
+  /** The latest playback line, for the playback bar and screen readers. */
+  caption: string;
+  /** Tests and capture only: >1 fast-forwards playback timers. */
+  playbackSpeed: number;
+
   loadBattle: (scenario: EngineScenario, setup: BattleSetup, stage?: Stage, campaign?: CampaignContext | null) => void;
   takeCommand: () => void;
   placeSquad: (squadId: string, hex: HexCoord) => PlacementCheck;
@@ -87,7 +109,21 @@ export interface GameState {
   clearNotice: () => void;
   /** Tests and dev capture only: swap in an engine state (the view is re-derived). */
   replaceEngine: (engine: EngineState) => void;
+  /** Playback reached the end, or was skipped: show the final state and the report. */
+  finishPlayback: () => void;
+  /** Plays the last phase again from the report. The engine is not re-run. */
+  replayPhase: () => void;
+  setPlayback: (patch: Partial<Pick<GameState, "display" | "beat" | "focus" | "shakeAt" | "caption">>) => void;
+  pushCallout: (spec: CalloutSpec) => number;
+  dropCallout: (id: number) => void;
 }
+
+export interface Callout extends CalloutSpec {
+  id: number;
+}
+
+const idle = { display: null, beat: 0, callouts: [], focus: null, caption: "" };
+let calloutIds = 0;
 
 function derive(scenario: EngineScenario, engine: EngineState) {
   return { engine, view: visibleState(engine, scenario.playerFaction) };
@@ -111,8 +147,24 @@ function freshBattle(baseScenario: EngineScenario, setup: BattleSetup, stage: St
     orders: {},
     log: [],
     notice: null,
+    ...idle,
     ...battleFor(scenario, deployment, setup),
   };
+}
+
+/**
+ * A selected company that routed, was destroyed or escaped would open the next command
+ * window on a dead inspector with no hand; select the first company still fighting.
+ */
+function reconcileSelection(view: VisibleState) {
+  const app = useAppStore.getState();
+  const selected = view.squads.find((squad) => squad.id === app.selectedSquadId);
+  if (!app.selectedSquadId || selected?.status === "active") {
+    return;
+  }
+  const next = view.squads.find((squad) => squad.faction === view.viewer && squad.status === "active");
+  app.selectSquad(next?.id ?? null);
+  app.selectHex(next?.hex ?? null);
 }
 
 /** A fresh seed for "retry with new fortune". The engine stays pure; chance is picked here. */
@@ -131,7 +183,10 @@ export const useGame = create<GameState>((set, get) => ({
     def: ashAndBanner,
     state: startCampaign(ashAndBanner),
   }),
-  pace: "readable",
+  pace: useSettings.getState().defaultPace,
+  runId: 0,
+  shakeAt: 0,
+  playbackSpeed: 1,
 
   loadBattle: (scenario, setup, stage = "briefing", campaign = null) => {
     useAppStore.getState().clearSelection();
@@ -190,7 +245,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   sealOrders: () => {
-    const { stage, engine, orders, scenario, log } = get();
+    const { stage, engine, orders, scenario, log, view } = get();
     if (stage !== "command" || engine.status !== "command") {
       return;
     }
@@ -203,15 +258,26 @@ export const useGame = create<GameState>((set, get) => ({
       weather: result.report.weather,
       status: result.state.status,
       events: eventsFor(result.events, scenario.playerFaction),
+      start: view,
     };
-    // "resolving" is where T06 playback will run; until then it goes straight to the report.
-    set({ ...derive(scenario, result.state), orders: {}, log: [...log, entry], stage: "report", notice: null });
+    // The engine has already decided the phase; playback shows it from the opening view.
+    set({
+      ...derive(scenario, result.state),
+      orders: {},
+      log: [...log, entry],
+      stage: "resolving",
+      notice: null,
+      ...idle,
+      display: view,
+      runId: get().runId + 1,
+    });
   },
 
   nextPhase: () => {
-    const { stage, engine } = get();
+    const { stage, engine, view } = get();
     if (stage === "report") {
       set({ stage: engine.status === "command" ? "command" : "outcome" });
+      reconcileSelection(view);
     }
   },
 
@@ -221,7 +287,33 @@ export const useGame = create<GameState>((set, get) => ({
     get().loadBattle(baseScenario, { ...setup, seed }, "deploy", campaign);
   },
 
+  finishPlayback: () => {
+    if (get().stage === "resolving") {
+      set({ stage: "report", ...idle });
+    }
+  },
+
+  replayPhase: () => {
+    const { stage, log } = get();
+    const last = log[log.length - 1];
+    if (stage === "report" && last) {
+      set({ stage: "resolving", ...idle, display: last.start, runId: get().runId + 1 });
+    }
+  },
+
+  setPlayback: (patch) => set(patch),
+  pushCallout: (spec) => {
+    calloutIds += 1;
+    const id = calloutIds;
+    set({ callouts: [...get().callouts.slice(-7), { ...spec, id }] });
+    return id;
+  },
+  dropCallout: (id) => set({ callouts: get().callouts.filter((callout) => callout.id !== id) }),
+
   setPace: (pace) => set({ pace }),
   clearNotice: () => set({ notice: null }),
   replaceEngine: (engine) => set(derive(get().scenario, engine)),
 }));
+
+/** What the board and roster show: the playback layer while resolving, else the view. */
+export const useShownView = () => useGame((s) => s.display ?? s.view);

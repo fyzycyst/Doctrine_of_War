@@ -4,7 +4,9 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useLook } from "../look/LookContext";
 import { NOISE_GLSL } from "../shaders/noise";
+import { SURFACE_UNIFORMS } from "../shaders/surface";
 import type { IslandBuild } from "./buildIsland";
+import { useDisposable } from "../dispose";
 
 /**
  * Ford water with an animated sheen that flows toward the waterfall, and the
@@ -12,12 +14,13 @@ import type { IslandBuild } from "./buildIsland";
  * `waterGlow` turns the river into burning oil (the Ember Ford key light).
  */
 export function Water({ island }: { island: IslandBuild }) {
-  const { skin, preset } = useLook();
+  const { skin, preset, motion } = useLook();
 
-  const geometry = useMemo(() => {
+  const geometry = useDisposable(() => {
     if (island.water.length === 0) return null;
     const parts = island.water.map((w) => {
-      const g = new THREE.CircleGeometry(1.0, 6);
+      // Full hexes for fords/rivers; small round pools for marsh.
+      const g = w.radius ? new THREE.CircleGeometry(w.radius, 10) : new THREE.CircleGeometry(1.0, 6);
       g.rotateX(-Math.PI / 2);
       g.translate(w.x, w.level, w.z);
       g.setAttribute("aDeep", new THREE.Float32BufferAttribute(new Array(g.getAttribute("position").count).fill(w.deep), 1));
@@ -30,11 +33,12 @@ export function Water({ island }: { island: IslandBuild }) {
     return new THREE.Vector2(island.flow[0], island.flow[1]);
   }, [island]);
 
-  const material = useMemo(
+  const material = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         fog: true,
-        uniforms: THREE.UniformsUtils.merge([
+        uniforms: {
+          ...THREE.UniformsUtils.merge([
           THREE.UniformsLib.fog,
           {
             uTime: { value: 0 },
@@ -46,7 +50,10 @@ export function Water({ island }: { island: IslandBuild }) {
             uGlow: { value: 0 },
             uFlow: { value: new THREE.Vector2(-1, 0) },
           },
-        ]),
+          ]),
+          // Shared (not cloned), so weather wetness reaches the ripples.
+          uWet: SURFACE_UNIFORMS.uWet,
+        },
         vertexShader: /* glsl */ `
           #include <fog_pars_vertex>
           attribute float aDeep;
@@ -66,7 +73,7 @@ export function Water({ island }: { island: IslandBuild }) {
         fragmentShader: /* glsl */ `
           #include <common>
           #include <fog_pars_fragment>
-          uniform float uTime, uGlow;
+          uniform float uTime, uGlow, uWet;
           uniform vec3 uColor, uDeep, uSky, uSheen, uGlowColor;
           uniform vec2 uFlow;
           varying vec2 vPos;
@@ -95,6 +102,31 @@ export function Water({ island }: { island: IslandBuild }) {
             float fire = smoothstep(0.6, 0.9, fbm(vec2(along * 1.2 - uTime * 0.3, across * 11.0) + 3.0));
             col = mix(col, col * 0.45, clamp(uGlow, 0.0, 1.0));
             col += uGlowColor * uGlow * flick * fire * 0.9;
+            // Rain: expanding ripple rings, large and sparse enough to read
+            // at the wide shot. Each cell fires on a random cycle (about half
+            // sit out), with a bright crest, a faint trailing ring and a
+            // darker trough just inside.
+            if (uWet > 0.01) {
+              for (int k = 0; k < 2; k++) {
+                vec2 q = vPos * (2.1 + float(k) * 0.9) + float(k) * 13.1;
+                vec2 cell = floor(q);
+                vec2 f = fract(q);
+                float rate = 0.55 + 0.25 * hash12(cell + 5.7);
+                float tt = uTime * rate + hash12(cell + 3.1);
+                float ph = fract(tt);
+                float live = step(0.5, hash12(cell + floor(tt) * 1.37));
+                vec2 c = vec2(hash12(cell + floor(tt)), hash12(cell + 7.3 + floor(tt))) * 0.5 + 0.25;
+                float d = length(f - c);
+                float r = ph * 0.45;
+                float w = 0.03 + 0.02 * ph;
+                float crest = smoothstep(w, 0.0, abs(d - r));
+                float trail = smoothstep(w, 0.0, abs(d - r * 0.6)) * 0.25;
+                float trough = smoothstep(w * 1.6, 0.0, abs(d - r + w * 1.4));
+                float fade = (1.0 - ph) * (1.0 - ph) * live * uWet;
+                col += vec3(0.6, 0.65, 0.72) * (crest + trail) * fade * 0.7;
+                col *= 1.0 - trough * fade * 0.25;
+              }
+            }
             gl_FragColor = vec4(col, 1.0);
             #include <tonemapping_fragment>
             #include <colorspace_fragment>
@@ -105,7 +137,7 @@ export function Water({ island }: { island: IslandBuild }) {
     [],
   );
 
-  const fall = useMemo(
+  const fall = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         transparent: true,
@@ -117,6 +149,7 @@ export function Water({ island }: { island: IslandBuild }) {
           uFoam: { value: new THREE.Color() },
           uGlowColor: { value: new THREE.Color() },
           uGlow: { value: 0 },
+          uLight: { value: 1 },
         },
         vertexShader: /* glsl */ `
           varying vec2 vUv;
@@ -130,7 +163,7 @@ export function Water({ island }: { island: IslandBuild }) {
           }
         `,
         fragmentShader: /* glsl */ `
-          uniform float uTime, uGlow;
+          uniform float uTime, uGlow, uLight;
           uniform vec3 uColor, uFoam, uGlowColor;
           varying vec2 vUv;
           ${NOISE_GLSL}
@@ -138,7 +171,8 @@ export function Water({ island }: { island: IslandBuild }) {
             float t = 1.0 - vUv.y;
             float n = fbm(vec2(vUv.x * 9.0, vUv.y * 3.0 + uTime * 1.6));
             float streaks = smoothstep(0.45, 0.8, fbm(vec2(vUv.x * 22.0, vUv.y * 1.5 + uTime * 2.2)));
-            vec3 col = mix(uColor, uFoam, streaks * 0.8 + smoothstep(0.08, 0.0, t) * 0.8);
+            // Unlit shader: scale by the scene's light level so night falls stay dark.
+            vec3 col = mix(uColor, uFoam, streaks * 0.8 + smoothstep(0.08, 0.0, t) * 0.8) * uLight;
             col += uGlowColor * uGlow * 0.6 * n;
             float edge = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x);
             float alpha = edge * (1.0 - smoothstep(0.35, 1.0, t)) * (0.55 + 0.45 * n);
@@ -167,14 +201,16 @@ export function Water({ island }: { island: IslandBuild }) {
     fall.uniforms.uFoam.value
       .set("#e8eef0")
       .lerp(new THREE.Color(preset.sky.horizon), 0.35)
-      .multiplyScalar(THREE.MathUtils.clamp(preset.sun.intensity / 3.5, 0.2, 1));
+      .multiplyScalar(preset.fires.intensity > 0 ? 0.18 : THREE.MathUtils.clamp(preset.sun.intensity / 3.5, 0.2, 1));
+    fall.uniforms.uLight.value = preset.fires.intensity > 0 ? 0.3 : THREE.MathUtils.clamp(preset.sun.intensity / 3.5, 0.3, 1);
     fall.uniforms.uGlowColor.value.set(preset.fires.color);
     fall.uniforms.uGlow.value = preset.waterGlow;
   }, [material, fall, skin, preset, flow]);
 
   useFrame((_, dt) => {
-    material.uniforms.uTime.value += dt;
-    fall.uniforms.uTime.value += dt;
+    // Reduced motion calms the shimmer and the fall.
+    material.uniforms.uTime.value += dt * motion;
+    fall.uniforms.uTime.value += dt * motion;
   });
 
   const wf = island.waterfall;

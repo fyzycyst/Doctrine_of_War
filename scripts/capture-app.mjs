@@ -11,19 +11,56 @@ const SIZES = [
   [1280, 800],
 ];
 const STAGES = [
+  { name: "title", query: "screen=title", settleMs: 2500 },
+  {
+    name: "settings",
+    query: "screen=title",
+    settleMs: 1200,
+    eval: `[...document.querySelectorAll(".title-menu button")].find((b) => b.textContent === "Settings")?.click()`,
+  },
+  { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
+  { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
+  { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },
+  { name: "ending", query: "screen=ending&campaignAt=2&complete=1", settleMs: 2500 },
+  // T15 guidance: the intro card, each coach mark, and How to play.
+  { name: "guide-intro", query: "stage=briefing&guide=reset", sizes: [[1600, 1000]] },
+  { name: "guide-1-select", query: "stage=command&guide=reset", sizes: [[1600, 1000]] },
+  { name: "guide-2-read", query: "stage=command&guide=reset&select=greyford_shields", sizes: [[1600, 1000]] },
+  { name: "guide-3-assign", query: "stage=command&coach=assign&select=greyford_shields", sizes: [[1600, 1000]] },
+  { name: "guide-4-seal", query: "stage=command&coach=seal&select=greyford_shields", sizes: [[1600, 1000]] },
+  { name: "guide-5-watch", query: "stage=resolving&coach=watch&plan=intended", probe: "__playbackFrozen", settleMs: 700, sizes: [[1600, 1000]] },
+  { name: "guide-6-chronicle", query: "stage=report&coach=chronicle&plan=intended", sizes: [[1600, 1000]] },
+  { name: "howto", query: "screen=title&howto=1", settleMs: 1500, sizes: [[1600, 1000]] },
   { name: "briefing", query: "stage=briefing" },
   { name: "deploy", query: "stage=deploy&select=greyford_shields" },
   { name: "command", query: "stage=command&select=greyford_shields" },
   { name: "command-enemy", query: "stage=command&select=cinder_vanguard" },
+  {
+    name: "command-lift",
+    query: "stage=command&select=mercy_standard",
+    eval: `document.querySelectorAll('.hand [role="option"]')[1]?.focus()`,
+    keys: ["Right"],
+  },
   { name: "report", query: "stage=report&plan=intended" },
   { name: "outcome", query: "stage=outcome&plan=intended" },
   { name: "ember-command", query: "scenario=emberFord&stage=command&select=kestrel_lancers" },
+  // T06 playback stills, frozen on the first callout of a kind (dev ?pauseAt=).
+  ...[
+    ["play-rule", "stage=resolving&plan=intended&pauseAt=rule-mine"],
+    ["play-surge", "stage=resolving&plan=intended&pauseAt=surge"],
+    ["play-rout", "stage=resolving&phase=2&plan=bad&pauseAt=rout"],
+    ["play-gate", "stage=resolving&phase=2&plan=bad&pauseAt=gate"],
+    ["play-dread", "scenario=emberFord&stage=resolving&plan=intended&pauseAt=dread"],
+  ].map(([name, query]) => ({ name, query, probe: "__playbackFrozen", sizes: [[1600, 1000]], settleMs: 600 })),
 ];
 const jobs = STAGES.flatMap((stage) =>
-  SIZES.map(([width, height]) => ({
+  (stage.sizes ?? SIZES).map(([width, height]) => ({
     name: `${stage.name}-${width}`,
     query: `${stage.query}&still=1`,
-    probe: "__battleBoard",
+    eval: stage.eval,
+    keys: stage.keys,
+    probe: stage.probe ?? "__battleBoard",
+    settleMs: stage.settleMs,
     width,
     height,
   })),

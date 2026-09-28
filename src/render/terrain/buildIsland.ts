@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { hexKey, hexNeighbors, hexDistance, type BoardHex, type BoardLayout, type HexCoord } from "../../game/board";
 import { GeoBuilder, color, jitterColor, trs } from "../geo/GeoBuilder";
 import { boardCenter, hexCorner, hexRandom, hexToWorld, islandShore, mulberry32 } from "../hexWorld";
-import type { Skin } from "../skins/types";
+import type { RenderTerrain, Skin } from "../skins/types";
 
 /**
  * Builds the floating-island diorama from a BoardLayout: extruded hex columns
@@ -16,7 +16,7 @@ export interface IslandHex {
   z: number;
   top: number;
   kind: "board" | "shore" | "river";
-  terrain?: BoardHex["terrain"];
+  terrain?: RenderTerrain;
 }
 
 export interface WaterHex {
@@ -25,6 +25,8 @@ export interface WaterHex {
   level: number;
   /** Deep river channel (1) vs shallow ford (0). */
   deep: number;
+  /** Pool radius (marsh pools); omitted = a full hex of water. */
+  radius?: number;
 }
 
 export interface Waterfall {
@@ -42,10 +44,16 @@ export interface Anchor {
   y: number;
   z: number;
   yaw: number;
+  /** Fire anchors only: what burns here (drives flame size, light and smoke). */
+  kind?: "torch" | "campfire" | "bridge" | "brazier";
 }
 
 export interface IslandBuild {
   geometry: THREE.BufferGeometry;
+  /** Walls, towers and gatehouse as their own mesh (so an objective hit can jolt them); null if none. */
+  wallGeometry: THREE.BufferGeometry | null;
+  /** Reed banks as their own mesh (a wind-sway material); `glow` = sway weight, 0 at the root. */
+  reedGeometry: THREE.BufferGeometry | null;
   hexes: IslandHex[];
   water: WaterHex[];
   waterLevel: number;
@@ -160,7 +168,8 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   const hexes: IslandHex[] = [];
   for (const hex of layout.hexes) {
     const [x, z] = hexToWorld(hex.coord, center);
-    hexes.push({ coord: hex.coord, x, z, top: T[hex.terrain].height, kind: "board", terrain: hex.terrain });
+    const terrain = hex.terrain as RenderTerrain;
+    hexes.push({ coord: hex.coord, x, z, top: T[terrain].height, kind: "board", terrain });
   }
   for (const s of shore) {
     const [x, z] = hexToWorld(s.coord, center);
@@ -228,6 +237,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   }
 
   // --- Terrain dressing -----------------------------------------------------
+  const rb = new GeoBuilder();
   const roadColor = color(T.road.accent ?? T.road.top);
   const stone = color(T.ridge.accent ?? "#a8a296");
   const foliage = color(I.foliage);
@@ -237,7 +247,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   for (const hex of hexes) {
     const hr = mulberry32(hex.coord.q * 7349 + hex.coord.r * 3181 + 11);
     if (hex.kind === "board") {
-      switch (hex.terrain) {
+      switch (hex.terrain as RenderTerrain) {
         case "field":
           dressField(b, hex, hr, foliage, foliageDark);
           break;
@@ -246,6 +256,12 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
           break;
         case "ford":
           dressFord(b, hex, hr, stone, foliage);
+          break;
+        case "marsh":
+          water.push(...dressMarsh(b, hex, hr, foliageDark, trunk));
+          break;
+        case "reeds":
+          dressReeds(rb, hex, hr, color(T.reeds.accent ?? "#a8995c"), foliageDark);
           break;
         case "river":
           dressRiver(b, hex, hr, stone, foliage);
@@ -268,7 +284,8 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   }
 
   drawRoads(b, layout, hexes, roadColor, T[`field`].top, rand);
-  const wall = drawWalls(b, layout, hexes, skin, rand);
+  const wb = new GeoBuilder();
+  const wall = drawWalls(wb, layout, hexes, skin, rand);
   gateBanner = wall.gateBanner;
   fireAnchors.push(...wall.torches);
   drawTown(b, hexes, skin, rand);
@@ -287,11 +304,31 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
       b.add(PRIM.cyl6, trs(fx, h.top + 0.03, fz, Math.PI / 2, (i * Math.PI) / 3, 0, 0.025, 0.22, 0.025), trunk);
     }
     ring(b, fx, h.top, fz, 0.13, 7, stone, hr1(h));
-    fireAnchors.push({ x: fx, y: h.top + 0.05, z: fz, yaw: 0 });
+    fireAnchors.push({ x: fx, y: h.top + 0.05, z: fz, yaw: 0, kind: "campfire" });
+  }
+
+  if (hasRiver) {
+    // Ember Ford: the Host fired its own bridges. Charred wreckage at every
+    // ford is the key light; braziers mark the Host's bank.
+    for (const ford of hexes.filter((h) => h.terrain === "ford")) {
+      fireAnchors.push(...drawBridgeWreck(b, ford, waterLevel, mulberry32(ford.coord.q * 97 + ford.coord.r * 13 + 3)));
+    }
+    const hostBank = layout.hexes
+      .filter((h) => h.deploymentFaction === "ashen_host")
+      .filter((h) => hexNeighbors(h.coord).some((n) => {
+        const t = boardByKey.get(hexKey(n))?.terrain;
+        return t === "river" || t === "ford";
+      }))
+      .map((h) => hexes.find((x) => x.kind === "board" && x.coord.q === h.coord.q && x.coord.r === h.coord.r)!)
+      .sort((a, c) => a.z - c.z);
+    const picks = hostBank.filter((_, i) => i % 2 === 0).slice(0, 3);
+    for (const h of picks) fireAnchors.push(drawBrazier(b, h, mulberry32(h.coord.q * 31 + h.coord.r * 7 + 9)));
   }
 
   return {
     geometry: b.build(),
+    wallGeometry: wb.vertexCount > 0 ? wb.build() : null,
+    reedGeometry: rb.vertexCount > 0 ? rb.build() : null,
     hexes,
     water,
     waterLevel,
@@ -568,6 +605,55 @@ function dressRidge(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: TH
   }
 }
 
+/**
+ * Marsh: dark wet peat with a few dark pools (returned as water patches),
+ * sedge tussocks and the odd dead stump.
+ */
+function dressMarsh(b: GeoBuilder, hex: IslandHex, rand: () => number, sedge: THREE.Color, wood: THREE.Color): WaterHex[] {
+  const pools: WaterHex[] = [];
+  const n = 2 + Math.floor(rand() * 2);
+  for (let i = 0; i < n; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.15, 0.55);
+    pools.push({ x, z, level: hex.top + 0.012, deep: 0.8, radius: 0.18 + rand() * 0.14 });
+  }
+  const tussock = sedge.clone().multiplyScalar(0.9);
+  for (let i = 0; i < 9; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.2, 0.88);
+    tuft(b, x, hex.top, z, rand() > 0.4 ? tussock : sedge.clone().lerp(new THREE.Color("#8a7a4a"), 0.4), rand, 1.3);
+  }
+  if (rand() > 0.5) {
+    const [x, z] = edgePoint(hex, rand, 0.5, 0.8);
+    b.add(PRIM.cyl6, trs(x, hex.top + 0.06, z, (rand() - 0.5) * 0.4, rand() * 3, (rand() - 0.5) * 0.4, 0.03, 0.12, 0.03), wood.clone().multiplyScalar(0.6));
+  }
+  return pools;
+}
+
+/**
+ * Reed banks: dense clumps of tall stalks with seed heads, taller than the
+ * figures so they screen what stands behind them. Written into their own
+ * builder; the per-vertex `glow` channel carries the sway weight (0 at root).
+ */
+function dressReeds(rb: GeoBuilder, hex: IslandHex, rand: () => number, reed: THREE.Color, dark: THREE.Color) {
+  const clumps = 7 + Math.floor(rand() * 3);
+  for (let c = 0; c < clumps; c += 1) {
+    const [cx, cz] = edgePoint(hex, rand, 0.22, 0.82);
+    const stalks = 9 + Math.floor(rand() * 7);
+    for (let i = 0; i < stalks; i += 1) {
+      const x = cx + (rand() - 0.5) * 0.18;
+      const z = cz + (rand() - 0.5) * 0.18;
+      const h = 0.45 + rand() * 0.35;
+      const base = hex.top;
+      const weight = (y: number) => Math.max(0, Math.min(1, (y - base) / h));
+      const col = reed.clone().lerp(dark, rand() * 0.45);
+      const lean = (rand() - 0.5) * 0.25;
+      rb.add(PRIM.cone6, trs(x, base + h / 2, z, lean, rand() * 3, (rand() - 0.5) * 0.25, 0.012, h, 0.012), col, 0.2, rand, weight);
+      if (rand() > 0.45) {
+        rb.add(PRIM.ico, trs(x + lean * 0.3 * h, base + h * 0.92, z, 0, 0, 0, 0.018, 0.05, 0.018), color("#6a4a2a"), 0, undefined, weight);
+      }
+    }
+  }
+}
+
 /** Deep channel: no stepping stones, just reeds and wet rocks along the banks. */
 function dressRiver(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: THREE.Color, leaf: THREE.Color) {
   for (let i = 0; i < 6; i += 1) {
@@ -656,6 +742,54 @@ function dressShore(
     const [x, z] = edgePoint(hex, rand, 0.1, 0.85);
     tuft(b, x, hex.top, z, rand() > 0.5 ? leaf : dark, rand);
   }
+}
+
+// --- Fires (Ember Ford) -------------------------------------------------------
+
+/** Burnt bridge timbers slumped across a ford; returns fire anchors on the wreck. */
+function drawBridgeWreck(b: GeoBuilder, ford: IslandHex, waterLevel: number, rand: () => number): Anchor[] {
+  const char = color("#1e1712");
+  const charLit = color("#3a2418");
+  const y = waterLevel;
+  // Two stumps of the span still standing on each bank side, the middle collapsed.
+  for (const side of [-1, 1]) {
+    const px = ford.x + side * 0.62;
+    for (const dz of [-0.2, 0.2]) {
+      b.add(PRIM.cyl6, trs(px, y + 0.08, ford.z + dz, (rand() - 0.5) * 0.2, 0, (rand() - 0.5) * 0.2, 0.035, 0.3, 0.035), char);
+    }
+    // Deck planks, broken off toward the middle.
+    b.add(PRIM.box, trs(px - side * 0.12, y + 0.2, ford.z, 0, (rand() - 0.5) * 0.2, side * (0.12 + rand() * 0.1), 0.45, 0.04, 0.46), charLit, 0.3, rand);
+  }
+  // Fallen beams half-sunk in the water.
+  for (let i = 0; i < 4; i += 1) {
+    b.add(
+      PRIM.box,
+      trs(ford.x + (rand() - 0.5) * 0.5, y + 0.02, ford.z + (rand() - 0.5) * 0.5, (rand() - 0.5) * 0.4, rand() * Math.PI, (rand() - 0.5) * 0.3, 0.5, 0.05, 0.07),
+      char,
+      0.3,
+      rand,
+    );
+  }
+  return [
+    { x: ford.x - 0.5, y: y + 0.22, z: ford.z + (rand() - 0.5) * 0.2, yaw: 0, kind: "bridge" },
+    { x: ford.x + 0.45, y: y + 0.22, z: ford.z + (rand() - 0.5) * 0.2, yaw: 0, kind: "bridge" },
+  ];
+}
+
+/** An iron brazier on its tripod at the west edge of a hex. */
+function drawBrazier(b: GeoBuilder, hex: IslandHex, rand: () => number): Anchor {
+  const iron = color("#2a2624");
+  const a = Math.PI + (rand() - 0.5) * 1.2; // west side of the hex
+  const x = hex.x + Math.cos(a) * 0.7;
+  const z = hex.z + Math.sin(a) * 0.7;
+  const h = 0.26;
+  for (let i = 0; i < 3; i += 1) {
+    const la = (i / 3) * Math.PI * 2;
+    b.add(PRIM.cyl6, trs(x + Math.cos(la) * 0.05, hex.top + h / 2, z + Math.sin(la) * 0.05, Math.sin(la) * 0.25, 0, -Math.cos(la) * 0.25, 0.008, h, 0.008), iron);
+  }
+  b.add(PRIM.cyl8, trs(x, hex.top + h, z, 0, 0, 0, 0.075, 0.05, 0.075), iron);
+  b.add(PRIM.cyl8, trs(x, hex.top + h + 0.027, z, 0, 0, 0, 0.06, 0.006, 0.06), color("#6a2a10"), 0, undefined, 0);
+  return { x, y: hex.top + h + 0.03, z, yaw: 0, kind: "brazier" };
 }
 
 // --- Roads -----------------------------------------------------------------
@@ -824,8 +958,8 @@ function drawWalls(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], skin:
       b.add(PRIM.box, trs(x + 0.02, hex.top + 0.18, hex.z, 0, 0, 0, 0.06, 0.36, gap * 2 - 0.14), wood);
       b.add(PRIM.box, trs(x - 0.02, hex.top + 0.18, hex.z, 0, 0, 0, 0.012, 0.3, 0.02), color("#4a3020"));
       gateBanner = { x: x - THICK / 2 - 0.02, y: hex.top + 0.44, z: hex.z, yaw: Math.PI };
-      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z - gap, yaw: 0 });
-      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z + gap, yaw: 0 });
+      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z - gap, yaw: 0, kind: "torch" });
+      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z + gap, yaw: 0, kind: "torch" });
     } else {
       segment(x, hex.top, z0, z1);
     }

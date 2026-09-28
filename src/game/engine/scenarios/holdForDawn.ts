@@ -90,17 +90,17 @@ export const holdForDawn: EngineScenario = {
   hostSchedule: [
     {
       phase: 1,
-      intent: "Drums in the dark: the Cinderram rolls up the Cinder Road under its hides, the Oathguard and the front ranks around it.",
+      intent: "Drums in the dark: a ram rolls up the Cinder Road under wet hides, the Host's front ranks around it.",
       orders: { cinder_wardens: "lie_in_wait", last_reserve: "lie_in_wait" },
     },
     {
       phase: 2,
-      intent: "The Cinder Wardens leave the barrow and join the tide.",
+      intent: "Fresh companies leave the barrow and join the tide.",
       orders: { cinder_wardens: "iron_tide" },
     },
     {
       phase: 3,
-      intent: "The Ember Legion goes looking for any banner that wavers; the Last Reserve is thrown in.",
+      intent: "Hunters go looking for any banner that wavers, and the Host's reserve is thrown in.",
       orders: { ember_legion: "cull_the_weak", last_reserve: "iron_tide" },
     },
     {
@@ -110,7 +110,7 @@ export const holdForDawn: EngineScenario = {
     },
     {
       phase: 5,
-      intent: "Sunrise. The hides are burnt through and the Host's nerve fails: they fall back from the wall, all but the Cinderram's crew.",
+      intent: "Sunrise. The hides are burnt through and the Host's nerve fails: they fall back from the wall, all but the ram's crew.",
       orders: {
         cinderram: "break_the_gate",
         kiln_born_oathguard: "the_nerve_fails",

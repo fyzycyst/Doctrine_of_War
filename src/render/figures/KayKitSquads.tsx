@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
-import type { FactionId } from "../../game/types";
+import type { FactionId } from "../../game/engine/types";
 import { useLook } from "../look/LookContext";
 import { addRimLight } from "../materials";
 import type { PlacedFigure, PlacedSquad } from "./types";
@@ -18,7 +18,8 @@ import type { PlacedFigure, PlacedSquad } from "./types";
  * draw calls than approach (a); fine for a comparison, not for scale.
  */
 
-const BASE = `${import.meta.env.BASE_URL}assets/cc0/kaykit/`;
+// Served by the dev server only (vite.config.ts `labAssets`); this module is lab-only.
+const BASE = "/lab-assets/cc0/kaykit/";
 const MODELS: Record<FactionId, { url: string; idle: string; keep: string[] }> = {
   free_banners: {
     url: `${BASE}Knight.glb`,

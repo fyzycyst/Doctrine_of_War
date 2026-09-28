@@ -83,12 +83,12 @@ export const saltmarshColumn: EngineScenario = {
   hostSchedule: [
     {
       phase: 1,
-      intent: "Out of the northern reeds come the first hunters: the Mire Stalkers, and the riders of the Ash Harriers and the Gallowmere Pack.",
+      intent: "Out of the northern reeds come the first hunters, riders among them.",
       orders: { mire_stalkers: "cull_the_weak", ash_harriers: "cull_the_weak", gallowmere_pack: "cull_the_weak", tidebreak_reavers: "lie_in_wait", weirfen_hunters: "lie_in_wait" },
     },
     {
       phase: 2,
-      intent: "Horns in the rain: the Tidebreak Reavers join the chase, and the Weirfen Hunters rise from the mud ahead of the column.",
+      intent: "Horns in the rain: more hunters join the chase, and something rises from the mud ahead of the column.",
       orders: { tidebreak_reavers: "cull_the_weak", weirfen_hunters: "cull_the_weak" },
     },
     {

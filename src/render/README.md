@@ -30,14 +30,86 @@ imported (see `fromEngine.ts`); engine logic may not.
     banner drops and the ring goes out. Hidden until `reset(id)`.
   - `rally(id)`: an upright snap and hop, a banner lift and flare, and a ring flash.
   - `brace(id, { hold })`: crouch, tighten ranks and lean into the shields, then release.
+  - `reveal(id)`: fog of war. The squad resolves out of the mist (see Fog of war below).
   - `reset(id?)` clears persistent animation state.
+  - **Playback controls:** `setTimeScale(n)` sets tween speed (1 is normal, 0.5 is half, 0 is
+    frozen), and `pause()` / `resume()` freeze every tween and restore the previous speed. There
+    are no casts needed; they are on `SquadAnimationApi`.
+  - `shakeObjective(hex, intensity = 1)`: an objective takes a hit. The walls and gatehouse (their
+    own mesh, `island.wallGeometry`) jolt with a damped shudder, which is skipped under reduced
+    motion. A dust cloud billows from the gate's outer face and a few stones fall. It resolves when
+    the effect ends, and it follows the animator clock, so pause and time scale apply to it.
+- **Weather (T08):** `<LookProvider weather="clear|rain|mist|ashWind">` (use `weatherFor(view.weather)`).
+  Each skin owns `weather: Record<WeatherKind, WeatherPreset>` overlays that are layered on the
+  time-of-day preset: mist, particles (rain streaks, ash flurries blowing east), wetness (darker,
+  glossier terrain and water ripples), light, sky tint and grading. A change cross-fades over 2.5 s
+  (`atmosphere/atmosphereRuntime.ts`; the pure `mixWeather` is tested).
+- **Fog of war (T08):** `<Diorama visibility={visibilityFromView(view, scenario)}>` (in
+  `fromEngine.ts`; it approximates the seen hexes until the engine exports `visibleHexes()`, so
+  swapping is one line). Unseen board hexes fill with drifting, lit battlefield mist (uneven
+  top, low veil, crests lit by the key light and nearby fires) and the terrain under them
+  desaturates. Squads with `lastKnown: true` (mapped from `VisibleSquad.lastKnown` by
+  `dioramaSquads`) draw as dark translucent silhouettes with a soft rim, a slow breathing fade, a
+  colourless tattered banner and a dashed ring.
+  **Reveal hook:** when a squad that was hidden or a ghost becomes visible, the Diorama plays
+  `reveal(id)` (1.2 s: figures resolve from silhouette to colour over ~0.8 s, the furled banner
+  snaps open with its colour at 0.55 s, the ring draws on) and `atmosphere.swirl(x, z)` (the mist
+  twists and parts around the squad) while its hex clears, then calls `onReveal(squadIds)`; the
+  `reveal` sfx is timed to the same beats. Playback can also call
+  `animationRef.current.reveal(id)` directly.
+- **Audio (T08), stable path `src/audio`:** `playSfx(name)` with `clash | horn | card | seal |
+  rout | dread | reveal`; `useAmbience({ timeOfDay, weather, water, hostDrums })` (or
+  `setAmbience`) cross-fades the synthesized beds (wind, rain, river, drums, fire); call
+  `unlockAudio()` from a user gesture (`useAmbience` does it on the first pointerdown). Mute and
+  volume live in `useAudioStore` (`src/app/audioStore.ts`, persisted to localStorage). Sources and
+  licences are in `/CREDITS.md`.
+- **Render scale:** `canvasDpr(quality, ultra?)` in `quality.ts`: high caps at DPR 1.5, low is 1,
+  and ultra (opt-in) is full device DPR.
+- **Showcase (T13), `src/render/showcase/`:**
+  - `<TitleScene title? subtitle? board? squads? startAt?>{menu}</TitleScene>`: a full-screen
+    title scene. A looping crane (`titleFlyover`) runs over First Breach at dusk with the squads at
+    the gate. The title is an HTML overlay in Cinzel; `children` is the menu slot (hidden in capture
+    mode). It holds still under prefers-reduced-motion and follows the quality setting.
+  - `<CampaignMap battles={[{ id, title, timeOfDay, status, board?, placeholder? }]} onSelect>`:
+    the war as an archipelago, one miniature island per battle (`buildIsland` at a small scale;
+    battles without a board get `placeholderBoard("saltmarsh" | "holdForDawn")`).
+    - Status `locked`: misty and dim. `current`: glows, flies the banner, lit braziers. `won`:
+      Banner flag. `stalemate`: half-lit, flag at half height. `lost`: ashen, Host flag.
+    - A dotted march path runs between the islands, gold up to the current battle.
+    - Hover shows a DOM label projected from 3D (the current battle is always labelled).
+    - Clicking a non-locked island calls `onSelect(id)` and dollies in on it (click-to-zoom).
+      Focus is controlled with `focusedId` / `onFocusChange(id | null)`, or left uncontrolled. The
+      built-in "← Back to the map" button and Escape return to the overview; hide them with
+      `showBackButton={false}` to use your own. The overview fits the whole archipelago and pans
+      gently.
+    - The march route is a dotted ink trail with small glowing pips only up to the current battle.
+  - **Capture mode:** `useCaptureStore` (`src/app/captureStore.ts`), on with `?capture=1`.
+  - **Cinematic paths:** `camera/cameraPath.ts` has keyframed `CameraPath`s with a pure
+    `sampleCameraPath`, and `cinematicPaths(board)` returns `craneInGate`, `bannerDolly`,
+    `riverPush` (river boards) and `titleFlyover`. `<CinematicCamera path>` drives the camera from
+    the R3F clock, so it is deterministic under `advance(t)`.
+- **Saltmarsh and Hold for Dawn (built ahead of the engine):**
+  - `RenderTerrain` (skins/types.ts) is `TerrainType | "marsh" | "reeds"`, and both skins style
+    all of these, so the engine adding them can't break a `Record<TerrainType, …>`.
+  - Marsh is dark wet peat, set low, with dark pools (small water patches), sedge tussocks and
+    stumps. Reeds are dense clumps taller than the figures (they screen what's behind), in their
+    own mesh (`island.reedGeometry`) with a wind-sway shader.
+  - `DioramaSquad.kind = "column"` is the noncombatant refugee Column: hooded walkers with lanterns
+    or staffs (no weapons), two covered carts and a small pale lantern banner. `dioramaSquads()`
+    maps it from the engine's noncombatant flag (`noncombatant: true` or
+    `role: "noncombatant"`, whichever lands).
+  - **Time of day cross-fades:** when `<LookProvider timeOfDay>` changes (e.g. predawn → sunrise
+    on Hold for Dawn's last phase), the lighting blends over 3 s (`look/blendPresets.ts`, pure and
+    tested). Under reduced motion it cuts.
+  - Lab mocks until the scenarios exist: `&scenario=saltmarsh` and `&scenario=holdForDawn`
+    (`&fadeTo=sunrise&fadeAt=0.8` shows the fade).
 - `terrain/buildIsland.ts`: a pure builder from a `BoardLayout` to one merged vertex-coloured
   geometry: tiles, a continuous jagged rock underside, props, roads, walls/gate, town, and sunken
   `river` channels that run off the board into a waterfall. It also returns anchors (water, flow,
   fires, gate banner).
 - `atmosphere/`: backdrop and cloud sea, ground mist (per-hex `densityByHex` = fog of war),
   embers/ash/rain, fires.
-- `figures/`: (a) instanced toy soldiers (with ember glints and a dithered `aFade`), (b) KayKit
+- `figures/`: (a) instanced toy soldiers (with ember glints, a dithered `aFade` and a reveal `aSilhouette`), (b) KayKit
   CC0 figures (fallback only), and shared banners, cohesion rings, renown crests and contact
   shadows (`SquadMarkers`).
 - `camera/`, `post/`, `lighting/`: clamped orbit + idle drift (`wideShot(boardRadius)`,

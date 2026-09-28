@@ -1,31 +1,49 @@
 import { Stats } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useAudioStore } from "../../app/audioStore";
+import { useCaptureStore } from "../../app/captureStore";
 import { useAppStore, type RenderQuality } from "../../app/store";
+import { emberFord } from "../../game/engine/scenarios/emberFord";
+import { firstBreach } from "../../game/engine/scenarios/firstBreach";
+import { cinematicPaths, type CinematicPathId } from "../camera/cameraPath";
+import { CinematicCamera } from "../camera/CinematicCamera";
+import { CampaignMap, type CampaignMapBattle } from "../showcase/CampaignMap";
+import { TitleScene } from "../showcase/TitleScene";
+import { playSfx, SFX_NAMES, useAmbience } from "../../audio";
 import { hexKey } from "../../game/board";
 import { closeShot, DioramaCamera, wideShot, type CameraShot } from "../camera/DioramaCamera";
 import { Diorama } from "../Diorama";
 import type { SquadAnimationApi, SquadAnimator } from "../figures/squadAnimation";
 import type { FigureApproach } from "../figures/types";
-import { boardRadius } from "../hexWorld";
-import { LookProvider } from "../look/LookContext";
+import { boardCenter, boardRadius, hexToWorld } from "../hexWorld";
+import { LookProvider, useLook } from "../look/LookContext";
+import { canvasDpr } from "../quality";
 import { PostFX } from "../post/PostFX";
-import { getSkin, isTimeOfDay, SKINS, TIME_OF_DAY_KEYS, type TimeOfDay } from "../skins";
-import { LAB_SCENES, stepToward, type LabSceneId } from "./labScene";
+import { getSkin, isTimeOfDay, SKINS, TIME_OF_DAY_KEYS, WEATHER_KINDS, type TimeOfDay, type WeatherKind } from "../skins";
+import { fogOfWar, LAB_SCENES, stepToward, type LabSceneId } from "./labScene";
 
 /**
  * Dev-only Look Lab (`?lab=1`). Full-screen diorama with a small switcher.
  * URL params: preset (defaults to the scenario's time of day), skin, figures
  * (a|b), quality (high|low), scenario (firstBreach|emberFord), board=stress
- * (14-squad fixture), dpr=<n> (render scale override, for perf checks), cam (wide|close), az/polar/dist (shot overrides), fog=1,
+ * (14-squad fixture), weather (clear|rain|mist|ashWind), dpr=<n> (render
+ * scale override; 2 = "ultra"), cam (wide|close), az/polar/dist (shot
+ * overrides), fog=1 (fog of war, Banners' view) or fog=reveal (&revealAt=<s>
+ * &fogFreeze=<s> for stills of the enemy emerging from the mist),
  * deploy=1, select=<squadId>, hover=q,r, ui=0, still=1 (no idle drift), and for stills of an animation:
  * anim=<march|lunge|fall|rout|rally|brace>&animSquad=<id>&animFreeze=<seconds>.
+ *
+ * Showcase (T13): view=title | campaign (&campaignMock=a|b), path=<craneInGate|
+ * bannerDolly|riverPush|titleFlyover> (cinematic camera), seq=1 (frameloop
+ * "never"; the capture script steps time via window.__lookLabAdvance(t)),
+ * capture=1 (hide every panel).
  *
  * Exposes `window.__lookLab = { ready, frames, fps }` for the capture script.
  */
 
-type AnimName = "march" | "lunge" | "fall" | "rout" | "rally" | "brace";
-const ANIMS: AnimName[] = ["march", "lunge", "fall", "rout", "rally", "brace"];
+type AnimName = "march" | "lunge" | "fall" | "rout" | "rally" | "brace" | "shake";
+const ANIMS: AnimName[] = ["march", "lunge", "fall", "rout", "rally", "brace", "shake"];
 
 type LabState = {
   preset: TimeOfDay;
@@ -33,7 +51,8 @@ type LabState = {
   figures: FigureApproach;
   board: LabSceneId;
   cam: "wide" | "close";
-  fog: boolean;
+  fog: "off" | "on" | "reveal";
+  weather: WeatherKind;
   deploy: boolean;
 };
 
@@ -49,8 +68,13 @@ function readParams() {
   const figures = p.get("figures");
   const num = (k: string) => (p.get(k) === null ? undefined : Number(p.get(k)));
   const anim = p.get("anim");
+  const scenarioParam = p.get("scenario");
   const board: LabSceneId =
-    p.get("board") === "stress" ? "stress" : p.get("scenario") === "emberFord" ? "emberFord" : "firstBreach";
+    p.get("board") === "stress"
+      ? "stress"
+      : scenarioParam === "emberFord" || scenarioParam === "saltmarsh" || scenarioParam === "holdForDawn"
+        ? scenarioParam
+        : "firstBreach";
   return {
     state: {
       preset: isTimeOfDay(preset) ? preset : LAB_SCENES[board].timeOfDay,
@@ -58,7 +82,8 @@ function readParams() {
       figures: figures === "b" || figures === "kaykit" ? "kaykit" : "toy",
       board,
       cam: p.get("cam") === "close" ? "close" : "wide",
-      fog: p.get("fog") === "1",
+      fog: p.get("fog") === "reveal" ? "reveal" : p.get("fog") === "1" ? "on" : "off",
+      weather: (WEATHER_KINDS as string[]).includes(p.get("weather") ?? "") ? (p.get("weather") as WeatherKind) : "clear",
       deploy: p.get("deploy") === "1",
     } as LabState,
     quality: (p.get("quality") === "low" ? "low" : "high") as RenderQuality,
@@ -71,14 +96,113 @@ function readParams() {
     select: p.get("select"),
     dpr: num("dpr"),
     hover: p.get("hover"),
+    revealAt: num("revealAt") ?? 2,
+    view: (p.get("view") ?? "diorama") as "diorama" | "title" | "campaign",
+    campaignMock: p.get("campaignMock") === "b" ? "b" : "a",
+    path: p.get("path") as CinematicPathId | null,
+    seq: p.get("seq") === "1",
+    fadeTo: isTimeOfDay(p.get("fadeTo")) ? (p.get("fadeTo") as TimeOfDay) : null,
+    fadeAt: num("fadeAt") ?? 1,
+    focusHex: p.get("focusHex"),
+    fogFreeze: num("fogFreeze"),
   };
 }
 
 export function LookLab() {
   const initial = useMemo(readParams, []);
+  if (initial.view === "title") return <TitleLab seq={initial.seq} />;
+  if (initial.view === "campaign") return <CampaignLab seq={initial.seq} mock={initial.campaignMock as "a" | "b"} />;
+  return <DioramaLab initial={initial} />;
+}
+
+/** Probes shared by every lab view: readiness for the capture script, and frame stepping. */
+function LabProbes({ ready, seq }: { ready: boolean; seq: boolean }) {
+  return (
+    <>
+      <FrameProbe figuresReady={ready} />
+      {seq && <SequenceDriver />}
+    </>
+  );
+}
+
+/** Exposes R3F's `advance(t)` so the capture script can step deterministic frames. */
+function SequenceDriver() {
+  const advance = useThree((s) => s.advance);
+  useEffect(() => {
+    (window as unknown as { __lookLabAdvance?: (t: number) => void }).__lookLabAdvance = (t: number) => advance(t);
+    return () => {
+      delete (window as unknown as { __lookLabAdvance?: unknown }).__lookLabAdvance;
+    };
+  }, [advance]);
+  return null;
+}
+
+function TitleLab({ seq }: { seq: boolean }) {
+  return (
+    <div style={{ position: "fixed", inset: 0 }}>
+      <TitleScene frameloop={seq ? "never" : "always"} inCanvas={<LabProbes ready seq={seq} />}>
+        <div style={{ display: "flex", gap: 14 }}>
+          {["Begin the Campaign", "Continue", "Settings"].map((label) => (
+            <span key={label} style={menuButton}>
+              {label}
+            </span>
+          ))}
+        </div>
+      </TitleScene>
+    </div>
+  );
+}
+
+const menuButton: CSSProperties = {
+  padding: "10px 22px",
+  border: "1px solid rgba(212,166,74,0.7)",
+  background: "rgba(20,16,22,0.72)",
+  color: "#efe3c8",
+  font: "600 15px/1 Cinzel, Georgia, serif",
+  letterSpacing: "0.1em",
+  borderRadius: 3,
+};
+
+/** Mock campaign states so every island status can be captured. */
+const CAMPAIGN_MOCKS: Record<"a" | "b", CampaignMapBattle[]> = {
+  a: [
+    { id: "tutorial", title: "The First Breach", timeOfDay: "dusk", status: "won", board: firstBreach.board },
+    { id: "battle_1", title: "Ember Ford", timeOfDay: "nightFires", status: "current", board: emberFord.board },
+    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "locked", placeholder: "saltmarsh" },
+    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "locked", placeholder: "holdForDawn" },
+  ],
+  b: [
+    { id: "tutorial", title: "The First Breach", timeOfDay: "dusk", status: "won", board: firstBreach.board },
+    { id: "battle_1", title: "Ember Ford", timeOfDay: "nightFires", status: "stalemate", board: emberFord.board },
+    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "lost", placeholder: "saltmarsh" },
+    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "current", placeholder: "holdForDawn" },
+  ],
+};
+
+function CampaignLab({ seq, mock }: { seq: boolean; mock: "a" | "b" }) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const [focus, setFocus] = useState<string | null>(() => new URLSearchParams(window.location.search).get("focus"));
+  return (
+    <div style={{ position: "fixed", inset: 0 }}>
+      <CampaignMap
+        battles={CAMPAIGN_MOCKS[mock]}
+        onSelect={setPicked}
+        focusedId={focus}
+        onFocusChange={setFocus}
+        frameloop={seq ? "never" : "always"}
+        inCanvas={<LabProbes ready seq={seq} />}
+      >
+        {picked && <div style={{ ...panel, top: "auto", bottom: 12, right: "auto", left: 12 }}>Selected: {picked}</div>}
+      </CampaignMap>
+    </div>
+  );
+}
+
+function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
   const [state, setState] = useState<LabState>(initial.state);
   const quality = useAppStore((s) => s.quality);
   const setQuality = useAppStore((s) => s.setQuality);
+  const captureMode = useCaptureStore((s) => s.captureMode);
   const selectedSquadId = useAppStore((s) => s.selectedSquadId);
   const clearSelection = useAppStore((s) => s.clearSelection);
   const [figuresReady, setFiguresReady] = useState(false);
@@ -115,10 +239,12 @@ export function LookLab() {
     }
     p.set("cam", state.cam);
     p.set("quality", quality);
-    for (const flag of ["fog", "deploy"] as const) {
-      if (state[flag]) p.set(flag, "1");
-      else p.delete(flag);
-    }
+    if (state.deploy) p.set("deploy", "1");
+    else p.delete("deploy");
+    if (state.fog === "off") p.delete("fog");
+    else p.set("fog", state.fog === "on" ? "1" : "reveal");
+    if (state.weather === "clear") p.delete("weather");
+    else p.set("weather", state.weather);
     window.history.replaceState(null, "", `${window.location.pathname}?${p.toString()}`);
   }, [state, quality]);
 
@@ -130,7 +256,15 @@ export function LookLab() {
   const scene = LAB_SCENES[state.board];
   const skin = getSkin(state.skin);
   const shot = useMemo<CameraShot>(() => {
-    const base = state.cam === "close" ? closeShot(scene.focus) : wideShot(boardRadius(scene.board));
+    const [fq, fr] = (initial.focusHex ?? "").split(",").map(Number);
+    const focus: [number, number, number] =
+      initial.focusHex && Number.isFinite(fq) && Number.isFinite(fr)
+        ? (() => {
+            const [x, z] = hexToWorld({ q: fq, r: fr }, boardCenter(scene.board));
+            return [x + 0.9, 0.4, z + 0.6] as [number, number, number];
+          })()
+        : scene.focus;
+    const base = state.cam === "close" ? closeShot(focus) : wideShot(boardRadius(scene.board));
     return {
       ...base,
       azimuth: initial.shot.azimuth ?? base.azimuth,
@@ -139,11 +273,33 @@ export function LookLab() {
     };
   }, [state.cam, scene, initial.shot]);
   const onFiguresReady = useCallback(() => setFiguresReady(true), []);
+  const cinematic = useMemo(() => (initial.path ? (cinematicPaths(scene.board)[initial.path] ?? null) : null), [initial.path, scene.board]);
+
+  // Fog of war: "on" = the Banners see 2 hexes; "reveal" starts at 1 and, after
+  // `revealAt` seconds, widens to 3 so Host squads emerge from the mist.
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => setRevealed(false), [state.fog, state.board]);
+  const fog = useMemo(() => {
+    if (state.fog === "off") return null;
+    return fogOfWar(scene, state.fog === "on" ? 2 : revealed ? 3 : 1);
+  }, [scene, state.fog, revealed]);
+  const onReveal = useCallback(() => playSfx("reveal"), []);
+
+  useAmbience({
+    timeOfDay: state.preset,
+    weather: state.weather,
+    water: scene.board.hexes.some((h) => h.terrain === "ford" || h.terrain === "river"),
+    hostDrums: true,
+  });
 
   const targetSquad = selectedSquadId ?? scene.squads.find((s) => s.faction === "free_banners")?.id ?? null;
   const play = useCallback(
     (name: AnimName, squadId: string | null) => {
       const api = animations.current;
+      if (api && name === "shake") {
+        const objective = scene.board.hexes.find((h) => h.objectiveId) ?? scene.board.hexes.find((h) => h.terrain === "wall");
+        return objective ? api.shakeObjective(objective.coord, 1) : Promise.resolve();
+      }
       const squad = scene.squads.find((s) => s.id === squadId);
       if (!api || !squad) return Promise.resolve();
       const occupied = new Set(scene.squads.map((s) => hexKey(s.hex)));
@@ -162,6 +318,10 @@ export function LookLab() {
           return api.rout(squad.id);
         case "rally":
           return api.rally(squad.id);
+        case "shake": {
+          const objective = scene.board.hexes.find((h) => h.objectiveId) ?? scene.board.hexes.find((h) => h.terrain === "wall");
+          return objective ? api.shakeObjective(objective.coord, 1) : Promise.resolve();
+        }
         case "brace":
           return api.brace(squad.id);
       }
@@ -173,25 +333,41 @@ export function LookLab() {
     <div style={{ position: "fixed", inset: 0, background: "#0d0c12" }}>
       <Canvas
         shadows="soft"
-        dpr={initial.dpr ?? (quality === "high" ? [1, 2] : 1)}
+        frameloop={initial.seq ? "never" : "always"}
+        dpr={initial.dpr ?? canvasDpr(quality)}
         camera={{ fov: 30, near: 0.1, far: 200, position: [0, 10, 14] }}
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         onPointerMissed={() => clearSelection()}
       >
-        <LookProvider skin={skin} timeOfDay={state.preset}>
-          <DioramaCamera shot={shot} drift={!initial.still} />
+        <LookProvider skin={skin} timeOfDay={state.preset} weather={state.weather}>
+          {cinematic ? (
+            <CinematicCamera path={cinematic} />
+          ) : (
+            <DioramaCamera shot={shot} drift={!initial.still} />
+          )}
           <Diorama
             key={state.board}
             board={scene.board}
-            squads={scene.squads}
+            squads={fog ? fog.squads : scene.squads}
+            visibility={fog?.visibility}
+            onReveal={onReveal}
             figures={state.figures}
-            mistDensity={state.fog ? scene.fogDemo : undefined}
             deploymentHexes={state.deploy ? scene.deployment : undefined}
             animationRef={animations}
             onFiguresReady={onFiguresReady}
           />
           <PostFX />
-          <FrameProbe figuresReady={figuresReady} />
+          <LabProbes ready={figuresReady} seq={initial.seq} />
+          <AtmosphereFreezer />
+          {state.fog === "reveal" && figuresReady && !revealed && (
+            <After seconds={initial.revealAt} run={() => setRevealed(true)} />
+          )}
+          {revealed && initial.fogFreeze !== undefined && (
+            <After seconds={initial.fogFreeze} run={() => freezeAll(animations.current)} />
+          )}
+          {initial.fadeTo && figuresReady && (
+            <After seconds={initial.fadeAt} run={() => setState((st) => ({ ...st, preset: initial.fadeTo! }))} />
+          )}
           {initial.anim && figuresReady && (
             <AutoAnimation
               run={() => play(initial.anim!, initial.animSquad ?? targetSquad)}
@@ -201,7 +377,7 @@ export function LookLab() {
           )}
         </LookProvider>
       </Canvas>
-      {initial.ui && (
+      {initial.ui && !captureMode && (
         <>
           <Stats className="look-lab-stats" />
           <LabPanel
@@ -212,11 +388,49 @@ export function LookLab() {
             onQuality={setQuality}
             onAnim={(name) => void play(name, targetSquad)}
             onReset={() => animations.current?.reset()}
+            onReveal={() => {
+              setState((s) => ({ ...s, fog: "reveal" }));
+              setRevealed(false);
+            }}
           />
+          <AudioPanel />
         </>
       )}
     </div>
   );
+}
+
+/** Runs a callback once, `seconds` after mounting (scene time). */
+function After({ seconds, run }: { seconds: number; run: () => void }) {
+  const start = useRef<number | null>(null);
+  const done = useRef(false);
+  useFrame(({ clock }) => {
+    if (start.current === null) start.current = clock.elapsedTime;
+    if (!done.current && clock.elapsedTime - start.current >= seconds) {
+      done.current = true;
+      run();
+    }
+  });
+  return null;
+}
+
+/** Freeze every tween (figures, weather, fog) for a still; set from inside the scene. */
+let freezeAtmosphere: (() => void) | null = null;
+function freezeAll(animator: SquadAnimationApi | null) {
+  animator?.pause();
+  freezeAtmosphere?.();
+}
+function AtmosphereFreezer() {
+  const { atmosphere } = useLook();
+  useEffect(() => {
+    freezeAtmosphere = () => {
+      atmosphere.timeScale = 0;
+    };
+    return () => {
+      freezeAtmosphere = null;
+    };
+  }, [atmosphere]);
+  return null;
 }
 
 /** Starts one animation shortly after load and optionally freezes it mid-way. */
@@ -236,7 +450,7 @@ function AutoAnimation({
       started.current = t;
       void run();
     } else if (freezeAt !== undefined && t - started.current >= freezeAt) {
-      (animator.current as SquadAnimator | null)!.timeScale = 0;
+      animator.current?.pause();
     }
   });
   return null;
@@ -322,6 +536,7 @@ function LabPanel({
   onQuality,
   onAnim,
   onReset,
+  onReveal,
 }: {
   state: LabState;
   quality: RenderQuality;
@@ -330,6 +545,7 @@ function LabPanel({
   onQuality: (q: RenderQuality) => void;
   onAnim: (name: AnimName) => void;
   onReset: () => void;
+  onReveal: () => void;
 }) {
   const skin = getSkin(state.skin);
   return (
@@ -339,6 +555,12 @@ function LabPanel({
       {TIME_OF_DAY_KEYS.map((key) => (
         <Chip key={key} active={state.preset === key} onClick={() => onChange({ preset: key })}>
           {skin.lighting[key].label}
+        </Chip>
+      ))}
+      <span style={label}>Weather</span>
+      {WEATHER_KINDS.map((w) => (
+        <Chip key={w} active={state.weather === w} onClick={() => onChange({ weather: w })}>
+          {skin.weather[w].label}
         </Chip>
       ))}
       <span style={label}>Skin</span>
@@ -373,9 +595,10 @@ function LabPanel({
       <Chip active={quality === "high"} onClick={() => onQuality(quality === "high" ? "low" : "high")}>
         {quality === "high" ? "High" : "Low"}
       </Chip>
-      <Chip active={state.fog} onClick={() => onChange({ fog: !state.fog })}>
-        Fog
+      <Chip active={state.fog !== "off"} onClick={() => onChange({ fog: state.fog === "off" ? "on" : "off" })}>
+        Fog of war
       </Chip>
+      <Chip onClick={onReveal}>Reveal ▸</Chip>
       <Chip active={state.deploy} onClick={() => onChange({ deploy: !state.deploy })}>
         Deploy zone
       </Chip>
@@ -386,6 +609,38 @@ function LabPanel({
         </Chip>
       ))}
       <Chip onClick={onReset}>reset</Chip>
+    </div>
+  );
+}
+
+function AudioPanel() {
+  const muted = useAudioStore((s) => s.muted);
+  const volume = useAudioStore((s) => s.volume);
+  const toggleMuted = useAudioStore((s) => s.toggleMuted);
+  const setVolume = useAudioStore((s) => s.setVolume);
+  return (
+    <div style={{ ...panel, top: "auto", bottom: 12, width: 236 }}>
+      <span style={{ ...label, marginTop: 0 }}>Audio (click anywhere to start)</span>
+      <Chip active={!muted} onClick={toggleMuted}>
+        {muted ? "Muted" : "Sound on"}
+      </Chip>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={volume}
+        onChange={(e) => setVolume(Number(e.target.value))}
+        style={{ width: 110, verticalAlign: "middle" }}
+        aria-label="Volume"
+      />
+      <div style={{ marginTop: 6 }}>
+        {SFX_NAMES.map((name) => (
+          <Chip key={name} onClick={() => playSfx(name)}>
+            {name}
+          </Chip>
+        ))}
+      </div>
     </div>
   );
 }

@@ -38,6 +38,8 @@ export interface FigurePose {
   spread: number;
   /** 0..1 dithered visibility. */
   fade: number;
+  /** 0 = full colour, 1 = the dark last-known silhouette (reveal resolves it). */
+  silhouette: number;
   /** Suppress the idle bob while a tween is driving the figure. */
   still: boolean;
 }
@@ -51,6 +53,10 @@ export interface SquadPose {
   bannerTilt: number;
   bannerFlare: number;
   bannerFade: number;
+  /** Cloth unfurl along the pole (0 = furled, 1 = open; may overshoot). */
+  bannerOpen: number;
+  /** 0 = colourless rag (as a ghost), 1 = full heraldry. */
+  bannerColor: number;
   ringFlash: number;
   ringFade: number;
 }
@@ -81,8 +87,34 @@ export interface SquadAnimationApi {
   rout(squadId: string, opts?: RoutOptions): Promise<void>;
   rally(squadId: string): Promise<void>;
   brace(squadId: string, opts?: BraceOptions): Promise<void>;
+  /**
+   * Fog of war: a newly sighted squad resolves out of the mist: figures rise
+   * and dither in front rank first, the banner unfurls, the ring draws on.
+   * The Diorama calls this itself when `visibility` reveals a squad.
+   */
+  reveal(squadId: string, opts?: { duration?: number }): Promise<void>;
   /** Clears all persistent animation state (one squad, or all). */
   reset(squadId?: string): void;
+  /** Playback speed for every tween (1 = normal, 0.5 = half, 0 = frozen). */
+  setTimeScale(scale: number): void;
+  /** Freeze every tween where it is; `resume()` restores the previous speed. */
+  pause(): void;
+  resume(): void;
+  /**
+   * An objective takes a hit: the gate/wall jolts (scaled by `intensity`,
+   * 0..1+), with a dust burst and a few falling stones at `hex`.
+   */
+  shakeObjective(hex: HexCoord, intensity?: number): Promise<void>;
+}
+
+/** An objective hit in progress (read by the renderer's ObjectiveFX). */
+export interface ObjectiveShake {
+  id: number;
+  at: WorldPoint;
+  intensity: number;
+  /** Seconds since the hit. */
+  t: number;
+  duration: number;
 }
 
 /** What the animator needs from the scene (kept abstract for tests). */
@@ -116,6 +148,10 @@ interface SquadAnimState {
   routed: boolean;
 }
 
+/** Reveal timing: figures resolve over ~0.8 s; the banner snaps open at 0.55 s. */
+export const REVEAL_DURATION = 1.2;
+export const REVEAL_BANNER_SNAP = 0.55;
+
 const neutralFigure = (): FigurePose => ({
   dx: 0,
   dy: 0,
@@ -127,6 +163,7 @@ const neutralFigure = (): FigurePose => ({
   scaleY: 1,
   spread: 1,
   fade: 1,
+  silhouette: 0,
   still: false,
 });
 
@@ -134,6 +171,7 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const easeOutCubic = (u: number) => 1 - Math.pow(1 - u, 3);
 const easeInOut = (u: number) => (u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2);
 const easeInQuad = (u: number) => u * u;
+const easeOutBack = (u: number) => 1 + 2.2 * Math.pow(u - 1, 3) + 1.2 * Math.pow(u - 1, 2);
 const lerp = (a: number, b: number, u: number) => a + (b - a) * u;
 const lerpAngle = (a: number, b: number, u: number) => {
   let d = b - a;
@@ -149,6 +187,9 @@ export class SquadAnimator implements SquadAnimationApi {
   private tweens: Tween[] = [];
   /** 1 = normal speed; 0 freezes every tween (used by the lab for stills). */
   timeScale = 1;
+  private pausedScale: number | null = null;
+  private shakes: Array<{ id: number; at: WorldPoint; intensity: number; start: number; duration: number; resolve: () => void }> = [];
+  private shakeIds = 0;
   private states = new Map<string, SquadAnimState>();
 
   constructor(private scene: AnimatorScene) {}
@@ -184,6 +225,8 @@ export class SquadAnimator implements SquadAnimationApi {
         bannerTilt: 0,
         bannerFlare: 0,
         bannerFade: st.routed ? 0 : 1,
+        bannerOpen: 1,
+        bannerColor: 1,
         ringFlash: 0,
         ringFade: st.routed ? 0 : 1,
       };
@@ -192,6 +235,13 @@ export class SquadAnimator implements SquadAnimationApi {
         if (st.routed || st.fallen.has(i)) f.fade = 0;
         return f;
       });
+    }
+    if (this.shakes.length) {
+      const done = this.shakes.filter((s) => this.time - s.start >= s.duration);
+      if (done.length) {
+        this.shakes = this.shakes.filter((s) => !done.includes(s));
+        done.forEach((s) => s.resolve());
+      }
     }
     const finished: Tween[] = [];
     for (const tw of this.tweens) {
@@ -223,6 +273,35 @@ export class SquadAnimator implements SquadAnimationApi {
     const st = this.states.get(id);
     if (!st) return false;
     return st.routed || st.fallen.has(index) ? (st.figures[index]?.fade ?? 0) <= 0 : false;
+  }
+
+  setTimeScale(scale: number) {
+    this.timeScale = Math.max(0, scale);
+    this.pausedScale = null;
+  }
+
+  pause() {
+    if (this.pausedScale === null) this.pausedScale = this.timeScale;
+    this.timeScale = 0;
+  }
+
+  resume() {
+    this.timeScale = this.pausedScale ?? (this.timeScale || 1);
+    this.pausedScale = null;
+  }
+
+  shakeObjective(hex: HexCoord, intensity = 1): Promise<void> {
+    const at = this.scene.hexWorld(hex);
+    if (!at) return Promise.resolve();
+    const duration = 1.4;
+    return new Promise((resolve) => {
+      this.shakes.push({ id: (this.shakeIds += 1), at, intensity: Math.max(0, intensity), start: this.time, duration, resolve });
+    });
+  }
+
+  /** Objective hits still playing, with their local time. */
+  activeShakes(): ObjectiveShake[] {
+    return this.shakes.map((s) => ({ id: s.id, at: s.at, intensity: s.intensity, t: this.time - s.start, duration: s.duration }));
   }
 
   reset(squadId?: string) {
@@ -433,6 +512,40 @@ export class SquadAnimator implements SquadAnimationApi {
     });
   }
 
+  reveal(squadId: string, opts: { duration?: number } = {}): Promise<void> {
+    if (!this.scene.squad(squadId)) return Promise.resolve();
+    const st = this.state(squadId);
+    st.routed = false;
+    const rand = mulberry32(hashId(squadId) + 83);
+    // The emergence (T13 fog polish): figures step out of the mist as dark
+    // silhouettes and resolve to full colour over ~0.8 s, front rank first;
+    // then the banner snaps open and takes its colour.
+    const delay = Array.from({ length: MAX_FIGURES }, (_, i) => i * 0.035 + rand() * 0.1);
+    const duration = opts.duration ?? REVEAL_DURATION;
+    const snap = REVEAL_BANNER_SNAP;
+    return this.add(squadId, duration, (_u, t, s) => {
+      s.pose.ringFade = clamp01((t - 0.15) / 0.5);
+      s.pose.ringFlash = Math.max(s.pose.ringFlash, 1.1 * Math.sin(Math.PI * clamp01((t - snap) / 0.6)));
+      // Pole and furled cloth appear with the figures; the cloth snaps open
+      // (easeOutBack overshoot) with a flare as its colour comes back.
+      s.pose.bannerFade = easeOutCubic(clamp01(t / 0.3));
+      const bt = clamp01((t - snap) / 0.28);
+      s.pose.bannerOpen = t < snap ? 0.18 : 0.18 + 0.82 * easeOutBack(bt);
+      s.pose.bannerColor = easeOutCubic(clamp01((t - snap) / 0.35));
+      s.pose.bannerLift = 0.05 * Math.sin(Math.PI * bt);
+      s.pose.bannerFlare = 0.9 * Math.sin(Math.PI * clamp01((t - snap) / 0.5));
+      s.figures.forEach((f, i) => {
+        const t0 = t - delay[i];
+        const v = clamp01(t0 / 0.25);
+        const c = clamp01(t0 / 0.8);
+        f.fade = Math.min(f.fade, v);
+        f.silhouette = Math.max(f.silhouette, 1 - easeInOut(c));
+        f.dy += -0.05 * (1 - easeOutCubic(v));
+        f.still = c < 1;
+      });
+    });
+  }
+
   // --- internals -------------------------------------------------------------
 
   private add(
@@ -458,6 +571,8 @@ export class SquadAnimator implements SquadAnimationApi {
           bannerTilt: 0,
           bannerFlare: 0,
           bannerFade: 1,
+          bannerOpen: 1,
+          bannerColor: 1,
           ringFlash: 0,
           ringFade: 1,
         },

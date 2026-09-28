@@ -88,3 +88,57 @@ describe("SquadAnimator", () => {
     expect(anim.activeCount).toBe(1);
   });
 });
+
+describe("playback controls", () => {
+  it("setTimeScale / pause / resume without casts", async () => {
+    const anim = new SquadAnimator(makeScene());
+    anim.setTimeScale(0.5);
+    let done = false;
+    const p = anim.rally("a").then(() => (done = true));
+    run(anim, 1);
+    expect(done).toBe(false); // 0.5 s of rally time elapsed; it lasts 0.8 s
+    anim.pause();
+    run(anim, 5);
+    expect(anim.activeCount).toBe(1);
+    anim.resume();
+    run(anim, 1);
+    await p;
+    expect(done).toBe(true);
+  });
+
+  it("shakeObjective reports an active hit, then resolves", async () => {
+    const anim = new SquadAnimator(makeScene());
+    const p = anim.shakeObjective({ q: 2, r: 0 }, 0.8);
+    anim.tick(0.1);
+    const [hit] = anim.activeShakes();
+    expect(hit.at.x).toBe(2);
+    expect(hit.intensity).toBeCloseTo(0.8);
+    expect(hit.t).toBeCloseTo(0.1);
+    run(anim, 2);
+    await p;
+    expect(anim.activeShakes()).toHaveLength(0);
+  });
+
+  it("reveal resolves figures from silhouette to colour and snaps the banner open", async () => {
+    const anim = new SquadAnimator(makeScene(9));
+    const p = anim.reveal("a");
+    anim.tick(0.05);
+    expect(anim.figurePose("a", 0)!.silhouette).toBeGreaterThan(0.9);
+    expect(anim.squadPose("a")!.bannerColor).toBe(0);
+    expect(anim.squadPose("a")!.bannerOpen).toBeLessThan(0.3);
+    run(anim, 0.55);
+    // Past the snap: the cloth overshoots open while its colour returns.
+    run(anim, 0.2);
+    expect(anim.squadPose("a")!.bannerOpen).toBeGreaterThan(1);
+    run(anim, 1);
+    await p;
+    anim.tick(0.016);
+    const pose = anim.squadPose("a")!;
+    expect(pose.bannerOpen).toBe(1);
+    expect(pose.bannerColor).toBe(1);
+    for (let i = 0; i < MAX_FIGURES; i += 1) {
+      expect(anim.figurePose("a", i)!.silhouette).toBe(0);
+      expect(anim.figurePose("a", i)!.fade).toBe(1);
+    }
+  });
+});

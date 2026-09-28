@@ -5,15 +5,16 @@ import { sunDirection } from "../lighting/LightRig";
 import { useLook } from "../look/LookContext";
 import { applyBackdrop, BACKDROP_GLSL, BACKDROP_UNIFORMS } from "../shaders/backdrop";
 import { NOISE_GLSL } from "../shaders/noise";
+import { useDisposable } from "../dispose";
 
 /**
  * Diorama backdrop (screen-space dusk gradient, stars at night) plus a thin
  * sea of cloud far below the island so the cliffs appear to hang in the air.
  */
 export function SkyDome() {
-  const { preset } = useLook();
+  const { preset, atmosphere, motion } = useLook();
 
-  const sky = useMemo(
+  const sky = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         side: THREE.BackSide,
@@ -48,7 +49,7 @@ export function SkyDome() {
     [],
   );
 
-  const clouds = useMemo(
+  const clouds = useDisposable(
     () =>
       new THREE.ShaderMaterial({
         transparent: true,
@@ -95,8 +96,12 @@ export function SkyDome() {
     clouds.uniforms.uShade.value.set(preset.sky.mid).lerp(new THREE.Color(preset.sky.below), 0.4);
   }, [preset, sky, clouds]);
 
+  const sunDir = useMemo(() => sunDirection(preset.sun.azimuth, preset.sun.elevation), [preset]);
   useFrame((state, dt) => {
-    clouds.uniforms.uTime.value += dt;
+    clouds.uniforms.uTime.value += dt * motion;
+    const m = atmosphere.mix;
+    if (m.skyMix > 0.001) applyBackdrop(preset, sunDir, m.skyTint, m.skyMix);
+    else applyBackdrop(preset, sunDir);
     BACKDROP_UNIFORMS.uBgResolution.value.set(
       state.size.width * state.viewport.dpr,
       state.size.height * state.viewport.dpr,

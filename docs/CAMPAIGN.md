@@ -85,7 +85,14 @@ doctrine families in meaningful roles, and swapping out any one family costs at 
   - wrong type, bad JSON, the wrong version or an oversized save;
   - any malformed field (ids, ranges, enums, duplicates);
   - a campaign id, battle, company or status/battleIndex mismatch against the
-    definition.
+    definition;
+  - a history that could not have been played: the history is replayed from a fresh
+    start with the campaign rules, and the battle order, scenario ids, attempt numbers,
+    one result per slot with the slot's company, Resolve before/after, renown earned,
+    `companiesBroken`, `battleIndex` and the whole roster (name, role, Resolve, renown and
+    every counter) must match the replay.
+
+  JSON `-0` is normalized to `0`.
 
   It rebuilds the state field by field, so unknown keys are dropped.
 - **Stores** (`storage.ts`): `defaultStore()` uses Electron's bridge when present, else
@@ -94,5 +101,16 @@ doctrine families in meaningful roles, and swapping out any one family costs at 
   `window.doctrineOfWar.saves.{read, write}`. The main process handles two IPC channels
   that read and write **one fixed file**, `userData/campaign-save.json`:
   - the renderer never supplies a path;
-  - payloads must be strings of at most 256 KiB holding a versioned JSON object;
-  - writes are atomic (a temp file, then a rename).
+  - only the app's own top-level document may call them (`electron/security.ts`:
+    the packaged `dist/index.html`, or the dev server origin in development); subframes
+    and foreign pages are rejected, and the window cannot navigate away, open windows
+    or attach webviews;
+  - before writing, main runs the same full `loadCampaign(data, ashAndBanner)`
+    validation, so a bad write can never replace a good save;
+  - writes are serialized and atomic (a fresh exclusive `0600` temp file, fsync, rename);
+  - symlinks are never followed (the save, temp files or userData itself), and reads
+    are bounded to 256 KiB.
+- **CSP**: production builds (web and Electron) get a `Content-Security-Policy` meta
+  from `vite.config.ts` (`PRODUCTION_CSP` in `electron/security.ts`): `script-src 'self'
+  'wasm-unsafe-eval'` (the meshopt WASM decoder `useGLTF` uses), no `'unsafe-eval'`,
+  no plugins or frames. The dev server has none (React refresh needs inline scripts).

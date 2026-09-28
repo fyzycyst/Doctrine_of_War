@@ -16,7 +16,9 @@ app.dock?.hide();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Jobs default to the Look Lab. An app job (scripts/capture-app.mjs) passes its own
-// `query` (no lab params), `probe` (the window global to wait on) and `width`/`height`.
+// `query` (no lab params), `probe` (the window global to wait on), `width`/`height`,
+// and optionally `eval` (a snippet run in the page before the shot), `keys` (real key
+// presses, so :focus-visible applies) and `settleMs`.
 async function waitForSettle(win, probe = "__lookLab") {
   const start = Date.now();
   let last = null;
@@ -27,6 +29,43 @@ async function waitForSettle(win, probe = "__lookLab") {
     await sleep(250);
   }
   throw new Error(`timed out waiting for Look Lab to settle (last state: ${last})`);
+}
+
+/**
+ * Frame-sequence job (`job.sequence = { frames, fps, start? }`): the lab runs with
+ * `seq=1` (R3F frameloop "never") and exposes `window.__lookLabAdvance(t)`. We warm
+ * the scene up at t≈0, then step the clock to start + i / fps for each frame and
+ * capture it, so every frame is deterministic whatever the machine's speed.
+ */
+async function captureSequence(win, job, width, height) {
+  const { frames, fps = 30, start = 0 } = job.sequence;
+  const dir = path.join(outDir, job.name);
+  await mkdir(dir, { recursive: true });
+  const t0 = Date.now();
+  while (!(await win.webContents.executeJavaScript("typeof window.__lookLabAdvance === 'function'"))) {
+    if (Date.now() - t0 > TIMEOUT_MS) throw new Error("lab did not expose __lookLabAdvance (is seq=1 set?)");
+    await sleep(100);
+  }
+  // Warm-up: compile shaders, mount figures, settle React state, without moving time.
+  await win.webContents.executeJavaScript(`(async () => {
+    for (let i = 0; i < 150; i++) {
+      window.__lookLabAdvance(${start} + i * 1e-4);
+      await new Promise((r) => requestAnimationFrame(() => r()));
+    }
+  })()`);
+  for (let i = 0; i < frames; i += 1) {
+    const t = start + i / fps;
+    await win.webContents.executeJavaScript(`(async () => {
+      window.__lookLabAdvance(${t});
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    })()`);
+    let image = await win.webContents.capturePage();
+    if (process.env.CAPTURE_SCALE !== "2" && image.getSize().width !== width) {
+      image = image.resize({ width, height, quality: "best" });
+    }
+    await writeFile(path.join(dir, `frame_${String(i).padStart(4, "0")}.png`), image.toPNG());
+  }
+  console.log(`captured ${dir}/frame_0000..${String(frames - 1).padStart(4, "0")}.png (${frames} frames @ ${fps} fps)`);
 }
 
 app.whenReady().then(async () => {
@@ -47,8 +86,19 @@ app.whenReady().then(async () => {
       const height = job.height ?? HEIGHT;
       win.setContentSize(width, height);
       await win.loadURL(job.probe ? `${url}?${job.query}` : `${url}?lab=1&${job.query}&ui=0&still=1`);
+      if (job.sequence) {
+        await captureSequence(win, job, width, height);
+        continue;
+      }
       const state = await waitForSettle(win, job.probe);
-      if (job.probe) await sleep(job.settleMs ?? 900); // let UI transitions finish
+      // An app job may run a snippet first (e.g. focus a card), then let transitions finish.
+      if (job.eval) await win.webContents.executeJavaScript(job.eval);
+      for (const keyCode of job.keys ?? []) {
+        win.webContents.sendInputEvent({ type: "keyDown", keyCode });
+        win.webContents.sendInputEvent({ type: "keyUp", keyCode });
+        await sleep(120);
+      }
+      if (job.probe) await sleep(job.settleMs ?? 900);
       let image = await win.webContents.capturePage();
       // Retina displays capture at 2x; downsample to the window size unless asked not to.
       if (process.env.CAPTURE_SCALE !== "2" && image.getSize().width !== width) {

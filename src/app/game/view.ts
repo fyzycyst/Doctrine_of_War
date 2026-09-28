@@ -2,10 +2,7 @@
 // Inputs are visibleState() and eventsFor() output only; never raw engine state.
 import {
   doctrineLibrary,
-  narrateEvent,
   type Doctrine,
-  type EngineEvent,
-  type NameSource,
   type VisibleSquad,
   type VisibleState,
   type Weather,
@@ -65,105 +62,10 @@ export function isOnField(squad: VisibleSquad): squad is VisibleSquad & { hex: N
 
 /**
  * Squads for the diorama: everyone the player can see, via the renderer's own mapper.
- * Last-known enemies are drawn where they were last seen.
- * TODO(T05/T08): mark them as ghost silhouettes once DioramaSquad has a lastKnown flag.
+ * Last-known enemies carry `lastKnown` and draw as ghosts (T08).
  */
 export function toDioramaSquads(view: VisibleState): DioramaSquad[] {
   return dioramaSquads(view.squads.filter(isOnField));
-}
-
-// ---------------------------------------------------------------------------
-// Phase report
-// ---------------------------------------------------------------------------
-
-export type ChronicleTone = "order" | "clash" | "rally" | "rout" | "surge" | "waver" | "dread" | "sight" | "weather" | "siege" | "outcome";
-
-export interface ChronicleEntry {
-  key: string;
-  beat: number;
-  tone: ChronicleTone;
-  text: string;
-}
-
-/** The standing orders one company was seen to fire this phase. */
-export interface FiredOrders {
-  squadId: string;
-  squadName: string;
-  mine: boolean;
-  rules: { label: string; count: number }[];
-}
-
-function toneOf(event: EngineEvent): ChronicleTone | null {
-  switch (event.kind) {
-    case "engagement":
-      return "clash";
-    case "rally":
-      return "rally";
-    case "rout":
-    case "exit":
-      return "rout";
-    case "fortune":
-      return event.outcome === "surge" ? "surge" : "waver";
-    case "dread":
-      return "dread";
-    case "sighted":
-      return "sight";
-    case "weatherShift":
-      return "weather";
-    case "objectiveDamage":
-      return "siege";
-    case "outcome":
-      return "outcome";
-    // Rule firings are summarised separately; moves and blocks are playback detail.
-    case "ruleFired":
-    case "move":
-    case "blocked":
-      return null;
-  }
-}
-
-/**
- * The key events of a phase, from the player's filtered stream. `names` (the player's
- * visibleState) is used only to name the companies an event mentions.
- */
-export function buildChronicle(events: EngineEvent[], names: NameSource): ChronicleEntry[] {
-  const entries: ChronicleEntry[] = [];
-  events.forEach((event, index) => {
-    const tone = toneOf(event);
-    const text = tone ? narrateEvent(event, names) : null;
-    if (tone && text) {
-      entries.push({ key: `${index}-${event.kind}`, beat: event.beat, tone, text });
-    }
-  });
-  return entries;
-}
-
-/** Which standing orders fired this phase, grouped by company, player companies first. */
-export function firedOrders(events: EngineEvent[], names: VisibleState, playerFaction: string): FiredOrders[] {
-  const bySquad = new Map<string, FiredOrders>();
-  for (const event of events) {
-    if (event.kind !== "ruleFired" || !event.squadId) {
-      continue;
-    }
-    let group = bySquad.get(event.squadId);
-    if (!group) {
-      const squad = names.squads.find((item) => item.id === event.squadId);
-      group = {
-        squadId: event.squadId,
-        squadName: squad?.name ?? "An unseen company",
-        mine: squad?.faction === playerFaction,
-        rules: [],
-      };
-      bySquad.set(event.squadId, group);
-    }
-    const rule = group.rules.find((item) => item.label === event.label);
-    if (rule) {
-      rule.count += 1;
-    } else {
-      group.rules.push({ label: event.label, count: 1 });
-    }
-  }
-  return [...bySquad.values()].sort((a, b) => Number(b.mine) - Number(a.mine));
 }
 
 /** The engine titles reports "Phase N: intent"; the UI shows the phase separately. */

@@ -1,6 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { scenarios } from "../../game/engine";
+import { currentBattle } from "../../game/campaign";
+import { useFlow } from "../flow/flowStore";
 import { useGame } from "../game/gameStore";
+import { resolveRank } from "../game/view";
+import { Modal, rosterFocus } from "./Modal";
 import { ObjectiveStatus } from "./PhaseReport";
 
 const OUTCOME: Record<string, { word: string; line: string }> = {
@@ -16,7 +20,15 @@ export function Outcome() {
   const retry = useGame((s) => s.retry);
   const loadBattle = useGame((s) => s.loadBattle);
   const first = useRef<HTMLButtonElement>(null);
-  useEffect(() => first.current?.focus(), []);
+  const gameCampaign = useGame((s) => s.campaign);
+  const campaign = useFlow((s) => s.campaign);
+  const definition = useFlow((s) => s.definition);
+  const record = useFlow((s) => s.lastRecord);
+  const saveError = useFlow((s) => s.saveError);
+  const retryBattle = useFlow((s) => s.retryBattle);
+  const leaveBattle = useFlow((s) => s.leaveBattle);
+  const inCampaign = Boolean(gameCampaign && campaign);
+  const campaignOver = Boolean(campaign && !currentBattle(definition, campaign));
 
   const status = String(view.status);
   const won = status !== "defeat";
@@ -28,8 +40,7 @@ export function Outcome() {
   const mine = view.squads.filter((squad) => squad.faction === view.viewer);
   const standing = mine.filter((squad) => squad.status === "active").length;
 
-  // Stub until the campaign map ticket: recordBattle + the map screen replace this.
-  // For now Continue opens the next scenario's briefing as a standalone battle.
+  // Standalone battles (dev picker): Continue opens the next scenario's briefing.
   const index = scenarios.findIndex((item) => item.id === scenario.id);
   const next = scenarios[index + 1];
   const onContinue = () => {
@@ -38,26 +49,43 @@ export function Outcome() {
   };
 
   return (
-    <div className="outcome-scrim">
-      <section className={`outcome outcome-${status}`} role="dialog" aria-modal="true" aria-labelledby="outcome-title">
-        <p className="report-eyebrow">{scenario.title}</p>
-        <h2 id="outcome-title">{copy.word}</h2>
-        <p className="outcome-reason">{reason}</p>
-        <p className="outcome-tally">
-          {standing} of {mine.length} companies still standing
-        </p>
-        <ObjectiveStatus />
-        <p className="report-meta">
-          Fortune {view.fortune} · seed <span className="mono">#{view.seed}</span>
-        </p>
+    <Modal className={`outcome outcome-${status}`} labelledBy="outcome-title" initialFocus={first} returnFocus={rosterFocus}>
+      <p className="report-eyebrow">{scenario.title}</p>
+      <h2 id="outcome-title">{copy.word}</h2>
+      <p className="outcome-reason">{reason}</p>
+      <p className="outcome-tally">
+        {standing} of {mine.length} companies still standing
+      </p>
+      <ObjectiveStatus />
+      {inCampaign && record && <ResolveChanges />}
+      <p className="report-meta">
+        Fortune {view.fortune} · seed <span className="mono">#{view.seed}</span>
+        {inCampaign && (saveError ? <span className="save-error"> · {saveError}</span> : " · campaign saved")}
+      </p>
+      {inCampaign ? (
+        <div className="outcome-actions">
+          {won ? (
+            <button ref={first} type="button" className="btn-command" onClick={leaveBattle}>
+              {campaignOver ? "Read the epilogue" : "Return to the campaign map"}
+            </button>
+          ) : (
+            <>
+              <button ref={first} type="button" className="btn-command" onClick={() => retryBattle("same")}>
+                Fight it again
+              </button>
+              <button type="button" className="btn-quiet" onClick={() => retryBattle("new")}>
+                Again, new fortune
+              </button>
+              <button type="button" className="btn-quiet" onClick={leaveBattle}>
+                Return to the campaign map
+              </button>
+            </>
+          )}
+        </div>
+      ) : (
         <div className="outcome-actions">
           {/* After a defeat the next move is a retry; otherwise it is moving on. */}
-          <button
-            ref={won ? undefined : first}
-            type="button"
-            className={won ? "btn-quiet" : "btn-command"}
-            onClick={() => retry("same")}
-          >
+          <button ref={won ? undefined : first} type="button" className={won ? "btn-quiet" : "btn-command"} onClick={() => retry("same")}>
             Retry, same fortune
           </button>
           <button type="button" className="btn-quiet" onClick={() => retry("new")}>
@@ -67,7 +95,35 @@ export function Outcome() {
             {next ? `Continue to ${next.title}` : "Continue"}
           </button>
         </div>
-      </section>
-    </div>
+      )}
+    </Modal>
+  );
+}
+
+/** How each company's Resolve moved in this battle, from the campaign record. */
+function ResolveChanges() {
+  const record = useFlow((s) => s.lastRecord);
+  const campaign = useFlow((s) => s.campaign);
+  if (!record || !campaign) return null;
+  return (
+    <ul className="resolve-changes" aria-label="Resolve after the battle">
+      {record.companies.map((result) => {
+        const company = campaign.companies.find((item) => item.id === result.companyId);
+        const delta = result.resolveAfter - result.resolveBefore;
+        return (
+          <li key={result.companyId}>
+            <span className="rc-name">{company?.name ?? result.companyId}</span>
+            <span className="rc-rank">
+              {resolveRank(result.resolveBefore)}
+              {delta !== 0 && <> → {resolveRank(result.resolveAfter)}</>}
+            </span>
+            <span className={`chip-stat ${delta > 0 ? "gain" : delta < 0 ? "loss" : "neutral"}`}>
+              {delta > 0 ? `+${delta}` : delta < 0 ? `−${-delta}` : "±0"} Resolve
+            </span>
+            {result.renownEarned && <span className="renown">earned “{result.renownEarned}”</span>}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

@@ -1,6 +1,8 @@
-import { CloudFog, CloudRain, Sun, Wind } from "lucide-react";
+import { CloudFog, CloudRain, Settings, Sun, Volume2, VolumeX, Wind } from "lucide-react";
+import { useFlow } from "../flow/flowStore";
+import { useAudioStore } from "../audioStore";
 import type { Weather } from "../../game/engine";
-import { useGame, type Stage } from "../game/gameStore";
+import { useGame, useShownView, type Stage } from "../game/gameStore";
 import { WEATHER_EFFECT, WEATHER_NAME } from "../game/view";
 
 const WEATHER_ICON: Record<Weather, typeof Sun> = { clear: Sun, rain: CloudRain, mist: CloudFog, ashWind: Wind };
@@ -16,14 +18,18 @@ const STAGE_NAME: Record<Stage, string> = {
 
 export function CommandBar() {
   const scenario = useGame((s) => s.scenario);
-  const view = useGame((s) => s.view);
+  // During playback the weather chip follows the board (a shift lands when it plays).
+  const view = useShownView();
+  const muted = useAudioStore((s) => s.muted);
+  const toggleMuted = useAudioStore((s) => s.toggleMuted);
+  const setSettingsOpen = useFlow((s) => s.setSettingsOpen);
   const stage = useGame((s) => s.stage);
   const pace = useGame((s) => s.pace);
   const setPace = useGame((s) => s.setPace);
   const log = useGame((s) => s.log);
   const WeatherIcon = WEATHER_ICON[view.weather];
   // In the chronicle and aftermath, show the phase just fought, not the one to come.
-  const reporting = stage === "report" || stage === "outcome";
+  const reporting = stage === "resolving" || stage === "report" || stage === "outcome";
   const phase = reporting && log.length > 0 ? log[log.length - 1].phase : Math.min(view.phase, view.maxPhases);
 
   return (
@@ -55,6 +61,19 @@ export function CommandBar() {
           Fortune {view.fortune} · <span className="mono">#{view.seed}</span>
         </span>
       </div>
+      <button
+        type="button"
+        className="chip mute"
+        aria-pressed={muted}
+        aria-label={muted ? "Sound off" : "Sound on"}
+        title={muted ? "Unmute" : "Mute"}
+        onClick={toggleMuted}
+      >
+        {muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}
+      </button>
+      <button type="button" className="chip mute" aria-label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}>
+        <Settings size={15} aria-hidden="true" />
+      </button>
       <div className="pace" role="group" aria-label="Battle pace">
         {(["readable", "fast"] as const).map((option) => (
           <button key={option} type="button" aria-pressed={pace === option} onClick={() => setPace(option)}>
