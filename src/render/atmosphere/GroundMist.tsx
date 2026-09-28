@@ -153,6 +153,8 @@ const LAYERS_LOW = 4;
 const FOG_TOP = 0.85;
 /** Fires that light the mist (nearest-first by kind: bridges, braziers, campfires, torches). */
 const MAX_FIRES = 6;
+/** Base fog-of-war opacity per slice; presets scale it (`mist.fogOfWar`). */
+const FOG_ALPHA = 1.05;
 const FIRE_ORDER: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 0, brazier: 1, campfire: 2, torch: 3 };
 const FIRE_WEIGHT: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 1, brazier: 0.4, campfire: 0.4, torch: 0.2 };
 
@@ -188,7 +190,7 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
             uSpeed: { value: 0.05 },
             uTop: { value: 0.6 },
             uLayerNorm: { value: 1 },
-            uFogAlpha: { value: 1.05 },
+            uFogAlpha: { value: FOG_ALPHA },
           },
         ]),
         vertexShader: /* glsl */ `
@@ -375,6 +377,7 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
       v.set(f.x, f.y, f.z, f.weight * fireOn * flick);
     }
     u.uSpeed.value = preset.mist.speed;
+    u.uFogAlpha.value = FOG_ALPHA * (preset.mist.fogOfWar ?? 1);
     u.uTop.value = preset.mist.height + 0.25 + m.mistHeightAdd;
     // Calibrated against the original 5 layers spread over 0.55 world units.
     const top = Math.max(FOG_TOP, preset.mist.height + 0.4);
