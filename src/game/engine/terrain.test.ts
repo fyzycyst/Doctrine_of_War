@@ -2,7 +2,7 @@
 // the line of retreat.
 import { describe, expect, it } from "vitest";
 import { executeAction } from "./actions";
-import { canSee, sightRangeAt, timeOfDayAt } from "./fog";
+import { canSee, sightRangeAt, timeOfDayAt, visibleHexes, visibleState } from "./fog";
 import { planAdvance } from "./movement";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { chooseRule, evaluateCondition } from "./rules";
@@ -61,6 +61,37 @@ describe("marsh and reeds", () => {
     const second = resolvePhase(first.state, {}, dawn, { doctrines: library() });
     // Phase 3 has no override, so it is back to the scenario's hour.
     expect([second.state.phase, second.state.timeOfDay]).toEqual([3, "predawn"]);
+  });
+});
+
+describe("first light", () => {
+  it("reveals what the new hour can see as the phase turns, in that phase's closing events", () => {
+    const dawn = scenario({
+      squads: [
+        squad("o", FB, { q: 0, r: 2 }),
+        // Two hexes off: hidden in the dark before dawn, in plain sight at sunrise. Renowned, so it brings dread.
+        squad("e", AH, { q: 2, r: 2 }, { resolve: 3, renown: { title: "The Grey Dawn" } }),
+      ],
+      timeOfDay: "predawn",
+      timeOfDayByPhase: { 2: "sunrise" },
+      maxPhases: 3,
+    });
+    const start = createInitialState(dawn, { seed: 1, fortune: "on" });
+    expect(visibleState(start, FB).squads.some((item) => item.id === "e")).toBe(false);
+
+    const first = resolvePhase(start, {}, dawn, { doctrines: library() });
+    expect(first.state.timeOfDay).toBe("sunrise");
+    const view = visibleState(first.state, FB);
+    expect(visibleHexes(first.state, dawn, FB)).toContainEqual({ q: 2, r: 2 });
+    expect(view.squads.find((item) => item.id === "e")).toMatchObject({ hex: { q: 2, r: 2 } });
+    const closing = first.events.filter((event) => event.phase === 1 && event.beat === 0).map((event) => event.kind);
+    expect(closing.slice(-2).sort()).toEqual(["dread", "sighted"]);
+
+    // The sighting and the dread happen once: the next phase does not repeat them.
+    const again = resolvePhase(first.state, {}, dawn, { doctrines: library() });
+    expect(kinds(again.events).filter((kind) => kind === "sighted" || kind === "dread")).toEqual([]);
+    // Deterministic.
+    expect(resolvePhase(start, {}, dawn, { doctrines: library() })).toEqual(first);
   });
 });
 
