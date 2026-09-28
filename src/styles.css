@@ -2843,15 +2843,31 @@ h3 {
 }
 
 /* Dawn breaks: rises from the playback bar at the end of the last night phase. */
-.stage-banner {
+/* The playback bar and the dawn banner above it share one grid cell. */
+.playback-dock {
   grid-column: 2;
   grid-row: 3;
-  align-self: end;
   justify-self: center;
+  position: relative;
+  margin-bottom: 18px;
+}
+
+.playback-dock .playback-bar {
+  margin-bottom: 0;
+}
+
+.stage-banner {
+  /* Out of the flow, so it neither hides behind nor stretches the playback bar. */
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 14px);
+  z-index: 5;
+  /* translate, not transform: the unfurl animation owns transform. */
+  translate: -50% 0;
+  white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 86px;
   padding: 12px 26px;
   border: 1px solid var(--gold-hi);
   border-radius: 6px;

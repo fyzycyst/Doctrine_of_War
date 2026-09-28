@@ -215,13 +215,14 @@ function PlaybackBar({ skipRef, onSkip }: { skipRef: RefObject<HTMLButtonElement
           <span className="callout-text">{callout.text}</span>
         </div>
       ))}
+      <div className="playback-dock">
       {turn && (
-        <div className="stage-banner" role="status">
-          <Sunrise size={20} aria-hidden="true" />
-          <span className="stage-title">{turn.title}</span>
-          <span className="stage-goal">{turn.text}</span>
-        </div>
-      )}
+          <div className="stage-banner" role="status">
+            <Sunrise size={20} aria-hidden="true" />
+            <span className="stage-title">{turn.title}</span>
+            <span className="stage-goal">{turn.text}</span>
+          </div>
+        )}
       <div className="playback-bar">
         <div className="beat-indicator" role="img" aria-label={beat > 0 ? `Beat ${beat} of 3` : "The phase begins"}>
           <span className="beat-label" aria-hidden="true">
@@ -240,6 +241,7 @@ function PlaybackBar({ skipRef, onSkip }: { skipRef: RefObject<HTMLButtonElement
           <FastForward size={14} aria-hidden="true" /> Skip
           <kbd>Space</kbd>
         </button>
+      </div>
       </div>
     </>
   );

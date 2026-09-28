@@ -36,6 +36,8 @@ describe("Hold for Dawn: the staged goal", () => {
     });
     const banner = await screen.findByText("Dawn breaks", {}, { timeout: 5000 });
     expect(banner.closest(".stage-banner")).toHaveTextContent("Break the Cinderram");
+    // The aim turns with the light, during the moment itself.
+    expect(screen.getByRole("status", { name: "Goal: Break the Cinderram" })).toBeInTheDocument();
     // The dawn light arrives with the banner: the board shows the next phase (sunrise).
     expect(game().display?.phase).toBe(5);
     expect(timeOfDayAt(holdForDawn, game().display!.phase)).toBe("sunrise");

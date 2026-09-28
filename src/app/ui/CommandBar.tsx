@@ -34,7 +34,8 @@ export function CommandBar() {
   // In the chronicle and aftermath, show the phase just fought, not the one to come.
   const reporting = stage === "resolving" || stage === "report" || stage === "outcome";
   const phase = reporting && log.length > 0 ? log[log.length - 1].phase : Math.min(view.phase, view.maxPhases);
-  const goal = goalFor(scenario, phase, view);
+  // The aim follows the board: at the dawn moment (and in the report after it) that is the next phase's.
+  const goal = goalFor(scenario, Math.min(view.phase, view.maxPhases), view);
 
   return (
     <header className="command-bar">
