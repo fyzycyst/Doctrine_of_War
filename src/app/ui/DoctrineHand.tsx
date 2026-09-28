@@ -95,6 +95,7 @@ export const DoctrineHand = forwardRef<HandHandle>(function DoctrineHand(_, ref)
           return (
             <div
               key={doctrine.id}
+              data-doctrine={doctrine.id}
               role="option"
               aria-selected={chosen}
               tabIndex={index === active ? 0 : -1}

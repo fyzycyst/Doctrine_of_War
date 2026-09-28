@@ -59,14 +59,28 @@ describe("first-battle coach marks", () => {
     render(<Root />);
 
     expect(within(coachRegion()!).getByRole("heading", { name: "Choose a company" })).toBeInTheDocument();
+    // The first lesson: the Stoneford Riders and the Clean Counterstroke card.
+    expect(coachRegion()).toHaveTextContent("Pick the Stoneford Riders to see their orders.");
     expect(screen.getByText(/Guide: Choose a company\./)).toBeInTheDocument();
 
+    // Another company first: the lesson sends the player to the Riders.
     await user.click(screen.getByRole("option", { name: /Greyford Shields/ }));
     expect(guide().step).toBe("read");
     await user.click(within(coachRegion()!).getByRole("button", { name: "Next" }));
     expect(within(coachRegion()!).getByRole("heading", { name: "Give new orders" })).toBeInTheDocument();
+    expect(coachRegion()).toHaveTextContent(
+      "Select the Stoneford Riders, then give them the Clean Counterstroke card: they'll charge any enemy that comes on alone, and the Ford Reavers will.",
+    );
 
-    await user.click(screen.getByRole("option", { name: /Fighting Withdrawal/ }));
+    await user.click(screen.getByRole("option", { name: /Stoneford Riders/ }));
+    expect(guide().step).toBe("assign");
+    expect(coachRegion()).toHaveTextContent(
+      "Give the Stoneford Riders the Clean Counterstroke card: they'll charge any enemy that comes on alone, and the Ford Reavers will.",
+    );
+    const card = document.querySelector('.hand [role="option"][data-doctrine="clean_counterstroke"]');
+    expect(card).toHaveTextContent("Clean Counterstroke"); // the mark's target
+    await user.click(card as HTMLElement);
+    expect(useGame.getState().orders).toEqual({ stoneford_riders: "clean_counterstroke" });
     expect(within(coachRegion()!).getByRole("heading", { name: "Seal your orders" })).toBeInTheDocument();
 
     act(() => useGame.setState({ playbackSpeed: 100 }));
