@@ -136,6 +136,8 @@ export const emberFord: EngineScenario = {
   ],
   // If the fires die with the vanguard still standing but nobody through, it is a stalemate.
   timeoutOutcome: "stalemate",
+  // ...but only if at least one vanguard company was broken; otherwise it is a defeat.
+  stalemateRequires: { minEnemyBroken: 1, targetsOnly: true },
   forecast: { start: "clear", shiftChance: 0.3, shifts: ["clear", "rain"] },
   referencePlans: {
     // Every company waits for a Host company to climb out alone, then strikes it;

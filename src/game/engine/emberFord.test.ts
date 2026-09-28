@@ -77,10 +77,18 @@ describe("Ember Ford", () => {
     expect(emberFord.playerDoctrineIds).toHaveLength(5);
   });
 
-  it("ends in a stalemate, not a defeat, when the night runs out with nobody through", () => {
+  it("ends in a stalemate only if the vanguard was actually tested", () => {
     expect(emberFord.timeoutOutcome).toBe("stalemate");
-    // A line of rally banners never breaks the vanguard, but never lets it through either.
-    expect(battle(everyone("rescue_standard"), 1, "off").state.status).toBe("stalemate");
+    expect(emberFord.stalemateRequires).toEqual({ minEnemyBroken: 1, targetsOnly: true });
+    // A line of rally banners never breaks a vanguard company: the timeout is a defeat.
+    const passive = battle(everyone("rescue_standard"), 1, "off");
+    expect(passive.state.status).toBe("defeat");
+    expect(passive.events.at(-1)).toMatchObject({ kind: "outcome", reason: expect.stringMatching(/never truly tested/) });
+    // The intended plan that breaks some of the vanguard but runs out of night: stalemate.
+    const close = battle(intended, 15, "on");
+    expect(close.state.status).toBe("stalemate");
+    const broken = close.state.squads.filter((squad) => ["pyre_sworn", "emberline_spears", "ashbound_levies"].includes(squad.id) && squad.status !== "active");
+    expect(broken.length).toBeGreaterThanOrEqual(1);
   });
 
   it("fields exactly one renowned Host champion", () => {

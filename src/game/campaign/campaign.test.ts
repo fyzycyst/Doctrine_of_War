@@ -161,12 +161,12 @@ describe("Resolve rules", () => {
     expect(next.companies.find((company) => company.id === "dawnwatch_archers")?.resolve).toBe(-3);
   });
 
-  it("stalemate advances but costs routed companies an extra point", () => {
+  it("stalemate advances but earns nothing, and costs routed companies an extra point", () => {
     const efState: CampaignState = { ...startCampaign(def), battleIndex: 1 };
     const final = finished(applyCampaign(def, efState, emberFord), "stalemate", { kestrel_lancers: "routed" });
     const next = recordBattle(def, efState, final);
     expect(next.companies.find((company) => company.id === "kestrel_lancers")?.resolve).toBe(-2);
-    expect(next.companies.find((company) => company.id === "mill_lane_guard")?.resolve).toBe(1);
+    expect(next.companies.find((company) => company.id === "mill_lane_guard")?.resolve).toBe(0);
     expect(next.battleIndex).toBe(2);
     expect(next.history[0].outcome).toBe("stalemate");
   });
@@ -229,7 +229,9 @@ describe("campaign flow with the real engine", () => {
   it("a stalemate at Ember Ford advances to the (placeholder) next battle; a defeat is retried", () => {
     const afterTutorial = play(startCampaign(def), firstBreach.referencePlans!.intended, "on", firstBreach.curatedSeed).next;
 
-    const stalemate = play(afterTutorial, everyone("rescue_standard"));
+    // Rally banners alone never test the vanguard: that timeout is a defeat now.
+    expect(play(afterTutorial, everyone("rescue_standard")).final.status).toBe("defeat");
+    const stalemate = play(afterTutorial, emberFord.referencePlans!.intended, "on", 64);
     expect(stalemate.final.status).toBe("stalemate");
     expect(stalemate.next.battleIndex).toBe(2);
     expect(currentBattle(def, stalemate.next)).toMatchObject({ id: "battle_2", placeholder: true });

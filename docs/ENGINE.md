@@ -165,7 +165,9 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
     - `squadsLost {count}`: that many player squads are routed or destroyed ("the line
       breaks").
   - `timeoutOutcome: "defeat" | "stalemate"` (default `"defeat"`) decides what running out
-    of phases means for `escapeEdge` and `destroySquads`. With `"stalemate"`, the battle
+    of phases means for `escapeEdge` and `destroySquads`. A stalemate must be earned:
+    `stalemateRequires {minEnemyBroken, targetsOnly?}` turns a timeout with too few
+    enemies broken into a defeat. With `"stalemate"`, the battle
     ends with `status: "stalemate"`: neither side met its goal. The campaign treats it as
     "advance, with a Resolve penalty". `holdObjective` always wins on time. The balance
     harness reports stalemates as their own column; they never count as wins.
@@ -213,7 +215,7 @@ objective integrity, and exits 1 if a guardrail fails:
 
 - the intended plan wins ≥ 75%;
 - the bad plan wins ≤ 35%;
-- no mono plan wins ≥ 60%.
+- no mono plan **advances** (wins plus stalemates) ≥ 60%.
 
 `balance.test.ts` runs the same check with 60 seeds on every `npm test`. Every
 scenario in `scenarios/index.ts` must pass. The scenarios so far:

@@ -8,7 +8,7 @@
 //
 // Resolve rules after a battle (per company that fought):
 //   victory or stalemate (the campaign advances):
-//     ended steady (still on the field, or escaped)  +1
+//     ended steady (still on the field, or escaped)  +1 (stalemate: +0)
 //     routed                                          -1  (stalemate: -2, the stalemate penalty)
 //     destroyed                                       reforms at REFORMED_RESOLVE and loses its renown
 //   defeat: the battle is retried with the same roster; Resolve does not change
@@ -111,7 +111,8 @@ function nextResolve(resolve: number, ended: CompanyResult["ended"], outcome: "v
   switch (ended) {
     case "active":
     case "escaped":
-      return clampResolve(resolve + 1);
+      // A stalemate earns nobody anything.
+      return clampResolve(resolve + (outcome === "victory" ? 1 : 0));
     case "routed":
       return clampResolve(resolve - 1 - (outcome === "stalemate" ? STALEMATE_ROUT_PENALTY : 0));
     case "destroyed":

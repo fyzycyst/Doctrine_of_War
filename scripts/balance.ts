@@ -32,7 +32,7 @@ if (selected.length === 0) {
 
 console.log(
   `Guardrails: intended >= ${GUARDRAILS.intendedMin * 100}%, bad <= ${GUARDRAILS.badMax * 100}%, ` +
-    `every mono plan < ${GUARDRAILS.monoMax * 100}%   (fortune ${fortune})\n`,
+    `every mono plan advances (wins + stalemates) < ${GUARDRAILS.monoMax * 100}%   (fortune ${fortune})\n`,
 );
 
 let failed = false;

@@ -9,7 +9,7 @@ export const GUARDRAILS = {
   intendedMin: 0.75,
   /** The named bad plan must win at most this often. */
   badMax: 0.35,
-  /** No "everyone on doctrine X" plan may win this often. */
+  /** No "everyone on doctrine X" plan may ADVANCE (win or stalemate) this often. */
   monoMax: 0.6,
 };
 
@@ -102,8 +102,8 @@ export function guardrailFailures(rows: BalanceRow[]): string[] {
     if (row.kind === "bad" && row.winRate > GUARDRAILS.badMax) {
       return [`bad plan wins ${pct(row.winRate)} (> ${pct(GUARDRAILS.badMax)})`];
     }
-    if (row.kind === "mono" && row.winRate >= GUARDRAILS.monoMax) {
-      return [`${row.name} wins ${pct(row.winRate)} (>= ${pct(GUARDRAILS.monoMax)})`];
+    if (row.kind === "mono" && row.winRate + row.stalemateRate >= GUARDRAILS.monoMax) {
+      return [`${row.name} advances ${pct(row.winRate + row.stalemateRate)} (>= ${pct(GUARDRAILS.monoMax)})`];
     }
     return [];
   }));

@@ -190,6 +190,12 @@ export interface EngineScenario {
    * (holdObjective always wins on time). Default "defeat".
    */
   timeoutOutcome?: "defeat" | "stalemate";
+  /**
+   * A stalemate must be earned: at least `minEnemyBroken` enemy companies routed or
+   * destroyed (counting only the win condition's targets when `targetsOnly`), or
+   * the timeout is a defeat.
+   */
+  stalemateRequires?: { minEnemyBroken: number; targetsOnly?: boolean };
   /** Defaults to "day". */
   timeOfDay?: TimeOfDay;
   /** A fortune-on seed that plays the intended plan to a clean win (first playthrough, video capture). */

@@ -28,7 +28,8 @@ Code: `src/game/campaign/` (pure TypeScript; the campaign-map UI lives in the ap
 
 | Battle outcome | Company ended the battle… | Resolve |
 | --- | --- | --- |
-| victory or stalemate (the campaign advances) | steady (on the field, or escaped) | +1 |
+| victory (the campaign advances) | steady (on the field, or escaped) | +1 |
+| stalemate (the campaign advances) | steady | +0 (a stalemate earns nothing) |
 | victory | routed | −1 |
 | stalemate | routed | −2 (−1 plus the stalemate penalty) |
 | victory or stalemate | destroyed | **reforms at −2** and loses its renown title |
