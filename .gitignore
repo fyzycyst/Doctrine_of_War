@@ -6,3 +6,5 @@ coverage/
 .DS_Store
 tasks/
 
+captures/
+public/assets/cc0/kaykit/*.glb

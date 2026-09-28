@@ -1,0 +1,702 @@
+import * as THREE from "three";
+import { hexKey, hexNeighbors, hexDistance, type BoardHex, type BoardLayout, type HexCoord } from "../../game/board";
+import { GeoBuilder, color, jitterColor, trs } from "../geo/GeoBuilder";
+import { boardCenter, hexCorner, hexRandom, hexToWorld, islandShore, mulberry32 } from "../hexWorld";
+import type { Skin } from "../skins/types";
+
+/**
+ * Builds the floating-island diorama from a BoardLayout: extruded hex columns
+ * with tapered, stratified cliff sides, per-terrain tile tops and code-built
+ * props, all merged into one vertex-coloured geometry (one draw call).
+ */
+
+export interface IslandHex {
+  coord: HexCoord;
+  x: number;
+  z: number;
+  top: number;
+  kind: "board" | "shore" | "river";
+  terrain?: BoardHex["terrain"];
+}
+
+export interface WaterHex {
+  x: number;
+  z: number;
+  level: number;
+}
+
+export interface Waterfall {
+  x: number;
+  z: number;
+  level: number;
+  /** Outward unit direction the water falls over. */
+  dirX: number;
+  dirZ: number;
+  width: number;
+}
+
+export interface Anchor {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+}
+
+export interface IslandBuild {
+  geometry: THREE.BufferGeometry;
+  hexes: IslandHex[];
+  water: WaterHex[];
+  waterLevel: number;
+  waterfall?: Waterfall;
+  /** Surface height of each board hex, for placing squads. */
+  surface: Map<string, number>;
+  center: { x: number; z: number };
+  radius: number;
+  fireAnchors: Anchor[];
+  gateBanner?: Anchor;
+}
+
+const CAP_RADIUS = 0.95;
+const BEVEL = 0.05;
+const WATER_ABOVE_BED = 0.11;
+
+// Reusable primitive geometries (low-poly on purpose).
+const PRIM = {
+  rock: new THREE.DodecahedronGeometry(1, 0),
+  cone6: new THREE.ConeGeometry(1, 1, 6),
+  cone8: new THREE.ConeGeometry(1, 1, 8),
+  cyl6: new THREE.CylinderGeometry(1, 1, 1, 6),
+  cyl8: new THREE.CylinderGeometry(1, 1, 1, 8),
+  box: new THREE.BoxGeometry(1, 1, 1),
+  ico: new THREE.IcosahedronGeometry(1, 0),
+  roof: (() => {
+    // Triangular prism roof, ridge along x.
+    const shape = new THREE.Shape();
+    shape.moveTo(-0.5, 0);
+    shape.lineTo(0.5, 0);
+    shape.lineTo(0, 0.5);
+    shape.closePath();
+    const g = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false });
+    g.translate(0, 0, -0.5);
+    g.rotateY(Math.PI / 2);
+    return g;
+  })(),
+};
+
+export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
+  const center = boardCenter(layout);
+  const b = new GeoBuilder();
+  const rand = mulberry32(1337);
+  const T = skin.terrain;
+  const I = skin.island;
+  const jitter = skin.material.tileJitter;
+
+  const boardByKey = new Map(layout.hexes.map((hex) => [hexKey(hex.coord), hex]));
+  const fordHexes = layout.hexes.filter((hex) => hex.terrain === "ford");
+  const shore = islandShore(layout, 2, 0.6);
+
+  // River: carry the ford's water out through the shore on the Host (west) side
+  // and over the island edge as a waterfall.
+  const riverKeys = new Set<string>();
+  let waterfall: Waterfall | undefined;
+  const shoreKeys = new Set(shore.map((s) => hexKey(s.coord)));
+  if (fordHexes.length > 0) {
+    const westMost = [...fordHexes].sort((a, c) => worldX(a.coord) - worldX(c.coord))[0];
+    let cursor = westMost.coord;
+    for (let step = 0; step < 2; step += 1) {
+      // Step to the west-most neighbour that is not on the board.
+      const next = hexNeighbors(cursor)
+        .filter((n) => !boardByKey.has(hexKey(n)))
+        .sort((a, c) => worldX(a) - worldX(c) + (worldZ(a) - worldZ(c)) * 0.3)[0];
+      if (!next) break;
+      riverKeys.add(hexKey(next));
+      if (!shoreKeys.has(hexKey(next))) {
+        shore.push({ coord: next, ring: step + 1 });
+        shoreKeys.add(hexKey(next));
+      }
+      cursor = next;
+    }
+  }
+
+  function worldX(c: HexCoord) {
+    return hexToWorld(c, center)[0];
+  }
+  function worldZ(c: HexCoord) {
+    return hexToWorld(c, center)[1];
+  }
+
+  const hexes: IslandHex[] = [];
+  for (const hex of layout.hexes) {
+    const [x, z] = hexToWorld(hex.coord, center);
+    hexes.push({ coord: hex.coord, x, z, top: T[hex.terrain].height, kind: "board", terrain: hex.terrain });
+  }
+  for (const s of shore) {
+    const [x, z] = hexToWorld(s.coord, center);
+    const key = hexKey(s.coord);
+    const isRiver = riverKeys.has(key);
+    const r = hexRandom(s.coord, 3);
+    const top = isRiver ? T.ford.height : s.ring === 1 ? 0.2 + r * 0.08 : -0.02 + r * 0.1;
+    hexes.push({ coord: s.coord, x, z, top, kind: isRiver ? "river" : "shore" });
+  }
+
+  const radius = Math.max(...hexes.map((h) => Math.hypot(h.x, h.z))) + 1;
+  const waterLevel = T.ford.height + WATER_ABOVE_BED;
+  const surface = new Map<string, number>();
+  const water: WaterHex[] = [];
+  const fireAnchors: Anchor[] = [];
+  let gateBanner: Anchor | undefined;
+
+  const cliffTop = color(I.cliffTop);
+  const cliffBottom = color(I.cliffBottom);
+  const strata = color(I.strata);
+
+  // --- Columns (tile tops + cliff sides) -----------------------------------
+  for (const hex of hexes) {
+    const hr = mulberry32(hexKey(hex.coord).length * 977 + hex.coord.q * 131 + hex.coord.r * 7919);
+    const d = Math.hypot(hex.x, hex.z) / radius;
+    const bottom = -(1.3 + 3.6 * Math.pow(Math.max(0, 1 - d), 1.2) + hr() * 1.6);
+    const topColorHex =
+      hex.kind === "board" ? T[hex.terrain!].top : hex.kind === "river" ? T.ford.top : I.shoreTop;
+    const topColor = jitterColor(color(topColorHex), jitter, hr);
+    addColumn(b, hex, bottom, topColor, cliffTop, cliffBottom, strata, hr);
+    if (hex.kind === "board") surface.set(hexKey(hex.coord), hex.top);
+    if (hex.terrain === "ford" || hex.kind === "river") water.push({ x: hex.x, z: hex.z, level: waterLevel });
+  }
+
+  // Waterfall over the outer edge of the last river hex.
+  const riverHexes = hexes.filter((h) => h.kind === "river");
+  if (riverHexes.length > 0) {
+    const last = riverHexes[riverHexes.length - 1];
+    const outward = new THREE.Vector2(last.x, last.z).normalize();
+    // Snap to the closest flat-top edge normal so the fall sits on a hex face.
+    const normals = [30, 90, 150, 210, 270, 330].map((deg) => {
+      const a = (deg * Math.PI) / 180;
+      return new THREE.Vector2(Math.cos(a), Math.sin(a));
+    });
+    const edge = normals.sort((p, q) => q.dot(outward) - p.dot(outward))[0];
+    const apothem = Math.sqrt(3) / 2;
+    waterfall = {
+      x: last.x + edge.x * apothem * 1.0,
+      z: last.z + edge.y * apothem * 1.0,
+      level: waterLevel,
+      dirX: edge.x,
+      dirZ: edge.y,
+      width: 0.8,
+    };
+  }
+
+  // --- Terrain dressing -----------------------------------------------------
+  const roadColor = color(T.road.accent ?? T.road.top);
+  const stone = color(T.ridge.accent ?? "#a8a296");
+  const foliage = color(I.foliage);
+  const foliageDark = color(I.foliageDark);
+  const trunk = color(I.trunk);
+
+  for (const hex of hexes) {
+    const hr = mulberry32(hex.coord.q * 7349 + hex.coord.r * 3181 + 11);
+    if (hex.kind === "board") {
+      switch (hex.terrain) {
+        case "field":
+          dressField(b, hex, hr, foliage, foliageDark);
+          break;
+        case "ridge":
+          dressRidge(b, hex, hr, stone, foliage, foliageDark, trunk);
+          break;
+        case "ford":
+          dressFord(b, hex, hr, stone, foliage);
+          break;
+        case "ruin":
+          dressRuin(b, hex, hr, stone, foliageDark);
+          break;
+        case "road":
+          break; // roads are drawn as connected strips below
+        case "wall":
+          break; // walls are drawn as one continuous line below
+      }
+    } else if (hex.kind === "shore") {
+      dressShore(b, hex, hr, foliage, foliageDark, trunk, stone, center, radius);
+    } else {
+      dressFord(b, hex, hr, stone, foliage);
+    }
+  }
+
+  drawRoads(b, layout, hexes, roadColor, T[`field`].top, rand);
+  const wall = drawWalls(b, layout, hexes, skin, rand);
+  gateBanner = wall.gateBanner;
+  fireAnchors.push(...wall.torches);
+  drawTown(b, hexes, skin, rand);
+
+  // Host campfires on the west shore, near the ford.
+  const westShore = hexes
+    .filter((h) => h.kind === "shore")
+    .sort((a, c) => a.x - c.x)
+    .slice(0, 6)
+    .sort((a, c) => Math.abs(a.z) - Math.abs(c.z));
+  for (const h of westShore.slice(0, 2)) {
+    const fx = h.x + 0.1;
+    const fz = h.z;
+    // Log pile.
+    for (let i = 0; i < 3; i += 1) {
+      b.add(PRIM.cyl6, trs(fx, h.top + 0.03, fz, Math.PI / 2, (i * Math.PI) / 3, 0, 0.025, 0.22, 0.025), trunk);
+    }
+    ring(b, fx, h.top, fz, 0.13, 7, stone, hr1(h));
+    fireAnchors.push({ x: fx, y: h.top + 0.05, z: fz, yaw: 0 });
+  }
+
+  return {
+    geometry: b.build(),
+    hexes,
+    water,
+    waterLevel,
+    waterfall,
+    surface,
+    center,
+    radius,
+    fireAnchors,
+    gateBanner,
+  };
+}
+
+function hr1(h: IslandHex) {
+  return mulberry32(h.coord.q * 17 + h.coord.r * 31 + 5);
+}
+
+// ---------------------------------------------------------------------------
+
+function addColumn(
+  b: GeoBuilder,
+  hex: IslandHex,
+  bottom: number,
+  topColor: THREE.Color,
+  cliffTop: THREE.Color,
+  cliffBottom: THREE.Color,
+  strata: THREE.Color,
+  rand: () => number,
+) {
+  const { x, z, top } = hex;
+  const v = (px: number, py: number, pz: number) => new THREE.Vector3(x + px, py, z + pz);
+  const noise = hex.kind === "board" && hex.terrain !== "road" && hex.terrain !== "wall" ? 0.02 : 0.012;
+
+  // Top cap: centre, inner ring, outer ring, bevel ring.
+  const c0 = v(0, top + (rand() - 0.5) * noise, 0);
+  const inner: THREE.Vector3[] = [];
+  const outer: THREE.Vector3[] = [];
+  const bevel: THREE.Vector3[] = [];
+  const innerCol: THREE.Color[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const [ix, iz] = hexCorner(i, 0.52);
+    inner.push(v(ix, top + (rand() - 0.5) * noise, iz));
+    const patch = rand();
+    const c = topColor.clone().multiplyScalar(0.9 + rand() * 0.2);
+    // Occasional sun-bleached or damp patches so big tiles are not flat colour.
+    if (patch > 0.8) c.lerp(new THREE.Color("#b8a468"), 0.35);
+    else if (patch < 0.15) c.multiplyScalar(0.85);
+    innerCol.push(c);
+    const [ox, oz] = hexCorner(i, CAP_RADIUS);
+    outer.push(v(ox, top, oz));
+    const [bx, bz] = hexCorner(i, 1);
+    bevel.push(v(bx, top - BEVEL, bz));
+  }
+  const edgeCol = topColor.clone().multiplyScalar(0.86);
+  const bevelCol = topColor.clone().lerp(cliffTop, 0.45).multiplyScalar(0.8);
+  const centerCol = topColor.clone().multiplyScalar(1.03);
+
+  for (let i = 0; i < 6; i += 1) {
+    const j = (i + 1) % 6;
+    // Winding: corners go counter-clockwise in x/z, which is clockwise seen from +y,
+    // so order (centre, j, i) faces up.
+    b.tri(c0, inner[j], inner[i], centerCol, innerCol[j], innerCol[i]);
+    b.quad(inner[i], inner[j], outer[j], outer[i], innerCol[i], innerCol[j], edgeCol, edgeCol);
+    b.quad(outer[i], outer[j], bevel[j], bevel[i], bevelCol, bevelCol, bevelCol, bevelCol);
+  }
+
+  // Cliff sides: stacked bands that taper and wobble with depth.
+  const height = top - BEVEL - bottom;
+  const bands = Math.max(3, Math.round(height / 0.32));
+  let prevRing = bevel;
+  let prevCol = cliffTop.clone().lerp(bevelCol, 0.3);
+  for (let k = 1; k <= bands; k += 1) {
+    const t = k / bands;
+    const y = top - BEVEL - height * t;
+    const taper = 1 - 0.24 * Math.pow(t, 1.6);
+    const ringPts: THREE.Vector3[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      const [cx, cz] = hexCorner(i, taper * (1 + (rand() - 0.5) * 0.1));
+      ringPts.push(v(cx, y + (rand() - 0.5) * 0.08, cz));
+    }
+    const bandShade = k % 2 === 0 ? 1.06 : 0.9;
+    const col = cliffTop
+      .clone()
+      .lerp(cliffBottom, Math.pow(t, 0.75))
+      .lerp(strata, k % 3 === 0 ? 0.35 : 0)
+      .multiplyScalar(bandShade);
+    for (let i = 0; i < 6; i += 1) {
+      const j = (i + 1) % 6;
+      b.quad(prevRing[i], prevRing[j], ringPts[j], ringPts[i], prevCol, prevCol, col, col);
+    }
+    prevRing = ringPts;
+    prevCol = col;
+  }
+  // Point the bottom into a jagged tip.
+  const tip = v((rand() - 0.5) * 0.2, bottom - 0.35 - rand() * 0.5, (rand() - 0.5) * 0.2);
+  for (let i = 0; i < 6; i += 1) {
+    const j = (i + 1) % 6;
+    b.tri(prevRing[i], prevRing[j], tip, prevCol, prevCol, cliffBottom);
+  }
+}
+
+function tuft(b: GeoBuilder, x: number, y: number, z: number, col: THREE.Color, rand: () => number, scale = 1) {
+  for (let i = 0; i < 3; i += 1) {
+    const h = (0.07 + rand() * 0.05) * scale;
+    b.add(
+      PRIM.cone6,
+      trs(x + (rand() - 0.5) * 0.06, y + h / 2, z + (rand() - 0.5) * 0.06, (rand() - 0.5) * 0.5, 0, (rand() - 0.5) * 0.5, 0.018 * scale, h, 0.018 * scale),
+      col,
+      0.3,
+      rand,
+    );
+  }
+}
+
+function rock(b: GeoBuilder, x: number, y: number, z: number, size: number, col: THREE.Color, rand: () => number) {
+  b.add(
+    PRIM.rock,
+    trs(x, y + size * 0.35, z, rand() * 3, rand() * 3, rand() * 3, size, size * (0.6 + rand() * 0.35), size * (0.8 + rand() * 0.3)),
+    col,
+    0.25,
+    rand,
+  );
+}
+
+function pine(b: GeoBuilder, x: number, y: number, z: number, h: number, leaf: THREE.Color, dark: THREE.Color, trunkCol: THREE.Color, rand: () => number) {
+  b.add(PRIM.cyl6, trs(x, y + h * 0.12, z, 0, 0, 0, 0.03 * h * 2, h * 0.24, 0.03 * h * 2), trunkCol);
+  for (let i = 0; i < 3; i += 1) {
+    const s = (1 - i * 0.26) * h * 0.34;
+    b.add(PRIM.cone6, trs(x, y + h * (0.32 + i * 0.22), z, 0, rand() * 2, 0, s, h * 0.38, s), i % 2 ? dark : leaf, 0.2, rand);
+  }
+}
+
+function roundTree(b: GeoBuilder, x: number, y: number, z: number, h: number, leaf: THREE.Color, trunkCol: THREE.Color, rand: () => number) {
+  b.add(PRIM.cyl6, trs(x, y + h * 0.25, z, 0, 0, 0, 0.035 * h * 2, h * 0.5, 0.035 * h * 2), trunkCol);
+  b.add(PRIM.ico, trs(x, y + h * 0.68, z, rand(), rand(), rand(), h * 0.3, h * 0.28, h * 0.3), leaf, 0.25, rand);
+  b.add(PRIM.ico, trs(x + h * 0.12, y + h * 0.55, z + h * 0.08, rand(), rand(), rand(), h * 0.2), leaf.clone().multiplyScalar(0.85), 0.25, rand);
+}
+
+function ring(b: GeoBuilder, x: number, y: number, z: number, radius: number, n: number, col: THREE.Color, rand: () => number) {
+  for (let i = 0; i < n; i += 1) {
+    const a = (i / n) * Math.PI * 2;
+    rock(b, x + Math.cos(a) * radius, y, z + Math.sin(a) * radius, 0.035, col, rand);
+  }
+}
+
+/** Random point in the outer band of a hex (keeps the centre free for squads). */
+function edgePoint(hex: IslandHex, rand: () => number, min = 0.55, max = 0.8): [number, number] {
+  const a = rand() * Math.PI * 2;
+  const r = min + rand() * (max - min);
+  return [hex.x + Math.cos(a) * r, hex.z + Math.sin(a) * r];
+}
+
+function dressField(b: GeoBuilder, hex: IslandHex, rand: () => number, leaf: THREE.Color, dark: THREE.Color) {
+  const n = 6 + Math.floor(rand() * 5);
+  for (let i = 0; i < n; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.4, 0.85);
+    tuft(b, x, hex.top, z, rand() > 0.5 ? leaf : dark, rand);
+  }
+  // Wildflowers: tiny bright dots that catch the low sun.
+  const petals = [color("#e8dcc4"), color("#d4a64a"), color("#b86a4a")];
+  for (let i = 0; i < 5; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.3, 0.85);
+    b.add(PRIM.ico, trs(x, hex.top + 0.03, z, 0, 0, 0, 0.012), petals[Math.floor(rand() * petals.length)]);
+  }
+  if (rand() > 0.55) {
+    const [x, z] = edgePoint(hex, rand, 0.65, 0.8);
+    b.add(PRIM.ico, trs(x, hex.top + 0.05, z, rand(), rand(), rand(), 0.09, 0.07, 0.09), dark, 0.2, rand);
+  }
+}
+
+function dressRidge(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: THREE.Color, leaf: THREE.Color, dark: THREE.Color, trunkCol: THREE.Color) {
+  const clusters = 2 + Math.floor(rand() * 2);
+  for (let c = 0; c < clusters; c += 1) {
+    const [cx, cz] = edgePoint(hex, rand, 0.55, 0.75);
+    const n = 2 + Math.floor(rand() * 3);
+    for (let i = 0; i < n; i += 1) {
+      rock(b, cx + (rand() - 0.5) * 0.22, hex.top, cz + (rand() - 0.5) * 0.22, 0.07 + rand() * 0.1, stone, rand);
+    }
+  }
+  if (rand() > 0.35) {
+    const [x, z] = edgePoint(hex, rand, 0.62, 0.78);
+    pine(b, x, hex.top, z, 0.45 + rand() * 0.2, leaf, dark, trunkCol, rand);
+  }
+  for (let i = 0; i < 3; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.3, 0.8);
+    tuft(b, x, hex.top, z, dark, rand);
+  }
+}
+
+function dressFord(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: THREE.Color, leaf: THREE.Color) {
+  // Stepping stones across the ford, plus reeds at the banks.
+  const lane = (rand() - 0.5) * 0.5;
+  for (let i = -2; i <= 2; i += 1) {
+    if (rand() < 0.25) continue;
+    const x = hex.x + i * 0.24 + (rand() - 0.5) * 0.08;
+    const z = hex.z + lane + (rand() - 0.5) * 0.22;
+    const s = 0.05 + rand() * 0.04;
+    b.add(PRIM.cyl8, trs(x, hex.top + WATER_ABOVE_BED - 0.02, z, 0, rand() * 3, 0, s, 0.06, s * (0.7 + rand() * 0.4)), stone.clone().multiplyScalar(0.8), 0.25, rand);
+  }
+  for (let i = 0; i < 5; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.7, 0.85);
+    tuft(b, x, hex.top + 0.05, z, leaf, rand, 1.8);
+  }
+}
+
+function dressRuin(b: GeoBuilder, hex: IslandHex, rand: () => number, stone: THREE.Color, moss: THREE.Color) {
+  const masonry = stone.clone().multiplyScalar(0.95);
+  // Broken pillars.
+  const pillars = 2 + Math.floor(rand() * 2);
+  for (let i = 0; i < pillars; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.45, 0.72);
+    const h = 0.18 + rand() * 0.32;
+    b.add(PRIM.cyl8, trs(x, hex.top + h / 2, z, 0, rand(), 0, 0.075, h, 0.075), masonry, 0.1, rand);
+    b.add(PRIM.cyl8, trs(x, hex.top + h + 0.02, z, 0.35, rand(), 0.2, 0.08, 0.05, 0.08), masonry.clone().multiplyScalar(1.05));
+    if (rand() > 0.4) {
+      // Fallen drum.
+      b.add(PRIM.cyl8, trs(x + 0.12, hex.top + 0.05, z + 0.08, Math.PI / 2, rand() * 3, 0, 0.065, 0.16, 0.065), masonry);
+    }
+  }
+  // A broken wall fragment with stepped top.
+  const [wx, wz] = edgePoint(hex, rand, 0.55, 0.65);
+  const yaw = rand() * Math.PI;
+  for (let i = 0; i < 4; i += 1) {
+    const h = 0.28 - i * 0.06 + rand() * 0.03;
+    const off = (i - 1.5) * 0.11;
+    b.add(PRIM.box, trs(wx + Math.cos(yaw) * off, hex.top + h / 2, wz - Math.sin(yaw) * off, 0, yaw, 0, 0.11, h, 0.09), masonry, 0.12, rand);
+  }
+  for (let i = 0; i < 5; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.3, 0.85);
+    rock(b, x, hex.top, z, 0.035 + rand() * 0.035, masonry, rand);
+  }
+  const [mx, mz] = edgePoint(hex, rand, 0.5, 0.8);
+  tuft(b, mx, hex.top, mz, moss, rand);
+}
+
+function dressShore(
+  b: GeoBuilder,
+  hex: IslandHex,
+  rand: () => number,
+  leaf: THREE.Color,
+  dark: THREE.Color,
+  trunkCol: THREE.Color,
+  stone: THREE.Color,
+  _center: { x: number; z: number },
+  _radius: number,
+) {
+  // Keep the camera side (south, +z) low so trees never hide the board.
+  const southFacing = hex.z > 2.2;
+  const treeChance = southFacing ? 0.12 : 0.75;
+  const trees = rand() < treeChance ? 1 + Math.floor(rand() * (southFacing ? 1 : 3)) : 0;
+  for (let i = 0; i < trees; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.1, 0.6);
+    const h = southFacing ? 0.35 : 0.5 + rand() * 0.35;
+    if (rand() > 0.45) pine(b, x, hex.top, z, h, leaf, dark, trunkCol, rand);
+    else roundTree(b, x, hex.top, z, h * 0.9, rand() > 0.5 ? leaf : dark.clone().lerp(leaf, 0.5), trunkCol, rand);
+  }
+  const rocks = Math.floor(rand() * 3);
+  for (let i = 0; i < rocks; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.2, 0.8);
+    rock(b, x, hex.top, z, 0.05 + rand() * 0.08, stone.clone().multiplyScalar(0.85), rand);
+  }
+  for (let i = 0; i < 4; i += 1) {
+    const [x, z] = edgePoint(hex, rand, 0.1, 0.85);
+    tuft(b, x, hex.top, z, rand() > 0.5 ? leaf : dark, rand);
+  }
+}
+
+// --- Roads -----------------------------------------------------------------
+
+function drawRoads(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], roadCol: THREE.Color, fieldHex: string, rand: () => number) {
+  const byKey = new Map(hexes.map((h) => [hexKey(h.coord), h]));
+  const roads = layout.hexes.filter((h) => h.terrain === "road");
+  if (roads.length === 0) return;
+  const goal = layout.hexes.find((h) => h.objectiveId) ?? layout.hexes.find((h) => h.terrain === "wall");
+  const isRoadish = (c: HexCoord) => {
+    const h = layout.hexes.find((x) => x.coord.q === c.q && x.coord.r === c.r);
+    return h && (h.terrain === "road" || h.terrain === "wall");
+  };
+  const edges: Array<[IslandHex, IslandHex, boolean]> = [];
+  const inflow = new Set<string>();
+  for (const road of roads) {
+    const from = byKey.get(hexKey(road.coord))!;
+    const options = hexNeighbors(road.coord).filter(isRoadish);
+    if (!goal || options.length === 0) continue;
+    const here = hexDistance(road.coord, goal.coord);
+    const best = options
+      .filter((n) => hexDistance(n, goal.coord) < here)
+      .sort((a, c) => hexDistance(a, goal.coord) - hexDistance(c, goal.coord))[0];
+    if (!best) continue;
+    const to = byKey.get(hexKey(best))!;
+    const toWall = layout.hexes.find((h) => hexKey(h.coord) === hexKey(best))?.terrain === "wall";
+    edges.push([from, to, toWall]);
+    inflow.add(hexKey(best));
+  }
+  // Roads that nothing flows into lead off toward the attackers (west).
+  for (const road of roads) {
+    if (inflow.has(hexKey(road.coord))) continue;
+    const from = byKey.get(hexKey(road.coord))!;
+    const west = hexNeighbors(road.coord)
+      .map((n) => byKey.get(hexKey(n)))
+      .filter((h): h is IslandHex => !!h && h.x < from.x - 0.5)
+      .sort((a, c) => Math.abs(a.z - from.z) - Math.abs(c.z - from.z))[0];
+    if (west) edges.push([from, west, true]);
+  }
+
+  const dirt = roadCol.clone();
+  const verge = roadCol.clone().lerp(color(fieldHex), 0.55);
+  const rut = roadCol.clone().multiplyScalar(0.78);
+  for (const [from, to, half] of edges) {
+    const len = half ? 0.5 : 1;
+    const ex = from.x + (to.x - from.x) * len;
+    const ez = from.z + (to.z - from.z) * len;
+    ribbon(b, from.x, from.z, ex, ez, from.top + 0.006, dirt, verge, rut);
+  }
+  for (const road of roads) {
+    const h = byKey.get(hexKey(road.coord))!;
+    // Junction patch.
+    const pts = 8;
+    const c0 = new THREE.Vector3(h.x, h.top + 0.007, h.z);
+    for (let i = 0; i < pts; i += 1) {
+      const a0 = (i / pts) * Math.PI * 2;
+      const a1 = ((i + 1) / pts) * Math.PI * 2;
+      const r0 = 0.22 + rand() * 0.04;
+      const r1 = 0.22 + rand() * 0.04;
+      b.tri(
+        c0,
+        new THREE.Vector3(h.x + Math.cos(a1) * r1, h.top + 0.006, h.z + Math.sin(a1) * r1),
+        new THREE.Vector3(h.x + Math.cos(a0) * r0, h.top + 0.006, h.z + Math.sin(a0) * r0),
+        dirt,
+        verge,
+        verge,
+      );
+    }
+  }
+}
+
+function ribbon(b: GeoBuilder, x0: number, z0: number, x1: number, z1: number, y: number, dirt: THREE.Color, verge: THREE.Color, rut: THREE.Color) {
+  const dx = x1 - x0;
+  const dz = z1 - z0;
+  const len = Math.hypot(dx, dz);
+  const nx = -dz / len;
+  const nz = dx / len;
+  // Cross-section offsets (verge, rut, centre, rut, verge).
+  const offs = [-0.2, -0.1, 0, 0.1, 0.2];
+  const cols = [verge, rut, dirt, rut, verge];
+  for (let k = 0; k < offs.length - 1; k += 1) {
+    const a = new THREE.Vector3(x0 + nx * offs[k], y, z0 + nz * offs[k]);
+    const bb = new THREE.Vector3(x1 + nx * offs[k], y, z1 + nz * offs[k]);
+    const c = new THREE.Vector3(x1 + nx * offs[k + 1], y, z1 + nz * offs[k + 1]);
+    const d = new THREE.Vector3(x0 + nx * offs[k + 1], y, z0 + nz * offs[k + 1]);
+    // Ensure upward-facing winding.
+    const up = new THREE.Vector3().subVectors(bb, a).cross(new THREE.Vector3().subVectors(d, a)).y > 0;
+    // (a, bb, d) faces up when the cross product points +y; keep that winding.
+    if (up) b.quad(a, bb, c, d, cols[k], cols[k], cols[k + 1], cols[k + 1]);
+    else b.quad(a, d, c, bb, cols[k], cols[k + 1], cols[k + 1], cols[k]);
+  }
+}
+
+// --- Walls & gate ------------------------------------------------------------
+
+function drawWalls(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], skin: Skin, rand: () => number) {
+  const byKey = new Map(hexes.map((h) => [hexKey(h.coord), h]));
+  const walls = layout.hexes
+    .filter((h) => h.terrain === "wall")
+    .map((h) => ({ board: h, hex: byKey.get(hexKey(h.coord))! }))
+    .sort((a, c) => a.hex.z - c.hex.z);
+  const torches: Anchor[] = [];
+  let gateBanner: Anchor | undefined;
+  if (walls.length === 0) return { torches, gateBanner };
+
+  const masonry = color(skin.terrain.wall.accent ?? "#a8a296");
+  const masonryDark = masonry.clone().multiplyScalar(0.78);
+  const roof = color(skin.factions.ashen_host.secondary).lerp(color("#3a3230"), 0.35);
+  const wood = color("#2a1c12");
+  const H = 0.46;
+  const THICK = 0.2;
+  const apothem = Math.sqrt(3) / 2;
+
+  const segment = (x: number, y: number, z0: number, z1: number) => {
+    const len = z1 - z0;
+    if (len <= 0.01) return;
+    b.add(PRIM.box, trs(x, y + H / 2, (z0 + z1) / 2, 0, 0, 0, THICK, H, len), masonry, 0.06, rand);
+    // Plinth.
+    b.add(PRIM.box, trs(x, y + 0.04, (z0 + z1) / 2, 0, 0, 0, THICK + 0.06, 0.08, len), masonryDark);
+    // Merlons.
+    const n = Math.max(1, Math.floor(len / 0.14));
+    for (let i = 0; i < n; i += 1) {
+      const z = z0 + ((i + 0.5) / n) * len;
+      b.add(PRIM.box, trs(x, y + H + 0.045, z, 0, 0, 0, THICK, 0.09, 0.075), masonry, 0.1, rand);
+    }
+  };
+  const tower = (x: number, y: number, z: number, r: number, h: number) => {
+    b.add(PRIM.cyl8, trs(x, y + h / 2, z, 0, Math.PI / 8, 0, r, h, r), masonry, 0.06, rand);
+    b.add(PRIM.cyl8, trs(x, y + h + 0.03, z, 0, Math.PI / 8, 0, r * 1.12, 0.06, r * 1.12), masonryDark);
+    b.add(PRIM.cone8, trs(x, y + h + 0.06 + r * 0.8, z, 0, Math.PI / 8, 0, r * 1.2, r * 1.6, r * 1.2), roof, 0.08, rand);
+    // Arrow slit.
+    b.add(PRIM.box, trs(x - r * 0.98, y + h * 0.6, z, 0, 0, 0, 0.02, 0.1, 0.03), wood);
+  };
+
+  const x = walls[0].hex.x;
+  for (const { board, hex } of walls) {
+    const z0 = hex.z - apothem;
+    const z1 = hex.z + apothem;
+    if (board.objectiveId) {
+      // Gatehouse: two towers flanking an arched gate.
+      const gap = 0.26;
+      segment(x, hex.top, z0, hex.z - gap - 0.14);
+      segment(x, hex.top, hex.z + gap + 0.14, z1);
+      tower(x, hex.top, hex.z - gap, 0.16, 0.74);
+      tower(x, hex.top, hex.z + gap, 0.16, 0.74);
+      // Lintel + arch.
+      b.add(PRIM.box, trs(x, hex.top + 0.5, hex.z, 0, 0, 0, THICK + 0.04, 0.16, gap * 2 - 0.08), masonry);
+      b.add(PRIM.cyl8, trs(x, hex.top + 0.36, hex.z, Math.PI / 2, 0, Math.PI / 2, 0.17, THICK + 0.02, 0.1), masonryDark);
+      // Doors (dark wood) recessed in the opening.
+      b.add(PRIM.box, trs(x + 0.02, hex.top + 0.18, hex.z, 0, 0, 0, 0.06, 0.36, gap * 2 - 0.14), wood);
+      b.add(PRIM.box, trs(x - 0.02, hex.top + 0.18, hex.z, 0, 0, 0, 0.012, 0.3, 0.02), color("#4a3020"));
+      gateBanner = { x: x - THICK / 2 - 0.02, y: hex.top + 0.44, z: hex.z, yaw: Math.PI };
+      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z - gap, yaw: 0 });
+      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z + gap, yaw: 0 });
+    } else {
+      segment(x, hex.top, z0, z1);
+    }
+  }
+  // End towers.
+  const first = walls[0].hex;
+  const last = walls[walls.length - 1].hex;
+  tower(x, first.top, first.z - apothem, 0.19, 0.64);
+  tower(x, last.top, last.z + apothem, 0.19, 0.64);
+  // A ruined continuation north, into the Broken Watch.
+  segment(x, first.top - 0.02, first.z - apothem - 0.9, first.z - apothem - 0.25);
+  return { torches, gateBanner };
+}
+
+/** A few cottages of Greyford behind the wall (east shore). */
+function drawTown(b: GeoBuilder, hexes: IslandHex[], skin: Skin, rand: () => number) {
+  const east = hexes
+    .filter((h) => h.kind === "shore")
+    .sort((a, c) => c.x - a.x)
+    .slice(0, 5)
+    .filter((h) => h.z < 3);
+  const plaster = color(skin.factions.free_banners.secondary).multiplyScalar(0.85);
+  const roof = color("#6a3a2a");
+  const timber = color("#3a2818");
+  for (const h of east.slice(0, 3)) {
+    const yaw = (rand() - 0.5) * 0.6 + Math.PI / 6;
+    const w = 0.34 + rand() * 0.1;
+    const d = 0.26;
+    const hh = 0.2 + rand() * 0.06;
+    const x = h.x + (rand() - 0.5) * 0.3;
+    const z = h.z + (rand() - 0.5) * 0.3;
+    b.add(PRIM.box, trs(x, h.top + hh / 2, z, 0, yaw, 0, w, hh, d), plaster, 0.05, rand);
+    b.add(PRIM.box, trs(x, h.top + 0.02, z, 0, yaw, 0, w + 0.02, 0.04, d + 0.02), timber);
+    b.add(PRIM.roof, trs(x, h.top + hh, z, 0, yaw, 0, w + 0.06, 0.5, d + 0.1), roof, 0.08, rand);
+    b.add(PRIM.box, trs(x + 0.08, h.top + hh + 0.12, z, 0, yaw, 0, 0.05, 0.14, 0.05), timber);
+  }
+}
