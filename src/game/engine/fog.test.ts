@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { executeAction } from "./actions";
 import { canSee, eventsFor, hexLine, refreshIntel, sightRange, visibleState } from "./fog";
 import { perceive } from "./perception";
+import { emberFord } from "./scenarios/emberFord";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { evaluateCondition } from "./rules";
 import { actionContext, doctrine, library, openBoard, scenario, squad } from "./testKit";
@@ -169,7 +170,25 @@ describe("event visibility (fog of war for playback)", () => {
   it("shows everything to everyone with fortune off", () => {
     const { events } = run("off");
     expect(events.every((event) => event.visibleTo.length === 2)).toBe(true);
-    expect(eventsFor(events, FB)).toEqual(events);
+    expect(eventsFor(events, FB)).toEqual(events.map((event) => ({ ...event, visibleTo: [FB] })));
+  });
+});
+
+describe("event projection", () => {
+  it("clips a move to the hexes the viewer saw: an unseen origin becomes from: null (Ember Ford seed 2)", () => {
+    let state = createInitialState(emberFord, { seed: 2, fortune: "on" });
+    const { events } = resolvePhase(state, emberFord.referencePlans!.intended, emberFord);
+    const raw = events.find((event) => event.kind === "move" && event.squadId === "pyre_sworn");
+    expect(raw).toMatchObject({ path: [{ q: 2, r: 1 }, { q: 3, r: 1 }], from: { q: 2, r: 1 } });
+    const seen = eventsFor(events, FB).find((event) => event.kind === "move" && event.squadId === "pyre_sworn");
+    expect(seen).toMatchObject({ path: [{ q: 3, r: 1 }], from: null, to: { q: 3, r: 1 }, visibleTo: [FB] });
+    expect(seen).not.toHaveProperty("redactions");
+    // The Host saw its own move in full.
+    const own = eventsFor(events, AH).find((event) => event.kind === "move" && event.squadId === "pyre_sworn");
+    expect(own).toMatchObject({ path: [{ q: 2, r: 1 }, { q: 3, r: 1 }], from: { q: 2, r: 1 } });
+    state = createInitialState(emberFord, { seed: 2, fortune: "on" });
+    const report = resolvePhase(state, emberFord.referencePlans!.intended, emberFord).report;
+    expect(report.lines.join("\n")).toMatch(/Pyre-Sworn emerged from the dark at 3,1/);
   });
 });
 

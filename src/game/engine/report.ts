@@ -18,9 +18,14 @@ export function narrateEvent(event: EngineEvent, state: EngineState): string | n
     case "ruleFired":
       return `${name(event.squadId)}: "${event.label}"`;
     case "move": {
-      const to = event.path[event.path.length - 1];
       const verb = event.reason === "fallBack" ? "fell back" : event.reason === "charge" ? "charged" : "advanced";
-      return `${name(event.squadId)} ${verb} ${event.path.length - 1} hex to ${hexKey(to)}.`;
+      if (event.from === null && event.path.length > 0) {
+        return `${name(event.squadId)} emerged from the dark at ${hexKey(event.path[event.path.length - 1])}.`;
+      }
+      if (event.to === null) {
+        return `${name(event.squadId)} ${verb} into the dark.`;
+      }
+      return `${name(event.squadId)} ${verb} ${event.path.length - 1} hex to ${hexKey(event.to)}.`;
     }
     case "blocked":
       return `${name(event.squadId)} could not act (${event.reason}).`;

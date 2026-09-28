@@ -289,6 +289,17 @@ interface EventBase {
    * Playback and reports for a faction must use eventsFor(events, faction).
    */
   visibleTo: FactionId[];
+  /**
+   * What each witnessing faction did NOT see of this event (raw stream only).
+   * eventsFor() applies these and strips the field, so projections never carry it.
+   */
+  redactions?: Partial<Record<FactionId, Redaction>>;
+}
+
+/** Parts of an event a witnessing faction did not see. */
+export interface Redaction {
+  /** For a move: which path hexes (same order as `path`) the faction could see. */
+  pathSeen?: boolean[];
 }
 
 export type EngineEvent =
@@ -302,8 +313,12 @@ export type EngineEvent =
   | (EventBase & {
       kind: "move";
       squadId: string;
-      /** Includes the starting hex. */
+      /** Includes the starting hex. In a projection: only the hexes that faction saw. */
       path: HexCoord[];
+      /** Where the move started; null in a projection that did not see it (emerging from the fog). */
+      from: HexCoord | null;
+      /** Where it ended; null in a projection that did not see it (vanishing into the fog). */
+      to: HexCoord | null;
       reason: "advance" | "fallBack" | "charge";
     })
   | (EventBase & { kind: "blocked"; squadId: string; reason: string })

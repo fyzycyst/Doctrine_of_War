@@ -36,7 +36,15 @@ resolvePhase(state, orders, scenario, { doctrines? }) → { state, events, repor
   - both sides see an engagement, the defender always sees damage to its objective,
     and weather and outcomes are public.
 
-  `report.lines` is already built from the player's filtered stream. The raw `events`
+  `eventsFor` returns **projected copies**, the event as that side witnessed it:
+  - a move's `path` is clipped to the hexes the side saw. `from` or `to` is null when
+    the start or end was not seen (render it as the squad emerging from, or vanishing
+    into, the fog);
+  - actor ids the side could not see are null;
+  - `visibleTo` is reduced to the viewer, and the raw-only `redactions` field is
+    removed.
+
+  `report.lines` is already built from the player's projected stream. The raw `events`
   array is for tests, the balance harness and a debug/capture mode, never for normal
   playback. With fortune off, every event is visible to everyone.
 - Call it once per phase. `state.phase` advances until `state.status` becomes

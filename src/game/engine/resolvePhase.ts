@@ -6,7 +6,7 @@ import { sameHex } from "../board";
 import { executeAction } from "./actions";
 import type { EngineContext, EventBody } from "./context";
 import { doctrineLibrary } from "./doctrines";
-import { dreadFromSight, eventsFor, eventVisibility, observeDeparture, refreshIntel } from "./fog";
+import { dreadFromSight, eventsFor, observeDeparture, refreshIntel, witnessEvent } from "./fog";
 import { phaseStartWeather, stressCheck } from "./fortune";
 import { evaluateOutcome, exitHexesFor, validateWinCondition } from "./outcome";
 import { buildReport } from "./report";
@@ -37,6 +37,11 @@ export interface BattleOptions {
 export interface ResolveOptions {
   /** Doctrine lookup; defaults to the built-in library. The future editor passes its own. */
   doctrines?: DoctrineLibrary;
+  /**
+   * Debug/capture hook: called with each raw event and the live state at the moment it
+   * is emitted. Must not mutate anything. Used by the fog property tests.
+   */
+  onEmit?: (event: EngineEvent, state: EngineState) => void;
 }
 
 export function createInitialState(scenario: EngineScenario, options: BattleOptions = {}): EngineState {
@@ -156,8 +161,10 @@ export function resolvePhase(
     beat: 0,
     // Events are deep-copied so playback data never aliases state or scenario coordinates.
     emit: (event: EventBody) => {
-      const visibleTo = eventVisibility(ctx, event);
-      events.push({ ...structuredClone(event), phase, beat: ctx.beat, visibleTo } as EngineEvent);
+      const witness = witnessEvent(ctx, event);
+      const stamped = { ...structuredClone(event), phase, beat: ctx.beat, ...witness } as EngineEvent;
+      events.push(stamped);
+      options.onEmit?.(stamped, state);
       if (event.kind === "rout" || event.kind === "exit") {
         const status = event.kind === "exit" ? "escaped" : event.cause === "strength" ? "destroyed" : "routed";
         observeDeparture(ctx, getSquad(state, event.squadId), event.hex, status);
