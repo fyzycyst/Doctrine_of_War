@@ -27,6 +27,7 @@ const jobs = [
   { name: "emberFord-nightFires", query: "scenario=emberFord&preset=nightFires&figures=a" },
   { name: "emberFord-nightFires-close", query: "scenario=emberFord&preset=nightFires&figures=a&cam=close" },
   { name: "weather-rain", query: "preset=dusk&figures=a&weather=rain" },
+  { name: "weather-rain-close", query: "preset=dusk&figures=a&weather=rain&cam=close&focusHex=0,2" },
   { name: "weather-mist", query: "preset=dusk&figures=a&weather=mist" },
   { name: "weather-ashWind", query: "preset=dusk&figures=a&weather=ashWind" },
   { name: "fog-static", query: "preset=dusk&figures=a&fog=1" },
