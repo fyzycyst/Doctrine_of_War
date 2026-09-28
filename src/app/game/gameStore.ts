@@ -8,6 +8,7 @@ import { create } from "zustand";
 import type { HexCoord } from "../../game/board";
 import {
   createInitialState,
+  doctrineLibrary,
   eventsFor,
   firstBreach,
   resolvePhase,
@@ -20,12 +21,15 @@ import {
   type VisibleState,
   type Weather,
   isOrderAllowed,
+  withVariants,
+  type CheckedVariant,
 } from "../../game/engine";
 import { ashAndBanner, applyCampaign, startCampaign, type CampaignDefinition, type CampaignState } from "../../game/campaign";
 import type { CalloutSpec } from "../playback/director";
 import type { Pace } from "../playback/timeline";
 import { useSettings } from "../settingsStore";
 import { useAppStore } from "../store";
+import { isVariantId, useVariants } from "../variants/variantStore";
 import { applyDeployment, checkPlacement, initialDeployment, type Deployment, type PlacementCheck } from "./deploy";
 
 export type Stage = "briefing" | "deploy" | "command" | "resolving" | "report" | "outcome";
@@ -77,6 +81,14 @@ export interface GameState {
   pace: Pace;
   /** The last thing the UI refused, in plain words (deploy rejections). */
   notice: string | null;
+  /**
+   * Doctrine variants this battle can play (T16): the player's saved variants, plus any
+   * deleted mid-battle that a company still stands on. The engine sees them as ordinary
+   * doctrines through withVariants(); only those whose base the scenario allows play.
+   */
+  variants: CheckedVariant[];
+  /** Custom orders (a variant) were sealed in this battle: the campaign record notes it. */
+  customOrders: boolean;
 
   // Playback (T06). While `stage` is "resolving", the board and roster show `display`,
   // which the director advances step by step from the phase's opening view.
@@ -107,6 +119,8 @@ export interface GameState {
   retry: (seed: "same" | "new") => void;
   setPace: (pace: Pace) => void;
   clearNotice: () => void;
+  /** The saved variants changed: play the new versions, and drop orders for deleted ones. */
+  syncVariants: (live: CheckedVariant[]) => void;
   /** Tests and dev capture only: swap in an engine state (the view is re-derived). */
   replaceEngine: (engine: EngineState) => void;
   /** Playback reached the end, or was skipped: show the final state and the report. */
@@ -147,9 +161,16 @@ function freshBattle(baseScenario: EngineScenario, setup: BattleSetup, stage: St
     orders: {},
     log: [],
     notice: null,
+    variants: useVariants.getState().variants,
+    customOrders: false,
     ...idle,
     ...battleFor(scenario, deployment, setup),
   };
+}
+
+/** The scenario and doctrine library as the engine should see them, variants included. */
+function played({ scenario, variants }: Pick<GameState, "scenario" | "variants">) {
+  return withVariants(scenario, variants, doctrineLibrary);
 }
 
 /**
@@ -224,12 +245,15 @@ export const useGame = create<GameState>((set, get) => ({
     const { stage, scenario, view, orders } = get();
     const squad = view.squads.find((item) => item.id === squadId);
     const planning = stage === "command" || stage === "deploy";
+    // A variant must still be saved (not one deleted mid-battle) and its base allowed here.
+    const liveVariant = !isVariantId(doctrineId) || useVariants.getState().variants.some((item) => item.variant.id === doctrineId);
     if (
       !planning ||
       !squad ||
       squad.faction !== scenario.playerFaction ||
       squad.status !== "active" ||
-      !isOrderAllowed(scenario, squadId, doctrineId)
+      !liveVariant ||
+      !isOrderAllowed(played(get()).scenario, squadId, doctrineId)
     ) {
       return false;
     }
@@ -249,7 +273,8 @@ export const useGame = create<GameState>((set, get) => ({
     if (stage !== "command" || engine.status !== "command") {
       return;
     }
-    const result = resolvePhase(engine, orders, scenario);
+    const battle = played(get());
+    const result = resolvePhase(engine, orders, battle.scenario, { doctrines: battle.doctrines });
     const entry: PhaseLog = {
       phase: result.report.phase,
       title: result.report.title,
@@ -265,6 +290,7 @@ export const useGame = create<GameState>((set, get) => ({
       ...derive(scenario, result.state),
       orders: {},
       log: [...log, entry],
+      customOrders: get().customOrders || Object.values(orders).some(isVariantId),
       stage: "resolving",
       notice: null,
       ...idle,
@@ -312,8 +338,24 @@ export const useGame = create<GameState>((set, get) => ({
 
   setPace: (pace) => set({ pace }),
   clearNotice: () => set({ notice: null }),
+  syncVariants: (live) => {
+    const { variants, orders, engine } = get();
+    const liveIds = new Set(live.map((item) => item.variant.id));
+    const standing = new Set(engine.squads.map((squad) => squad.doctrineId));
+    // Keep a deleted variant only while a company stands on it (the engine needs its rules).
+    const kept = variants.filter((item) => !liveIds.has(item.variant.id) && standing.has(item.variant.id));
+    const nextOrders = Object.fromEntries(Object.entries(orders).filter(([, id]) => !isVariantId(id) || liveIds.has(id)));
+    set({ variants: [...live, ...kept], orders: nextOrders });
+  },
   replaceEngine: (engine) => set(derive(get().scenario, engine)),
 }));
 
 /** What the board and roster show: the playback layer while resolving, else the view. */
 export const useShownView = () => useGame((s) => s.display ?? s.view);
+
+// Variants saved or deleted mid-battle (from the hand's "Edit a copy…") play at once.
+useVariants.subscribe((state, previous) => {
+  if (state.variants !== previous.variants) {
+    useGame.getState().syncVariants(state.variants);
+  }
+});

@@ -2,6 +2,7 @@
 // Inputs are visibleState() and eventsFor() output only; never raw engine state.
 import {
   doctrineLibrary,
+  type CheckedVariant,
   type Doctrine,
   type VisibleSquad,
   type VisibleState,
@@ -9,6 +10,8 @@ import {
 } from "../../game/engine";
 import type { DioramaSquad } from "../../render/figures/types";
 import { dioramaSquads } from "../../render/fromEngine";
+import { useVariants } from "../variants/variantStore";
+import { useGame } from "./gameStore";
 
 const RANKS: Record<string, string> = {
   "-3": "Broken",
@@ -39,8 +42,11 @@ export const WEATHER_EFFECT: Record<Weather, string> = {
   ashWind: "The Host's dread cuts deeper.",
 };
 
+/** A doctrine by id: the library, else a variant this battle plays, else a saved variant. */
 export function getDoctrine(id: string | null | undefined): Doctrine | undefined {
-  return id ? doctrineLibrary[id] : undefined;
+  if (!id) return undefined;
+  const find = (list: CheckedVariant[]) => list.find((item) => item.variant.id === id)?.doctrine;
+  return doctrineLibrary[id] ?? find(useGame.getState().variants) ?? find(useVariants.getState().variants);
 }
 
 /** "If enemy adjacent → brace shields" → { when: "If enemy adjacent", then: "Brace shields" }. */

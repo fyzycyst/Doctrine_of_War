@@ -1,7 +1,8 @@
-// The campaign save file in Electron's userData folder. Main-process only.
-// Exactly one fixed file: no path ever comes from the renderer. Before anything is
-// written, main runs the same full loadCampaign() validation the renderer uses, so a
-// compromised renderer cannot replace a good save with one the game would refuse.
+// The campaign save file (and, since T16, the doctrine variants file) in Electron's
+// userData folder. Main-process only. Each is one fixed file: no path ever comes from
+// the renderer. Before anything is written, main runs the same full validation the
+// renderer uses (loadCampaign, parseVariants), so a compromised renderer cannot
+// replace a good file with one the game would refuse.
 // Symlinks are never followed: a link planted at the save, a temp file or the
 // userData folder itself is refused rather than read through or written through.
 import { randomUUID } from "node:crypto";
@@ -9,9 +10,18 @@ import { constants, promises as fs } from "node:fs";
 import path from "node:path";
 import { ashAndBanner } from "../src/game/campaign/definition";
 import { loadCampaign, MAX_SAVE_BYTES } from "../src/game/campaign/save";
+import { checkVariantsPayload, MAX_VARIANTS_BYTES } from "../src/game/engine/editor";
 
 export { MAX_SAVE_BYTES };
 export const SAVE_FILE_NAME = "campaign-save.json";
+export const VARIANTS_FILE_NAME = "doctrine-variants.json";
+
+/** One fixed file: its name, its size cap, and the full validation a payload must pass before it is written. */
+interface FixedFile {
+  name: string;
+  maxBytes: number;
+  check: (data: unknown) => string;
+}
 
 export function saveFilePath(userDataDir: string): string {
   return path.join(userDataDir, SAVE_FILE_NAME);
@@ -28,6 +38,10 @@ export function checkSavePayload(data: unknown): string {
   loadCampaign(data, ashAndBanner);
   return data;
 }
+
+const CAMPAIGN_FILE: FixedFile = { name: SAVE_FILE_NAME, maxBytes: MAX_SAVE_BYTES, check: checkSavePayload };
+// The variants file runs the renderer's own parseVariants() and refuses any variant that would be dropped.
+const VARIANTS_FILE: FixedFile = { name: VARIANTS_FILE_NAME, maxBytes: MAX_VARIANTS_BYTES, check: checkVariantsPayload };
 
 // O_NOFOLLOW is POSIX; where it is missing (Windows) the lstat checks still apply.
 const NOFOLLOW = constants.O_NOFOLLOW ?? 0;
@@ -73,8 +87,18 @@ function serialized<T>(task: () => Promise<T>): Promise<T> {
 
 /** The saved string, or null when there is no save yet. Reads at most MAX_SAVE_BYTES + 1 bytes. */
 export function readSaveFile(userDataDir: string): Promise<string | null> {
+  return readFixedFile(userDataDir, CAMPAIGN_FILE);
+}
+
+/** The doctrine variants file, or null when there is none yet. */
+export function readVariantsFile(userDataDir: string): Promise<string | null> {
+  return readFixedFile(userDataDir, VARIANTS_FILE);
+}
+
+function readFixedFile(userDataDir: string, spec: FixedFile): Promise<string | null> {
+  const { maxBytes } = spec;
   return serialized(async () => {
-    const file = saveFilePath(userDataDir);
+    const file = path.join(userDataDir, spec.name);
     try {
       await checkDirectory(userDataDir);
     } catch (error) {
@@ -95,19 +119,19 @@ export function readSaveFile(userDataDir: string): Promise<string | null> {
       if (!stats.isFile()) {
         throw new Error("save file is not a regular file");
       }
-      if (stats.size > MAX_SAVE_BYTES) {
-        throw new Error(`save file exceeds ${MAX_SAVE_BYTES} bytes`);
+      if (stats.size > maxBytes) {
+        throw new Error(`save file exceeds ${maxBytes} bytes`);
       }
       // Bounded read through the descriptor: the file may grow after the stat.
-      const buffer = Buffer.alloc(MAX_SAVE_BYTES + 1);
+      const buffer = Buffer.alloc(maxBytes + 1);
       let length = 0;
       while (length < buffer.length) {
         const { bytesRead } = await handle.read(buffer, length, buffer.length - length, length);
         if (bytesRead === 0) break;
         length += bytesRead;
       }
-      if (length > MAX_SAVE_BYTES) {
-        throw new Error(`save file exceeds ${MAX_SAVE_BYTES} bytes`);
+      if (length > maxBytes) {
+        throw new Error(`save file exceeds ${maxBytes} bytes`);
       }
       return buffer.subarray(0, length).toString("utf8");
     } finally {
@@ -123,14 +147,23 @@ export function readSaveFile(userDataDir: string): Promise<string | null> {
  * so tests can predict one; main never passes it).
  */
 export function writeSaveFile(userDataDir: string, data: unknown, tempId: () => string = randomUUID): Promise<void> {
+  return writeFixedFile(userDataDir, CAMPAIGN_FILE, data, tempId);
+}
+
+/** Same guarantees as writeSaveFile, for the doctrine variants file. */
+export function writeVariantsFile(userDataDir: string, data: unknown, tempId: () => string = randomUUID): Promise<void> {
+  return writeFixedFile(userDataDir, VARIANTS_FILE, data, tempId);
+}
+
+function writeFixedFile(userDataDir: string, spec: FixedFile, data: unknown, tempId: () => string): Promise<void> {
   let payload: string;
   try {
-    payload = checkSavePayload(data);
+    payload = spec.check(data);
   } catch (error) {
     return Promise.reject(error);
   }
   return serialized(async () => {
-    const file = saveFilePath(userDataDir);
+    const file = path.join(userDataDir, spec.name);
     const temp = `${file}.${tempId()}.tmp`;
     await fs.mkdir(userDataDir, { recursive: true });
     await checkDirectory(userDataDir);

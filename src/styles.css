@@ -3075,3 +3075,390 @@ h3 {
     padding-top: 14px;
   }
 }
+
+/* ------------------------------------------------ doctrine variants (T16) */
+
+.badge-experimental {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  margin-top: 5px;
+  padding: 1px 7px 1px 6px;
+  border: 1px dashed var(--lapis-text);
+  border-radius: 999px;
+  background: rgba(47, 79, 143, 0.28);
+  color: var(--lapis-text);
+  font-family: var(--body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge-experimental.small {
+  margin: 0 0 0 6px;
+  padding: 0 5px;
+  font-size: 10px;
+  vertical-align: 1px;
+}
+
+.hand-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+  padding: 1px 9px;
+  border: 1px solid var(--gold-line);
+  border-radius: 999px;
+  background: rgba(47, 79, 143, 0.2);
+  color: var(--lapis-text);
+  font-size: 12.5px;
+}
+
+.hand-edit:hover,
+.hand-edit:focus-visible {
+  border-color: var(--lapis-text);
+  color: var(--bone);
+}
+
+.modal.editor {
+  width: min(1060px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 18px 22px 20px;
+}
+
+.editor-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.editor-head .badge-experimental {
+  margin-top: 0;
+}
+
+.modal .editor-help {
+  margin: 6px 0 12px;
+  max-width: 78ch;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.modal .editor-notice,
+.modal .field-test-error {
+  color: var(--rust-text);
+  font-size: 14px;
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr) 280px;
+  gap: 18px;
+  align-items: start;
+}
+
+.modal .editor-label {
+  margin: 0 0 6px;
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.editor-field {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.editor-field select,
+.editor-field input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(239, 227, 200, 0.22);
+  border-radius: 4px;
+  background: rgba(18, 15, 22, 0.9);
+  color: var(--bone);
+  font: inherit;
+  font-size: 14px;
+}
+
+.modal .editor-empty,
+.modal .editor-hint,
+.modal .editor-keys {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.modal ul.editor-variants {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.editor-variants button {
+  display: grid;
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px dashed rgba(143, 176, 232, 0.4);
+  border-radius: 4px;
+  background: rgba(47, 79, 143, 0.14);
+  text-align: left;
+  font-size: 13.5px;
+}
+
+.editor-variants button[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--lapis-text);
+  background: rgba(47, 79, 143, 0.3);
+}
+
+.editor-of {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.editor-rules {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.editor-rules li {
+  display: grid;
+  grid-template-columns: 16px 18px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px;
+  padding: 8px 8px 8px 6px;
+  border: 1px solid rgba(212, 166, 74, 0.26);
+  border-radius: 5px;
+  background: linear-gradient(180deg, var(--card-hi), var(--card));
+  font-size: 14px;
+  line-height: 1.3;
+  cursor: grab;
+}
+
+.editor-rules li:focus-visible {
+  outline: 2px solid var(--gold-hi);
+  outline-offset: 1px;
+}
+
+.editor-rules li.unreachable {
+  opacity: 0.5;
+}
+
+.editor-rules .grip {
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.editor-num {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.editor-rule .rule-then {
+  color: var(--muted);
+}
+
+.editor-move {
+  display: flex;
+  gap: 2px;
+}
+
+.editor-move button,
+.stepper button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(239, 227, 200, 0.2);
+  border-radius: 4px;
+  background: rgba(18, 15, 22, 0.8);
+}
+
+.editor-move button:disabled,
+.stepper button:disabled {
+  opacity: 0.35;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.stepper-name {
+  color: var(--muted);
+}
+
+.stepper output {
+  min-width: 26px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--gold-hi);
+}
+
+.stepper-bounds {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.modal .editor-warn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  color: var(--rust-text);
+}
+
+.editor-preview .doctrine-card {
+  margin-bottom: 14px;
+}
+
+.modal ul.editor-errors {
+  margin: 0 0 10px;
+  color: var(--rust-text);
+  font-size: 13.5px;
+}
+
+.modal .editor-saved {
+  margin: 0 0 10px;
+  color: var(--gold-hi);
+  font-size: 13.5px;
+}
+
+.editor-preview .modal-actions {
+  flex-wrap: wrap;
+}
+
+.field-test {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px dashed rgba(143, 176, 232, 0.45);
+  border-radius: 6px;
+  background: rgba(47, 79, 143, 0.1);
+}
+
+.field-test-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.field-test h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--display);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: var(--lapis-text);
+}
+
+.field-test-run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.field-test-run progress {
+  width: 220px;
+  accent-color: var(--lapis-text);
+}
+
+.modal .field-test-scope {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+}
+
+.field-test-scope strong {
+  color: var(--bone);
+  font-weight: 600;
+}
+
+.field-test-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 24px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.modal .field-test-verdict {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--bone);
+}
+
+.field-test-verdict.better {
+  color: var(--gold-hi);
+}
+
+.field-test-verdict.worse {
+  color: var(--rust-text);
+}
+
+.field-test-result table {
+  grid-row: span 2;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.field-test-result th,
+.field-test-result td {
+  padding: 3px 10px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.field-test-result thead th {
+  max-width: 190px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.field-test-result tbody th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.modal .field-test-note {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+@media (max-width: 1100px) {
+  .editor-grid {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+
+  .editor-side {
+    grid-column: 1 / -1;
+  }
+}

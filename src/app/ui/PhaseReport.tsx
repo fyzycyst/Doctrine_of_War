@@ -17,6 +17,7 @@ import { reportHeadline, splitRule, WEATHER_NAME } from "../game/view";
 import { useFirstBattle } from "../guide/CoachLayer";
 import { useGuide } from "../guide/guideStore";
 import { InlineCoach } from "../guide/InlineCoach";
+import { ExperimentalBadge } from "./DoctrineCard";
 import { Modal, rosterFocus } from "./Modal";
 
 const TONE_ICON: Record<ChronicleTone, LucideIcon> = {
@@ -166,10 +167,11 @@ function FiredList({ groups }: { groups: FiredOrders[] }) {
           {group.rules.map((rule) => {
             const { when, then } = splitRule(rule.label);
             return (
-              <span key={rule.label} className="fired-rule">
+              <span key={`${rule.label}:${rule.experimental}`} className="fired-rule">
                 <span>
                   {when && <span className="rule-when">{when} </span>}
                   <span className="rule-then">→ {then}</span>
+                  {rule.experimental && <ExperimentalBadge small />}
                 </span>
                 {rule.count > 1 && <span className="fired-count">×{rule.count}</span>}
               </span>

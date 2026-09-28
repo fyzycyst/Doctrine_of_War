@@ -79,6 +79,8 @@ export interface BattleRecord {
   /** Final integrity of the player's objective, when the battle has one. */
   objectiveIntegrity: number | null;
   companies: CompanyResult[];
+  /** Present (true) when the player fought with custom orders: a doctrine variant (T16). No penalty; history only. */
+  customOrders?: true;
 }
 
 export type CampaignStatus = "inProgress" | "complete";

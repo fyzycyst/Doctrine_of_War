@@ -52,7 +52,8 @@ export interface FiredOrders {
   squadId: string;
   squadName: string;
   mine: boolean;
-  rules: { label: string; count: number }[];
+  /** `experimental`: fired from one of the player's doctrine variants (T16). */
+  rules: { label: string; count: number; experimental: boolean }[];
 }
 
 export interface Names {
@@ -219,11 +220,12 @@ export function firedOrders(events: EngineEvent[], names: Names): FiredOrders[] 
       };
       bySquad.set(event.squadId, group);
     }
-    const rule = group.rules.find((item) => item.label === event.label);
+    const experimental = event.doctrineId.startsWith("v-");
+    const rule = group.rules.find((item) => item.label === event.label && item.experimental === experimental);
     if (rule) {
       rule.count += 1;
     } else {
-      group.rules.push({ label: event.label, count: 1 });
+      group.rules.push({ label: event.label, count: 1, experimental });
     }
   }
   return [...bySquad.values()].sort((a, b) => Number(b.mine) - Number(a.mine));

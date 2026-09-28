@@ -4,6 +4,8 @@ import { isCaptureToggle, useCaptureStore } from "./captureStore";
 import { CampaignScreen } from "./flow/CampaignScreen";
 import { EndScreen } from "./flow/EndScreen";
 import { useFlow } from "./flow/flowStore";
+import { DoctrineEditor } from "./variants/DoctrineEditor";
+import { useVariants } from "./variants/variantStore";
 import { TitleScreen } from "./flow/TitleScreen";
 import { HowToPlay } from "./guide/HowToPlay";
 import { SettingsDialog } from "./ui/SettingsDialog";
@@ -20,6 +22,12 @@ export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: st
   const setHowToOpen = useFlow((s) => s.setHowToOpen);
   const openSettings = () => setSettingsOpen(true);
   const captureMode = useCaptureStore((s) => s.captureMode);
+  const editor = useFlow((s) => s.editor);
+  const setEditor = useFlow((s) => s.setEditor);
+  // Doctrine variants (T16): read once; a broken store leaves the standard doctrines.
+  useEffect(() => {
+    if (useVariants.getState().status === "idle") void useVariants.getState().load();
+  }, []);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (isCaptureToggle(event)) {
@@ -33,12 +41,13 @@ export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: st
   }, []);
   return (
     <>
-      {screen === "title" && <TitleScreen onSettings={openSettings} onHowTo={() => setHowToOpen(true)} />}
+      {screen === "title" && <TitleScreen onSettings={openSettings} onHowTo={() => setHowToOpen(true)} onEditor={() => setEditor({})} />}
       {screen === "campaign" && <CampaignScreen onSettings={openSettings} />}
       {screen === "battle" && <App still={still} pauseAt={pauseAt} />}
       {screen === "ending" && <EndScreen />}
       {settingsOpen && !captureMode && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {howToOpen && !captureMode && <HowToPlay onClose={() => setHowToOpen(false)} />}
+      {editor && !captureMode && <DoctrineEditor target={editor} onClose={() => setEditor(null)} />}
     </>
   );
 }
