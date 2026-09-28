@@ -52,10 +52,16 @@ export type Condition =
   /** This squad stands adjacent to a standing objective its faction assaults. */
   | { kind: "atObjective"; objectiveId?: string };
 
-export type TargetSelector =
+/** Targets an offensive action (attack, counterCharge) may strike. */
+export type EnemySelector =
   | { kind: "nearestEnemy" }
   | { kind: "weakestEnemy"; stat: Stat; range?: number }
   | { kind: "overextendedEnemy"; range?: number }
+  | { kind: "objective"; side: "enemy"; objectiveId?: string };
+
+/** Any target a squad may move toward. */
+export type TargetSelector =
+  | EnemySelector
   | { kind: "weakestAlly"; stat: Stat }
   /** "own" = an objective this squad's faction defends; "enemy" = one it assaults. */
   | { kind: "objective"; side: "own" | "enemy"; objectiveId?: string }
@@ -67,13 +73,13 @@ export type Action =
   /** Move up to the squad's speed toward the target. Already there = hold. */
   | { kind: "advance"; toward: TargetSelector }
   /** Strike the target if adjacent (enemy squad or objective hex); otherwise advance toward it. */
-  | { kind: "attack"; target: TargetSelector }
+  | { kind: "attack"; target: EnemySelector }
   /** Move away from the nearest enemies. Ignores zones of control. */
   | { kind: "fallBack"; hexes: 1 | 2 }
   /** Restore cohesion to the weakest adjacent ally. */
   | { kind: "rally" }
   /** Move up to speed + 1 toward the target and strike on arrival, with the counter passive. */
-  | { kind: "counterCharge"; target: TargetSelector };
+  | { kind: "counterCharge"; target: EnemySelector };
 
 export interface DoctrineRule {
   id: string;

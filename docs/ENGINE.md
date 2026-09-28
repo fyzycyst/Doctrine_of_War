@@ -102,7 +102,10 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   `atObjective` (the squad is adjacent to an objective it assaults).
 - `TargetSelector`: `nearestEnemy`, `weakestEnemy {stat, range?}`,
   `overextendedEnemy {range?}`, `weakestAlly {stat}`, `objective {side: own|enemy, objectiveId?}`,
-  `exitEdge`. Ties always fall back to distance, then squad-list order.
+  `exitEdge`. Ties always fall back to distance, then squad-list order. `attack` and
+  `counterCharge` take only an `EnemySelector` (the three enemy selectors, or
+  `objective {side: "enemy"}`). At runtime, a strike at an ally or at the squad's own
+  objective is refused with `blocked`, because editor JSON can bypass the types.
 - `EngineScenario`: board, squads (with start hexes and optional `renown {title}`),
   objectives (`hex`, `defender`), `playerDoctrineIds`, `hostSchedule: {phase, intent, orders}[]`,
   `winCondition`, optional `forecast {start, shiftChance, shifts}`, and optional

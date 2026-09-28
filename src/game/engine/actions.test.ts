@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { engagementLosses, executeAction, RALLY_BASE, SIEGE_OBJECTIVE_DAMAGE } from "./actions";
 import { actionContext, kinds, scenario, squad } from "./testKit";
-import type { ObjectiveSetup } from "./types";
+import type { Action, ObjectiveSetup } from "./types";
 
 const FB = "free_banners" as const;
 const AH = "ashen_host" as const;
@@ -132,6 +132,34 @@ describe("actions", () => {
     const kit = actionContext(scenario({ squads: [squad("a", FB, { q: 2, r: 2 })] }));
     executeAction(kit.ctx, kit.get("a"), { kind: "attack", target: nearest });
     expect(kit.events).toEqual([{ kind: "blocked", squadId: "a", reason: "no target" }]);
+  });
+});
+
+describe("friendly-fire guard", () => {
+  it("offensive actions only accept enemy-facing selectors (type level)", () => {
+    // @ts-expect-error weakestAlly is not an EnemySelector
+    const badAttack: Action = { kind: "attack", target: { kind: "weakestAlly", stat: "cohesion" } };
+    // @ts-expect-error an own objective is not an EnemySelector
+    const badCharge: Action = { kind: "counterCharge", target: { kind: "objective", side: "own" } };
+    expect([badAttack.kind, badCharge.kind]).toEqual(["attack", "counterCharge"]);
+  });
+
+  it("refuses to strike an ally even when editor JSON bypasses the types", () => {
+    const kit = actionContext(
+      scenario({ squads: [squad("a", FB, { q: 1, r: 2 }), squad("friend", FB, { q: 2, r: 2 }, { cohesion: 10 })] }),
+    );
+    const fromJson = JSON.parse('{"kind":"attack","target":{"kind":"weakestAlly","stat":"cohesion"}}') as Action;
+    executeAction(kit.ctx, kit.get("a"), fromJson);
+    expect(kit.events).toEqual([{ kind: "blocked", squadId: "a", reason: "will not strike its own side" }]);
+    expect(kit.get("friend")).toMatchObject({ strength: 80, cohesion: 10 });
+  });
+
+  it("refuses to batter its own objective", () => {
+    const kit = actionContext(scenario({ squads: [squad("a", FB, { q: 4, r: 2 })], objectives: [gate] }));
+    const fromJson = JSON.parse('{"kind":"counterCharge","target":{"kind":"objective","side":"own"}}') as Action;
+    executeAction(kit.ctx, kit.get("a"), fromJson);
+    expect(kit.events).toEqual([{ kind: "blocked", squadId: "a", reason: "will not strike its own side" }]);
+    expect(kit.state.objectives[0].integrity).toBe(100);
   });
 });
 

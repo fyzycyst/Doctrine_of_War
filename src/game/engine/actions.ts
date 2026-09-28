@@ -212,7 +212,24 @@ function moveToward(
   return true;
 }
 
+/** True only for an enemy squad or an objective the squad's faction assaults. */
+function isHostile(squad: ActiveSquad, target: ResolvedTarget): boolean {
+  switch (target.kind) {
+    case "squad":
+      return target.squad.faction !== squad.faction;
+    case "objective":
+      return target.objective.defender !== squad.faction;
+    case "hexes":
+      return false;
+  }
+}
+
 function strike(ctx: EngineContext, squad: ActiveSquad, target: ResolvedTarget, charge: boolean) {
+  // Types keep offensive actions on enemy selectors, but editor JSON can bypass them.
+  if (!isHostile(squad, target)) {
+    ctx.emit({ kind: "blocked", squadId: squad.id, reason: "will not strike its own side" });
+    return;
+  }
   if (target.kind === "squad") {
     engage(ctx, squad, target.squad, charge);
   } else if (target.kind === "objective") {
@@ -248,6 +265,10 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
         ctx.emit({ kind: "blocked", squadId: squad.id, reason: "no target" });
         return;
       }
+      if (!isHostile(squad, target)) {
+        strike(ctx, squad, target, false); // reports the refusal without moving
+        return;
+      }
       if (isAdjacentTo(squad, target)) {
         strike(ctx, squad, target, false);
         return;
@@ -269,6 +290,10 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
       const target = resolveTarget(ctx, squad, action.target);
       if (!target) {
         ctx.emit({ kind: "blocked", squadId: squad.id, reason: "no target" });
+        return;
+      }
+      if (!isHostile(squad, target)) {
+        strike(ctx, squad, target, true); // reports the refusal without moving
         return;
       }
       if (!isAdjacentTo(squad, target)) {
