@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useAppStore } from "../../app/store";
-import type { FactionId } from "../../game/types";
+import type { FactionId } from "../../game/engine/types";
 import { useLook } from "../look/LookContext";
 import type { FactionStyle } from "../skins/types";
 import { cohesionArc } from "../squadLayout";

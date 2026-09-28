@@ -1,7 +1,7 @@
 import { hexDistance, hexKey, hexNeighbors, type BoardLayout, type HexCoord } from "../../game/board";
 import { emberFord } from "../../game/engine/scenarios/emberFord";
 import { firstBreach } from "../../game/engine/scenarios/firstBreach";
-import { readabilityScenario } from "../../game/readabilityScenario";
+import { stressScenario } from "./stressScenario";
 import type { DioramaVisibility } from "../Diorama";
 import type { DioramaSquad } from "../figures/types";
 import { dioramaSquads, lightingFor } from "../fromEngine";
@@ -11,7 +11,7 @@ import type { TimeOfDay } from "../skins/types";
 /**
  * Lab scenes, mapped from the engine's scenario format (what the real game will
  * feed the Diorama) through `fromEngine`: First Breach, Ember Ford, and the
- * legacy 14-squad readability fixture. First Breach shows one depleted Host
+ * 14-squad readability/performance fixture (stressScenario.ts). First Breach shows one depleted Host
  * squad and one renowned Banner squad.
  */
 export interface LabScene {
@@ -48,11 +48,7 @@ function toScene(
 export const LAB_SCENES = {
   firstBreach: toScene(firstBreach.board, dioramaSquads(firstBreach.squads), lightingFor(firstBreach.timeOfDay), OVERRIDES),
   emberFord: toScene(emberFord.board, dioramaSquads(emberFord.squads), lightingFor(emberFord.timeOfDay)),
-  stress: toScene(
-    readabilityScenario.board!,
-    dioramaSquads(readabilityScenario.squads.filter((s) => s.hex).map((s) => ({ ...s, hex: s.hex! }))),
-    "dusk",
-  ),
+  stress: toScene(stressScenario.board, dioramaSquads(stressScenario.squads), "dusk"),
 } as const;
 
 export type LabSceneId = keyof typeof LAB_SCENES;

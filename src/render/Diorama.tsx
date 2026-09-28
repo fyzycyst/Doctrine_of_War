@@ -14,7 +14,7 @@ import { placeSquads, type DioramaSquad, type FigureApproach } from "./figures/t
 import { hexToWorld } from "./hexWorld";
 import { LightRig } from "./lighting/LightRig";
 import { AtmosphereTicker, useLook } from "./look/LookContext";
-import type { FactionId } from "../game/types";
+import type { FactionId } from "../game/engine/types";
 import { createIslandMaterial, createOutlineMaterial } from "./materials";
 import { pickBoardHex, resolveClick } from "./picking";
 import { BoardHighlights } from "./terrain/BoardHighlights";
@@ -83,6 +83,8 @@ export function Diorama({
   }, [material, preset.cliffFade]);
 
   // Last-known enemies join the draw list as silhouettes (unless also visible).
+  // Squads may already carry `lastKnown` (from `dioramaSquads(view.squads)`);
+  // `visibility.lastKnown` adds any ghost not already in the list.
   const drawn = useMemo<DioramaSquad[]>(() => {
     if (!visibility) return squads;
     const live = new Set(squads.map((s) => s.id));
@@ -97,7 +99,7 @@ export function Diorama({
         facing: g.faction === "free_banners" ? Math.PI : 0,
         lastKnown: true,
       }));
-    return [...squads.map((s) => ({ ...s, lastKnown: false })), ...ghosts];
+    return [...squads, ...ghosts];
   }, [squads, visibility]);
 
   const placed = useMemo(() => placeSquads(drawn, island, skin.figures.maxFigures), [drawn, island, skin.figures.maxFigures]);

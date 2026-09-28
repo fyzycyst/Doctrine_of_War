@@ -1,5 +1,5 @@
 import type { TerrainType } from "../../game/board";
-import type { FactionId } from "../../game/types";
+import type { FactionId } from "../../game/engine/types";
 
 /**
  * A Skin is the complete "look" of the diorama as data. Scenarios only speak

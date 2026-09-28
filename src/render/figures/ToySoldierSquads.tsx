@@ -1,7 +1,7 @@
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { FactionId } from "../../game/types";
+import type { FactionId } from "../../game/engine/types";
 import { useLook } from "../look/LookContext";
 import { createFigureMaterial, createOutlineMaterial } from "../materials";
 import { MAX_FIGURES, type SquadAnimator } from "./squadAnimation";
