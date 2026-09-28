@@ -14,7 +14,7 @@ import { CampaignMap, type CampaignMapBattle } from "../showcase/CampaignMap";
 import { TitleScene } from "../showcase/TitleScene";
 import { playSfx, SFX_NAMES, useAmbience } from "../../audio";
 import { hexKey } from "../../game/board";
-import { closeShot, DioramaCamera, wideShot, type CameraShot } from "../camera/DioramaCamera";
+import { closeShot, DioramaCamera, wideShotFor, type CameraShot } from "../camera/DioramaCamera";
 import { Diorama } from "../Diorama";
 import type { SquadAnimationApi, SquadAnimator } from "../figures/squadAnimation";
 import type { FigureApproach } from "../figures/types";
@@ -266,7 +266,7 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
             return [x + 0.9, 0.4, z + 0.6] as [number, number, number];
           })()
         : scene.focus;
-    const base = state.cam === "close" ? closeShot(focus) : wideShot(boardRadius(scene.board));
+    const base = state.cam === "close" ? closeShot(focus) : wideShotFor(scene.board);
     return {
       ...base,
       azimuth: initial.shot.azimuth ?? base.azimuth,

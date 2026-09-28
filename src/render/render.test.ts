@@ -154,3 +154,19 @@ describe("saltmarsh terrain and the Column", () => {
     expect(max).toBeGreaterThan(0.9);
   });
 });
+
+describe("wide shot framing", () => {
+  it("keeps small boards as they were and tightens big ones toward the Banners", async () => {
+    const { wideShot, wideShotFor } = await import("./camera/DioramaCamera");
+    const { boardRadius } = await import("./hexWorld");
+    const { emberFord } = await import("../game/engine/scenarios/emberFord");
+    const { holdForDawn } = await import("../game/engine/scenarios/holdForDawn");
+    expect(wideShotFor(emberFord.board)).toEqual(wideShot(boardRadius(emberFord.board)));
+    const plain = wideShot(boardRadius(holdForDawn.board));
+    const framed = wideShotFor(holdForDawn.board);
+    expect(framed.distance).toBeLessThan(plain.distance * 0.9);
+    // The Banners and the Last Gate are on the east (+x) edge.
+    expect(framed.target[0]).toBeGreaterThan(plain.target[0] + 0.5);
+  });
+});
+
