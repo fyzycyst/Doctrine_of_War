@@ -47,6 +47,8 @@ export interface PhaseLog {
   status: EngineState["status"];
   /** eventsFor(events, playerFaction): the only events the UI may show. */
   events: EngineEvent[];
+  /** What the player saw when the phase began (playback starts here; names come from it). */
+  start: VisibleState;
 }
 
 export interface GameState {
@@ -202,7 +204,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
 
   sealOrders: () => {
-    const { stage, engine, orders, scenario, log } = get();
+    const { stage, engine, orders, scenario, log, view } = get();
     if (stage !== "command" || engine.status !== "command") {
       return;
     }
@@ -214,6 +216,7 @@ export const useGame = create<GameState>((set, get) => ({
       weather: result.report.weather,
       status: result.state.status,
       events: eventsFor(result.events, scenario.playerFaction),
+      start: view,
     };
     // "resolving" is where T06 playback will run; until then it goes straight to the report.
     set({ ...derive(scenario, result.state), orders: {}, log: [...log, entry], stage: "report", notice: null });

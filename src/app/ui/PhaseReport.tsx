@@ -1,8 +1,19 @@
 import { Castle, CloudRain, Crown, Eye, Flag, Skull, Sparkles, Swords, Wind, type LucideIcon } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { useGame } from "../game/gameStore";
+import {
+  buildChronicle,
+  firedOrders,
+  namesFor,
+  statChip,
+  type Chip,
+  type ChronicleLine,
+  type ChronicleTone,
+  type FiredOrders,
+  type Losses,
+} from "../game/chronicle";
+import { reportHeadline, splitRule, WEATHER_NAME } from "../game/view";
 import { Modal, rosterFocus } from "./Modal";
-import { buildChronicle, firedOrders, reportHeadline, splitRule, WEATHER_NAME, type ChronicleTone, type FiredOrders } from "../game/view";
 
 const TONE_ICON: Record<ChronicleTone, LucideIcon> = {
   order: Flag,
@@ -40,25 +51,21 @@ export function ObjectiveStatus() {
 /** The chronicle of one phase, built only from the player's filtered event stream. */
 export function PhaseReport() {
   const log = useGame((s) => s.log);
-  const engine = useGame((s) => s.engine);
-  const scenario = useGame((s) => s.scenario);
+  const view = useGame((s) => s.view);
   const nextPhase = useGame((s) => s.nextPhase);
   const entry = log[log.length - 1];
   const button = useRef<HTMLButtonElement>(null);
 
-  // `engine` is used only to name the companies the (already filtered) events mention.
-  const chronicle = useMemo(() => (entry ? buildChronicle(entry.events, engine) : []), [entry, engine]);
-  const fired = useMemo(
-    () => (entry ? firedOrders(entry.events, engine, scenario.playerFaction) : []),
-    [entry, engine, scenario.playerFaction],
-  );
+  // Names come only from what the player saw at the start and end of the phase.
+  const names = useMemo(() => (entry ? namesFor([entry.start, view]) : null), [entry, view]);
+  const beats = useMemo(() => (entry && names ? buildChronicle(entry.events, names) : []), [entry, names]);
+  const fired = useMemo(() => (entry && names ? firedOrders(entry.events, names) : []), [entry, names]);
   if (!entry) {
     return null;
   }
 
   const ours = fired.filter((group) => group.mine);
   const theirs = fired.filter((group) => !group.mine);
-  const beats = [...new Set(chronicle.map((line) => line.beat))].sort();
   const over = entry.status !== "command";
 
   return (
@@ -84,23 +91,32 @@ export function PhaseReport() {
 
           <section aria-labelledby="events-title" className="chronicle">
             <h3 id="events-title">What happened</h3>
-            {chronicle.length === 0 && <p className="quiet">The field held its breath. No blows were struck.</p>}
+            {beats.length === 0 && <p className="quiet">The field held its breath. No blows were struck.</p>}
             {beats.map((beat) => (
-              <div key={beat} className="beat">
-                <p className="beat-name">{BEAT_NAME[beat] ?? `Beat ${beat}`}</p>
+              <div key={beat.beat} className="beat">
+                <p className="beat-name">{BEAT_NAME[beat.beat] ?? `Beat ${beat.beat}`}</p>
                 <ul>
-                  {chronicle
-                    .filter((line) => line.beat === beat)
-                    .map((line) => {
-                      const Icon = TONE_ICON[line.tone];
-                      return (
-                        <li key={line.key} className={`tone-${line.tone}`}>
-                          <Icon size={15} aria-hidden="true" />
-                          <span>{line.text}</span>
-                        </li>
-                      );
-                    })}
+                  {beat.story.map((line) => (
+                    <StoryLine key={line.key} line={line} />
+                  ))}
                 </ul>
+                {beat.blows && (
+                  <details className="blows">
+                    <summary>
+                      <Swords size={14} aria-hidden="true" />
+                      <span>
+                        {beat.blows.lines.length === 1 ? "One exchange of blows" : `${beat.blows.lines.length} exchanges of blows`}
+                      </span>
+                      <LossChips label="yours" losses={beat.blows.yours} />
+                      <LossChips label="theirs" losses={beat.blows.theirs} />
+                    </summary>
+                    <ul>
+                      {beat.blows.lines.map((line) => (
+                        <StoryLine key={line.key} line={line} />
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </div>
             ))}
           </section>
@@ -140,5 +156,55 @@ function FiredList({ groups }: { groups: FiredOrders[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function Chips({ chips, className = "" }: { chips: Chip[]; className?: string }) {
+  if (chips.length === 0) {
+    return null;
+  }
+  return (
+    <span className={`chips ${className}`}>
+      {chips.map((chip) => (
+        <span key={chip.text} className={`chip-stat ${chip.tone}`}>
+          {chip.text}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function StoryLine({ line }: { line: ChronicleLine }) {
+  const Icon = TONE_ICON[line.tone];
+  return (
+    <li className={`tone-${line.tone}`}>
+      <Icon size={15} aria-hidden="true" />
+      <span className="story">
+        <span className="story-text">{line.text}</span>
+        <Chips chips={line.chips} />
+        {line.riposte && line.riposte.length > 0 && (
+          <>
+            <span className="riposte-label">riposte</span>
+            <Chips chips={line.riposte} className="riposte" />
+          </>
+        )}
+      </span>
+    </li>
+  );
+}
+
+function LossChips({ label, losses }: { label: string; losses: Losses }) {
+  const chips = [
+    ...(losses.strength ? [statChip(losses.strength, "STR")] : []),
+    ...(losses.cohesion ? [statChip(losses.cohesion, "COH")] : []),
+  ];
+  if (chips.length === 0) {
+    return null;
+  }
+  return (
+    <span className={`loss-group ${label}`}>
+      <span className="riposte-label">{label}</span>
+      <Chips chips={chips} />
+    </span>
   );
 }

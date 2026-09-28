@@ -1274,6 +1274,81 @@ h3 {
   margin-top: 2px;
 }
 
+.story {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+}
+
+.chips {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.chip-stat {
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 11.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  font-style: normal;
+  line-height: 1.5;
+  background: rgba(239, 227, 200, 0.1);
+  color: var(--bone);
+}
+
+.chip-stat.loss {
+  background: rgba(224, 138, 98, 0.16);
+  color: #f0a987;
+}
+
+.chip-stat.gain {
+  background: rgba(143, 176, 232, 0.16);
+  color: var(--lapis-text);
+}
+
+.riposte .chip-stat {
+  opacity: 0.8;
+}
+
+.riposte-label {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.blows {
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+
+.blows summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 3px 0;
+  cursor: pointer;
+  color: var(--muted);
+  list-style-position: outside;
+}
+
+.blows summary svg {
+  color: var(--ember);
+}
+
+.loss-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.blows ul {
+  margin: 2px 0 4px 18px;
+}
+
 .tone-clash svg,
 .tone-siege svg {
   color: var(--ember);
