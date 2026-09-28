@@ -21,6 +21,19 @@ body {
     linear-gradient(135deg, #211915 0%, #131716 50%, #101315 100%);
 }
 
+.scene-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.scene-background canvas {
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
 button,
 select {
   font: inherit;
@@ -37,6 +50,8 @@ select:disabled {
 }
 
 .app {
+  position: relative;
+  z-index: 1;
   width: min(1520px, 100%);
   min-height: 100vh;
   margin: 0 auto;

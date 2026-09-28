@@ -9,6 +9,7 @@ import { BattleReportPanel } from "./ui/BattleReportPanel";
 import { Briefing } from "./ui/Briefing";
 import { DoctrinePanel } from "./ui/DoctrinePanel";
 import { ObjectivePanel } from "./ui/ObjectivePanel";
+import { SceneBackground } from "./render/SceneBackground";
 
 const playerSquads = (state: BattleState) =>
   state.squads.filter((squad) => squad.faction === "free_banners");
@@ -172,14 +173,19 @@ function App() {
 
   if (!started) {
     return (
-      <main className="app app-centered">
-        <Briefing onBegin={() => setStarted(true)} />
-      </main>
+      <>
+        <SceneBackground />
+        <main className="app app-centered">
+          <Briefing onBegin={() => setStarted(true)} />
+        </main>
+      </>
     );
   }
 
   return (
-    <main className="app">
+    <>
+      <SceneBackground />
+      <main className="app">
       <header className="app-header">
         <div>
           <p>Doctrine of War: Ash & Banner</p>
@@ -243,6 +249,7 @@ function App() {
         </aside>
       </div>
     </main>
+    </>
   );
 }
 
