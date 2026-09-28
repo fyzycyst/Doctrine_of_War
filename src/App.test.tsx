@@ -228,6 +228,24 @@ describe("keyboard and board selection", () => {
     expect(useAppStore.getState().selectedSquadId).toBe("greyford_shields");
   });
 
+  it("acts on a second pick of the same hex after another company is armed", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Take Command" }));
+    await act(async () => {
+      // Pick an empty hex with nothing armed: nothing moves.
+      useAppStore.getState().selectHex({ q: 2, r: 3 });
+      useAppStore.getState().selectSquad(null);
+    });
+    expect(game().deployment.greyford_shields).toEqual({ q: 3, r: 2 });
+    await act(async () => {
+      useAppStore.getState().selectSquad("greyford_shields");
+      useAppStore.getState().selectHex({ q: 2, r: 3 });
+      useAppStore.getState().selectSquad(null);
+    });
+    expect(game().deployment.greyford_shields).toEqual({ q: 2, r: 3 });
+  });
+
   it("refuses a hex outside the deployment zone with a reason", async () => {
     const user = userEvent.setup();
     render(<App />);

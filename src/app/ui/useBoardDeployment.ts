@@ -7,12 +7,15 @@ import { useAppStore } from "../store";
  * Board clicks during deployment. The Diorama's picking selects the clicked hex and
  * then the squad on it (or none). A click on an empty hex while one of your companies
  * is selected moves that company there; the company stays selected.
+ *
+ * Every pick writes a new hex object, so a pick is detected by identity, not by
+ * coordinates: clicking the same hex again (say, after arming another company) still acts.
  */
 export function useBoardDeployment() {
   useEffect(
     () =>
       useAppStore.subscribe((state, prev) => {
-        if (!state.selectedHex || (prev.selectedHex && sameHex(prev.selectedHex, state.selectedHex))) {
+        if (!state.selectedHex || state.selectedHex === prev.selectedHex) {
           return;
         }
         const game = useGame.getState();
