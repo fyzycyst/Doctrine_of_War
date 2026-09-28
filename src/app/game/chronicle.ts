@@ -3,7 +3,7 @@
 // phase's visible states), never from engine state. Ids the projection hid (null), or
 // squads never seen, read as "an unseen company".
 import type { EngineEvent, FactionId, VisibleState, Weather } from "../../game/engine";
-import { WEATHER_NAME } from "./view";
+import { rosterName, WEATHER_NAME } from "./view";
 
 export type ChronicleTone =
   | "order"
@@ -67,7 +67,10 @@ export function namesFor(views: VisibleState[]): Names {
   const squads = new Map(views.flatMap((view) => view.squads).map((squad) => [squad.id, squad]));
   const objectives = new Map(views.flatMap((view) => view.objectives).map((objective) => [objective.id, objective]));
   return {
-    name: (id) => (id ? squads.get(id)?.name : undefined) ?? "an unseen company",
+    name: (id) => {
+      const squad = id ? squads.get(id) : undefined;
+      return squad ? rosterName(squad) : "an unseen company";
+    },
     faction: (id) => (id ? squads.get(id)?.faction : undefined),
     objective: (id) => objectives.get(id)?.name ?? "the objective",
     player: views[0]?.viewer ?? "free_banners",
