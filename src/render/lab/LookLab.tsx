@@ -6,6 +6,8 @@ import { useCaptureStore } from "../../app/captureStore";
 import { useAppStore, type RenderQuality } from "../../app/store";
 import { emberFord } from "../../game/engine/scenarios/emberFord";
 import { firstBreach } from "../../game/engine/scenarios/firstBreach";
+import { holdForDawn } from "../../game/engine/scenarios/holdForDawn";
+import { saltmarshColumn } from "../../game/engine/scenarios/saltmarshColumn";
 import { cinematicPaths, type CinematicPathId } from "../camera/cameraPath";
 import { CinematicCamera } from "../camera/CinematicCamera";
 import { CampaignMap, type CampaignMapBattle } from "../showcase/CampaignMap";
@@ -168,14 +170,14 @@ const CAMPAIGN_MOCKS: Record<"a" | "b", CampaignMapBattle[]> = {
   a: [
     { id: "tutorial", title: "The First Breach", timeOfDay: "dusk", status: "won", board: firstBreach.board },
     { id: "battle_1", title: "Ember Ford", timeOfDay: "nightFires", status: "current", board: emberFord.board },
-    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "locked", placeholder: "saltmarsh" },
-    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "locked", placeholder: "holdForDawn" },
+    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "locked", board: saltmarshColumn.board },
+    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "locked", board: holdForDawn.board },
   ],
   b: [
     { id: "tutorial", title: "The First Breach", timeOfDay: "dusk", status: "won", board: firstBreach.board },
     { id: "battle_1", title: "Ember Ford", timeOfDay: "nightFires", status: "stalemate", board: emberFord.board },
-    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "lost", placeholder: "saltmarsh" },
-    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "current", placeholder: "holdForDawn" },
+    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "lost", board: saltmarshColumn.board },
+    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "current", board: holdForDawn.board },
   ],
 };
 
