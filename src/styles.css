@@ -3400,9 +3400,7 @@ h3 {
 
 .field-test-result {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 24px;
-  align-items: center;
+  gap: 6px;
   margin-top: 10px;
 }
 
@@ -3422,29 +3420,68 @@ h3 {
   color: var(--rust-text);
 }
 
-.field-test-result table {
-  grid-row: span 2;
-  border-collapse: collapse;
+.field-test-verdict.slightly-better,
+.field-test-verdict.slightly-worse {
+  color: var(--parchment);
+}
+
+.modal .field-test-detail {
+  margin: 0;
   font-size: 14px;
+  color: var(--bone);
 }
 
-.field-test-result th,
-.field-test-result td {
-  padding: 3px 10px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+.modal ul.field-test-bars {
+  display: grid;
+  gap: 5px;
+  margin: 4px 0;
+  padding: 0;
+  list-style: none;
 }
 
-.field-test-result thead th {
-  max-width: 190px;
-  font-size: 12.5px;
-  font-weight: 600;
+.field-test-bars li {
+  display: grid;
+  grid-template-columns: minmax(0, 210px) minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 13.5px;
+}
+
+.bar-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
 }
 
-.field-test-result tbody th {
-  text-align: left;
-  font-weight: 500;
+.field-test-bars li.mine .bar-name {
+  color: var(--lapis-text);
+}
+
+.bar-track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(239, 227, 200, 0.1);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--muted);
+}
+
+.field-test-bars li.mine .bar-fill {
+  background: linear-gradient(90deg, var(--lapis), var(--lapis-text));
+}
+
+.bar-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--bone);
+}
+
+.bar-sub {
   color: var(--muted);
 }
 

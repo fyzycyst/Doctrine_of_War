@@ -1,13 +1,23 @@
 // "Test in the field" (T16): the editor's panel. It replays this battle from its start
-// many times in a Web Worker, base doctrine against the variant, and says which did
-// better. Cancellable; progress shows as it runs.
+// in a Web Worker, base doctrine against the variant on the same fortunes, for as many
+// battles as it takes (within a budget), and says only what the evidence supports.
+// Cancellable; progress shows as it runs.
 import { FlaskConical, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { doctrineLibrary, withVariants, type Doctrine } from "../../game/engine";
 import { applyDeployment } from "../game/deploy";
 import { useGame } from "../game/gameStore";
 import { rosterName } from "../game/view";
-import { advanceRate, FIELD_TEST_EVEN, FIELD_TEST_RUNS, verdict, winRate, type FieldTestInput, type FieldTestResult } from "./fieldTest";
+import {
+  advanceRate,
+  FIELD_TEST_MAX,
+  FIELD_TEST_MIN,
+  verdict,
+  winRate,
+  type ArmResult,
+  type FieldTestInput,
+  type FieldTestResult,
+} from "./fieldTest";
 import { FieldTestCancelled, startFieldTest, type FieldTestRun } from "./fieldTestClient";
 
 type Plan = { ok: true; input: FieldTestInput; names: string[] } | { ok: false; reason: string };
@@ -39,7 +49,6 @@ function planFor(baseId: string, variant: Doctrine, squadId?: string): Plan {
       squadIds: switching.map((squad) => squad.id),
       baseId,
       variantId: variant.id,
-      runs: FIELD_TEST_RUNS,
       firstSeed: setup.seed,
     },
   };
@@ -65,7 +74,7 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
     if (!plan.ok) return;
     setOutcome(null);
     setError(null);
-    setProgress({ done: 0, total: plan.input.runs });
+    setProgress({ done: 0, total: FIELD_TEST_MAX });
     const current = startFieldTest(plan.input, (done, total) => setProgress({ done, total }));
     run.current = current;
     current.result.then(
@@ -91,7 +100,7 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
     setProgress(null);
   };
 
-  const said = outcome ? verdict(outcome.result, scenario, base) : null;
+  const said = outcome ? verdict(outcome.result, scenario) : null;
 
   return (
     <section className="field-test" aria-labelledby="field-test-title">
@@ -103,7 +112,7 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
           <div className="field-test-run">
             <progress value={progress.done} max={progress.total} aria-label="Field test progress" />
             <span className="mono" aria-live="polite">
-              {progress.done} of {progress.total}
+              {progress.done} of up to {progress.total}
             </span>
             <button type="button" className="btn-quiet" onClick={cancel}>
               <X size={14} aria-hidden="true" /> Cancel
@@ -118,8 +127,9 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
       <p className="field-test-scope">
         {plan.ok ? (
           <>
-            Replays <strong>{title}</strong> <strong>from the start of this battle</strong>, as deployed, {FIELD_TEST_RUNS} times with fortune on:{" "}
-            {list(plan.names)} on {base.name}, then on your variant. Every other company keeps its current orders all battle.
+            Replays <strong>{title}</strong> <strong>from the start of this battle</strong>, as deployed, with fortune on: {list(plan.names)} on{" "}
+            {base.name}, then on your variant, over the same fortunes. It plays {FIELD_TEST_MIN} to {FIELD_TEST_MAX} battles (a few seconds) and stops
+            early once the difference is plain. Every other company keeps its current orders all battle.
           </>
         ) : (
           plan.reason
@@ -133,37 +143,36 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
       )}
       {outcome && said && (
         <div className="field-test-result" role="status">
-          <p className={`field-test-verdict ${said.tone}`}>{said.line}</p>
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">
-                  <span className="sr-only">Measure</span>
-                </th>
-                <th scope="col">{base.name}</th>
-                <th scope="col">{outcome.name}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">Wins</th>
-                <td>{winRate(outcome.result.base, outcome.result.runs)}%</td>
-                <td>{winRate(outcome.result.variant, outcome.result.runs)}%</td>
-              </tr>
-              <tr>
-                <th scope="row">Advances</th>
-                <td>{advanceRate(outcome.result.base, outcome.result.runs)}%</td>
-                <td>{advanceRate(outcome.result.variant, outcome.result.runs)}%</td>
-              </tr>
-            </tbody>
-          </table>
+          <p className={`field-test-verdict ${said.tone}`}>{said.headline}</p>
+          <p className="field-test-detail">{said.detail}</p>
+          <ul className="field-test-bars" aria-label="Win rate">
+            <WinBar name={base.name} arm={outcome.result.base} runs={outcome.result.runs} />
+            <WinBar name={outcome.name} arm={outcome.result.variant} runs={outcome.result.runs} mine />
+          </ul>
           <p className="field-test-note">
-            Advances: won or held to a stalemate (the campaign moves on). Both sides saw the same {outcome.result.runs} fortunes; differences
-            under {FIELD_TEST_EVEN}% are chance.
+            {[said.pairs, outcome.result.stoppedBy === "clear" ? "Stopped early: the difference was plain." : null, "Advanced: won or held to a stalemate, so the campaign moves on."]
+              .filter(Boolean)
+              .join(" ")}
             {outcome.rules !== rules && <strong> These results are for your previous cut.</strong>}
           </p>
         </div>
       )}
     </section>
+  );
+}
+
+/** One side's win rate as a bar, its advance rate beside it. */
+function WinBar({ name, arm, runs, mine = false }: { name: string; arm: ArmResult; runs: number; mine?: boolean }) {
+  const won = winRate(arm, runs);
+  return (
+    <li className={mine ? "mine" : ""}>
+      <span className="bar-name">{name}</span>
+      <span className="bar-track" aria-hidden="true">
+        <span className="bar-fill" style={{ width: `${won}%` }} />
+      </span>
+      <span className="bar-value">
+        {won}% won <span className="bar-sub">· {advanceRate(arm, runs)}% advanced</span>
+      </span>
+    </li>
   );
 }
