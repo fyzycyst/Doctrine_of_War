@@ -95,6 +95,18 @@ export function getHex(layout: BoardLayout, coord: HexCoord): BoardHex | undefin
   return layout.hexes.find((hex) => sameHex(hex.coord, coord));
 }
 
+/** Neighbors of `coord` that exist on the board, in hexNeighbors order. */
+export function boardNeighbors(layout: BoardLayout, coord: HexCoord): BoardHex[] {
+  return hexNeighbors(coord)
+    .map((neighbor) => getHex(layout, neighbor))
+    .filter((hex): hex is BoardHex => hex !== undefined);
+}
+
+/** Walls (including gate hexes) block movement; every other terrain can be entered. */
+export function isPassableTerrain(terrain: TerrainType): boolean {
+  return terrain !== "wall";
+}
+
 export function terrainDefenseBonus(terrain: TerrainType): number {
   switch (terrain) {
     case "ridge":
