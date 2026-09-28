@@ -12,7 +12,7 @@ import { dioramaSquads } from "../fromEngine";
 import { LookProvider } from "../look/LookContext";
 import { usePrefersReducedMotion } from "../motion";
 import { PostFX } from "../post/PostFX";
-import { canvasDpr } from "../quality";
+import { useCanvasDpr } from "../quality";
 import { emberDusk } from "../skins";
 
 /**
@@ -55,7 +55,7 @@ export function TitleScene({
   frameloop = "always",
   startAt = 0,
 }: TitleSceneProps) {
-  const quality = useAppStore((s) => s.quality);
+  const dpr = useCanvasDpr();
   const captureMode = useCaptureStore((s) => s.captureMode);
   const reduced = usePrefersReducedMotion();
   const posed = useMemo(() => squads ?? heroSquads(), [squads]);
@@ -66,7 +66,7 @@ export function TitleScene({
       <Canvas
         shadows="soft"
         frameloop={frameloop}
-        dpr={canvasDpr(quality)}
+        dpr={dpr}
         camera={{ fov: 30, near: 0.1, far: 200, position: [0, 10, 14] }}
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         style={{ position: "absolute", inset: 0 }}

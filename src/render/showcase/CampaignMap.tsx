@@ -12,7 +12,7 @@ import { AtmosphereTicker, LookProvider, useLook } from "../look/LookContext";
 import { createIslandMaterial } from "../materials";
 import { usePrefersReducedMotion } from "../motion";
 import { PostFX } from "../post/PostFX";
-import { canvasDpr } from "../quality";
+import { useCanvasDpr } from "../quality";
 import { emberDusk } from "../skins";
 import type { TimeOfDay } from "../skins/types";
 import { buildIsland, type IslandBuild } from "../terrain/buildIsland";
@@ -79,7 +79,7 @@ export function islandPlacement(i: number, n: number): THREE.Vector3 {
 }
 
 export function CampaignMap({ battles, onSelect, inCanvas, frameloop = "always", children }: CampaignMapProps) {
-  const quality = useAppStore((s) => s.quality);
+  const dpr = useCanvasDpr();
   const captureMode = useCaptureStore((s) => s.captureMode);
   const [hovered, setHovered] = useState<string | null>(null);
   // 3D label anchors (written by the islands) and their DOM labels (positioned per frame).
@@ -91,7 +91,7 @@ export function CampaignMap({ battles, onSelect, inCanvas, frameloop = "always",
       <Canvas
         shadows="soft"
         frameloop={frameloop}
-        dpr={canvasDpr(quality)}
+        dpr={dpr}
         camera={{ fov: 32, near: 0.1, far: 300, position: [0, 12, 20] }}
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         style={{ position: "absolute", inset: 0 }}

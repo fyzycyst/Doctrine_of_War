@@ -2,6 +2,7 @@
 // The battle itself lives in the game store; this store decides what surrounds it.
 import { create } from "zustand";
 import { useGame } from "../game/gameStore";
+import { useSettings } from "../settingsStore";
 import { scenarioFor } from "./campaignView";
 import {
   ashAndBanner,
@@ -37,6 +38,8 @@ export interface FlowState {
   saveError: string | null;
   /** Why the last campaign-map choice could not be played, in plain words. */
   notice: string | null;
+  settingsOpen: boolean;
+  setSettingsOpen: (open: boolean) => void;
 
   go: (screen: Screen) => void;
   /** Looks for a usable save (for the title's Continue). */
@@ -79,6 +82,8 @@ export const useFlow = create<FlowState>((set, get) => ({
   saveError: null,
   notice: null,
   lastRecord: null,
+  settingsOpen: false,
+  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
 
   go: (screen) => set({ screen, notice: null }),
   clearNotice: () => set({ notice: null }),
@@ -98,12 +103,13 @@ export const useFlow = create<FlowState>((set, get) => ({
       set({ notice: `${battle.title} is still being forged. It will open in a later build.` });
       return;
     }
-    useGame
-      .getState()
-      .loadBattle(scenario, { seed: seedFor(campaign, battleId, scenario.curatedSeed), fortune: "on" }, "briefing", {
-        def: definition,
-        state: campaign,
-      });
+    const { doctrineOnly, defaultPace } = useSettings.getState();
+    const game = useGame.getState();
+    game.loadBattle(scenario, { seed: seedFor(campaign, battleId, scenario.curatedSeed), fortune: doctrineOnly ? "off" : "on" }, "briefing", {
+      def: definition,
+      state: campaign,
+    });
+    game.setPace(defaultPace);
     set({ screen: "battle", notice: null });
   },
 

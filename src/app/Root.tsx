@@ -3,6 +3,7 @@ import { CampaignScreen } from "./flow/CampaignScreen";
 import { EndScreen } from "./flow/EndScreen";
 import { useFlow } from "./flow/flowStore";
 import { TitleScreen } from "./flow/TitleScreen";
+import { SettingsDialog } from "./ui/SettingsDialog";
 
 /**
  * The whole game: title → campaign map → battle → campaign map … → ending.
@@ -10,14 +11,16 @@ import { TitleScreen } from "./flow/TitleScreen";
  */
 export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: string }) {
   const screen = useFlow((s) => s.screen);
-  switch (screen) {
-    case "title":
-      return <TitleScreen />;
-    case "battle":
-      return <App still={still} pauseAt={pauseAt} />;
-    case "campaign":
-      return <CampaignScreen />;
-    case "ending":
-      return <EndScreen />;
-  }
+  const settingsOpen = useFlow((s) => s.settingsOpen);
+  const setSettingsOpen = useFlow((s) => s.setSettingsOpen);
+  const openSettings = () => setSettingsOpen(true);
+  return (
+    <>
+      {screen === "title" && <TitleScreen onSettings={openSettings} />}
+      {screen === "campaign" && <CampaignScreen onSettings={openSettings} />}
+      {screen === "battle" && <App still={still} pauseAt={pauseAt} />}
+      {screen === "ending" && <EndScreen />}
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+    </>
+  );
 }

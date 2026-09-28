@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
+import { useAppStore } from "../app/store";
 
-/** True when the user asks for reduced motion (OS setting). */
+/**
+ * True when motion should be reduced: the OS setting, unless the in-game Settings
+ * override it ("reduce" or "full").
+ */
 export function usePrefersReducedMotion(): boolean {
+  const override = useAppStore((s) => s.motion);
   const query = "(prefers-reduced-motion: reduce)";
   const get = () => typeof window !== "undefined" && !!window.matchMedia?.(query).matches;
   const [reduced, setReduced] = useState(get);
@@ -12,5 +17,5 @@ export function usePrefersReducedMotion(): boolean {
     mq.addEventListener("change", on);
     return () => mq.removeEventListener("change", on);
   }, []);
-  return reduced;
+  return override === "system" ? reduced : override === "reduce";
 }

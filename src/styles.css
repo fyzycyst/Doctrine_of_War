@@ -2321,3 +2321,86 @@ h3 {
 .save-error {
   color: var(--rust-text);
 }
+
+/* -------------------------------------------------------------- settings */
+
+.modal.settings {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(212, 166, 74, 0.16);
+}
+
+.settings-row:first-of-type {
+  margin-top: 10px;
+}
+
+.settings-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--bone);
+}
+
+.modal .settings-help {
+  margin: 3px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid rgba(239, 227, 200, 0.2);
+  border-radius: 999px;
+  background: rgba(18, 15, 22, 0.72);
+}
+
+.segmented button {
+  border: 0;
+  background: transparent;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.segmented button[aria-checked="true"] {
+  background: rgba(212, 166, 74, 0.24);
+  color: var(--bone);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gold);
+}
+
+.settings-audio {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.volume input {
+  width: 120px;
+  accent-color: var(--gold);
+}

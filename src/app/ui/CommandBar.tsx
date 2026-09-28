@@ -1,4 +1,5 @@
-import { CloudFog, CloudRain, Sun, Volume2, VolumeX, Wind } from "lucide-react";
+import { CloudFog, CloudRain, Settings, Sun, Volume2, VolumeX, Wind } from "lucide-react";
+import { useFlow } from "../flow/flowStore";
 import { useAudioStore } from "../audioStore";
 import type { Weather } from "../../game/engine";
 import { useGame, useShownView, type Stage } from "../game/gameStore";
@@ -21,6 +22,7 @@ export function CommandBar() {
   const view = useShownView();
   const muted = useAudioStore((s) => s.muted);
   const toggleMuted = useAudioStore((s) => s.toggleMuted);
+  const setSettingsOpen = useFlow((s) => s.setSettingsOpen);
   const stage = useGame((s) => s.stage);
   const pace = useGame((s) => s.pace);
   const setPace = useGame((s) => s.setPace);
@@ -68,6 +70,9 @@ export function CommandBar() {
         onClick={toggleMuted}
       >
         {muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}
+      </button>
+      <button type="button" className="chip mute" aria-label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}>
+        <Settings size={15} aria-hidden="true" />
       </button>
       <div className="pace" role="group" aria-label="Battle pace">
         {(["readable", "fast"] as const).map((option) => (
