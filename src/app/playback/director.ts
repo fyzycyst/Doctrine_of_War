@@ -6,6 +6,8 @@ import { doctrineLibrary, type EngineEvent, type FactionId, type VisibleSquad, t
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { figureCount } from "../../render/squadLayout";
 import { rosterName } from "../game/view";
+
+const rosterNameOr = (squad: { name: string; noncombatant?: boolean } | undefined, fallback: string) => (squad ? rosterName(squad) : fallback);
 import {
   applyStep,
   comeIntoView,
@@ -208,7 +210,7 @@ export class PlaybackDirector {
       case "ruleFired": {
         const squad = this.squad(event.squadId);
         if (squad?.hex && step.quiet) {
-          hooks.caption(`${squad.name}: ${event.label}`);
+          hooks.caption(`${rosterName(squad)}: ${event.label}`);
         } else if (squad?.hex) {
           const { when, then } = splitLabel(event.label);
           hooks.callout({
@@ -220,7 +222,7 @@ export class PlaybackDirector {
             repeat: step.repeat,
             linger: step.linger,
           });
-          hooks.caption(`${squad.name}: ${event.label}`);
+          hooks.caption(`${rosterName(squad)}: ${event.label}`);
           if (!step.repeat) hooks.focus(squad.hex);
           if (isHold(event)) void anim?.brace(event.squadId, { hold: Math.max(0.3, d / 1000) });
         }
@@ -268,7 +270,7 @@ export class PlaybackDirector {
         const defender = this.squad(event.defenderId);
         hooks.focus(event.defenderHex);
         hooks.sfx("clash");
-        hooks.caption(`${attacker?.name ?? "An unseen company"} ${event.charge ? "charged" : "struck"} ${defender?.name ?? "an unseen company"}`);
+        hooks.caption(`${attacker ? rosterName(attacker) : "An unseen company"} ${event.charge ? "charged" : "struck"} ${defender ? rosterName(defender) : "an unseen company"}`);
         void anim?.lunge(event.attackerId, event.defenderHex, { duration: (d * 0.7) / 1000 });
         await this.wait(d * 0.35);
         const topple = (squad: VisibleSquad | undefined) => {
@@ -289,7 +291,7 @@ export class PlaybackDirector {
         if (target?.hex) {
           hooks.focus(target.hex);
           hooks.callout({ kind: "rally", hex: target.hex, faction: target.faction, title: "Rallied", text: `+${event.restored} cohesion`, repeat: false, linger: step.linger });
-          hooks.caption(`${this.squad(event.sourceId)?.name ?? "An unseen company"} rallied ${target.name}`);
+          hooks.caption(`${rosterNameOr(this.squad(event.sourceId), "An unseen company")} rallied ${rosterName(target)}`);
         }
         void anim?.rally(event.targetId ?? "");
         if (event.sourceId) void anim?.rally(event.sourceId);
@@ -308,13 +310,13 @@ export class PlaybackDirector {
             kind: "rout",
             hex: event.hex,
             faction: squad?.faction ?? null,
-            title: squad?.name ?? "A company",
+            title: squad ? rosterName(squad) : "A company",
             text: event.cause === "strength" ? "Destroyed" : "Broken! They flee",
             repeat: false,
             linger: step.linger,
           });
         }
-        hooks.caption(`${squad?.name ?? "A company"} ${event.kind === "exit" ? "escaped the field" : event.cause === "strength" ? "was destroyed" : "broke and fled"}`);
+        hooks.caption(`${squad ? rosterName(squad) : "A company"} ${event.kind === "exit" ? "escaped the field" : event.cause === "strength" ? "was destroyed" : "broke and fled"}`);
         const faction = squad?.faction ?? hooks.playerFaction;
         const direction = routDirection(hooks.board, event.hex, faction);
         // Hemmed in on every side: no line of flight, so the company breaks where it stands.
@@ -337,11 +339,11 @@ export class PlaybackDirector {
             hex: squad.hex,
             faction: squad.faction,
             title: surge ? "Heroic stand!" : "Wavering…",
-            text: surge ? `${squad.name} holds and strikes harder` : `${squad.name} hesitates; its order fails`,
+            text: surge ? `${rosterName(squad)} holds and strikes harder` : `${rosterName(squad)} hesitates; its order fails`,
             repeat: false,
             linger: step.linger,
           });
-          hooks.caption(surge ? `Heroic stand! ${squad.name} surges` : `Wavering… ${squad.name}'s order fails`);
+          hooks.caption(surge ? `Heroic stand! ${rosterName(squad)} surges` : `Wavering… ${rosterName(squad)}'s order fails`);
           if (surge) void anim?.rally(squad.id);
         }
         await this.wait(d);
@@ -355,7 +357,7 @@ export class PlaybackDirector {
         if (squad?.hex) {
           hooks.focus(squad.hex);
           hooks.callout({ kind: "dread", hex: squad.hex, faction: squad.faction, title: "They know that banner…", text: `“${event.title}” · −${event.shock} cohesion`, repeat: false, linger: step.linger });
-          hooks.caption(`They know that banner… ${squad.name} falters before “${event.title}”`);
+          hooks.caption(`They know that banner… ${rosterName(squad)} falters before “${event.title}”`);
         }
         await this.wait(d);
         this.land(step);
@@ -394,7 +396,7 @@ export class PlaybackDirector {
         if (!before || before.lastKnown) {
           const seen = this.squad(event.squadId);
           hooks.sfx("reveal");
-          hooks.callout({ kind: "sighted", hex: event.hex, faction: seen?.faction ?? null, title: "Sighted", text: seen?.name ?? "An enemy company", repeat: false, linger: step.linger });
+          hooks.callout({ kind: "sighted", hex: event.hex, faction: seen?.faction ?? null, title: "Sighted", text: seen ? rosterName(seen) : "An enemy company", repeat: false, linger: step.linger });
         }
         await this.wait(d);
         return;

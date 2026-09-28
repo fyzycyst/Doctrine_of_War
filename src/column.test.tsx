@@ -41,3 +41,34 @@ describe("the Saltmarsh Column", () => {
     expect(game().defaultedSquads()).not.toContain("saltmarsh_column");
   });
 });
+
+describe("the Column in playback", () => {
+  it("is named The Column in its banner and the caption", async () => {
+    const { buildTimeline } = await import("./app/playback/timeline");
+    const { PlaybackDirector } = await import("./app/playback/director");
+    const view = game().view;
+    const captions: string[] = [];
+    const titles: string[] = [];
+    const rule = { phase: 1, beat: 1, visibleTo: ["free_banners" as const], kind: "ruleFired" as const, squadId: "saltmarsh_column", doctrineId: "keep_the_column_moving", ruleId: "kcm_move", label: "Always → keep moving toward safety" };
+    const timeline = buildTimeline([rule], "readable", { playerFaction: "free_banners", factionOf: () => "free_banners" });
+    await new PlaybackDirector(timeline, {
+      board: saltmarshColumn.board,
+      playerFaction: "free_banners",
+      maxFigures: 9,
+      animator: () => null,
+      pace: () => "readable",
+      display: () => view,
+      setDisplay: () => undefined,
+      known: () => undefined,
+      setBeat: () => undefined,
+      callout: (spec) => titles.push(spec.title),
+      focus: () => undefined,
+      shake: () => undefined,
+      sfx: () => undefined,
+      caption: (text) => captions.push(text),
+      sleep: () => Promise.resolve(),
+    }).run();
+    expect(titles).toEqual(["The Column"]);
+    expect(captions.at(-1)).toBe("The Column: Always → keep moving toward safety");
+  });
+});
