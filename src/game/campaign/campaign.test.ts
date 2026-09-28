@@ -4,6 +4,7 @@ import { createInitialState, resolvePhase } from "../engine/resolvePhase";
 import { scenarios } from "../engine/scenarios";
 import { emberFord } from "../engine/scenarios/emberFord";
 import { firstBreach } from "../engine/scenarios/firstBreach";
+import { saltmarshColumn } from "../engine/scenarios/saltmarshColumn";
 import type { EngineScenario, EngineState, Orders, SquadStatus } from "../engine/types";
 import {
   applyCampaign,
@@ -228,19 +229,21 @@ describe("campaign flow with the real engine", () => {
     expect(applied.squads.find((squad) => squad.id === "tollbridge_pikes")?.renown?.title).toBe(shields.renown?.title);
   });
 
-  it("a stalemate at Ember Ford advances to the Saltmarsh Column; a defeat is retried", () => {
+  it("a stalemate advances (the Saltmarsh Column); a defeat at Ember Ford is retried", () => {
     const afterTutorial = play(startCampaign(def), firstBreach.referencePlans!.intended, "on", firstBreach.curatedSeed).next;
 
-    // Rally banners alone never test the vanguard: that timeout is a defeat now.
+    // Ember Ford is won only by breaking the vanguard: running out of night is a defeat.
     expect(play(afterTutorial, everyone("rescue_standard")).final.status).toBe("defeat");
-    // Find a night where the intended plan tests the vanguard but runs out of time.
-    let stalemate = play(afterTutorial, emberFord.referencePlans!.intended, "on", 1);
+    // The Saltmarsh Column can end in a stalemate (the column out, one company short): it advances.
+    const afterFord = play(afterTutorial, emberFord.referencePlans!.intended, "on", emberFord.curatedSeed).next;
+    expect(afterFord.battleIndex).toBe(2);
+    let stalemate = play(afterFord, saltmarshColumn.referencePlans!.intended, "on", 1);
     for (let seed = 2; seed <= 400 && stalemate.final.status !== "stalemate"; seed += 1) {
-      stalemate = play(afterTutorial, emberFord.referencePlans!.intended, "on", seed);
+      stalemate = play(afterFord, saltmarshColumn.referencePlans!.intended, "on", seed);
     }
     expect(stalemate.final.status).toBe("stalemate");
-    expect(stalemate.next.battleIndex).toBe(2);
-    expect(currentBattle(def, stalemate.next)).toMatchObject({ id: "battle_2", scenarioId: "saltmarsh_column" });
+    expect(stalemate.next.battleIndex).toBe(3);
+    expect(currentBattle(def, stalemate.next)).toMatchObject({ id: "battle_3", scenarioId: "hold_for_dawn" });
 
     const defeat = play(afterTutorial, everyone("shield_the_line"));
     expect(defeat.final.status).toBe("defeat");

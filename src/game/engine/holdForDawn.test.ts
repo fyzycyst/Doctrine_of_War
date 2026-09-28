@@ -55,7 +55,7 @@ describe("Hold for Dawn", () => {
     expect(Object.keys(intended).sort()).toEqual(companies.map((squad) => squad.id).sort());
   });
 
-  it("brings the champion, the ram under its hides, and the nerve that fails at sunrise", () => {
+  it("brings the champion, the ram under its hides, the fire-pots, and the nerve that fails at sunrise", () => {
     const champion = host.find((squad) => squad.renown)!;
     expect(champion).toMatchObject({ id: "kiln_born_oathguard", resolve: 3, renown: { title: "The Last Cinder" } });
     const ram = host.find((squad) => squad.id === "cinderram")!;
@@ -64,6 +64,9 @@ describe("Hold for Dawn", () => {
     expect(dawn.cinderram).toBe("break_the_gate");
     expect(host.filter((squad) => squad.id !== "cinderram").every((squad) => dawn[squad.id] === "the_nerve_fails")).toBe(true);
     expect(doctrineLibrary.under_wet_hides.passives.cohesion).toBeGreaterThanOrEqual(10);
+    // The hides burn through in the last hour of dark; fire-pots fall on the gate until the nerve fails.
+    expect(holdForDawn.hostSchedule.find((entry) => entry.phase === 4)!.orders.cinderram).toBe("break_the_gate");
+    expect(host.find((squad) => squad.id === "ash_mangonel")).toMatchObject({ role: "siege", doctrineId: "hurl_fire" });
   });
 
   it("wins deterministically with shields, standards and patient blades; giving ground loses", () => {
@@ -85,18 +88,23 @@ describe("Hold for Dawn", () => {
     }
   }, 60_000);
 
-  it("holds through the night and breaks the exposed ram at sunrise (curated seed)", () => {
+  it("holds through the night, bleeding at the gate, and breaks the ram at sunrise (curated seed)", () => {
     const { events, state } = battle(intended, holdForDawn.curatedSeed!, "on");
     expect(state.status).toBe("victory");
-    expect(companies.every((setup) => state.squads.find((squad) => squad.id === setup.id)?.status === "active")).toBe(true);
-    expect(state.objectives[0].integrity).toBeGreaterThan(0);
+    const broken = companies.filter((setup) => state.squads.find((squad) => squad.id === setup.id)?.status !== "active");
+    expect(broken.length).toBeLessThanOrEqual(1);
+    // A near-miss, not a walkover: the fire-pots leave the gate between 40 and 70, and companies are shaken.
+    expect(state.objectives[0].integrity).toBeGreaterThanOrEqual(40);
+    expect(state.objectives[0].integrity).toBeLessThanOrEqual(70);
+    expect(events.some((event) => event.kind === "objectiveDamage" && event.attackerId === "ash_mangonel")).toBe(true);
+    expect(state.squads.some((squad) => squad.faction === "free_banners" && squad.status === "active" && squad.cohesion < 50)).toBe(true);
     expect(events.some((event) => event.kind === "rally")).toBe(true);
     const onRam = events.filter((event) => event.kind === "engagement" && event.defenderId === "cinderram");
-    // Under the hides the ram shrugs off every blow; at sunrise clean charges break it.
-    for (const event of onRam.filter((item) => item.phase < 5)) {
+    // Under the hides (phases 1-3) the ram shrugs off every blow; at sunrise a clean charge breaks it.
+    for (const event of onRam.filter((item) => item.phase < 4)) {
       if (event.kind === "engagement") expect(event.cohesionChanges.cinderram).toBeGreaterThanOrEqual(-2);
     }
-    expect(onRam.filter((event) => event.phase === 5 && event.kind === "engagement" && event.charge && !event.reckless).length).toBeGreaterThanOrEqual(2);
+    expect(onRam.some((event) => event.phase === 5 && event.kind === "engagement" && event.charge && !event.reckless)).toBe(true);
     expect(events.find((event) => event.kind === "rout" && event.squadId === "cinderram")?.phase).toBe(5);
   });
 
@@ -106,7 +114,7 @@ describe("Hold for Dawn", () => {
       if (final.status !== "stalemate") continue;
       expect(final.objectives[0].integrity).toBeGreaterThan(0);
       expect(final.squads.find((squad) => squad.id === "cinderram")?.status).toBe("active");
-      expect(final.squads.filter((squad) => squad.faction === "ashen_host" && squad.status !== "active").length).toBeGreaterThanOrEqual(2);
+      expect(final.squads.filter((squad) => squad.faction === "ashen_host" && squad.status !== "active").length).toBeGreaterThanOrEqual(5);
     }
   }, 60_000);
 });

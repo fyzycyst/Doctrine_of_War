@@ -27,9 +27,10 @@ describe("doctrine library", () => {
       "Through the Embers",
       "Slip the Leash",
       "Under Wet Hides",
+      "Hurl Fire",
       "The Nerve Fails",
     ]);
-    expect(Object.keys(doctrineLibrary)).toHaveLength(16);
+    expect(Object.keys(doctrineLibrary)).toHaveLength(17);
     expect(doctrineLibrary.keep_the_column_moving.faction).toBe("free_banners");
   });
 

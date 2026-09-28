@@ -43,6 +43,13 @@ export const HOST_STRENGTH_PER_FAME = 2;
 export const HOST_STRENGTH_CAP = 12;
 export const FAME_PER_HOST_RESOLVE = 4;
 export const HOST_RESOLVE_CAP = 1;
+/**
+ * The catch-up handicap: below the authored roster the Host's Resolve eases twice as
+ * fast (one point per FAME_PER_HOST_EASE fame, up to HOST_EASE_RESOLVE_CAP), so a
+ * battered army that lost its veterans' nerve still faces a winnable fight.
+ */
+export const FAME_PER_HOST_EASE = 2;
+export const HOST_EASE_RESOLVE_CAP = 2;
 
 export interface HostEscalation {
   /** Campaign fame minus the scenario's authored fame. */
@@ -63,7 +70,10 @@ export function hostEscalation(companies: CampaignCompany[], authoredFame: numbe
   return {
     fame,
     strength: sign * Math.min(HOST_STRENGTH_CAP, HOST_STRENGTH_PER_FAME * size) || 0,
-    resolve: sign * Math.min(HOST_RESOLVE_CAP, Math.floor(size / FAME_PER_HOST_RESOLVE)) || 0,
+    resolve:
+      sign > 0
+        ? Math.min(HOST_RESOLVE_CAP, Math.floor(size / FAME_PER_HOST_RESOLVE))
+        : -Math.min(HOST_EASE_RESOLVE_CAP, Math.floor(size / FAME_PER_HOST_EASE)) || 0,
   };
 }
 

@@ -134,6 +134,8 @@ describe("PlaybackDirector", () => {
     switched.hooks.pace = () => "fast"; // toggled right after sealing
     await new PlaybackDirector(switched.timeline, switched.hooks).run();
 
+    // Capped settle-waits race their animation and finish in the background: let them drain.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(sumOf(switched.slept)).toBeCloseTo(sumOf(readable.slept) / 2, 0);
   });
 });

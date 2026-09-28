@@ -1,10 +1,10 @@
 // Battle 1: Ember Ford. The Host forces a night crossing of a river lit by its own
-// burning bridges, close under the Banners' bank. Lesson: Clean Counterstroke
-// against overextension, kept steady by a Rescue Standard. Crossers climb out alone
-// right beside the roads and can be struck cleanly; charging the supported ford is
-// reckless; Host outriders that crossed upstream lurk by both roads and slip through
-// any gap; a line that only holds never breaks the vanguard, and a line with no
-// standard breaks under the Unquenched.
+// burning bridges, close under the Banners' bank. Lesson (the star is Clean
+// Counterstroke, the opportunist): crossers climb out alone right beside the roads and
+// can be struck cleanly; charging the supported ford is reckless; a Rescue Standard
+// keeps the line steady under the Unquenched. Host
+// outriders lurk by both roads and slip through any gap. Breaking the vanguard is the
+// only win: a wall bites whoever hits it but never hunts, and the night runs out.
 import type { BoardHex, BoardLayout, TerrainType } from "../../board";
 import type { EngineScenario } from "../types";
 
@@ -58,14 +58,14 @@ export const emberFord: EngineScenario = {
   title: "Ember Ford",
   briefing:
     "The Host has fired its own bridges to light the crossing, and its outriders already wait in the dark beside our roads. " +
-    "Strike each company as it climbs from the water alone, but the roads must not fall. " +
-    "Keep one standard raised behind the line, for the Unquenched march with them.",
+    "Strike each company as it climbs from the water alone: the counterstroke must hunt them before the fires die. " +
+    "Keep a standard raised behind the line, for the Unquenched march with them.",
   playerFaction: "free_banners",
   initiativeSide: "ashen_host",
   maxPhases: 5,
   timeOfDay: "nightFires",
   // Fortune-on seed for the first playthrough and video capture: a clean win, no company broken.
-  curatedSeed: 32,
+  curatedSeed: 1,
   board,
   objectives: [],
   playerDoctrineIds: [
@@ -85,14 +85,14 @@ export const emberFord: EngineScenario = {
     { id: "harrow_riders", name: "Harrow Riders", faction: "free_banners", role: "cavalry", hex: { q: 5, r: 5 }, strength: 66, cohesion: 64, resolve: 1, doctrineId: "clean_counterstroke" },
 
     // The crossing vanguard (the win condition's targets).
-    { id: "pyre_sworn", name: "Pyre-Sworn", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 1 }, strength: 63, cohesion: 72, resolve: 3, doctrineId: "through_the_embers", renown: { title: "The Unquenched" } },
-    { id: "emberline_spears", name: "Emberline Spears", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 4 }, strength: 57, cohesion: 66, resolve: 1, doctrineId: "through_the_embers" },
-    { id: "ashbound_levies", name: "Ashbound Levies", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 2 }, strength: 53, cohesion: 62, resolve: -1, doctrineId: "no_step_back" },
+    { id: "pyre_sworn", name: "Pyre-Sworn", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 1 }, strength: 60, cohesion: 72, resolve: 3, doctrineId: "through_the_embers", renown: { title: "The Unquenched" } },
+    { id: "emberline_spears", name: "Emberline Spears", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 4 }, strength: 54, cohesion: 66, resolve: 1, doctrineId: "through_the_embers" },
+    { id: "ashbound_levies", name: "Ashbound Levies", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 2 }, strength: 50, cohesion: 62, resolve: -1, doctrineId: "no_step_back" },
     // Outriders: they never fight, they run for the roads through any gap.
-    { id: "cinderhook_raiders", name: "Cinderhook Raiders", faction: "ashen_host", role: "skirmish", hex: { q: 6, r: 0 }, strength: 45, cohesion: 64, resolve: 0, doctrineId: "no_step_back" },
-    { id: "soot_hounds", name: "Soot Hounds", faction: "ashen_host", role: "cavalry", hex: { q: 6, r: 5 }, strength: 43, cohesion: 60, resolve: 0, doctrineId: "no_step_back" },
+    { id: "cinderhook_raiders", name: "Cinderhook Raiders", faction: "ashen_host", role: "skirmish", hex: { q: 6, r: 0 }, strength: 42, cohesion: 64, resolve: 0, doctrineId: "no_step_back" },
+    { id: "soot_hounds", name: "Soot Hounds", faction: "ashen_host", role: "cavalry", hex: { q: 6, r: 5 }, strength: 40, cohesion: 60, resolve: 0, doctrineId: "no_step_back" },
     // The near-bank guard keeps the fords supported.
-    { id: "kiln_wardens", name: "Kiln Wardens", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 3 }, strength: 51, cohesion: 64, resolve: 0, doctrineId: "no_step_back" },
+    { id: "kiln_wardens", name: "Kiln Wardens", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 3 }, strength: 48, cohesion: 64, resolve: 0, doctrineId: "no_step_back" },
   ],
   hostSchedule: [
     {
@@ -136,14 +136,13 @@ export const emberFord: EngineScenario = {
     { kind: "enemyEscape", edgeHexes: roadExits, count: 2 },
     { kind: "squadsLost", count: 4 },
   ],
-  // If the fires die with the vanguard still standing but nobody through, it is a stalemate.
-  timeoutOutcome: "stalemate",
-  // ...but only if at least one vanguard company was broken; otherwise it is a defeat.
-  stalemateRequires: { minEnemyBroken: 1, targetsOnly: true },
+  // If the fires die with the vanguard still standing, the crossing has succeeded: defeat.
+  timeoutOutcome: "defeat",
   forecast: { start: "clear", shiftChance: 0.3, shifts: ["clear", "rain"] },
   referencePlans: {
-    // Every company waits for a Host company to climb out alone, then strikes it;
-    // the Lanternbearers keep them steady against the Unquenched.
+    // Every company waits for a Host company to climb out alone, then strikes it; the
+    // Lanternbearers keep them steady against the Unquenched. (A shield on a road is
+    // neutral here: it holds, but the vanguard is only broken by hunting it.)
     intended: {
       tollbridge_pikes: "clean_counterstroke",
       ashfen_bowmen: "clean_counterstroke",
@@ -153,8 +152,8 @@ export const emberFord: EngineScenario = {
       reedmarsh_levy: "clean_counterstroke",
       harrow_riders: "clean_counterstroke",
     },
-    // The tutorial's lesson misapplied: a wall that never strikes back runs out of night.
-    // (All-Counterstroke is no better: without a standard the line cracks under the dread.)
+    // The tutorial's lesson misapplied: a wall bites whoever hits it but never hunts, and
+    // the vanguard waits at the fords until the night runs out.
     bad: {
       tollbridge_pikes: "shield_the_line",
       ashfen_bowmen: "shield_the_line",

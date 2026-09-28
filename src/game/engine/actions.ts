@@ -15,6 +15,15 @@ export type ActionContext = EngineContext;
 // Tuning constants. Kept together so the balance harness can find them.
 export const BRACE_DEFENSE = 2;
 export const BRACE_RIPOSTE = 1.5;
+/**
+ * A braced defender bites back: every blow it takes while braced costs the attacker
+ * BRACE_BITE strength and cohesion per point of defense passive above BRACE_BITE_FROM.
+ * Shield the Line (defense 3) is the wall; doctrines built to strike or endure
+ * (defense 1) do not bite. Resolve does not scale it: it already hardens the defense,
+ * and a veteran wall that also bit harder could not be broken.
+ */
+export const BRACE_BITE = 3;
+export const BRACE_BITE_FROM = 1;
 export const CHARGE_BONUS = 2;
 export const SURGE_BONUS = 3;
 /** Each neighbour of a supported charge target adds (strength/20 + this) to the riposte. */
@@ -26,6 +35,8 @@ export const COHESION_LOSS_BASE = 13;
 export const RIPOSTE_SCALE = 0.5;
 export const SIEGE_OBJECTIVE_DAMAGE = 40;
 export const BASE_OBJECTIVE_DAMAGE = 12;
+/** A bombardment's blow at full strength (scaled by strength/100, like a ram's). */
+export const BOMBARD_DAMAGE = 10;
 export const RALLY_BASE = 12;
 /** A ward (noncombatant) below this cohesion is rallied before any other adjacent ally. */
 export const RALLY_WARD_BELOW = 75;
@@ -80,6 +91,7 @@ export function engagementLosses(
   attacker: ActiveSquad,
   defender: ActiveSquad,
   charge: boolean,
+  power = 0,
 ): EngagementLosses {
   const atkPassives = effectivePassives(ctx, attacker);
   const defPassives = effectivePassives(ctx, defender);
@@ -93,7 +105,8 @@ export function engagementLosses(
     attacker.resolve +
     ROLE_ATTACK[attacker.role] +
     (charge && !reckless ? CHARGE_BONUS + atkPassives.counter + (attacker.role === "cavalry" ? CAVALRY_CHARGE_BONUS : 0) : 0) +
-    (attacker.surging ? SURGE_BONUS : 0);
+    (attacker.surging ? SURGE_BONUS : 0) +
+    power;
   const defense =
     defender.cohesion / 25 +
     terrainBonus(ctx, defender.hex) +
@@ -109,17 +122,18 @@ export function engagementLosses(
     defPassives.counter +
     supporters.reduce((sum, ally) => sum + ally.strength / 20 + RECKLESS_SUPPORT_RIPOSTE, 0);
   const cap = reckless ? 20 : 12;
+  const bite = defender.braced ? BRACE_BITE * Math.max(0, defPassives.defense - BRACE_BITE_FROM) : 0;
 
   return {
     defenderStrength: clamp(Math.round(STRENGTH_LOSS_BASE + margin), 1, 20),
     defenderCohesion: clamp(Math.round(COHESION_LOSS_BASE + margin - defPassives.cohesion), 2, 25),
-    attackerStrength: clamp(Math.round(RIPOSTE_SCALE * riposte - atkPassives.defense / 2), 0, cap),
-    attackerCohesion: clamp(Math.round(1 + (RIPOSTE_SCALE * riposte) / 2 - atkPassives.cohesion), 0, cap),
+    attackerStrength: clamp(Math.round(RIPOSTE_SCALE * riposte - atkPassives.defense / 2) + bite, 0, cap),
+    attackerCohesion: clamp(Math.round(1 + (RIPOSTE_SCALE * riposte) / 2 - atkPassives.cohesion) + bite, 0, cap),
     reckless,
   };
 }
 
-function engage(ctx: EngineContext, attacker: ActiveSquad, defender: ActiveSquad, charge: boolean) {
+function engage(ctx: EngineContext, attacker: ActiveSquad, defender: ActiveSquad, charge: boolean, power = 0) {
   const pair = [attacker.id, defender.id].sort().join("|");
   if (!ctx.state.contacts.includes(pair)) {
     ctx.state.contacts.push(pair);
@@ -130,7 +144,7 @@ function engage(ctx: EngineContext, attacker: ActiveSquad, defender: ActiveSquad
     }
   }
 
-  const losses = engagementLosses(ctx, attacker, defender, charge);
+  const losses = engagementLosses(ctx, attacker, defender, charge, power);
   const attackerHex = attacker.hex;
   const defenderHex = defender.hex;
   defender.strength = clamp(defender.strength - losses.defenderStrength, 0, 100);
@@ -154,9 +168,13 @@ function engage(ctx: EngineContext, attacker: ActiveSquad, defender: ActiveSquad
   checkRout(ctx, attacker);
 }
 
-function strikeObjective(ctx: EngineContext, attacker: ActiveSquad, target: Extract<ResolvedTarget, { kind: "objective" }>) {
+function strikeObjective(
+  ctx: EngineContext,
+  attacker: ActiveSquad,
+  target: Extract<ResolvedTarget, { kind: "objective" }>,
+  base = attacker.role === "siege" ? SIEGE_OBJECTIVE_DAMAGE : BASE_OBJECTIVE_DAMAGE,
+) {
   const objective = target.objective;
-  const base = attacker.role === "siege" ? SIEGE_OBJECTIVE_DAMAGE : BASE_OBJECTIVE_DAMAGE;
   // Enemies pressing on the attacker halve the blow.
   const harassed = adjacentEnemies(ctx.state, attacker).length > 0;
   const raw = (attacker.strength / 100) * base * (harassed ? 0.5 : 1);
@@ -229,7 +247,7 @@ function isHostile(squad: ActiveSquad, target: ResolvedTarget): boolean {
   }
 }
 
-function strike(ctx: EngineContext, squad: ActiveSquad, target: ResolvedTarget, charge: boolean) {
+function strike(ctx: EngineContext, squad: ActiveSquad, target: ResolvedTarget, charge: boolean, power = 0) {
   if (squad.noncombatant) {
     ctx.emit({ kind: "blocked", squadId: squad.id, reason: "does not fight" });
     return;
@@ -240,7 +258,7 @@ function strike(ctx: EngineContext, squad: ActiveSquad, target: ResolvedTarget, 
     return;
   }
   if (target.kind === "squad") {
-    engage(ctx, squad, target.squad, charge);
+    engage(ctx, squad, target.squad, charge, power);
   } else if (target.kind === "objective") {
     strikeObjective(ctx, squad, target);
   }
@@ -279,7 +297,7 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
         return;
       }
       if (isAdjacentTo(squad, target)) {
-        strike(ctx, squad, target, false);
+        strike(ctx, squad, target, false, action.power ?? 0);
         return;
       }
       if (moveToward(ctx, squad, target, speedOf(squad), "advance")) {
@@ -290,6 +308,22 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
       if (blocker) {
         engage(ctx, squad, blocker, false);
       } else {
+        ctx.emit({ kind: "blocked", squadId: squad.id, reason: "path blocked" });
+      }
+      return;
+    }
+
+    case "bombard": {
+      const target = resolveTarget(ctx, squad, { kind: "objective", side: "enemy" });
+      if (!target || target.kind !== "objective") {
+        ctx.emit({ kind: "blocked", squadId: squad.id, reason: "no target" });
+        return;
+      }
+      if (hexDistance(squad.hex, target.objective.hex) <= action.range) {
+        strikeObjective(ctx, squad, target, BOMBARD_DAMAGE);
+        return;
+      }
+      if (!moveToward(ctx, squad, target, speedOf(squad), "advance")) {
         ctx.emit({ kind: "blocked", squadId: squad.id, reason: "path blocked" });
       }
       return;

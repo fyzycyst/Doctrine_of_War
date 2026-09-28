@@ -125,9 +125,9 @@ export const doctrines: Doctrine[] = [
       },
       {
         id: "cc_answer",
-        label: "If enemy adjacent → strike the nearest enemy",
+        label: "If enemy adjacent → strike back from guard",
         when: { kind: "enemyAdjacent" },
-        then: { kind: "attack", target: { kind: "nearestEnemy" } },
+        then: { kind: "attack", target: { kind: "nearestEnemy" }, power: -1 },
       },
       {
         id: "cc_wait",
@@ -361,6 +361,21 @@ export const doctrines: Doctrine[] = [
         label: "Otherwise → drive on the gate",
         when: { kind: "always" },
         then: { kind: "attack", target: { kind: "objective", side: "enemy" } },
+      },
+    ],
+  },
+  {
+    id: "hurl_fire",
+    faction: "ashen_host",
+    name: "Hurl Fire",
+    flavor: "Pots of burning pitch, lobbed over the line at the gate. It does not need to see what it hits.",
+    passives: { defense: 0, cohesion: 0, counter: 0 },
+    rules: [
+      {
+        id: "hf_hurl",
+        label: "Always → hurl fire at the gate from up to 4 hexes away",
+        when: { kind: "always" },
+        then: { kind: "bombard", range: 4 },
       },
     ],
   },

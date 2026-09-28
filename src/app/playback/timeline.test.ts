@@ -185,8 +185,12 @@ describe("applyStep", () => {
       cohesionChanges: { greyford_shields: -12 },
     };
     const hit = applyStep(start, stepFor(clash, { kind: "clash" }), known);
-    expect(hit.squads.find((squad) => squad.id === "greyford_shields")).toMatchObject({ strength: 82, cohesion: 64 });
-    expect(hit.squads.find((squad) => squad.id === "cinder_vanguard")).toMatchObject({ strength: 98 });
+    const before = (id: string) => start.squads.find((squad) => squad.id === id)!;
+    expect(hit.squads.find((squad) => squad.id === "greyford_shields")).toMatchObject({
+      strength: before("greyford_shields").strength - 4,
+      cohesion: before("greyford_shields").cohesion - 12,
+    });
+    expect(hit.squads.find((squad) => squad.id === "cinder_vanguard")).toMatchObject({ strength: before("cinder_vanguard").strength - 2 });
 
     const rout: EngineEvent = { ...base, beat: 1, kind: "rout", squadId: "greyford_shields", hex: { q: 3, r: 2 }, cause: "cohesion" };
     const gone = applyStep(hit, stepFor(rout, { kind: "rout" }), known);

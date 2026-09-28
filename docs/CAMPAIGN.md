@@ -73,7 +73,13 @@ doctrine families in meaningful roles, and swapping out any one family costs at 
   scenario was authored for, in **both** directions.
 - *Fame* is the fielded companies' Resolve sum plus 2 per renowned company. Each point
   of fame above (below) the authored roster's adds (removes) 2 strength on every Host
-  company, capped at ±12. Every 4 points shift Host Resolve by 1, capped at ±1.
+  company, capped at ±12. Above the authored roster, every 4 points add 1 Host Resolve
+  (capped at +1).
+- **Catch-up handicap** (below the authored roster): every 2 points of missing fame
+  remove 1 Host Resolve, capped at −2. It is small and relative (a roster at or above
+  the authored fame never sees it), and it exists because a battered army's low Resolve
+  hurts twice, through wavering and through dread; without it Ember Ford's rough roster
+  fell to about 30% once a timeout became a defeat.
 - Veterans draw the Host's hardest companies; a battered army faces a Host that holds
   its best back. It is deliberately small: it keeps strong-roster battles tense rather
   than rebalancing them.
