@@ -47,6 +47,11 @@ export interface FieldTestInput {
   minRuns?: number;
   maxRuns?: number;
   budgetMs?: number;
+  /**
+   * "Run longer": continue this earlier result on the same seed sequence (its next seed
+   * is firstSeed + from.runs), with a fresh budget of up to FIELD_TEST_MAX more seeds.
+   */
+  from?: FieldTestResult;
 }
 
 export type Outcome = "victory" | "stalemate" | "defeat";
@@ -117,18 +122,21 @@ export function runFieldTest(
   now: () => number = () => performance.now(),
   play: (input: FieldTestInput, doctrineId: string, seed: number) => Outcome = fight,
 ): FieldTestResult {
+  const { from } = input;
   const minRuns = input.minRuns ?? FIELD_TEST_MIN;
-  const maxRuns = input.maxRuns ?? FIELD_TEST_MAX;
+  const maxRuns = (from?.runs ?? 0) + (input.maxRuns ?? FIELD_TEST_MAX);
   const budgetMs = input.budgetMs ?? FIELD_TEST_BUDGET_MS;
   const started = now();
-  const result: FieldTestResult = {
-    runs: 0,
-    base: { victories: 0, stalemates: 0, defeats: 0 },
-    variant: { victories: 0, stalemates: 0, defeats: 0 },
-    ahead: 0,
-    behind: 0,
-    stoppedBy: "runs",
-  };
+  const result: FieldTestResult = from
+    ? { ...from, base: { ...from.base }, variant: { ...from.variant }, stoppedBy: "runs" }
+    : {
+        runs: 0,
+        base: { victories: 0, stalemates: 0, defeats: 0 },
+        variant: { victories: 0, stalemates: 0, defeats: 0 },
+        ahead: 0,
+        behind: 0,
+        stoppedBy: "runs",
+      };
   while (result.runs < maxRuns) {
     const seed = input.firstSeed + result.runs;
     const base = play(input, input.baseId, seed);
@@ -145,6 +153,7 @@ export function runFieldTest(
       break;
     }
     // The time budget never cuts below the minimum: 60 seeds is the floor for any verdict.
+    // (A continuation is already past it, so its fresh budget applies from its first seed.)
     if (result.runs >= minRuns && now() - started >= budgetMs) {
       result.stoppedBy = "time";
       break;

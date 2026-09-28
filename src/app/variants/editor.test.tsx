@@ -179,4 +179,45 @@ describe("test in the field", () => {
     await user.click(screen.getByRole("button", { name: "Move order 1 down" }));
     expect(result).toHaveTextContent("These results are for your previous cut.");
   });
+
+  it("offers Run longer once when the verdict is not certain, continuing the same fortunes", async () => {
+    const user = userEvent.setup();
+    render(<DoctrineEditor target={{ baseId: "shield_the_line", squadId: "greyford_shields" }} onClose={() => {}} />);
+    const panel = screen.getByRole("region", { name: "Test in the field" });
+    await user.click(screen.getByRole("button", { name: "Move order 3 up" }));
+    await user.click(within(panel).getByRole("button", { name: "Run the test" }));
+    const leaning = {
+      runs: 83,
+      base: { victories: 40, stalemates: 0, defeats: 43 },
+      variant: { victories: 47, stalemates: 0, defeats: 36 },
+      ahead: 14,
+      behind: 7,
+      stoppedBy: "time" as const,
+    };
+    await act(async () => fieldTests[0].finish(leaning));
+    expect(within(panel).getByText("Slightly better, not certain")).toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "Run longer" }));
+    expect(fieldTests[1].input.from).toEqual(leaning);
+    // The earlier result stays up while it runs; progress counts on from it.
+    expect(within(panel).getByText("Slightly better, not certain")).toBeInTheDocument();
+    expect(within(panel).getByText("83 of up to 383")).toBeInTheDocument();
+    await act(async () =>
+      fieldTests[1].finish({ ...leaning, runs: 383, base: { victories: 180, stalemates: 0, defeats: 203 }, variant: { victories: 205, stalemates: 0, defeats: 178 }, ahead: 60, behind: 35 }),
+    );
+    expect(within(panel).getByText("Clearly better")).toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: "Run longer" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer Run longer for a clear verdict", async () => {
+    const user = userEvent.setup();
+    render(<DoctrineEditor target={{ baseId: "shield_the_line", squadId: "greyford_shields" }} onClose={() => {}} />);
+    const panel = screen.getByRole("region", { name: "Test in the field" });
+    await user.click(screen.getByRole("button", { name: "Move order 3 up" }));
+    await user.click(within(panel).getByRole("button", { name: "Run the test" }));
+    await act(async () =>
+      fieldTests[0].finish({ runs: 120, base: { victories: 47, stalemates: 0, defeats: 73 }, variant: { victories: 75, stalemates: 0, defeats: 45 }, ahead: 47, behind: 19, stoppedBy: "clear" }),
+    );
+    expect(within(panel).getByText("Clearly better")).toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: "Run longer" })).not.toBeInTheDocument();
+  });
 });
