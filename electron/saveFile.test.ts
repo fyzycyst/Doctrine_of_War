@@ -45,6 +45,26 @@ describe("Electron save file", () => {
     expect(await readSaveFile(dir)).toBeNull();
   });
 
+  it("serializes overlapping writes: every save lands, the last one wins, no temp files remain", async () => {
+    const save = (tag: string) => JSON.stringify({ version: 1, tag, pad: "x".repeat(200 * 1024) });
+    for (let round = 0; round < 20; round += 1) {
+      const a = save(`a${round}`);
+      const b = save(`b${round}`);
+      const results = await Promise.allSettled([writeSaveFile(dir, a), writeSaveFile(dir, b), readSaveFile(dir)]);
+      expect(results.map((item) => item.status)).toEqual(["fulfilled", "fulfilled", "fulfilled"]);
+      expect(await readSaveFile(dir)).toBe(b);
+    }
+    expect(await fs.readdir(dir)).toEqual([SAVE_FILE_NAME]);
+  });
+
+  it("a rejected write does not block the queue", async () => {
+    await expect(writeSaveFile(dir, "not json")).rejects.toThrow();
+    await expect(writeSaveFile(path.join(dir, "missing", "\0bad"), "{}")).rejects.toThrow();
+    const payload = JSON.stringify({ version: 1 });
+    await writeSaveFile(dir, payload);
+    expect(await readSaveFile(dir)).toBe(payload);
+  });
+
   it("refuses to read an oversized save file", async () => {
     await fs.writeFile(saveFilePath(dir), "x".repeat(MAX_SAVE_BYTES + 1));
     await expect(readSaveFile(dir)).rejects.toThrow(/exceeds/);
