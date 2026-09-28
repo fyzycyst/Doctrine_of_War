@@ -113,7 +113,9 @@ imported (see `fromEngine.ts`); engine logic may not.
     Cinderram's hide burn runs over the first half of it. Under reduced motion it cuts.
   - **Exit edge:** `<Diorama exitHexes={edgeHexes}>` marks an escape edge (Saltmarsh's southern
     row): a faint pale glow brightest toward the off-board side and chevrons drifting off the
-    board (`terrain/ExitMarkers.tsx`; static under reduced motion, not pickable).
+    board (`terrain/ExitMarkers.tsx`; static under reduced motion, not pickable). Exit hexes are
+    known ground: the fog of war never covers them (`knownHexes`), and the markers draw after the
+    mist.
   - Lab: `&scenario=saltmarsh` and `&scenario=holdForDawn` load the real scenarios
     (`&fadeTo=sunrise&fadeAt=0.8` shows the fade).
 - `terrain/buildIsland.ts`: a pure builder from a `BoardLayout` to one merged vertex-coloured
