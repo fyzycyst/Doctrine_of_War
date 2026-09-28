@@ -1,8 +1,8 @@
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
-import { SAVE_READ_CHANNEL, SAVE_WRITE_CHANNEL } from "./saveChannels";
-import { readSaveFile, writeSaveFile } from "./saveFile";
+import { SAVE_READ_CHANNEL, SAVE_WRITE_CHANNEL, VARIANTS_READ_CHANNEL, VARIANTS_WRITE_CHANNEL } from "./saveChannels";
+import { readSaveFile, readVariantsFile, writeSaveFile, writeVariantsFile } from "./saveFile";
 import { isAppUrl, isTrustedSender, type AppLocation } from "./security";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -71,6 +71,15 @@ function registerSaveHandlers() {
   ipcMain.handle(SAVE_WRITE_CHANNEL, (event, data: unknown) => {
     trusted(event, SAVE_WRITE_CHANNEL);
     return writeSaveFile(app.getPath("userData"), data);
+  });
+  // Doctrine variants (T16): a second fixed file, same checks.
+  ipcMain.handle(VARIANTS_READ_CHANNEL, (event) => {
+    trusted(event, VARIANTS_READ_CHANNEL);
+    return readVariantsFile(app.getPath("userData"));
+  });
+  ipcMain.handle(VARIANTS_WRITE_CHANNEL, (event, data: unknown) => {
+    trusted(event, VARIANTS_WRITE_CHANNEL);
+    return writeVariantsFile(app.getPath("userData"), data);
   });
 }
 

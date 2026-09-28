@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState, doctrineLibrary, firstBreach, resolvePhase } from ".";
-import { deriveDoctrine, editableParams, isVariantAllowed, unreachableRules, validateVariant, withVariants, type DoctrineVariant } from "./editor";
+import {
+  checkVariantsPayload,
+  deriveDoctrine,
+  editableParams,
+  isVariantAllowed,
+  parseVariants,
+  serializeVariants,
+  unreachableRules,
+  validateVariant,
+  withVariants,
+  type DoctrineVariant,
+} from "./editor";
 
 const shield = doctrineLibrary.shield_the_line;
 const cut = (overrides: Partial<DoctrineVariant> = {}): DoctrineVariant => ({
@@ -96,5 +107,27 @@ describe("unreachable rules", () => {
   it("flags rules after an Otherwise", () => {
     expect(unreachableRules(deriveDoctrine(shield, cut({ order: ["stl_hold", "stl_brace", "stl_break"], params: {} })))).toEqual(["stl_brace", "stl_break"]);
     expect(unreachableRules(shield)).toEqual([]);
+  });
+});
+
+describe("the variants file", () => {
+  it("round-trips, and drops a bad variant while keeping the rest", () => {
+    const good = cut();
+    const json = serializeVariants([good]);
+    expect(parseVariants(json).variants.map((item) => item.variant)).toEqual([good]);
+    expect(checkVariantsPayload(json)).toBe(json);
+
+    const mixed = JSON.stringify({ version: 1, variants: [good, { ...good, id: "v-other", order: ["stl_hold"] }, good] });
+    const parsed = parseVariants(mixed);
+    expect(parsed.variants).toHaveLength(1);
+    expect(parsed.dropped).toBe(2); // the malformed one, and the duplicate id
+    expect(() => checkVariantsPayload(mixed)).toThrow(/failed validation/);
+  });
+
+  it("refuses a broken file outright", () => {
+    for (const bad of [null, "not json", "[]", JSON.stringify({ version: 2, variants: [] }), JSON.stringify({ version: 1, variants: {} }), "x".repeat(70_000)]) {
+      expect(() => parseVariants(bad)).toThrow(/Doctrine variants/);
+    }
+    expect(() => parseVariants(JSON.stringify({ version: 1, variants: Array(25).fill(cut()) }))).toThrow(/more than 24/);
   });
 });

@@ -2,6 +2,8 @@
 // variant is a base doctrine with its rules reordered and some numeric thresholds
 // moved within bounds. Nothing else can change: no rules added or removed, no new
 // condition or action kinds, no passives. Everything here fails closed.
+import { doctrineLibrary } from "./doctrines";
+import { scenarios } from "./scenarios";
 import type { Condition, Doctrine, DoctrineLibrary, DoctrineRule, EngineScenario } from "./types";
 
 /** One numeric condition parameter the editor may move. */
@@ -195,6 +197,71 @@ export function withVariants(
     scenario: { ...scenario, playerDoctrineIds: [...scenario.playerDoctrineIds, ...usable.map(({ variant }) => variant.id)] },
     doctrines: { ...library, ...Object.fromEntries(usable.map(({ doctrine }) => [doctrine.id, doctrine])) },
   };
+}
+
+// ---------------------------------------------------------------------------
+// The variants file: its own versioned store, apart from the campaign save.
+// ---------------------------------------------------------------------------
+
+export const VARIANTS_VERSION = 1;
+export const MAX_VARIANTS = 24;
+export const MAX_VARIANTS_BYTES = 64 * 1024;
+
+/** Doctrines a variant may be cut from: any the player is offered in some battle. */
+export const EDITABLE_DOCTRINE_IDS: string[] = [...new Set(scenarios.flatMap((scenario) => scenario.playerDoctrineIds))];
+
+export class VariantsFileError extends Error {
+  constructor(message: string) {
+    super(`Doctrine variants: ${message}`);
+    this.name = "VariantsFileError";
+  }
+}
+
+export interface CheckedVariant {
+  variant: DoctrineVariant;
+  doctrine: Doctrine;
+}
+
+export function serializeVariants(variants: DoctrineVariant[]): string {
+  return JSON.stringify({ version: VARIANTS_VERSION, variants });
+}
+
+/**
+ * Reads a variants file. A broken file (not JSON, wrong version, too big) throws; a
+ * variant that fails validation (a base rule that changed, a hand-edited number) is
+ * dropped and counted, and its base doctrine plays in its place.
+ */
+export function parseVariants(json: unknown, library: DoctrineLibrary = doctrineLibrary): { variants: CheckedVariant[]; dropped: number } {
+  if (typeof json !== "string") throw new VariantsFileError("must be a string");
+  if (new TextEncoder().encode(json).length > MAX_VARIANTS_BYTES) throw new VariantsFileError(`larger than ${MAX_VARIANTS_BYTES} bytes`);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new VariantsFileError("not valid JSON");
+  }
+  if (!isPlainObject(parsed) || parsed.version !== VARIANTS_VERSION || !Array.isArray(parsed.variants)) {
+    throw new VariantsFileError(`expected { version: ${VARIANTS_VERSION}, variants: [...] }`);
+  }
+  if (parsed.variants.length > MAX_VARIANTS) throw new VariantsFileError(`more than ${MAX_VARIANTS} variants`);
+  const variants: CheckedVariant[] = [];
+  let dropped = 0;
+  for (const raw of parsed.variants) {
+    const checked = validateVariant(raw, library, EDITABLE_DOCTRINE_IDS);
+    if (checked.ok && !variants.some((item) => item.variant.id === checked.variant.id)) {
+      variants.push({ variant: checked.variant, doctrine: checked.doctrine });
+    } else {
+      dropped += 1;
+    }
+  }
+  return { variants, dropped };
+}
+
+/** What a writer (Electron's main process) accepts: a file that parses with nothing dropped. */
+export function checkVariantsPayload(data: unknown): string {
+  const { dropped } = parseVariants(data);
+  if (dropped > 0) throw new VariantsFileError(`${dropped} variant(s) failed validation`);
+  return data as string;
 }
 
 /** Rules placed after an always-firing rule can never fire (a warning, not an error). */

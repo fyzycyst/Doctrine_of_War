@@ -5,7 +5,18 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startCampaign } from "../src/game/campaign/campaign";
 import { ashAndBanner } from "../src/game/campaign/definition";
 import { MAX_SAVE_BYTES as CAMPAIGN_MAX_SAVE_BYTES, saveCampaign } from "../src/game/campaign/save";
-import { checkSavePayload, MAX_SAVE_BYTES, readSaveFile, SAVE_FILE_NAME, saveFilePath, writeSaveFile } from "./saveFile";
+import { serializeVariants } from "../src/game/engine/editor";
+import {
+  checkSavePayload,
+  MAX_SAVE_BYTES,
+  readSaveFile,
+  readVariantsFile,
+  SAVE_FILE_NAME,
+  saveFilePath,
+  VARIANTS_FILE_NAME,
+  writeSaveFile,
+  writeVariantsFile,
+} from "./saveFile";
 
 /** A real, loadable save; `extra` envelope keys are ignored by loadCampaign. */
 const validSave = (extra: Record<string, unknown> = {}) =>
@@ -137,5 +148,47 @@ describe("Electron save file", () => {
       await expect(readSaveFile(dir)).rejects.toThrow(/not a regular file/);
       await expect(writeSaveFile(dir, validSave())).rejects.toThrow(/not a regular file/);
     });
+  });
+});
+
+describe("Electron doctrine variants file", () => {
+  let dir: string;
+  const variant = {
+    id: "v-shield-veterans-cut",
+    baseId: "shield_the_line",
+    name: "Shield the Line (Veteran's cut)",
+    order: ["stl_brace", "stl_break", "stl_hold"],
+    params: { stl_break: { value: 35 } },
+  };
+
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "dow-variants-"));
+  });
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("round-trips its own fixed file beside the save", async () => {
+    expect(await readVariantsFile(dir)).toBeNull();
+    const payload = serializeVariants([variant]);
+    await writeVariantsFile(dir, payload);
+    expect(await readVariantsFile(dir)).toBe(payload);
+    expect(await fs.readdir(dir)).toEqual([VARIANTS_FILE_NAME]);
+    expect(await readSaveFile(dir)).toBeNull();
+  });
+
+  it("refuses to write a file with any variant the game would drop", async () => {
+    for (const bad of [42, "{}", serializeVariants([{ ...variant, params: { stl_break: { value: 95 } } }]), serializeVariants([{ ...variant, order: ["stl_hold"] }])]) {
+      await expect(writeVariantsFile(dir, bad)).rejects.toThrow();
+    }
+    expect(await fs.readdir(dir)).toEqual([]);
+  });
+
+  it("does not follow a planted link", async () => {
+    const outside = path.join(dir, "outside.json");
+    await fs.writeFile(outside, serializeVariants([variant]));
+    await fs.symlink(outside, path.join(dir, VARIANTS_FILE_NAME));
+    await expect(readVariantsFile(dir)).rejects.toThrow(/not a regular file/);
   });
 });

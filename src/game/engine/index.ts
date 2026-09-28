@@ -25,3 +25,4 @@ export { emberFord } from "./scenarios/emberFord";
 export { saltmarshColumn } from "./scenarios/saltmarshColumn";
 export { holdForDawn } from "./scenarios/holdForDawn";
 export { scenarios } from "./scenarios";
+export * from "./editor";
