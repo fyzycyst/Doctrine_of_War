@@ -12,6 +12,9 @@ export interface DepthFadeUniforms {
   uFadeColor: { value: THREE.Color };
   uFadeTop: { value: number };
   uFadeBottom: { value: number };
+  /** Campaign map status styling: 0..1 dim (misty/half-lit) and ash (lost). */
+  uDim: { value: number };
+  uAsh: { value: number };
 }
 
 /**
@@ -23,6 +26,8 @@ export function createIslandMaterial(style: MaterialStyle): THREE.Material & { u
     uFadeColor: { value: new THREE.Color("#3a2530") },
     uFadeTop: { value: -1.4 },
     uFadeBottom: { value: -6.8 },
+    uDim: { value: 0 },
+    uAsh: { value: 0 },
   };
   const material =
     style.shading === "toon"
@@ -40,7 +45,7 @@ export function createIslandMaterial(style: MaterialStyle): THREE.Material & { u
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",
-        `#include <common>\nvarying float vWorldY;\nvarying vec2 vWorldXZ;\nuniform vec3 uFadeColor;\nuniform float uFadeTop;\nuniform float uFadeBottom;\nuniform sampler2D uFogGrid;\nuniform float uFogExtent;\nuniform float uFogStrength;\nuniform float uWet;\n${BACKDROP_GLSL}`,
+        `#include <common>\nvarying float vWorldY;\nvarying vec2 vWorldXZ;\nuniform vec3 uFadeColor;\nuniform float uFadeTop;\nuniform float uFadeBottom;\nuniform float uDim;\nuniform float uAsh;\nuniform sampler2D uFogGrid;\nuniform float uFogExtent;\nuniform float uFogStrength;\nuniform float uWet;\n${BACKDROP_GLSL}`,
       )
       // Weather: wet ground is darker (and glossier, below).
       .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb *= 1.0 - 0.3 * uWet * step(-0.2, vWorldY);")
@@ -55,6 +60,11 @@ if (uFogStrength > 0.0) {
   float fogv = texture2D(uFogGrid, vWorldXZ / (uFogExtent * 2.0) + 0.5).b;
   vec3 grey = vec3(dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722)));
   outgoingLight = mix(outgoingLight, grey * 0.72, fogv * 0.6);
+}
+{
+  float lum = dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722));
+  outgoingLight = mix(outgoingLight, vec3(lum) * vec3(0.62, 0.56, 0.52), uAsh);
+  outgoingLight = mix(outgoingLight, vec3(lum) * 0.45, uDim * 0.75);
 }
 float depthFade = smoothstep(uFadeTop, uFadeBottom, vWorldY);
 // Dissolve into the backdrop pixel behind us (lightly tinted by the skin).

@@ -199,7 +199,7 @@ const DASHED_RING = (() => {
   return mergeGeometries(parts);
 })();
 
-function makeClothMaterial(texture: THREE.Texture, phase: number, ghost = false) {
+export function makeClothMaterial(texture: THREE.Texture, phase: number, ghost = false) {
   // A last-known squad's banner is a colourless dark rag: no heraldry to read.
   const m = new THREE.MeshStandardMaterial({
     map: ghost ? null : texture,
@@ -237,7 +237,7 @@ function makeClothMaterial(texture: THREE.Texture, phase: number, ghost = false)
   return m;
 }
 
-function makeBannerTexture(faction: FactionId, style: FactionStyle): THREE.Texture {
+export function makeBannerTexture(faction: FactionId, style: FactionStyle): THREE.Texture {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 160;

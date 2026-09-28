@@ -1,8 +1,15 @@
 import { Stats } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useAudioStore } from "../../app/audioStore";
+import { useCaptureStore } from "../../app/captureStore";
 import { useAppStore, type RenderQuality } from "../../app/store";
+import { emberFord } from "../../game/engine/scenarios/emberFord";
+import { firstBreach } from "../../game/engine/scenarios/firstBreach";
+import { cinematicPaths, type CinematicPathId } from "../camera/cameraPath";
+import { CinematicCamera } from "../camera/CinematicCamera";
+import { CampaignMap, type CampaignMapBattle } from "../showcase/CampaignMap";
+import { TitleScene } from "../showcase/TitleScene";
 import { playSfx, SFX_NAMES, useAmbience } from "../../audio";
 import { hexKey } from "../../game/board";
 import { closeShot, DioramaCamera, wideShot, type CameraShot } from "../camera/DioramaCamera";
@@ -26,6 +33,11 @@ import { fogOfWar, LAB_SCENES, stepToward, type LabSceneId } from "./labScene";
  * &fogFreeze=<s> for stills of the enemy emerging from the mist),
  * deploy=1, select=<squadId>, hover=q,r, ui=0, still=1 (no idle drift), and for stills of an animation:
  * anim=<march|lunge|fall|rout|rally|brace>&animSquad=<id>&animFreeze=<seconds>.
+ *
+ * Showcase (T13): view=title | campaign (&campaignMock=a|b), path=<craneInGate|
+ * bannerDolly|riverPush|titleFlyover> (cinematic camera), seq=1 (frameloop
+ * "never"; the capture script steps time via window.__lookLabAdvance(t)),
+ * capture=1 (hide every panel).
  *
  * Exposes `window.__lookLab = { ready, frames, fps }` for the capture script.
  */
@@ -80,15 +92,106 @@ function readParams() {
     dpr: num("dpr"),
     hover: p.get("hover"),
     revealAt: num("revealAt") ?? 2,
+    view: (p.get("view") ?? "diorama") as "diorama" | "title" | "campaign",
+    campaignMock: p.get("campaignMock") === "b" ? "b" : "a",
+    path: p.get("path") as CinematicPathId | null,
+    seq: p.get("seq") === "1",
     fogFreeze: num("fogFreeze"),
   };
 }
 
 export function LookLab() {
   const initial = useMemo(readParams, []);
+  if (initial.view === "title") return <TitleLab seq={initial.seq} />;
+  if (initial.view === "campaign") return <CampaignLab seq={initial.seq} mock={initial.campaignMock as "a" | "b"} />;
+  return <DioramaLab initial={initial} />;
+}
+
+/** Probes shared by every lab view: readiness for the capture script, and frame stepping. */
+function LabProbes({ ready, seq }: { ready: boolean; seq: boolean }) {
+  return (
+    <>
+      <FrameProbe figuresReady={ready} />
+      {seq && <SequenceDriver />}
+    </>
+  );
+}
+
+/** Exposes R3F's `advance(t)` so the capture script can step deterministic frames. */
+function SequenceDriver() {
+  const advance = useThree((s) => s.advance);
+  useEffect(() => {
+    (window as unknown as { __lookLabAdvance?: (t: number) => void }).__lookLabAdvance = (t: number) => advance(t);
+    return () => {
+      delete (window as unknown as { __lookLabAdvance?: unknown }).__lookLabAdvance;
+    };
+  }, [advance]);
+  return null;
+}
+
+function TitleLab({ seq }: { seq: boolean }) {
+  return (
+    <div style={{ position: "fixed", inset: 0 }}>
+      <TitleScene frameloop={seq ? "never" : "always"} inCanvas={<LabProbes ready seq={seq} />}>
+        <div style={{ display: "flex", gap: 14 }}>
+          {["Begin the Campaign", "Continue", "Settings"].map((label) => (
+            <span key={label} style={menuButton}>
+              {label}
+            </span>
+          ))}
+        </div>
+      </TitleScene>
+    </div>
+  );
+}
+
+const menuButton: CSSProperties = {
+  padding: "10px 22px",
+  border: "1px solid rgba(212,166,74,0.7)",
+  background: "rgba(20,16,22,0.72)",
+  color: "#efe3c8",
+  font: "600 15px/1 Cinzel, Georgia, serif",
+  letterSpacing: "0.1em",
+  borderRadius: 3,
+};
+
+/** Mock campaign states so every island status can be captured. */
+const CAMPAIGN_MOCKS: Record<"a" | "b", CampaignMapBattle[]> = {
+  a: [
+    { id: "tutorial", title: "The First Breach", timeOfDay: "dusk", status: "won", board: firstBreach.board },
+    { id: "battle_1", title: "Ember Ford", timeOfDay: "nightFires", status: "current", board: emberFord.board },
+    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "locked", placeholder: "saltmarsh" },
+    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "locked", placeholder: "holdForDawn" },
+  ],
+  b: [
+    { id: "tutorial", title: "The First Breach", timeOfDay: "dusk", status: "won", board: firstBreach.board },
+    { id: "battle_1", title: "Ember Ford", timeOfDay: "nightFires", status: "stalemate", board: emberFord.board },
+    { id: "battle_2", title: "The Saltmarsh Column", timeOfDay: "rainGrey", status: "lost", placeholder: "saltmarsh" },
+    { id: "battle_3", title: "Hold for Dawn", timeOfDay: "predawn", status: "current", placeholder: "holdForDawn" },
+  ],
+};
+
+function CampaignLab({ seq, mock }: { seq: boolean; mock: "a" | "b" }) {
+  const [picked, setPicked] = useState<string | null>(null);
+  return (
+    <div style={{ position: "fixed", inset: 0 }}>
+      <CampaignMap
+        battles={CAMPAIGN_MOCKS[mock]}
+        onSelect={setPicked}
+        frameloop={seq ? "never" : "always"}
+        inCanvas={<LabProbes ready seq={seq} />}
+      >
+        {picked && <div style={{ ...panel, top: "auto", bottom: 12, right: "auto", left: 12 }}>Selected: {picked}</div>}
+      </CampaignMap>
+    </div>
+  );
+}
+
+function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
   const [state, setState] = useState<LabState>(initial.state);
   const quality = useAppStore((s) => s.quality);
   const setQuality = useAppStore((s) => s.setQuality);
+  const captureMode = useCaptureStore((s) => s.captureMode);
   const selectedSquadId = useAppStore((s) => s.selectedSquadId);
   const clearSelection = useAppStore((s) => s.clearSelection);
   const [figuresReady, setFiguresReady] = useState(false);
@@ -151,6 +254,7 @@ export function LookLab() {
     };
   }, [state.cam, scene, initial.shot]);
   const onFiguresReady = useCallback(() => setFiguresReady(true), []);
+  const cinematic = useMemo(() => (initial.path ? (cinematicPaths(scene.board)[initial.path] ?? null) : null), [initial.path, scene.board]);
 
   // Fog of war: "on" = the Banners see 2 hexes; "reveal" starts at 1 and, after
   // `revealAt` seconds, widens to 3 so Host squads emerge from the mist.
@@ -202,13 +306,18 @@ export function LookLab() {
     <div style={{ position: "fixed", inset: 0, background: "#0d0c12" }}>
       <Canvas
         shadows="soft"
+        frameloop={initial.seq ? "never" : "always"}
         dpr={initial.dpr ?? canvasDpr(quality)}
         camera={{ fov: 30, near: 0.1, far: 200, position: [0, 10, 14] }}
         gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         onPointerMissed={() => clearSelection()}
       >
         <LookProvider skin={skin} timeOfDay={state.preset} weather={state.weather}>
-          <DioramaCamera shot={shot} drift={!initial.still} />
+          {cinematic ? (
+            <CinematicCamera path={cinematic} />
+          ) : (
+            <DioramaCamera shot={shot} drift={!initial.still} />
+          )}
           <Diorama
             key={state.board}
             board={scene.board}
@@ -221,7 +330,7 @@ export function LookLab() {
             onFiguresReady={onFiguresReady}
           />
           <PostFX />
-          <FrameProbe figuresReady={figuresReady} />
+          <LabProbes ready={figuresReady} seq={initial.seq} />
           <AtmosphereFreezer />
           {state.fog === "reveal" && figuresReady && !revealed && (
             <After seconds={initial.revealAt} run={() => setRevealed(true)} />
@@ -238,7 +347,7 @@ export function LookLab() {
           )}
         </LookProvider>
       </Canvas>
-      {initial.ui && (
+      {initial.ui && !captureMode && (
         <>
           <Stats className="look-lab-stats" />
           <LabPanel

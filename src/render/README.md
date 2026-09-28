@@ -54,6 +54,25 @@ imported (see `fromEngine.ts`); engine logic may not.
   licences are in `/CREDITS.md`.
 - **Render scale:** `canvasDpr(quality, ultra?)` in `quality.ts`: high caps at DPR 1.5, low is 1,
   and ultra (opt-in) is full device DPR.
+- **Showcase (T13), `src/render/showcase/`:**
+  - `<TitleScene title? subtitle? board? squads? startAt?>{menu}</TitleScene>`: a full-screen
+    title scene. A looping crane (`titleFlyover`) runs over First Breach at dusk with the squads at
+    the gate. The title is an HTML overlay in Cinzel; `children` is the menu slot (hidden in capture
+    mode). It holds still under prefers-reduced-motion and follows the quality setting.
+  - `<CampaignMap battles={[{ id, title, timeOfDay, status, board?, placeholder? }]} onSelect>`:
+    the war as an archipelago, one miniature island per battle (`buildIsland` at a small scale;
+    battles without a board get `placeholderBoard("saltmarsh" | "holdForDawn")`).
+    - Status `locked`: misty and dim. `current`: glows, flies the banner, lit braziers. `won`:
+      Banner flag. `stalemate`: half-lit, flag at half height. `lost`: ashen, Host flag.
+    - A dotted march path runs between the islands, gold up to the current battle.
+    - Hover shows a DOM label projected from 3D (the current battle is always labelled).
+    - Clicking a non-locked island calls `onSelect(id)`. The camera fits the whole archipelago
+      and pans gently.
+  - **Capture mode:** `useCaptureStore` (`src/app/captureStore.ts`), on with `?capture=1`.
+  - **Cinematic paths:** `camera/cameraPath.ts` has keyframed `CameraPath`s with a pure
+    `sampleCameraPath`, and `cinematicPaths(board)` returns `craneInGate`, `bannerDolly`,
+    `riverPush` (river boards) and `titleFlyover`. `<CinematicCamera path>` drives the camera from
+    the R3F clock, so it is deterministic under `advance(t)`.
 - `terrain/buildIsland.ts`: a pure builder from a `BoardLayout` to one merged vertex-coloured
   geometry: tiles, a continuous jagged rock underside, props, roads, walls/gate, town, and sunken
   `river` channels that run off the board into a waterfall. It also returns anchors (water, flow,
