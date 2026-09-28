@@ -31,6 +31,43 @@ async function waitForSettle(win, probe = "__lookLab") {
   throw new Error(`timed out waiting for Look Lab to settle (last state: ${last})`);
 }
 
+/**
+ * Frame-sequence job (`job.sequence = { frames, fps, start? }`): the lab runs with
+ * `seq=1` (R3F frameloop "never") and exposes `window.__lookLabAdvance(t)`. We warm
+ * the scene up at t≈0, then step the clock to start + i / fps for each frame and
+ * capture it, so every frame is deterministic whatever the machine's speed.
+ */
+async function captureSequence(win, job, width, height) {
+  const { frames, fps = 30, start = 0 } = job.sequence;
+  const dir = path.join(outDir, job.name);
+  await mkdir(dir, { recursive: true });
+  const t0 = Date.now();
+  while (!(await win.webContents.executeJavaScript("typeof window.__lookLabAdvance === 'function'"))) {
+    if (Date.now() - t0 > TIMEOUT_MS) throw new Error("lab did not expose __lookLabAdvance (is seq=1 set?)");
+    await sleep(100);
+  }
+  // Warm-up: compile shaders, mount figures, settle React state, without moving time.
+  await win.webContents.executeJavaScript(`(async () => {
+    for (let i = 0; i < 150; i++) {
+      window.__lookLabAdvance(${start} + i * 1e-4);
+      await new Promise((r) => requestAnimationFrame(() => r()));
+    }
+  })()`);
+  for (let i = 0; i < frames; i += 1) {
+    const t = start + i / fps;
+    await win.webContents.executeJavaScript(`(async () => {
+      window.__lookLabAdvance(${t});
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    })()`);
+    let image = await win.webContents.capturePage();
+    if (process.env.CAPTURE_SCALE !== "2" && image.getSize().width !== width) {
+      image = image.resize({ width, height, quality: "best" });
+    }
+    await writeFile(path.join(dir, `frame_${String(i).padStart(4, "0")}.png`), image.toPNG());
+  }
+  console.log(`captured ${dir}/frame_0000..${String(frames - 1).padStart(4, "0")}.png (${frames} frames @ ${fps} fps)`);
+}
+
 app.whenReady().then(async () => {
   await mkdir(outDir, { recursive: true });
   const win = new BrowserWindow({
@@ -49,6 +86,10 @@ app.whenReady().then(async () => {
       const height = job.height ?? HEIGHT;
       win.setContentSize(width, height);
       await win.loadURL(job.probe ? `${url}?${job.query}` : `${url}?lab=1&${job.query}&ui=0&still=1`);
+      if (job.sequence) {
+        await captureSequence(win, job, width, height);
+        continue;
+      }
       const state = await waitForSettle(win, job.probe);
       // An app job may run a snippet first (e.g. focus a card), then let transitions finish.
       if (job.eval) await win.webContents.executeJavaScript(job.eval);

@@ -58,6 +58,21 @@ node node_modules/electron/install.js
 - `npm run capture [-- <filter>]` saves 1600×1000 PNGs of the lab into `captures/` (gitignored).
 - `npm run fetch:cc0` downloads the optional CC0 KayKit figures (figure approach b).
 
+### Capture mode and video frames
+
+- `?capture=1` turns on capture mode (`useCaptureStore` in `src/app/captureStore.ts`): UI layers
+  hide so the diorama records clean.
+- `npm run capture -- --sequence <path> [--scenario firstBreach|emberFord] [--seconds 8] [--fps 30]`
+  steps the scene deterministically along a cinematic camera path and writes
+  `captures/seq-<path>/frame_0000.png …`. Paths: `craneInGate`, `bannerDolly`, `riverPush`
+  (Ember Ford) and `titleFlyover`.
+- Turn a sequence into a clip with ffmpeg (optional, not needed by the project):
+
+```bash
+ffmpeg -framerate 30 -i captures/seq-craneInGate/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -crf 16 crane-in.mp4
+```
+
+
 ## Checks
 
 ```bash

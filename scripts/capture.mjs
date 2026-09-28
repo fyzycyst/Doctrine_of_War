@@ -1,4 +1,8 @@
 // Look Lab screenshot capture: `npm run capture [-- <filter>]`.
+// Video frames:   `npm run capture -- --sequence <pathId> [--scenario firstBreach|emberFord]
+//                  [--seconds 8] [--fps 30] [--preset dusk]`
+//   dumps captures/seq-<pathId>/frame_0000.png … stepped deterministically along a
+//   cinematic camera path (see README for the ffmpeg command to make a clip).
 // Starts a Vite dev server, launches Electron with a hidden 1600x1000 window,
 // loads each `?lab=1&...` job, waits for the scene to settle and saves PNGs via
 // webContents.capturePage() into captures/ (gitignored). Reused later for marketing shots.
@@ -42,8 +46,39 @@ const jobs = [
   { name: "chronicle-stub-toy", query: "preset=dusk&figures=a&skin=illuminatedChronicle" },
 ];
 
-const filter = process.argv[2];
-const selected = filter ? jobs.filter((j) => j.name.includes(filter)) : jobs;
+jobs.push(
+  // Showcase (T13).
+  { name: "title", query: "view=title&seq=1", sequence: { frames: 2, fps: 0.1 } },
+  { name: "campaign-a", query: "view=campaign&campaignMock=a" },
+  { name: "campaign-b", query: "view=campaign&campaignMock=b" },
+  { name: "path-craneInGate", query: "preset=dusk&figures=a&path=craneInGate&seq=1", sequence: { frames: 3, fps: 0.35 } },
+  { name: "path-riverPush", query: "scenario=emberFord&preset=nightFires&figures=a&path=riverPush&seq=1", sequence: { frames: 3, fps: 0.4 } },
+);
+
+function arg(name, fallback) {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 ? process.argv[i + 1] : fallback;
+}
+
+const sequencePath = arg("sequence");
+let selected;
+if (sequencePath) {
+  const seconds = Number(arg("seconds", "8"));
+  const fps = Number(arg("fps", "30"));
+  const scenario = arg("scenario", sequencePath === "riverPush" ? "emberFord" : "firstBreach");
+  const preset = arg("preset", scenario === "emberFord" ? "nightFires" : "dusk");
+  selected = [
+    {
+      name: `seq-${sequencePath}`,
+      query: `scenario=${scenario}&preset=${preset}&figures=a&path=${sequencePath}&seq=1&capture=1`,
+      sequence: { frames: Math.round(seconds * fps), fps },
+    },
+  ];
+} else {
+  const filter = process.argv[2];
+  selected = filter ? jobs.filter((j) => j.name.includes(filter)) : jobs;
+}
+const filter = sequencePath ?? process.argv[2];
 if (selected.length === 0) {
   console.error(`No capture jobs match "${filter}". Jobs: ${jobs.map((j) => j.name).join(", ")}`);
   process.exit(1);
