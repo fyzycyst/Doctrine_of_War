@@ -206,7 +206,9 @@ describe("routDirection", () => {
     const center = boardCenter(firstBreach.board);
     for (const hex of firstBreach.board.hexes) {
       for (const faction of ["free_banners", "ashen_host"] as const) {
-        const [dx, dz] = routDirection(firstBreach.board, hex.coord, faction);
+        const direction = routDirection(firstBreach.board, hex.coord, faction);
+        if (!direction) continue;
+        const [dx, dz] = direction;
         const [ox, oz] = hexToWorld(hex.coord, center);
         const target = hexNeighbors(hex.coord).find((neighbour) => {
           const [nx, nz] = hexToWorld(neighbour, center);
@@ -219,10 +221,23 @@ describe("routDirection", () => {
       }
     }
     // Greyford Shields at the Siege Approach, beside the gate: they must not run east into the wall.
-    const [dx] = routDirection(firstBreach.board, { q: 3, r: 2 }, "free_banners");
+    const [dx] = routDirection(firstBreach.board, { q: 3, r: 2 }, "free_banners")!;
     expect(dx).toBeGreaterThan(0);
-    const [hx] = routDirection(firstBreach.board, { q: 1, r: 2 }, "ashen_host");
+    const [hx] = routDirection(firstBreach.board, { q: 1, r: 2 }, "ashen_host")!;
     expect(hx).toBeLessThan(0);
+  });
+
+  it("has no line of flight when every neighbour is wall or deep river", () => {
+    const centre = { q: 1, r: 1 };
+    const board = {
+      width: 3,
+      height: 3,
+      hexes: [
+        { coord: centre, terrain: "field" as const },
+        ...hexNeighbors(centre).map((coord, i) => ({ coord, terrain: i % 2 ? ("wall" as const) : ("river" as const) })),
+      ],
+    };
+    expect(routDirection(board, centre, "free_banners")).toBeNull();
   });
 });
 

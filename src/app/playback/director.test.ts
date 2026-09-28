@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { hexNeighbors } from "../../game/board";
 import { createInitialState, eventsFor, firstBreach, resolvePhase, visibleState, type VisibleState } from "../../game/engine";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { PlaybackDirector, WAIT_SLICE_MS, type CalloutSpec, type DirectorHooks } from "./director";
@@ -189,5 +190,23 @@ describe("PlaybackDirector: pace inside a step", () => {
     expect(slept.slice(1).every((ms) => ms <= WAIT_SLICE_MS / 2)).toBe(true);
     expect(slept.reduce((sum, ms) => sum + ms, 0)).toBeCloseTo(WAIT_SLICE_MS + (step.duration - WAIT_SLICE_MS) / 2, 5);
     expect(timeScales).toEqual([2, 1]);
+  });
+});
+
+describe("PlaybackDirector: a rout with nowhere to run", () => {
+  it("breaks in place (every figure falls) instead of fleeing into a wall", async () => {
+    const run = setup();
+    const centre = { q: 3, r: 2 };
+    run.hooks.board = {
+      width: 5,
+      height: 5,
+      hexes: [{ coord: centre, terrain: "road" }, ...hexNeighbors(centre).map((coord) => ({ coord, terrain: "wall" as const }))],
+    };
+    const rout = { phase: 1, beat: 0, visibleTo: [PLAYER], kind: "rout" as const, squadId: "greyford_shields", hex: centre, cause: "cohesion" as const };
+    const timeline = buildTimeline([rout], "readable", { playerFaction: PLAYER, factionOf: () => PLAYER });
+    await new PlaybackDirector(timeline, run.hooks).run();
+    expect(run.calls).toContain("fall:greyford_shields");
+    expect(run.calls).not.toContain("rout:greyford_shields");
+    expect(run.display().squads.find((squad) => squad.id === "greyford_shields")).toMatchObject({ status: "routed", hex: null });
   });
 });

@@ -299,7 +299,11 @@ export class PlaybackDirector {
         }
         hooks.caption(`${squad?.name ?? "A company"} ${event.kind === "exit" ? "escaped the field" : event.cause === "strength" ? "was destroyed" : "broke and fled"}`);
         const faction = squad?.faction ?? hooks.playerFaction;
-        const run = anim?.rout(event.squadId, { direction: routDirection(hooks.board, event.hex, faction), duration: d / 1000 });
+        const direction = routDirection(hooks.board, event.hex, faction);
+        // Hemmed in on every side: no line of flight, so the company breaks where it stands.
+        const run = direction
+          ? anim?.rout(event.squadId, { direction, duration: d / 1000 })
+          : anim?.fall(event.squadId, figureCount(squad?.strength ?? 100, hooks.maxFigures), { duration: d / 1000 });
         await Promise.all([this.wait(d), this.settle(run, d * 1.5)]);
         this.land(step);
         anim?.reset(event.squadId);

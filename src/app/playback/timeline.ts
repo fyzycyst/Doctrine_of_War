@@ -395,12 +395,13 @@ export function homeDirection(faction: FactionId): [number, number] {
  * The direction a routing squad scatters: the open neighbouring hex that points most
  * toward its home side. Walls and deep river are never chosen, so the Banners never
  * flee into their own gate; off-board edges are fine (they run off the island).
+ * null when every neighbour is closed: the squad breaks where it stands.
  */
-export function routDirection(board: BoardLayout, hex: HexCoord, faction: FactionId): [number, number] {
+export function routDirection(board: BoardLayout, hex: HexCoord, faction: FactionId): [number, number] | null {
   const home = homeDirection(faction);
   const center = boardCenter(board);
   const [ox, oz] = hexToWorld(hex, center);
-  let best: [number, number] = home;
+  let best: [number, number] | null = null;
   let bestScore = -Infinity;
   for (const neighbour of hexNeighbors(hex)) {
     const terrain = getHex(board, neighbour)?.terrain;
