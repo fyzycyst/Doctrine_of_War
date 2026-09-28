@@ -6,6 +6,10 @@
   --ink: #15131d;
   --glass: rgba(18, 15, 22, 0.84);
   --glass-strong: rgba(16, 13, 19, 0.93);
+  /* Full-screen dialogs: a near-opaque panel over a dark, blurred scrim, so nothing
+     behind (title lockup, menus, the board) reads through. */
+  --dialog-panel: rgba(16, 13, 19, 0.97);
+  --dialog-scrim: rgba(8, 6, 10, 0.88);
   --card: #1f1a17;
   --card-hi: #2b231d;
   --bone: #efe3c8;
@@ -1445,8 +1449,11 @@ h3 {
 /* ---------------------------------------------------------------- outcome */
 
 .outcome::backdrop,
-.modal::backdrop {
-  background: radial-gradient(ellipse at center, rgba(8, 6, 10, 0.45), rgba(8, 6, 10, 0.82));
+.modal::backdrop,
+.howto::backdrop,
+.intro::backdrop {
+  background: var(--dialog-scrim);
+  backdrop-filter: blur(6px);
 }
 
 .outcome {
@@ -1454,7 +1461,7 @@ h3 {
   color: var(--bone);
   padding: 26px 32px 28px;
   text-align: center;
-  background: var(--glass-strong);
+  background: var(--dialog-panel);
   border: 1px solid var(--gold-line);
   border-radius: 8px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
@@ -1514,7 +1521,7 @@ h3 {
   width: min(440px, calc(100vw - 48px));
   padding: 20px 22px;
   color: var(--bone);
-  background: var(--glass-strong);
+  background: var(--dialog-panel);
 }
 
 .modal h2 {
@@ -2552,7 +2559,7 @@ h3 {
   padding: 34px 38px;
   border: 1px solid var(--gold-line);
   border-radius: 10px;
-  background: var(--glass-strong);
+  background: var(--dialog-panel);
   color: var(--bone);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
   animation: unfurl 0.5s var(--ease) both;
@@ -2565,9 +2572,6 @@ h3 {
   align-items: center;
 }
 
-.intro::backdrop {
-  background: transparent;
-}
 
 .intro-art {
   display: grid;
@@ -2626,15 +2630,12 @@ h3 {
   padding: 22px 28px 20px;
   border: 1px solid var(--gold-line);
   border-radius: 10px;
-  background: var(--glass-strong);
+  background: var(--dialog-panel);
   color: var(--bone);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
   overflow-y: auto;
 }
 
-.howto::backdrop {
-  background: radial-gradient(ellipse at center, rgba(8, 6, 10, 0.55), rgba(8, 6, 10, 0.88));
-}
 
 .howto-head h2 {
   margin: 2px 0 14px;
