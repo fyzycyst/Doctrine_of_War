@@ -5,7 +5,7 @@
 // Everything here is inert when state.fortune is "off".
 import { boardNeighbors, getHex, hexDistance, type HexCoord } from "../board";
 import { checkRout, fortuneOn, type EngineContext, type EventBody, type RuleContext } from "./context";
-import type { EngineEvent, EngineSquad, EngineState, FactionId, SquadStatus } from "./types";
+import type { EngineEvent, EngineSquad, EngineState, FactionId, Redaction, RedactedActor, SquadStatus } from "./types";
 import { isActive, type ActiveSquad } from "./world";
 
 export const BASE_SIGHT = 2;
@@ -204,55 +204,134 @@ export function dreadFromSight(ctx: EngineContext): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * The factions that witness `event` at the moment it happens. The acting side always
- * does; the other side does only if it can see where it happened (for a move, any
- * hex of the path). Both sides of an engagement witness it. Objective damage is
- * always known to the defender. Weather and outcomes are public; a sighting belongs
- * to the side that made it. With fortune off, everyone sees everything.
+ * Who witnesses `event` at the moment it happens, and what each witness missed.
+ * The acting side always sees its own events; the other side sees one only if it
+ * can see where it happened (for a move, any hex of the path). Both sides of an
+ * engagement see it (they are adjacent, and neighbours always see each other).
+ * Objective damage is always known to the defender. Weather and outcomes are
+ * public; a sighting belongs to the side that made it. Fortune off: all see all.
  */
-export function eventVisibility(ctx: RuleContext, event: EventBody): FactionId[] {
+export function witnessEvent(
+  ctx: RuleContext,
+  event: EventBody,
+): { visibleTo: FactionId[]; redactions?: Partial<Record<FactionId, Redaction>> } {
   const everyone = factions(ctx.state);
   if (!fortuneOn(ctx)) {
-    return everyone;
+    return { visibleTo: everyone };
   }
-  const factionOf = (squadId: string) => ctx.state.squads.find((squad) => squad.id === squadId)?.faction;
-  const hexOf = (squadId: string) => ctx.state.squads.find((squad) => squad.id === squadId)?.hex ?? null;
+  // Raw events always carry actor ids; they only become null in projections.
+  const factionOf = (squadId: string | null) => ctx.state.squads.find((squad) => squad.id === squadId)?.faction;
+  const hexOf = (squadId: string | null) => ctx.state.squads.find((squad) => squad.id === squadId)?.hex ?? null;
   const witnessed = (owners: (FactionId | undefined)[], hexes: (HexCoord | null)[]) =>
     everyone.filter(
       (faction) => owners.includes(faction) || hexes.some((hex) => hex !== null && factionSees(ctx, faction, hex)),
     );
 
+  let visibleTo: FactionId[];
   switch (event.kind) {
     case "outcome":
     case "weatherShift":
-      return everyone;
+      visibleTo = everyone;
+      break;
     case "sighted":
-      return [event.faction];
+      visibleTo = [event.faction];
+      break;
     case "ruleFired":
     case "blocked":
     case "fortune":
-      return witnessed([factionOf(event.squadId)], [hexOf(event.squadId)]);
+      visibleTo = witnessed([factionOf(event.squadId)], [hexOf(event.squadId)]);
+      break;
     case "move":
-      return witnessed([factionOf(event.squadId)], event.path);
+      visibleTo = witnessed([factionOf(event.squadId)], event.path);
+      break;
     case "rout":
     case "exit":
-      return witnessed([factionOf(event.squadId)], [event.hex]);
+      visibleTo = witnessed([factionOf(event.squadId)], [event.hex]);
+      break;
     case "engagement":
-      return witnessed([factionOf(event.attackerId), factionOf(event.defenderId)], [event.attackerHex, event.defenderHex]);
+      visibleTo = witnessed([factionOf(event.attackerId), factionOf(event.defenderId)], [event.attackerHex, event.defenderHex]);
+      break;
     case "rally":
-      return witnessed([factionOf(event.sourceId)], [hexOf(event.sourceId), hexOf(event.targetId)]);
+      visibleTo = witnessed([factionOf(event.sourceId)], [hexOf(event.sourceId), hexOf(event.targetId)]);
+      break;
     case "objectiveDamage": {
       const defender = ctx.state.objectives.find((objective) => objective.id === event.objectiveId)?.defender;
-      return witnessed([factionOf(event.attackerId), defender], [event.hex]);
+      visibleTo = witnessed([factionOf(event.attackerId), defender], [event.hex]);
+      break;
     }
     case "dread":
-      return witnessed([factionOf(event.squadId)], [hexOf(event.squadId)]);
+      visibleTo = witnessed([factionOf(event.squadId)], [hexOf(event.squadId)]);
+      break;
   }
+
+  const redactions: Partial<Record<FactionId, Redaction>> = {};
+  const actorSeen = (faction: FactionId, squadId: string | null) => {
+    if (squadId === null || factionOf(squadId) === faction) {
+      return true;
+    }
+    const hex = hexOf(squadId);
+    return hex !== null && factionSees(ctx, faction, hex);
+  };
+  const hide = (faction: FactionId, actor: RedactedActor) => {
+    const current = redactions[faction] ?? {};
+    redactions[faction] = { ...current, hidden: [...(current.hidden ?? []), actor] };
+  };
+  for (const faction of visibleTo) {
+    // Audit of actor fields by kind. ruleFired/blocked/fortune/move/rout/exit are only
+    // witnessed by a side that saw their one actor; engagements are between neighbours,
+    // who always see each other; sightings belong to the observer. The rest can be
+    // witnessed while an actor stays hidden:
+    if (event.kind === "objectiveDamage" && !actorSeen(faction, event.attackerId)) {
+      hide(faction, "attackerId");
+    }
+    if (event.kind === "rally") {
+      if (!actorSeen(faction, event.sourceId)) hide(faction, "sourceId");
+      if (!actorSeen(faction, event.targetId)) hide(faction, "targetId");
+    }
+    if (event.kind === "dread" && !actorSeen(faction, event.sourceId)) {
+      hide(faction, "sourceId");
+    }
+    if (event.kind === "move" && factionOf(event.squadId) !== faction) {
+      const pathSeen = event.path.map((hex) => factionSees(ctx, faction, hex));
+      if (pathSeen.some((seen) => !seen)) {
+        redactions[faction] = { ...redactions[faction], pathSeen };
+      }
+    }
+  }
+  return Object.keys(redactions).length > 0 ? { visibleTo, redactions } : { visibleTo };
 }
 
-/** The event stream as `faction` experienced it. Playback and reports use this, never the raw stream. */
+/** A copy of `event` as `faction` witnessed it: unseen parts removed, visibility metadata stripped. */
+export function projectEvent(event: EngineEvent, faction: FactionId): EngineEvent {
+  const { redactions, visibleTo: _all, ...rest } = structuredClone(event);
+  const projected = { ...rest, visibleTo: [faction] } as EngineEvent;
+  const redaction = redactions?.[faction];
+  for (const actor of redaction?.hidden ?? []) {
+    if (actor === "attackerId" && projected.kind === "objectiveDamage") {
+      projected.attackerId = null;
+    }
+    if (actor === "sourceId" && (projected.kind === "rally" || projected.kind === "dread")) {
+      projected.sourceId = null;
+    }
+    if (actor === "targetId" && projected.kind === "rally") {
+      projected.targetId = null;
+    }
+  }
+  if (redaction?.pathSeen && projected.kind === "move") {
+    const seen = redaction.pathSeen;
+    projected.from = seen[0] ? projected.from : null;
+    projected.to = seen[seen.length - 1] ? projected.to : null;
+    projected.path = projected.path.filter((_, index) => seen[index]);
+  }
+  return projected;
+}
+
+/**
+ * The event stream as `faction` experienced it: only the events it witnessed, each
+ * projected to what it saw. Playback and reports use this, never the raw stream.
+ */
 export function eventsFor(events: EngineEvent[], faction: FactionId): EngineEvent[] {
-  return events.filter((event) => event.visibleTo.includes(faction));
+  return events.filter((event) => event.visibleTo.includes(faction)).map((event) => projectEvent(event, faction));
 }
 
 // ---------------------------------------------------------------------------

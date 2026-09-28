@@ -185,6 +185,11 @@ export interface EngineScenario {
   hostSchedule: HostPhaseOrders[];
   winCondition: WinCondition;
   defeatConditions?: DefeatCondition[];
+  /**
+   * What running out of phases means when the win condition is not "survive"
+   * (holdObjective always wins on time). Default "defeat".
+   */
+  timeoutOutcome?: "defeat" | "stalemate";
   /** Defaults to "day". */
   timeOfDay?: TimeOfDay;
   /** A fortune-on seed that plays the intended plan to a clean win (first playthrough, video capture). */
@@ -241,7 +246,10 @@ export interface EngineObjective {
   defender: FactionId;
 }
 
-export type EngineStatus = "command" | "victory" | "defeat";
+/** "stalemate": time ran out with neither side's goal met (only when the scenario allows it). */
+export type BattleOutcome = "victory" | "defeat" | "stalemate";
+
+export type EngineStatus = "command" | BattleOutcome;
 
 export interface EngineState {
   scenarioId: string;
@@ -281,7 +289,22 @@ interface EventBase {
    * Playback and reports for a faction must use eventsFor(events, faction).
    */
   visibleTo: FactionId[];
+  /**
+   * What each witnessing faction did NOT see of this event (raw stream only).
+   * eventsFor() applies these and strips the field, so projections never carry it.
+   */
+  redactions?: Partial<Record<FactionId, Redaction>>;
 }
+
+/** Parts of an event a witnessing faction did not see. */
+export interface Redaction {
+  /** For a move: which path hexes (same order as `path`) the faction could see. */
+  pathSeen?: boolean[];
+  /** Actor ids the faction could not see; eventsFor() sets them to null. */
+  hidden?: RedactedActor[];
+}
+
+export type RedactedActor = "attackerId" | "sourceId" | "targetId";
 
 export type EngineEvent =
   | (EventBase & {
@@ -294,8 +317,12 @@ export type EngineEvent =
   | (EventBase & {
       kind: "move";
       squadId: string;
-      /** Includes the starting hex. */
+      /** Includes the starting hex. In a projection: only the hexes that faction saw. */
       path: HexCoord[];
+      /** Where the move started; null in a projection that did not see it (emerging from the fog). */
+      from: HexCoord | null;
+      /** Where it ended; null in a projection that did not see it (vanishing into the fog). */
+      to: HexCoord | null;
       reason: "advance" | "fallBack" | "charge";
     })
   | (EventBase & { kind: "blocked"; squadId: string; reason: string })
@@ -311,7 +338,8 @@ export type EngineEvent =
       strengthChanges: Record<string, number>;
       cohesionChanges: Record<string, number>;
     })
-  | (EventBase & { kind: "rally"; sourceId: string; targetId: string; restored: number })
+  /** sourceId/targetId are null in a projection that did not see that squad. */
+  | (EventBase & { kind: "rally"; sourceId: string | null; targetId: string | null; restored: number })
   | (EventBase & {
       kind: "rout";
       squadId: string;
@@ -322,14 +350,16 @@ export type EngineEvent =
   | (EventBase & {
       kind: "objectiveDamage";
       objectiveId: string;
-      attackerId: string;
+      /** null in a projection that did not see who struck. */
+      attackerId: string | null;
       hex: HexCoord;
       oldIntegrity: number;
       newIntegrity: number;
     })
-  | (EventBase & { kind: "outcome"; status: "victory" | "defeat"; reason: string })
+  | (EventBase & { kind: "outcome"; status: BattleOutcome; reason: string })
   | (EventBase & { kind: "fortune"; squadId: string; outcome: "surge" | "waver"; ruleId: string })
-  | (EventBase & { kind: "dread"; squadId: string; sourceId: string; title: string; shock: number })
+  /** sourceId is null in a projection that did not see the renowned squad. */
+  | (EventBase & { kind: "dread"; squadId: string; sourceId: string | null; title: string; shock: number })
   | (EventBase & { kind: "weatherShift"; from: Weather; to: Weather })
   | (EventBase & {
       kind: "sighted";

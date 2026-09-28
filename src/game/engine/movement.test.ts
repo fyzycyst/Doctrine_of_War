@@ -12,7 +12,9 @@ describe("movement", () => {
     const kit = actionContext(scenario({ squads: [squad("a", FB, { q: 0, r: 2 }), squad("e", AH, { q: 5, r: 2 })] }));
     executeAction(kit.ctx, kit.get("a"), toward);
     expect(kit.get("a").hex).toEqual({ q: 1, r: 2 });
-    expect(kit.events).toEqual([{ kind: "move", squadId: "a", path: [{ q: 0, r: 2 }, { q: 1, r: 2 }], reason: "advance" }]);
+    expect(kit.events).toEqual([
+      { kind: "move", squadId: "a", path: [{ q: 0, r: 2 }, { q: 1, r: 2 }], from: { q: 0, r: 2 }, to: { q: 1, r: 2 }, reason: "advance" },
+    ]);
   });
 
   it("routes around an occupied hex instead of entering it", () => {
