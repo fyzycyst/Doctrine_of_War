@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useGame } from "../game/gameStore";
 import { getDoctrine } from "../game/view";
 import { SealMark } from "./glyphs";
+import { Modal } from "./Modal";
 
 /** The wax-seal commit. If any company would fight on a doctrine you did not pick, it asks first. */
 export function SealOrders() {
@@ -45,10 +46,7 @@ export function SealOrders() {
             setConfirming(null);
             seal();
           }}
-          onReview={() => {
-            setConfirming(null);
-            button.current?.focus();
-          }}
+          onReview={() => setConfirming(null)}
         />
       )}
     </>
@@ -57,31 +55,35 @@ export function SealOrders() {
 
 function ConfirmDefaults({ names, onSeal, onReview }: { names: string[]; onSeal: () => void; onReview: () => void }) {
   const first = useRef<HTMLButtonElement>(null);
-  useEffect(() => first.current?.focus(), []);
   return (
-    <div className="modal-scrim" onKeyDown={(event) => event.key === "Escape" && onReview()}>
-      <div className="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-body">
-        <h2 id="confirm-title">Seal with standing doctrines?</h2>
-        <div id="confirm-body">
-          <p>
-            {names.length === 1 ? "This company has" : "These companies have"} no new orders and will keep fighting as
-            before:
-          </p>
-          <ul>
-            {names.map((name) => (
-              <li key={name}>{name}</li>
-            ))}
-          </ul>
-        </div>
-        <div className="modal-actions">
-          <button ref={first} type="button" className="btn-command" onClick={onSeal}>
-            Seal anyway
-          </button>
-          <button type="button" className="btn-quiet" onClick={onReview}>
-            Review orders
-          </button>
-        </div>
+    <Modal
+      className="modal"
+      role="alertdialog"
+      labelledBy="confirm-title"
+      describedBy="confirm-body"
+      initialFocus={first}
+      onCancel={onReview}
+    >
+      <h2 id="confirm-title">Seal with standing doctrines?</h2>
+      <div id="confirm-body">
+        <p>
+          {names.length === 1 ? "This company has" : "These companies have"} no new orders and will keep fighting as
+          before:
+        </p>
+        <ul>
+          {names.map((name) => (
+            <li key={name}>{name}</li>
+          ))}
+        </ul>
       </div>
-    </div>
+      <div className="modal-actions">
+        <button ref={first} type="button" className="btn-command" onClick={onSeal}>
+          Seal anyway
+        </button>
+        <button type="button" className="btn-quiet" onClick={onReview}>
+          Review orders
+        </button>
+      </div>
+    </Modal>
   );
 }

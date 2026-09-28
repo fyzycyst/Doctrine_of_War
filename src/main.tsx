@@ -17,7 +17,7 @@ const LookLab = import.meta.env.DEV
   : null;
 
 // Dev-only scenario picker and capture fast-forward (`?scenario=emberFord&stage=command`).
-const boot = import.meta.env.DEV && !isLookLab ? bootFromUrl(window.location.search) : { still: false };
+const boot = import.meta.env.DEV && !isLookLab ? bootFromUrl(window.location.search) : { still: false, pauseAt: undefined };
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -26,7 +26,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <LookLab />
       </Suspense>
     ) : (
-      <App still={boot.still} />
+      <App still={boot.still} pauseAt={boot.pauseAt} />
     )}
   </React.StrictMode>,
 );

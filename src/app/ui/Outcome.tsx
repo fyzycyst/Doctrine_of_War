@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { scenarios } from "../../game/engine";
 import { useGame } from "../game/gameStore";
+import { Modal, rosterFocus } from "./Modal";
 import { ObjectiveStatus } from "./PhaseReport";
 
 const OUTCOME: Record<string, { word: string; line: string }> = {
@@ -16,7 +17,6 @@ export function Outcome() {
   const retry = useGame((s) => s.retry);
   const loadBattle = useGame((s) => s.loadBattle);
   const first = useRef<HTMLButtonElement>(null);
-  useEffect(() => first.current?.focus(), []);
 
   const status = String(view.status);
   const won = status !== "defeat";
@@ -38,8 +38,7 @@ export function Outcome() {
   };
 
   return (
-    <div className="outcome-scrim">
-      <section className={`outcome outcome-${status}`} role="dialog" aria-modal="true" aria-labelledby="outcome-title">
+    <Modal className={`outcome outcome-${status}`} labelledBy="outcome-title" initialFocus={first} returnFocus={rosterFocus}>
         <p className="report-eyebrow">{scenario.title}</p>
         <h2 id="outcome-title">{copy.word}</h2>
         <p className="outcome-reason">{reason}</p>
@@ -67,7 +66,6 @@ export function Outcome() {
             {next ? `Continue to ${next.title}` : "Continue"}
           </button>
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }

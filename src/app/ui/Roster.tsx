@@ -1,7 +1,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import type { VisibleSquad } from "../../game/engine";
 import { useAppStore } from "../store";
-import { useGame } from "../game/gameStore";
+import { useGame, useShownView } from "../game/gameStore";
 import { getDoctrine, resolveRank } from "../game/view";
 import { RoleGlyph, ROLE_NAME } from "./glyphs";
 
@@ -23,7 +23,8 @@ function Meter({ label, value, tone }: { label: string; value: number; tone: "st
 
 /** The company roster (left): banner tabs for your companies, then the enemies you know of. */
 export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
-  const view = useGame((s) => s.view);
+  // During playback the roster follows the board, not the phase's end state.
+  const view = useShownView();
   const orders = useGame((s) => s.orders);
   const stage = useGame((s) => s.stage);
   const selectedId = useAppStore((s) => s.selectedSquadId);

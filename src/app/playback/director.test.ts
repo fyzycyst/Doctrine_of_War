@@ -1,0 +1,131 @@
+import { describe, expect, it, vi } from "vitest";
+import { createInitialState, eventsFor, firstBreach, resolvePhase, visibleState, type VisibleState } from "../../game/engine";
+import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
+import { PlaybackDirector, type CalloutSpec, type DirectorHooks } from "./director";
+import { buildTimeline, type Pace } from "./timeline";
+
+const PLAYER = "free_banners" as const;
+
+function mockAnimator() {
+  const calls: string[] = [];
+  const record = (name: string) => vi.fn((id: string) => {
+    calls.push(`${name}:${id}`);
+    return Promise.resolve();
+  });
+  const api = {
+    march: record("march"),
+    lunge: record("lunge"),
+    fall: record("fall"),
+    rout: record("rout"),
+    rally: record("rally"),
+    brace: record("brace"),
+    reveal: record("reveal"),
+    reset: vi.fn(),
+  } as unknown as SquadAnimationApi;
+  return { api, calls };
+}
+
+/** The curated seed's phase with fortune on, as the player saw it, plus a headless director. */
+function setup(pace: Pace = "readable", phases = 1) {
+  let state = createInitialState(firstBreach, { fortune: "on", seed: firstBreach.curatedSeed });
+  let result = resolvePhase(state, firstBreach.referencePlans!.intended, firstBreach);
+  for (let i = 1; i < phases; i += 1) {
+    state = result.state;
+    result = resolvePhase(state, firstBreach.referencePlans!.intended, firstBreach);
+  }
+  const start = visibleState(state, PLAYER);
+  const final = visibleState(result.state, PLAYER);
+  const events = eventsFor(result.events, PLAYER);
+  const timeline = buildTimeline(events, pace, { playerFaction: PLAYER, factionOf: (id) => final.squads.find((s) => s.id === id)?.faction });
+  const { api, calls } = mockAnimator();
+  let display: VisibleState = start;
+  const callouts: CalloutSpec[] = [];
+  const slept: number[] = [];
+  const beats: number[] = [];
+  const hooks: DirectorHooks = {
+    board: firstBreach.board,
+    playerFaction: PLAYER,
+    maxFigures: 9,
+    animator: () => api,
+    pace: () => pace,
+    display: () => display,
+    setDisplay: (next) => {
+      display = next;
+    },
+    known: (id) => final.squads.find((squad) => squad.id === id),
+    setBeat: (beat) => beats.push(beat),
+    callout: (spec) => callouts.push(spec),
+    focus: () => undefined,
+    shake: vi.fn(),
+    sfx: vi.fn(),
+    caption: () => undefined,
+    sleep: (ms) => {
+      slept.push(ms);
+      return Promise.resolve();
+    },
+  };
+  return { timeline, hooks, events, final, calls, callouts, slept, beats, display: () => display };
+}
+
+describe("PlaybackDirector", () => {
+  it("plays every step and ends on the phase's final positions and losses", async () => {
+    const run = setup();
+    const director = new PlaybackDirector(run.timeline, run.hooks);
+    await expect(director.run()).resolves.toBe("done");
+    expect(run.beats).toEqual([1, 2, 3]);
+    for (const squad of run.display().squads) {
+      const final = run.final.squads.find((item) => item.id === squad.id);
+      if (!final || squad.faction !== PLAYER) continue;
+      expect({ id: squad.id, hex: squad.hex, strength: squad.strength, status: squad.status }).toEqual({
+        id: final.id,
+        hex: final.hex,
+        strength: final.strength,
+        status: final.status,
+      });
+    }
+  });
+
+  it("shows a rule callout for every rule fired by a squad on the board, in order", async () => {
+    const run = setup();
+    await new PlaybackDirector(run.timeline, run.hooks).run();
+    const rules = run.callouts.filter((callout) => callout.kind === "rule");
+    const fired = run.events.filter((event) => event.kind === "ruleFired");
+    expect(rules.length).toBeGreaterThan(0);
+    expect(rules.length).toBeLessThanOrEqual(fired.length);
+    expect(rules[0].text).toMatch(/→ [A-Z]/);
+    // The surge and the waver on this seed get their own callouts.
+    expect(run.callouts.some((callout) => callout.kind === "surge")).toBe(true);
+    expect(run.callouts.some((callout) => callout.kind === "waver")).toBe(true);
+  });
+
+  it("drives the animator: lunges for clashes, braces for hold rules", async () => {
+    const run = setup();
+    await new PlaybackDirector(run.timeline, run.hooks).run();
+    expect(run.calls.some((call) => call.startsWith("lunge:"))).toBe(true);
+    expect(run.calls.some((call) => call.startsWith("brace:greyford_shields"))).toBe(true);
+  });
+
+  it("stops at once when skipped and reports it", async () => {
+    const run = setup();
+    let resolveSleep: () => void = () => undefined;
+    run.hooks.sleep = () => new Promise((resolve) => (resolveSleep = resolve));
+    const director = new PlaybackDirector(run.timeline, run.hooks);
+    const finished = director.run();
+    director.skip();
+    resolveSleep();
+    await expect(finished).resolves.toBe("skipped");
+    expect(run.beats.length).toBeLessThanOrEqual(1);
+  });
+
+  it("reads the pace live: switching to Fast halves every wait", async () => {
+    const sumOf = (list: number[]) => list.reduce((sum, ms) => sum + ms, 0);
+    const readable = setup("readable");
+    await new PlaybackDirector(readable.timeline, readable.hooks).run();
+
+    const switched = setup("readable");
+    switched.hooks.pace = () => "fast"; // toggled right after sealing
+    await new PlaybackDirector(switched.timeline, switched.hooks).run();
+
+    expect(sumOf(switched.slept)).toBeCloseTo(sumOf(readable.slept) / 2, 0);
+  });
+});

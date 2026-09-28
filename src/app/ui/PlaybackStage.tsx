@@ -1,0 +1,98 @@
+// In-canvas playback pieces (T06): callouts anchored above squads, and a gentle
+// camera lean toward the active squad. Rendered inside BattleBoard's <Canvas>.
+import { Html } from "@react-three/drei";
+import { useFrame, useThree } from "@react-three/fiber";
+import { useMemo } from "react";
+import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import type { BoardLayout } from "../../game/board";
+import type { CameraShot } from "../../render/camera/DioramaCamera";
+import { boardCenter, hexToWorld } from "../../render/hexWorld";
+import { useGame, type Callout } from "../game/gameStore";
+import { Sigil } from "./glyphs";
+
+/** Height above the board at which callouts float (over the squad's banner). */
+const CALLOUT_Y = 1.45;
+/** How far the camera target leans toward the active squad (0..1 of the way). */
+const LEAN = 0.18;
+/** Lean response rate (1/s): slow enough to read as a drift, never a swing. */
+const LEAN_RATE = 1.6;
+
+export function PlaybackStage({ board, shot, reducedMotion }: { board: BoardLayout; shot: CameraShot; reducedMotion: boolean }) {
+  const callouts = useGame((s) => s.callouts);
+  const center = useMemo(() => boardCenter(board), [board]);
+  return (
+    <>
+      {!reducedMotion && <CameraEmphasis center={center} shot={shot} />}
+      {callouts
+        .filter((callout) => callout.hex)
+        .map((callout) => {
+          const [x, z] = hexToWorld(callout.hex!, center);
+          // Stack callouts that share a hex so they never overprint.
+          const stacked = callouts.filter((other) => other.hex && other.id < callout.id && other.hex.q === callout.hex!.q && other.hex.r === callout.hex!.r).length;
+          return (
+            <Html
+              key={callout.id}
+              position={[x, CALLOUT_Y + stacked * 0.8, z]}
+              center
+              // Newest on top, whatever the depth, so the latest order is always legible.
+              zIndexRange={[100 + (callout.id % 1000), 100 + (callout.id % 1000)]}
+              style={{ pointerEvents: "none" }}
+            >
+              <CalloutCard callout={callout} />
+            </Html>
+          );
+        })}
+    </>
+  );
+}
+
+function CalloutCard({ callout }: { callout: Callout }) {
+  const mine = callout.faction === "free_banners";
+  const classes = ["callout", `callout-${callout.kind}`, mine ? "mine" : "theirs", callout.repeat ? "repeat" : ""].join(" ");
+  if (callout.kind === "rule") {
+    const [when, then] = callout.text.split(" → ");
+    return (
+      <div className={classes}>
+        {!callout.repeat && (
+          <span className="callout-head">
+            {callout.faction && <Sigil faction={callout.faction} size={14} />}
+            <span className="callout-title">{callout.title}</span>
+          </span>
+        )}
+        <span className="callout-line">
+          {then !== undefined && !callout.repeat && <span className="rule-when">{when} </span>}
+          <span className="rule-then">→ {then ?? when}</span>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className={classes}>
+      <span className="callout-title">{callout.title}</span>
+      <span className="callout-text">{callout.text}</span>
+      {callout.kind === "gate" && <span className="dust" aria-hidden="true" />}
+    </div>
+  );
+}
+
+function CameraEmphasis({ center, shot }: { center: { x: number; z: number }; shot: CameraShot }) {
+  const focus = useGame((s) => s.focus);
+  const controls = useThree((state) => state.controls) as OrbitControlsImpl | null;
+  const base = useMemo(() => new THREE.Vector3(...shot.target), [shot]);
+  const goal = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame((_, dt) => {
+    if (!controls) return;
+    if (focus) {
+      const [x, z] = hexToWorld(focus, center);
+      goal.set(x, base.y, z).sub(base).multiplyScalar(LEAN).add(base);
+    } else {
+      goal.copy(base);
+    }
+    if (controls.target.distanceToSquared(goal) < 1e-6) return;
+    controls.target.lerp(goal, 1 - Math.exp(-dt * LEAN_RATE));
+    controls.update();
+  });
+  return null;
+}

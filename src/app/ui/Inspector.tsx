@@ -17,7 +17,10 @@ export function Inspector() {
   const orders = useGame((s) => s.orders);
   const stage = useGame((s) => s.stage);
   const selectedId = useAppStore((s) => s.selectedSquadId);
-  const squad = view.squads.find((item) => item.id === selectedId);
+  const hoveredId = useAppStore((s) => s.hoveredSquadId);
+  // Hovering a squad on the board previews it; the clicked selection stays pinned underneath.
+  const previewing = hoveredId !== null && hoveredId !== selectedId && view.squads.some((item) => item.id === hoveredId);
+  const squad = view.squads.find((item) => item.id === (previewing ? hoveredId : selectedId));
 
   if (!squad) {
     return (
@@ -32,7 +35,10 @@ export function Inspector() {
   const doctrine = getDoctrine(own ? (orders[squad.id] ?? squad.doctrineId) : squad.doctrineId);
 
   return (
-    <aside className={`inspector ${own ? "own" : "enemy"}`} aria-label={`Inspector: ${squad.name}`}>
+    <aside
+      className={`inspector ${own ? "own" : "enemy"} ${previewing ? "previewing" : ""}`}
+      aria-label={`Inspector: ${squad.name}`}
+    >
       <header className="insp-head">
         <span className="insp-glyph">
           <RoleGlyph role={squad.role} size={22} />
@@ -108,7 +114,7 @@ export function Inspector() {
         </div>
       </dl>
 
-      {stage === "deploy" && own ? (
+      {stage === "deploy" && own && !previewing ? (
         <DeployChoices squad={squad} />
       ) : doctrine ? (
         <div className="insp-doctrine">

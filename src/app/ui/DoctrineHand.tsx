@@ -30,7 +30,7 @@ export const DoctrineHand = forwardRef<HandHandle>(function DoctrineHand(_, ref)
 
   const focusCard = (index: number) => {
     setFocusIndex(index);
-    listRef.current?.querySelectorAll<HTMLElement>("[role=option]")[index]?.focus();
+    listRef.current?.querySelectorAll<HTMLElement>("[role=option]")[index]?.focus({ preventScroll: true });
   };
 
   useImperativeHandle(ref, () => ({ focus: () => focusCard(currentIndex) }));
@@ -82,7 +82,7 @@ export const DoctrineHand = forwardRef<HandHandle>(function DoctrineHand(_, ref)
               role="option"
               aria-selected={chosen}
               tabIndex={index === active ? 0 : -1}
-              className={`doctrine-card in-hand ${chosen ? "chosen" : ""}`}
+              className={`doctrine-card in-hand ${chosen ? "chosen" : ""} ${index === active ? "active" : ""}`}
               style={{ "--rot": `${offset * 3}deg`, "--drop": `${Math.abs(offset) * 7}px` } as CSSProperties}
               onClick={() => {
                 setFocusIndex(index);
