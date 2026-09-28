@@ -7,7 +7,7 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
     it(`${scenario.title} meets the guardrails over 60 seeds with fortune on`, () => {
       const rows = runBalance(scenario, 60, "on");
       expect(guardrailFailures(rows), formatTable(scenario, rows)).toEqual([]);
-    });
+    }, 60_000); // hundreds of simulated battles; the 5 s default times out under full-suite load
   }
 
   it("builds intended, bad and one mono plan per player doctrine", () => {
@@ -20,7 +20,7 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
     expect(() => runBalance(scenarios[0], Number.NaN)).toThrow(/positive integer/);
     expect(() => balancePlans({ ...scenarios[0], referencePlans: undefined })).toThrow(/no referencePlans/);
     expect(guardrailFailures([])).toEqual(["no intended plan was played", "no bad plan was played"]);
-    const nan: BalanceRow = { name: "intended", kind: "intended", orders: {}, games: 0, wins: 0, winRate: Number.NaN, meanObjective: null };
+    const nan: BalanceRow = { name: "intended", kind: "intended", orders: {}, games: 0, wins: 0, winRate: Number.NaN, stalemates: 0, stalemateRate: 0, meanObjective: null };
     expect(guardrailFailures([nan])).toContain("intended has no valid win rate (0/0)");
   });
 
@@ -32,6 +32,8 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
       games: 100,
       wins: winRate * 100,
       winRate,
+      stalemates: 0,
+      stalemateRate: 0,
       meanObjective: null,
     });
     expect(guardrailFailures([row("intended", 0.74), row("bad", 0.36), row("mono", 0.6)])).toHaveLength(3);

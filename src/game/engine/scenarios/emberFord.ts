@@ -134,6 +134,8 @@ export const emberFord: EngineScenario = {
     { kind: "enemyEscape", edgeHexes: roadExits, count: 2 },
     { kind: "squadsLost", count: 4 },
   ],
+  // If the fires die with the vanguard still standing but nobody through, it is a stalemate.
+  timeoutOutcome: "stalemate",
   forecast: { start: "clear", shiftChance: 0.3, shifts: ["clear", "rain"] },
   referencePlans: {
     // Every company waits for a Host company to climb out alone, then strikes it;

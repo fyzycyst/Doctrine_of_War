@@ -1,6 +1,8 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
+import { SAVE_READ_CHANNEL, SAVE_WRITE_CHANNEL } from "./saveChannels";
+import { readSaveFile, writeSaveFile } from "./saveFile";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -26,7 +28,14 @@ function createWindow() {
   }
 }
 
+/** Campaign saves: one fixed file in userData. The renderer never supplies a path. */
+function registerSaveHandlers() {
+  ipcMain.handle(SAVE_READ_CHANNEL, () => readSaveFile(app.getPath("userData")));
+  ipcMain.handle(SAVE_WRITE_CHANNEL, (_event, data: unknown) => writeSaveFile(app.getPath("userData"), data));
+}
+
 app.whenReady().then(() => {
+  registerSaveHandlers();
   createWindow();
 
   app.on("activate", () => {

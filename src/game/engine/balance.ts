@@ -25,6 +25,9 @@ export interface BalanceRow extends BalancePlan {
   games: number;
   wins: number;
   winRate: number;
+  /** Timeouts with neither side's goal met. Not wins: the guardrails only count victories. */
+  stalemates: number;
+  stalemateRate: number;
   /** Mean final integrity of the first objective (holdObjective scenarios), else null. */
   meanObjective: number | null;
 }
@@ -62,10 +65,12 @@ export function runBalance(scenario: EngineScenario, seeds: number, fortune: For
   }
   return balancePlans(scenario).map((plan) => {
     let wins = 0;
+    let stalemates = 0;
     let objectiveSum = 0;
     for (let seed = 1; seed <= seeds; seed += 1) {
       const final = playBattle(scenario, plan.orders, seed, fortune);
       wins += final.status === "victory" ? 1 : 0;
+      stalemates += final.status === "stalemate" ? 1 : 0;
       objectiveSum += final.objectives[0]?.integrity ?? 0;
     }
     const hold = scenario.winCondition.kind === "holdObjective";
@@ -74,6 +79,8 @@ export function runBalance(scenario: EngineScenario, seeds: number, fortune: For
       games: seeds,
       wins,
       winRate: wins / seeds,
+      stalemates,
+      stalemateRate: stalemates / seeds,
       meanObjective: hold ? objectiveSum / seeds : null,
     };
   });
@@ -106,7 +113,8 @@ export function formatTable(scenario: EngineScenario, rows: BalanceRow[]): strin
   const header = `${scenario.title}: ${rows[0]?.games ?? 0} seeds per plan`;
   const lines = rows.map((row) => {
     const objective = row.meanObjective === null ? "" : `  mean objective ${row.meanObjective.toFixed(1).padStart(5)}`;
-    return `  ${row.name.padEnd(26)} ${row.kind.padEnd(8)} ${(row.winRate * 100).toFixed(1).padStart(5)}% wins${objective}`;
+    const pct = (value: number) => `${(value * 100).toFixed(1).padStart(5)}%`;
+    return `  ${row.name.padEnd(26)} ${row.kind.padEnd(8)} ${pct(row.winRate)} wins  ${pct(row.stalemateRate)} stalemates${objective}`;
   });
   return [header, ...lines].join("\n");
 }

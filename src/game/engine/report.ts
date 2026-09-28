@@ -18,9 +18,14 @@ export function narrateEvent(event: EngineEvent, state: EngineState): string | n
     case "ruleFired":
       return `${name(event.squadId)}: "${event.label}"`;
     case "move": {
-      const to = event.path[event.path.length - 1];
       const verb = event.reason === "fallBack" ? "fell back" : event.reason === "charge" ? "charged" : "advanced";
-      return `${name(event.squadId)} ${verb} ${event.path.length - 1} hex to ${hexKey(to)}.`;
+      if (event.from === null && event.path.length > 0) {
+        return `${name(event.squadId)} emerged from the dark at ${hexKey(event.path[event.path.length - 1])}.`;
+      }
+      if (event.to === null) {
+        return `${name(event.squadId)} ${verb} into the dark.`;
+      }
+      return `${name(event.squadId)} ${verb} ${event.path.length - 1} hex to ${hexKey(event.to)}.`;
     }
     case "blocked":
       return `${name(event.squadId)} could not act (${event.reason}).`;
@@ -31,7 +36,9 @@ export function narrateEvent(event: EngineEvent, state: EngineState): string | n
       return `${name(event.attackerId)} ${verb} ${name(event.defenderId)} (${name(event.defenderId)} lost ${lost(event.defenderId)}; ${name(event.attackerId)} lost ${lost(event.attackerId)}).`;
     }
     case "rally":
-      return `${name(event.sourceId)} rallied ${name(event.targetId)} (+${event.restored} cohesion).`;
+      return event.sourceId === null
+        ? `${event.targetId === null ? "An unseen company" : name(event.targetId)} was rallied by an unseen standard (+${event.restored} cohesion).`
+        : `${name(event.sourceId)} rallied ${event.targetId === null ? "an unseen company" : name(event.targetId)} (+${event.restored} cohesion).`;
     case "rout":
       return event.cause === "strength"
         ? `${name(event.squadId)} was destroyed.`
@@ -39,15 +46,17 @@ export function narrateEvent(event: EngineEvent, state: EngineState): string | n
     case "exit":
       return `${name(event.squadId)} escaped the field.`;
     case "objectiveDamage":
-      return `${name(event.attackerId)} battered ${objectiveName(event.objectiveId)} (${event.oldIntegrity} → ${event.newIntegrity}).`;
+      return event.attackerId === null
+        ? `${objectiveName(event.objectiveId)} took ${event.oldIntegrity - event.newIntegrity} damage from an unseen company (${event.oldIntegrity} → ${event.newIntegrity}).`
+        : `${name(event.attackerId)} battered ${objectiveName(event.objectiveId)} (${event.oldIntegrity} → ${event.newIntegrity}).`;
     case "outcome":
-      return `${event.status === "victory" ? "Victory" : "Defeat"}: ${event.reason}`;
+      return `${event.status === "victory" ? "Victory" : event.status === "stalemate" ? "Stalemate" : "Defeat"}: ${event.reason}`;
     case "fortune":
       return event.outcome === "surge"
         ? `Heroic stand! ${name(event.squadId)} surges forward.`
         : `Wavering… ${name(event.squadId)} hesitates and its order fails.`;
     case "dread": {
-      const source = name(event.sourceId);
+      const source = event.sourceId === null ? "an unseen banner" : name(event.sourceId);
       return `They know that banner… ${name(event.squadId)} falters before ${source}, "${event.title}" (-${event.shock} cohesion).`;
     }
     case "weatherShift":

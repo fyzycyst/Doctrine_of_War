@@ -36,7 +36,30 @@ resolvePhase(state, orders, scenario, { doctrines? }) → { state, events, repor
   - both sides see an engagement, the defender always sees damage to its objective,
     and weather and outcomes are public.
 
-  `report.lines` is already built from the player's filtered stream. The raw `events`
+  `eventsFor` returns **projected copies**, the event as that side witnessed it:
+  - a move's `path` is clipped to the hexes the side saw. `from` or `to` is null when
+    the start or end was not seen (render it as the squad emerging from, or vanishing
+    into, the fog);
+  - actor ids the side could not see are null. For example, `objectiveDamage.attackerId`
+    is null when the defender could not see who struck, and the report reads
+    "Greyford Gate took 12 damage from an unseen company";
+  - `visibleTo` is reduced to the viewer, and the raw-only `redactions` field is
+    removed.
+
+  Audit of actor fields by event kind:
+  - `ruleFired`, `blocked`, `fortune`, `move`, `rout` and `exit` have a single actor
+    and are witnessed only by a side that saw it.
+  - `engagement` is always between neighbours, who always see each other.
+  - `sighted` belongs to the observer.
+  - `objectiveDamage.attackerId`, `rally.sourceId`/`targetId` and `dread.sourceId` can
+    be redacted.
+
+  `fogProjection.test.ts` checks this as a property: over random seeds and plans on
+  every scenario, each squad id and hex in `eventsFor(…, "free_banners")` was visible
+  to the Banners when the event happened, judged by the true state through the
+  `onEmit` debug hook.
+
+  `report.lines` is already built from the player's projected stream. The raw `events`
   array is for tests, the balance harness and a debug/capture mode, never for normal
   playback. With fortune off, every event is visible to everyone.
 - Call it once per phase. `state.phase` advances until `state.status` becomes
@@ -141,6 +164,11 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
       standing on one after its activation exits.
     - `squadsLost {count}`: that many player squads are routed or destroyed ("the line
       breaks").
+  - `timeoutOutcome: "defeat" | "stalemate"` (default `"defeat"`) decides what running out
+    of phases means for `escapeEdge` and `destroySquads`. With `"stalemate"`, the battle
+    ends with `status: "stalemate"`: neither side met its goal. The campaign treats it as
+    "advance, with a Resolve penalty". `holdObjective` always wins on time. The balance
+    harness reports stalemates as their own column; they never count as wins.
   - In every mode it is defeat when no player squad is left on the field. For
     `escapeEdge` and `destroySquads`, reaching the end of `maxPhases` is also defeat.
 - Events (`phase`, `beat` on each, where beat 0 means phase-level): `ruleFired`, `move {path, reason}`,
