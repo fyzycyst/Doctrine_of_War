@@ -10,7 +10,8 @@
     "build": "tsc -b && vite build",
     "build:mac": "npm run build && ELECTRON=1 vite build && electron-builder --mac",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "balance": "vite-node scripts/balance.ts --"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
