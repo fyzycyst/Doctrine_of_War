@@ -5,7 +5,22 @@ import type { BoardLayout, HexCoord } from "../../game/board";
 import { doctrineLibrary, type EngineEvent, type FactionId, type VisibleSquad, type VisibleState } from "../../game/engine";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { figureCount } from "../../render/squadLayout";
-import { applyStep, PACE_SCALE, routDirection, type Known, type Pace, type Step, type Timeline } from "./timeline";
+import {
+  applyStep,
+  comeIntoView,
+  fadeIntoFog,
+  PACE_SCALE,
+  routDirection,
+  type Known,
+  type Pace,
+  type Step,
+  type Timeline,
+} from "./timeline";
+
+/** Moves a squad on the display to `hex` (the end of a stretch it was seen walking). */
+function placeAt(view: VisibleState, id: string, hex: HexCoord): VisibleState {
+  return { ...view, squads: view.squads.map((squad) => (squad.id === id ? { ...squad, hex: { ...hex } } : squad)) };
+}
 
 export type SfxName = "clash" | "horn" | "card" | "seal" | "rout" | "dread" | "reveal";
 
@@ -164,21 +179,35 @@ export class PlaybackDirector {
       }
 
       case "move": {
-        const known = this.squad(event.squadId);
-        if (step.emerges && (!known || known.lastKnown || known.hex === null)) {
-          // Step out of the fog at the first seen hex; the Diorama plays its reveal.
-          this.hooks.setDisplay(applyStep(hooks.display(), { ...step, path: [step.path[0]], vanishes: false }, hooks.known));
-          hooks.sfx("reveal");
-          await this.wait(Math.min(300, d / 3));
-        }
-        const from = this.squad(event.squadId)?.hex;
-        const path = from && step.path.length > 1 ? step.path.slice(1) : [];
-        hooks.focus(step.path[step.path.length - 1]);
-        if (path.length > 0) {
-          const march = anim?.march(event.squadId, path, { secondsPerHex: Math.max(0.15, d / 1000 / Math.max(1, path.length)) });
-          await Promise.all([this.wait(d), this.settle(march, d * 1.5)]);
-        } else {
-          await this.wait(d);
+        // Each run is a stretch the player saw; between runs the squad was out of sight.
+        const legs = step.runs.reduce((sum, run) => sum + Math.max(0, run.length - 1), 0);
+        const gaps = step.runs.length - 1;
+        const gapMs = gaps > 0 ? Math.min(350, (d * 0.3) / gaps) : 0;
+        const perHexMs = legs > 0 ? (d - gaps * gapMs) / legs : 0;
+        for (const [runIndex, run] of step.runs.entries()) {
+          const shown = this.squad(event.squadId);
+          if (runIndex > 0) {
+            const before = step.runs[runIndex - 1];
+            hooks.setDisplay(fadeIntoFog(hooks.display(), event.squadId, before[before.length - 1]));
+            await this.wait(gapMs);
+            hooks.setDisplay(comeIntoView(hooks.display(), event.squadId, run[0], step, hooks.known));
+            hooks.sfx("reveal");
+          } else if (!shown || shown.lastKnown || shown.hex === null) {
+            // Step out of the fog at the first seen hex; the Diorama plays its reveal.
+            hooks.setDisplay(comeIntoView(hooks.display(), event.squadId, run[0], step, hooks.known));
+            hooks.sfx("reveal");
+            if (step.emerges) await this.wait(Math.min(300, d / 3));
+          }
+          const march = run.slice(1);
+          hooks.focus(run[run.length - 1]);
+          if (march.length > 0) {
+            const walk = anim?.march(event.squadId, march, { secondsPerHex: Math.max(0.15, perHexMs / 1000) });
+            await Promise.all([this.wait(perHexMs * march.length), this.settle(walk, perHexMs * march.length * 1.5)]);
+            // Land each stretch so the next one starts from its end.
+            hooks.setDisplay(placeAt(hooks.display(), event.squadId, run[run.length - 1]));
+          } else if (legs === 0) {
+            await this.wait(d);
+          }
         }
         this.land(step);
         return;

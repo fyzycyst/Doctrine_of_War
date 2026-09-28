@@ -11,7 +11,7 @@ import {
   type FactionId,
 } from "../../game/engine";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
-import { applyStep, buildTimeline, PHASE_BUDGET_MS, routDirection, snapshotBefore, STEP_MS, type Step } from "./timeline";
+import { applyStep, buildTimeline, PHASE_BUDGET_MS, routDirection, snapshotBefore, STEP_MS, visibleRuns, type Step } from "./timeline";
 
 const PLAYER: FactionId = "free_banners";
 const factionOf = (id: string) => firstBreach.squads.find((squad) => squad.id === id)?.faction;
@@ -146,6 +146,7 @@ describe("applyStep", () => {
     repeat: false,
     quiet: false,
     path: [],
+    runs: [],
     emerges: false,
     vanishes: false,
     ...extra,
@@ -268,5 +269,26 @@ describe("emerging squads", () => {
     expect(shown.find(([kind]) => kind === "clash")).toEqual(["clash", 60, 34]);
     expect(shown.find(([kind]) => kind === "rally")).toEqual(["rally", 60, 40]);
     expect(runners(view)).toMatchObject({ strength: runnersEnd.strength, cohesion: runnersEnd.cohesion });
+  });
+});
+
+describe("moves through unseen hexes", () => {
+  it("splits a projected path at every unseen gap", () => {
+    const path = [
+      { q: 0, r: 2 },
+      { q: 1, r: 2 },
+      // (1,3) was out of sight and cut from the projection.
+      { q: 2, r: 3 },
+      { q: 3, r: 3 },
+    ];
+    expect(visibleRuns(path)).toEqual([path.slice(0, 2), path.slice(2)]);
+    expect(visibleRuns(path.slice(0, 2))).toEqual([path.slice(0, 2)]);
+    const [, step] = buildTimeline(
+      [{ ...base, beat: 1, kind: "move", squadId: "ford_reavers", path, from: path[0], to: path[3], reason: "advance" }],
+      "readable",
+      ctx,
+    ).steps;
+    expect(step.runs).toHaveLength(2);
+    expect(step.duration).toBe(STEP_MS.movePerHex * 2 + STEP_MS.fogGap);
   });
 });

@@ -1,7 +1,7 @@
 // The phase timeline (T06): a pure function from the player's projected events to
 // ordered, timed playback steps, plus a pure reducer that advances what the board
 // shows one step at a time. No React, no three.js, no timers: the director runs it.
-import { getHex, hexNeighbors, type BoardLayout, type HexCoord } from "../../game/board";
+import { getHex, hexDistance, hexNeighbors, type BoardLayout, type HexCoord } from "../../game/board";
 import type { EngineEvent, FactionId, VisibleSquad, VisibleState } from "../../game/engine";
 import { SURGE_COHESION } from "../../game/engine/fortune";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
@@ -48,6 +48,11 @@ export interface Step {
   quiet: boolean;
   /** Moves: the hexes to march through, clipped to what the player saw. */
   path: HexCoord[];
+  /**
+   * Moves: `path` split into stretches the player saw without a break. Between two
+   * runs the squad passed through unseen hexes: it fades into the fog and reappears.
+   */
+  runs: HexCoord[][];
   /** Moves: the squad steps out of the fog at path[0] (its start was unseen). */
   emerges: boolean;
   /** Moves: the squad walks into the fog at the end of the path. */
@@ -68,6 +73,8 @@ export const STEP_MS = {
   ruleRepeat: 300,
   movePerHex: 420,
   emerge: 250,
+  /** A move's pause in the fog between two stretches the player saw. */
+  fogGap: 350,
   clash: 1150,
   charge: 250,
   rally: 800,
@@ -106,7 +113,7 @@ function draft(
   lastRule: Map<string, string>,
   index: number,
 ): Draft | null {
-  const plain = { beat: event.beat, event, index, repeat: false, quiet: false, path: [], emerges: false, vanishes: false };
+  const plain = { beat: event.beat, event, index, repeat: false, quiet: false, path: [], runs: [], emerges: false, vanishes: false };
   switch (event.kind) {
     case "ruleFired": {
       const firstThisPhase = !lastRule.has(event.squadId);
@@ -129,14 +136,16 @@ function draft(
         return null;
       }
       const emerges = event.from === null;
-      const legs = Math.max(1, event.path.length - 1);
+      const runs = visibleRuns(event.path);
+      const legs = Math.max(1, runs.reduce((sum, run) => sum + run.length - 1, 0));
       return {
         ...plain,
         kind: "move",
         path: event.path.map((hex) => ({ ...hex })),
+        runs,
         emerges,
         vanishes: event.to === null,
-        base: STEP_MS.movePerHex * legs + (emerges ? STEP_MS.emerge : 0),
+        base: STEP_MS.movePerHex * legs + (emerges ? STEP_MS.emerge : 0) + (runs.length - 1) * STEP_MS.fogGap,
         lingerBase: 0,
       };
     }
@@ -165,6 +174,20 @@ function draft(
   }
 }
 
+/** Splits a projected path wherever consecutive hexes are not neighbours (unseen hexes were cut out). */
+export function visibleRuns(path: HexCoord[]): HexCoord[][] {
+  const runs: HexCoord[][] = [];
+  for (const hex of path) {
+    const run = runs[runs.length - 1];
+    if (run && hexDistance(run[run.length - 1], hex) <= 1) {
+      run.push({ ...hex });
+    } else {
+      runs.push([{ ...hex }]);
+    }
+  }
+  return runs;
+}
+
 /**
  * The phase as timed steps, in the engine's own order (initiative side first in each
  * beat). A "Beat N" marker opens each beat. At Readable the whole phase is compressed
@@ -184,7 +207,20 @@ export function buildTimeline(
       continue;
     }
     if (event.beat > 0 && event.beat !== beat) {
-      drafts.push({ kind: "beat", beat: event.beat, event: null, index: -1, repeat: false, quiet: false, path: [], emerges: false, vanishes: false, base: STEP_MS.beat, lingerBase: 0 });
+      drafts.push({
+        kind: "beat",
+        beat: event.beat,
+        event: null,
+        index: -1,
+        repeat: false,
+        quiet: false,
+        path: [],
+        runs: [],
+        emerges: false,
+        vanishes: false,
+        base: STEP_MS.beat,
+        lingerBase: 0,
+      });
     }
     beat = event.beat;
     drafts.push(next);
@@ -257,6 +293,16 @@ export function snapshotBefore(final: VisibleSquad | undefined, events: EngineEv
     }
   }
   return { ...final, strength: clamp(strength), cohesion: clamp(cohesion), status: "active", lastKnown: false };
+}
+
+/** A squad walking into the fog: a last-known ghost at `hex`, its doctrine hidden again. */
+export function fadeIntoFog(view: VisibleState, id: string, hex: HexCoord): VisibleState {
+  return mapSquad(view, id, (squad) => ({ ...squad, hex: { ...hex }, lastKnown: true, doctrineId: null }));
+}
+
+/** Brings a squad (back) into view at `hex`: a ghost reappears, a new squad emerges. */
+export function comeIntoView(view: VisibleState, id: string, hex: HexCoord, step: Step, known: Known): VisibleState {
+  return reveal(view, id, hex, step, known);
 }
 
 /** Adds a squad the player just laid eyes on (as it was at this step), or reveals a ghost. */

@@ -129,3 +129,38 @@ describe("PlaybackDirector", () => {
     expect(sumOf(switched.slept)).toBeCloseTo(sumOf(readable.slept) / 2, 0);
   });
 });
+
+describe("PlaybackDirector: moves through the fog", () => {
+  it("never animates across an unseen gap: it fades out, then reappears at the next seen hex", async () => {
+    const run = setup();
+    // Seen: (1,3) → (1,2), then (2,1) unseen and cut from the projection, then (3,1).
+    const seen = [
+      { q: 1, r: 3 },
+      { q: 1, r: 2 },
+      { q: 3, r: 1 },
+    ];
+    const events = [{ phase: 1, beat: 1, visibleTo: [PLAYER], kind: "move" as const, squadId: "ford_reavers", path: seen, from: seen[0], to: seen[2], reason: "advance" as const }];
+    const timeline = buildTimeline(events, "readable", { playerFaction: PLAYER, factionOf: () => "ashen_host" });
+    const marches: Array<{ hexes: { q: number; r: number }[] }> = [];
+    const api = run.hooks.animator()!;
+    (api.march as unknown as ReturnType<typeof vi.fn>).mockImplementation((_id: string, hexes: { q: number; r: number }[]) => {
+      marches.push({ hexes });
+      return Promise.resolve();
+    });
+    const shown: Array<{ hex: unknown; lastKnown: boolean }> = [];
+    const setDisplay = run.hooks.setDisplay;
+    run.hooks.setDisplay = (view) => {
+      setDisplay(view);
+      const reavers = view.squads.find((squad) => squad.id === "ford_reavers");
+      if (reavers) shown.push({ hex: reavers.hex, lastKnown: reavers.lastKnown });
+    };
+    await new PlaybackDirector(timeline, run.hooks).run();
+
+    // One march per seen stretch; no march step ever jumps more than one hex.
+    expect(marches.map((march) => march.hexes)).toEqual([[seen[1]]]);
+    // In between: a ghost at the last seen hex, then back in view at the next one.
+    expect(shown).toContainEqual({ hex: seen[1], lastKnown: true });
+    expect(shown).toContainEqual({ hex: seen[2], lastKnown: false });
+    expect(run.display().squads.find((squad) => squad.id === "ford_reavers")).toMatchObject({ hex: seen[2], lastKnown: false });
+  });
+});
