@@ -142,8 +142,9 @@ export function resolvePhase(
     rng,
     phase,
     beat: 0,
+    // Events are deep-copied so playback data never aliases state or scenario coordinates.
     emit: (event: EventBody) => {
-      events.push({ ...event, phase, beat: ctx.beat } as EngineEvent);
+      events.push({ ...structuredClone(event), phase, beat: ctx.beat } as EngineEvent);
     },
   };
 

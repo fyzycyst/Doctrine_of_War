@@ -207,7 +207,7 @@ function moveToward(
   if (path.length < 2) {
     return false;
   }
-  squad.hex = path[path.length - 1];
+  squad.hex = { ...path[path.length - 1] };
   ctx.emit({ kind: "move", squadId: squad.id, path, reason });
   return true;
 }
@@ -315,7 +315,7 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
         ctx.emit({ kind: "blocked", squadId: squad.id, reason: "cornered, bracing instead" });
         return;
       }
-      squad.hex = path[path.length - 1];
+      squad.hex = { ...path[path.length - 1] };
       ctx.emit({ kind: "move", squadId: squad.id, path, reason: "fallBack" });
       return;
     }

@@ -50,7 +50,7 @@ export function planAdvance(
 ): HexCoord[] {
   const start = squad.hex;
   if (goals.length === 0 || goals.some((goal) => sameHex(goal, start))) {
-    return [start];
+    return [{ ...start }];
   }
 
   const goalKeys = new Set(goals.map(hexKey));
@@ -66,7 +66,7 @@ export function planAdvance(
         continue;
       }
       parent.set(key, current.hex);
-      visited.push({ hex: neighbor.coord, dist: current.dist + 1 });
+      visited.push({ hex: { ...neighbor.coord }, dist: current.dist + 1 });
     }
   }
 
@@ -88,7 +88,7 @@ export function planAdvance(
     fullPath.unshift(step);
   }
 
-  const path: HexCoord[] = [start];
+  const path: HexCoord[] = [{ ...start }];
   for (const hex of fullPath.slice(1, maxSteps + 1)) {
     path.push(hex);
     if (inEnemyZone(state, squad, hex) || slowedByWeather(state, board, hex)) {
@@ -114,7 +114,7 @@ export function planFallBack(
   squad: ActiveSquad,
   hexes: number,
 ): HexCoord[] {
-  const path: HexCoord[] = [squad.hex];
+  const path: HexCoord[] = [{ ...squad.hex }];
   if (enemiesOf(state, squad).length === 0) {
     return path;
   }
@@ -131,7 +131,7 @@ export function planFallBack(
       }
       const score = fallBackScore(state, squad, neighbor.coord);
       if (score > bestScore) {
-        best = neighbor.coord;
+        best = { ...neighbor.coord };
         bestScore = score;
       }
     }

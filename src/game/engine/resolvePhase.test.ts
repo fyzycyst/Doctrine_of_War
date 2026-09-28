@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState, resolvePhase } from "./resolvePhase";
+import { firstBreach } from "./scenarios/firstBreach";
 import { doctrine, library, scenario, squad } from "./testKit";
 import type { EngineEvent, EngineScenario, ObjectiveSetup } from "./types";
 
@@ -244,5 +245,59 @@ describe("win conditions", () => {
     const { state, events } = run(scen, {}, library(hunter));
     expect(state.status).toBe("defeat");
     expect(events.at(-1)).toMatchObject({ kind: "outcome", reason: expect.stringMatching(/No company/) });
+  });
+});
+
+describe("data isolation", () => {
+  /** Every {q, r} object reachable from a value. */
+  function coordsIn(value: unknown, found: object[] = []): object[] {
+    if (value && typeof value === "object") {
+      if ("q" in value && "r" in value) {
+        found.push(value);
+      }
+      for (const child of Object.values(value)) {
+        coordsIn(child, found);
+      }
+    }
+    return found;
+  }
+
+  it("returned state and events never share coordinate objects with the scenario or each other", () => {
+    const scen = firstBreach;
+    const pristine = structuredClone(scen);
+    const boardCoords = new Set<object>(coordsIn(scen));
+    let state = createInitialState(scen, { seed: 3, fortune: "on" });
+    const results = [];
+    while (state.status === "command") {
+      const result = resolvePhase(state, scen.referencePlans!.intended, scen);
+      results.push(result);
+      state = result.state;
+    }
+    for (const result of results) {
+      const stateCoords = coordsIn(result.state);
+      const eventCoords = coordsIn(result.events);
+      expect(eventCoords.length).toBeGreaterThan(0);
+      expect(stateCoords.some((coord) => boardCoords.has(coord))).toBe(false);
+      expect(eventCoords.some((coord) => boardCoords.has(coord))).toBe(false);
+      const stateSet = new Set(stateCoords);
+      expect(eventCoords.some((coord) => stateSet.has(coord))).toBe(false);
+    }
+    // Scribbling over everything the engine returned must not touch the scenario.
+    for (const coord of coordsIn(results)) {
+      Object.assign(coord, { q: 999, r: 999 });
+    }
+    expect(scen).toEqual(pristine);
+  });
+
+  it("move paths are fresh objects, distinct from the squad's new position", () => {
+    const doctrines = library(doctrine("walker", FB, [[{ kind: "always" }, { kind: "advance", toward: { kind: "nearestEnemy" } }]]));
+    const walker = scenario({ squads: [squad("a", FB, { q: 0, r: 2 }, { doctrineId: "walker" }), squad("e", AH, { q: 5, r: 2 })] });
+    const { events, state } = resolvePhase(createInitialState(walker), {}, walker, { doctrines });
+    // The last move put the squad where it now stands: equal values, different objects.
+    const move = events.filter((event) => event.kind === "move").at(-1);
+    const path = move && move.kind === "move" ? move.path : [];
+    const position = state.squads[0].hex;
+    expect(path.at(-1)).toEqual(position);
+    expect(path.every((hex) => hex !== position)).toBe(true);
   });
 });
