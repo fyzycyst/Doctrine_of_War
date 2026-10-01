@@ -142,3 +142,11 @@ describe("render and music settings (T20)", () => {
     act(() => useSettings.getState().set({ depthOfField: "subtle" }));
   });
 });
+
+describe("the Settings dialog", () => {
+  it("opens at its top: focus lands on the heading, not on Done at the foot of a long list", () => {
+    useFlow.setState({ settingsOpen: true });
+    render(<Root />);
+    expect(screen.getByRole("heading", { name: "Settings" })).toHaveFocus();
+  });
+});

@@ -68,6 +68,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setMusicVolume = useAudioStore((s) => s.setMusicVolume);
   const setPace = useGame((s) => s.setPace);
   const close = useRef<HTMLButtonElement>(null);
+  // Open at the top (the list now scrolls): focus lands on the heading, not on Done at the foot.
+  const heading = useRef<HTMLHeadingElement>(null);
   const setHowToOpen = useFlow((s) => s.setHowToOpen);
   const setEditor = useFlow((s) => s.setEditor);
   const saveStore = useFlow((s) => s.store);
@@ -85,8 +87,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const guideFresh = useGuide((s) => !s.introSeen && s.coach === "active" && s.step === "select");
 
   return (
-    <Modal className="modal settings" labelledBy="settings-title" initialFocus={close} onCancel={onClose}>
-      <h2 id="settings-title">Settings</h2>
+    <Modal className="modal settings" labelledBy="settings-title" initialFocus={heading} onCancel={onClose}>
+      <h2 id="settings-title" ref={heading} tabIndex={-1}>
+        Settings
+      </h2>
 
       <Row title="Graphics" help="Low drops bloom and tilt-shift for older Macs. Ultra renders at full display resolution.">
         <Segmented label="Graphics quality" value={settings.quality} options={QUALITY} onChange={(quality) => settings.set({ quality })} />

@@ -3649,3 +3649,8 @@ h3 {
 .terrain-chip.weaker .terrain-compare {
   color: var(--rust-text);
 }
+
+/* Dialog headings take focus on open (so a long dialog opens at its top); no ring for that. */
+.modal h2[tabindex="-1"]:focus {
+  outline: none;
+}
