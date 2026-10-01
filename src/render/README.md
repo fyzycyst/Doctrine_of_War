@@ -70,8 +70,15 @@ imported (see `fromEngine.ts`); engine logic may not.
   - **Score (T20):** a generative score per time of day (`music.ts`), following the ambience by
     itself (`setMusic(mood | null)` pins a mood for menus). It ducks under every SFX and has its own
     volume, `useAudioStore.musicVolume`.
-  - **Demos:** `npm run audio:demo` renders the drums (command, playback, an engagement swell) and
-    each mood offline to `captures/audio/*.wav` with a levels report.
+  - **Orchestra (T20b):** the score, motifs and drum ostinato play on CC0 VSCO 2 CE samples
+    (`sampler.ts`, `score.ts`; about 2.9 MB in `public/assets/audio/orch/`, built by
+    `npm run build:orchestra`). They load lazily after the first interaction, and each voice falls
+    back to its synth twin until it decodes or if loading fails. Motifs: a Banners horn call on
+    `horn`, Host low brass and drums on `dread`, a strings-and-horns swell on predawn → sunrise,
+    and `playSting("victory" | "defeat")` for outcomes.
+  - **Demos:** `npm run audio:demo` renders the drums (command, playback, an engagement swell),
+    each mood, the motifs and the victory/defeat stingers offline to `captures/audio/*.wav`, with
+    a levels report.
 - **Render scale:** `canvasDpr(quality, ultra?)` in `quality.ts`: high caps at DPR 1.5, low is 1,
   and ultra (opt-in) is full device DPR.
 - **Showcase (T13), `src/render/showcase/`:**
