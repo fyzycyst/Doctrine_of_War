@@ -1602,10 +1602,22 @@ h3 {
   }
 }
 
+/*
+ * Reduced motion: every CSS animation and transition stops. html.reduce-motion follows
+ * the in-game setting (Settings → Motion, else the OS); the media query covers the moment
+ * before the app sets it, unless the player chose Full (html.motion-full).
+ */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  html:not(.motion-full) *,
+  html:not(.motion-full) *::before,
+  html:not(.motion-full) *::after {
     animation: none !important;
     transition: none !important;
   }
@@ -3532,11 +3544,6 @@ h3 {
   transition: transform 0.18s var(--ease);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .callout-slot {
-    transition: none;
-  }
-}
 
 /* Weather shifts as a chyron in the top bar (T19): the chip widens and the news slides in. */
 .weather-chip.chyron {
@@ -3581,12 +3588,6 @@ h3 {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .weather-chip.chyron,
-  .chyron-text {
-    animation: none;
-  }
-}
 
 /* The terrain chip beside the hovered hex (T19): tinted by better or worse ground. */
 .terrain-chip {
@@ -3653,4 +3654,27 @@ h3 {
 /* Dialog headings take focus on open (so a long dialog opens at its top); no ring for that. */
 .modal h2[tabindex="-1"]:focus {
   outline: none;
+}
+
+/* Settings in two columns where there is room (T19b): Display & motion and Rules on the
+   left, Sound & pace and Help & support on the right. One column on narrow windows. */
+.settings-column > .settings-section:first-child {
+  margin-top: 8px;
+}
+
+@media (min-width: 1280px) {
+  .modal.settings {
+    width: min(1060px, calc(100vw - 48px));
+  }
+
+  .settings-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 36px;
+    align-items: start;
+  }
+}
+
+.modal.settings .modal-actions {
+  margin-top: 16px;
 }
