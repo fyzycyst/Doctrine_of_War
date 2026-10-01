@@ -1,5 +1,7 @@
 import { useAudioStore } from "../app/audioStore";
 import { AMBIENT_BEDS, ambienceMix, type AmbienceSpec, type AmbientBed } from "./ambience";
+import { DRUM_SWELLS, drumBar, DrumIntensity, drumTempo, type DrumVoice } from "./drums";
+import { drumVoice } from "./voices";
 
 /**
  * Small Web Audio engine (no dependencies):
@@ -38,6 +40,8 @@ export class AudioEngine {
   private buffers = new Map<string, AudioBuffer>();
   private schedulers: number[] = [];
   private spec: AmbienceSpec | null = null;
+  /** Battle intensity driving the war drums (T20): a base plus SFX swells. */
+  readonly drums = new DrumIntensity();
 
   constructor() {
     useAudioStore.subscribe(() => this.applyVolume());
@@ -70,6 +74,8 @@ export class AudioEngine {
   }
 
   setAmbience(spec: AmbienceSpec) {
+    // The dawn turn (predawn → sunrise) is a drum moment by itself.
+    if (this.spec?.timeOfDay === "predawn" && spec.timeOfDay === "sunrise") this.swellDrums("dawn");
     this.spec = spec;
     if (!this.ctx) return;
     const mix = ambienceMix(spec);
@@ -83,7 +89,24 @@ export class AudioEngine {
     }
   }
 
+  /** The drums' resting level (0..1): e.g. DRUM_BASE.command or DRUM_BASE.playback. */
+  setDrumIntensity(base: number) {
+    this.drums.setBase(base);
+  }
+
+  /** Swell the drums for a battle moment (clash, rout, horn, dread, reveal, dawn). */
+  swellDrums(moment: string) {
+    const s = DRUM_SWELLS[moment];
+    if (s) this.drums.swell(s[0], this.clock(), s[1], s[2]);
+  }
+
+  private clock() {
+    return this.ctx ? this.ctx.currentTime : performance.now() / 1000;
+  }
+
   playSfx(name: SfxName) {
+    // Battle moments push the drums (harmless before audio is unlocked).
+    this.swellDrums(name);
     const ctx = this.ctx;
     if (!ctx || !this.sfxBus || ctx.state !== "running") return;
     const t = ctx.currentTime + 0.01;
@@ -209,16 +232,18 @@ export class AudioEngine {
       src.connect(bp).connect(amp).connect(out);
       src.start();
     }
-    // Drums and fire crackle are scheduled hits.
+    // Drums and fire crackle are scheduled hits. The drums sit a little
+    // distant (low-passed, a short slap echo) and come closer, brighter and
+    // faster as the battle's intensity rises (drums.ts).
     const drums = this.bed("drums");
     const drumBus = ctx.createGain();
     const delay = ctx.createDelay(1);
-    delay.delayTime.value = 0.23;
+    delay.delayTime.value = 0.19;
     const fb = ctx.createGain();
-    fb.gain.value = 0.32;
+    fb.gain.value = 0.16;
     const far = ctx.createBiquadFilter();
     far.type = "lowpass";
-    far.frequency.value = 650;
+    far.frequency.value = 1100;
     drumBus.connect(far);
     far.connect(drums);
     far.connect(delay);
@@ -226,16 +251,26 @@ export class AudioEngine {
     delay.connect(drums);
     const fire = this.bed("fire");
 
-    const pattern = [0, 0.55, 1.1, 1.38];
-    let nextBar = ctx.currentTime + 0.1;
+    let bar = 0;
+    let step = 0;
+    let nextStep = ctx.currentTime + 0.1;
+    let hits = drumBar(this.drums.value(nextStep), bar);
     let nextCrackle = ctx.currentTime + 0.1;
     const tick = () => {
       const c = this.ctx;
       if (!c) return;
       const horizon = c.currentTime + 0.25;
-      while (nextBar < horizon) {
-        pattern.forEach((off, i) => this.tom(drumBus, nextBar + off, i === 2 ? 0.45 : 0.9));
-        nextBar += 2.2;
+      while (nextStep < horizon) {
+        const k = this.drums.value(nextStep);
+        if (step === 0) {
+          hits = drumBar(k, bar);
+          far.frequency.setTargetAtTime(900 + 1700 * k, nextStep, 0.4);
+          drumBus.gain.setTargetAtTime(0.55 + 0.6 * k, nextStep, 0.3);
+        }
+        for (const h of hits) if (h.step === step) this.drum(drumBus, h.voice, nextStep, h.velocity);
+        nextStep += 60 / drumTempo(k) / 4;
+        step = (step + 1) % 16;
+        if (step === 0) bar += 1;
       }
       while (nextCrackle < horizon) {
         this.crackle(fire, nextCrackle);
@@ -245,18 +280,8 @@ export class AudioEngine {
     this.schedulers.push(window.setInterval(tick, 80));
   }
 
-  private tom(dest: AudioNode, t: number, level: number) {
-    const ctx = this.ctx!;
-    const osc = ctx.createOscillator();
-    osc.frequency.setValueAtTime(95, t);
-    osc.frequency.exponentialRampToValueAtTime(48, t + 0.35);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(level, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
-    osc.connect(g).connect(dest);
-    osc.start(t);
-    osc.stop(t + 0.75);
+  private drum(dest: AudioNode, voice: DrumVoice, t: number, velocity: number) {
+    drumVoice(this.ctx!, dest, this.noise!, voice, t, velocity);
   }
 
   private crackle(dest: AudioNode, t: number) {
