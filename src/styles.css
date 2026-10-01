@@ -773,6 +773,8 @@ h3 {
   background: rgba(12, 10, 15, 0.72);
   font-size: 14px;
   color: var(--muted);
+  /* .hand lets board clicks through around the cards; the caption holds "Edit a copy…". */
+  pointer-events: auto;
 }
 
 .hand-caption strong {
