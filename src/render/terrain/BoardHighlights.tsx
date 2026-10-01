@@ -8,6 +8,9 @@ import { hexToWorld } from "../hexWorld";
 import { useLook } from "../look/LookContext";
 import type { IslandBuild } from "./buildIsland";
 import { useDisposable } from "../dispose";
+import { MarchZone } from "./MarchZone";
+
+export type ZoneStyle = "deploy" | "march";
 
 /**
  * Hex overlays drawn on the tile tops: a hover outline, a selected-hex outline
@@ -18,11 +21,16 @@ export function BoardHighlights({
   island,
   deploymentHexes,
   deploymentColor = "#ffcf6e",
+  zoneStyle = "deploy",
+  marchFrom = null,
   emphasisHex = null,
 }: {
   island: IslandBuild;
   deploymentHexes?: HexCoord[];
   deploymentColor?: string;
+  /** "deploy": the gold pulse; "march": silver-blue edges and chevrons from `marchFrom` (T21 muster). */
+  zoneStyle?: ZoneStyle;
+  marchFrom?: HexCoord | null;
   /** T19: emphasis without moving the camera (the acting company during playback). */
   emphasisHex?: HexCoord | null;
 }) {
@@ -42,9 +50,10 @@ export function BoardHighlights({
 
   return (
     <>
-      {deploymentHexes && deploymentHexes.length > 0 && (
+      {deploymentHexes && deploymentHexes.length > 0 && zoneStyle === "deploy" && (
         <DeploymentZone island={island} hexes={deploymentHexes} color={deploymentColor} />
       )}
+      {deploymentHexes && deploymentHexes.length > 0 && zoneStyle === "march" && <MarchZone island={island} hexes={deploymentHexes} from={marchFrom} />}
       {hoverPos && (
         <HexOutline position={hoverPos} color="#fff4d6" opacity={0.45} width={0.05} />
       )}

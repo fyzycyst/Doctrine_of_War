@@ -18,7 +18,7 @@ import { AtmosphereTicker, useLook } from "./look/LookContext";
 import type { FactionId } from "../game/engine/types";
 import { createIslandMaterial, createOutlineMaterial } from "./materials";
 import { pickBoardHex, resolveClick } from "./picking";
-import { BoardHighlights } from "./terrain/BoardHighlights";
+import { BoardHighlights, type ZoneStyle } from "./terrain/BoardHighlights";
 import { ExitMarkers } from "./terrain/ExitMarkers";
 import { buildIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
@@ -64,6 +64,7 @@ export function Diorama({
   figures = "toy",
   mistDensity,
   deploymentHexes,
+  zoneStyle = "deploy",
   exitHexes,
   emphasisHex,
   visibility,
@@ -77,6 +78,12 @@ export function Diorama({
   mistDensity?: MistDensityMap;
   /** Hexes to tint as a pulsing deployment zone. */
   deploymentHexes?: HexCoord[];
+  /**
+   * How `deploymentHexes` are drawn: "deploy" (default, the gold pulse) or
+   * "march" (T21 muster: where the selected company can march; silver-blue
+   * edges and chevrons pointing away from it).
+   */
+  zoneStyle?: ZoneStyle;
   /**
    * Hexes to mark as a "way out" (e.g. Saltmarsh's southern edge): a soft pale
    * glow toward the off-board side and faint chevrons drifting off the board.
@@ -185,6 +192,13 @@ export function Diorama({
     onReveal?.(revealed);
   }, [drawn, visibility, animator, onReveal, placed, atmosphere]);
 
+  // March zone (T21): chevrons point away from the selected company.
+  const selectedSquadId = useAppStore((s) => s.selectedSquadId);
+  const marchFrom = useMemo(
+    () => (zoneStyle === "march" ? (drawn.find((d) => d.id === selectedSquadId)?.hex ?? null) : null),
+    [zoneStyle, drawn, selectedSquadId],
+  );
+
   const setHoveredHex = useAppStore((s) => s.setHoveredHex);
   const setHoveredSquad = useAppStore((s) => s.setHoveredSquad);
   const selectHex = useAppStore((s) => s.selectHex);
@@ -243,7 +257,7 @@ export function Diorama({
       <Reeds island={island} />
       <Fires island={island} />
       {island.gateBanner && <GateBanner anchor={island.gateBanner} />}
-      <BoardHighlights island={island} deploymentHexes={deploymentHexes} emphasisHex={emphasisHex} />
+      <BoardHighlights island={island} deploymentHexes={deploymentHexes} zoneStyle={zoneStyle} marchFrom={marchFrom} emphasisHex={emphasisHex} />
       {exitHexes && exitHexes.length > 0 && <ExitMarkers board={board} island={island} hexes={exitHexes} />}
       <SquadMarkers placed={placed} animator={animator} waterLevel={island.waterLevel} />
       <Suspense fallback={null}>

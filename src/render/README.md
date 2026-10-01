@@ -127,6 +127,12 @@ imported (see `fromEngine.ts`); engine logic may not.
     on Hold for Dawn's last phase), the lighting blends over `timeOfDayFade` seconds (default 3;
     pass ~2 for a staged turn) on the R3F clock (`look/blendPresets.ts`, pure and tested). The
     Cinderram's hide burn runs over the first half of it. Under reduced motion it cuts.
+  - **March zone (T21 muster):** `<Diorama deploymentHexes={hexes} zoneStyle="march">` draws the
+    hexes the selected company can march to: a faint cool fill, a silver-blue edge with a thin dark
+    outline (legible on bright dusk and at night), and chevrons pointing away from the selected
+    squad (`useAppStore.selectedSquadId`) that drift outward (static under reduced motion).
+    `zoneStyle="deploy"` (default) keeps the gold deployment pulse. Lab: `&march=1&select=<id>`
+    (`&march=gold` draws the same hexes the old way).
   - **Exit edge:** `<Diorama exitHexes={edgeHexes}>` marks an escape edge (Saltmarsh's southern
     row): a faint pale glow brightest toward the off-board side and chevrons drifting off the
     board (`terrain/ExitMarkers.tsx`; static under reduced motion, not pickable). Exit hexes are
