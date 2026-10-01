@@ -4,7 +4,7 @@ import { hexDistance, sameHex } from "../../game/board";
 import { createInitialState, holdForDawn, resolvePhase } from "../../game/engine";
 import { useGame } from "./gameStore";
 import { useAppStore } from "../store";
-import { useBoardMuster } from "../ui/useMuster";
+import { boardZone, useBoardMuster } from "../ui/useMuster";
 import { musterTargets } from "./muster";
 
 const game = () => useGame.getState();
@@ -106,5 +106,15 @@ describe("muster by clicking the board", () => {
     await act(() => Promise.resolve());
     expect(game().muster).toContainEqual({ squadId: "greyford_shields", relieve: "gatewarden_spears" });
     expect(useAppStore.getState().selectedSquadId).toBe("greyford_shields");
+  });
+});
+
+describe("the board's zone style", () => {
+  const hex = { q: 1, r: 1 };
+  it("marches for muster targets in a command window, deploys in deployment, and shows nothing otherwise", () => {
+    expect(boardZone("command", () => [], [hex])).toEqual({ hexes: [hex], style: "march" });
+    expect(boardZone("deploy", () => [hex], [])).toEqual({ hexes: [hex], style: "deploy" });
+    expect(boardZone("command", () => [hex], [])).toEqual({ style: "deploy" });
+    expect(boardZone("resolving", () => [hex], [hex])).toEqual({ style: "deploy" });
   });
 });
