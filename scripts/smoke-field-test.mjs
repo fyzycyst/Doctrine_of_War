@@ -116,17 +116,21 @@ async function drive(win) {
   // Save it: ordered for the company, and in the hand.
   await click(/^Save variant$/, "Save variant", editor);
   await waitFor(`/ordered for this company/.test(${editor}.textContent)`, "saved");
-  // An extreme cut (fall back first, below 90 cohesion) must read as a clear difference,
-  // not noise. (With "brace" first, the threshold barely matters: a company in contact braces.)
+  // A second, extreme cut (fall back first, below 90 cohesion) on the same worker: a full,
+  // well-formed verdict. (Whether it reads as clearly better, worse or no different is
+  // the battle's balance, which changes with the game data; the verdict logic itself is
+  // proven by exact enumeration in sequential.test.ts.)
   await click(/^Move order 2 up$/, "fall back first", editor);
   for (let value = 35; value <= 90; value += 5) await click(new RegExp(`^Raise to ${value}$`), `raise to ${value}`, editor);
   await click(/^Run again$/, "Run again", editor);
   await waitFor(`${editor}.querySelector(".field-test-verdict") && !${editor}.querySelector("progress")`, "the second verdict", 180_000);
   const clear = await js(`[...${editor}.querySelectorAll(".field-test-verdict, .field-test-detail, .field-test-note")].map((r) => r.textContent).join(" | ")`);
   log("extreme cut:", clear);
-  if (!/^Clearly (better|worse)/.test(clear)) throw new Error("the extreme cut did not read as a clear difference");
+  if (!/^(Clearly (better|worse)|Slightly (better|worse), not certain|No real difference) \| .+ in \d+% of \d+ battles/.test(clear)) {
+    throw new Error(`the second run did not produce a well-formed verdict: ${clear}`);
+  }
   await js(`${editor}.querySelector(".field-test").scrollIntoView({ block: "end" })`);
-  await shot("fieldtest-clear");
+  await shot("fieldtest-second");
   await click(/^Close$/, "Close", editor);
   await waitFor(`!${editor}`, "editor closed");
   await js(`document.querySelector('.hand [role="option"][aria-selected="true"]')?.focus()`);

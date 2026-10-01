@@ -8,6 +8,7 @@ import { FrameProbe } from "../ui/FrameProbe";
 import { RoleGlyph, ROLE_NAME } from "../ui/glyphs";
 import { battleTitle, isPlayable, ledger, mapBattles, OUTCOME_WORD, scenarioFor } from "./campaignView";
 import { useFlow } from "./flowStore";
+import { useShowSeed } from "../settingsStore";
 
 const STATUS_WORD = {
   locked: "Not yet reached",
@@ -19,6 +20,7 @@ const STATUS_WORD = {
 
 /** The war as an archipelago, with the army ledger and the chronicle of results. */
 export function CampaignScreen({ onSettings }: { onSettings?: () => void }) {
+  const showSeed = useShowSeed();
   const definition = useFlow((s) => s.definition);
   const campaign = useFlow((s) => s.campaign);
   const notice = useFlow((s) => s.notice);
@@ -85,8 +87,13 @@ export function CampaignScreen({ onSettings }: { onSettings?: () => void }) {
                       {record.customOrders && <ExperimentalBadge small />}
                     </span>
                     <span className="history-line">
-                      <strong>{OUTCOME_WORD[record.outcome]}</strong> · {record.companiesBroken} of yours broken · {record.enemyBroken} of theirs ·
-                      seed <span className="mono">#{record.seed}</span>
+                      <strong>{OUTCOME_WORD[record.outcome]}</strong> · {record.companiesBroken} of yours broken · {record.enemyBroken} of theirs
+                      {showSeed && (
+                        <>
+                          {" "}
+                          · seed <span className="mono">#{record.seed}</span>
+                        </>
+                      )}
                     </span>
                   </li>
                 ))}

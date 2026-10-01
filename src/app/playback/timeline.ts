@@ -11,8 +11,34 @@ export type Pace = "readable" | "fast";
 /** Fast plays every step in half the time. */
 export const PACE_SCALE: Record<Pace, number> = { readable: 1, fast: 0.5 };
 
-/** A whole phase at Readable fits in this; longer phases are compressed to it. */
+/**
+ * A whole phase at Readable fits in its budget; longer phases are compressed to it. The
+ * budget grows with the battle (T19 playtest: large battles cycled too fast): 24 s, plus
+ * 2 s for each company acting in the phase beyond 8, up to 45 s. Fast is half.
+ */
 export const PHASE_BUDGET_MS = 24_000;
+export const PHASE_BUDGET_MAX_MS = 45_000;
+export const BUDGET_PER_COMPANY_MS = 2_000;
+export const BUDGET_FREE_COMPANIES = 8;
+/** Compression never takes a step below this share of its natural (Readable) length. */
+export const MIN_SQUEEZE = 0.55;
+
+/** The Readable budget for a phase in which `companies` companies act. */
+export function phaseBudgetMs(companies: number): number {
+  return Math.min(PHASE_BUDGET_MAX_MS, PHASE_BUDGET_MS + BUDGET_PER_COMPANY_MS * Math.max(0, companies - BUDGET_FREE_COMPANIES));
+}
+
+/** The companies a phase's events involve (both sides, as the player saw them). */
+export function actingCompanies(events: EngineEvent[]): number {
+  const ids = new Set<string>();
+  for (const event of events) {
+    for (const key of ["squadId", "attackerId", "defenderId", "sourceId", "targetId"] as const) {
+      const id = (event as Partial<Record<typeof key, unknown>>)[key];
+      if (typeof id === "string") ids.add(id);
+    }
+  }
+  return ids.size;
+}
 
 export type StepKind =
   | "beat"
@@ -60,6 +86,10 @@ export interface Step {
 }
 
 export interface Timeline {
+  /** The Readable budget this phase was fitted to (phaseBudgetMs of its acting companies). */
+  budgetMs: number;
+  /** The uncompressed Readable length. */
+  naturalMs: number;
   pace: Pace;
   steps: Step[];
   totalMs: number;
@@ -191,7 +221,8 @@ export function visibleRuns(path: HexCoord[]): HexCoord[][] {
 /**
  * The phase as timed steps, in the engine's own order (initiative side first in each
  * beat). A "Beat N" marker opens each beat. At Readable the whole phase is compressed
- * to PHASE_BUDGET_MS if needed; Fast halves every step.
+ * to its budget (phaseBudgetMs) if needed, but never below MIN_SQUEEZE of its natural
+ * length; Fast halves every step.
  */
 export function buildTimeline(
   events: EngineEvent[],
@@ -227,7 +258,8 @@ export function buildTimeline(
   }
 
   const natural = drafts.reduce((sum, item) => sum + item.base, 0);
-  const squeeze = natural > PHASE_BUDGET_MS ? PHASE_BUDGET_MS / natural : 1;
+  const budget = phaseBudgetMs(actingCompanies(events));
+  const squeeze = natural > budget ? Math.max(MIN_SQUEEZE, budget / natural) : 1;
   const scale = squeeze * PACE_SCALE[pace];
   let at = 0;
   const steps = drafts.map(({ base, lingerBase, ...rest }) => {
@@ -241,7 +273,7 @@ export function buildTimeline(
     at += step.duration;
     return step;
   });
-  return { pace, steps, totalMs: at };
+  return { pace, steps, totalMs: at, budgetMs: budget, naturalMs: natural };
 }
 
 // ---------------------------------------------------------------------------

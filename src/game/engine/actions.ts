@@ -1,6 +1,6 @@
 // Action execution and combat math. Mutates the working copy of state that
 // resolvePhase owns, and reports everything that happened through `emit`.
-import { boardNeighbors, getHex, hexDistance, terrainDefenseBonus, type HexCoord } from "../board";
+import { boardNeighbors, getHex, hexDistance, terrainDefenseBonus, type HexCoord, type TerrainType } from "../board";
 import { checkRout, clamp, type EngineContext } from "./context";
 import { firstContact } from "./fortune";
 import { planAdvance, planFallBack } from "./movement";
@@ -213,9 +213,14 @@ function isAdjacentTo(squad: ActiveSquad, target: ResolvedTarget): boolean {
   }
 }
 
+/** Whether a squad can brace on this terrain: not in marsh, with no firm footing. (Exported for the UI.) */
+export function bracesOn(terrain: TerrainType | undefined): boolean {
+  return terrain !== "marsh";
+}
+
 /** Brace in place, except in marsh: there is no firm footing to brace on. */
 function hold(ctx: EngineContext, squad: ActiveSquad) {
-  squad.braced = getHex(ctx.scenario.board, squad.hex)?.terrain !== "marsh";
+  squad.braced = bracesOn(getHex(ctx.scenario.board, squad.hex)?.terrain);
 }
 
 /** Moves along the planned path. Returns false if the squad could not move at all. */

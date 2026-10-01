@@ -82,7 +82,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
               <span className="callout-title">Wavering…</span>
             </div>
           </div>
-          <p>Chance is real but always shown: a company under stress may surge or waver. Every report names its seed, and Doctrine only in Settings turns fortune off.</p>
+          <p>Chance is real but always shown: a company under stress may surge or waver. Doctrine only in Settings turns fortune off.</p>
         </section>
 
         <section className="howto-panel" aria-labelledby="h-fog">

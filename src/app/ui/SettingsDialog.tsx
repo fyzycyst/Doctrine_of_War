@@ -1,10 +1,11 @@
-import { useRef, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useAudioStore } from "../audioStore";
 import { useGame } from "../game/gameStore";
 import { useSettings, type QualitySetting } from "../settingsStore";
-import type { MotionPreference } from "../store";
+import type { DofMode, MotionPreference } from "../store";
 import { useFlow } from "../flow/flowStore";
 import { useGuide } from "../guide/guideStore";
+import { exportSave } from "../support";
 import { Modal } from "./Modal";
 
 function Segmented<T extends string>({
@@ -46,6 +47,11 @@ const QUALITY: { value: QualitySetting; label: string }[] = [
   { value: "high", label: "High" },
   { value: "ultra", label: "Ultra" },
 ];
+const DOF: { value: DofMode; label: string }[] = [
+  { value: "on", label: "On" },
+  { value: "subtle", label: "Subtle" },
+  { value: "off", label: "Off" },
+];
 const MOTION: { value: MotionPreference; label: string }[] = [
   { value: "system", label: "Like my system" },
   { value: "reduce", label: "Reduced" },
@@ -58,16 +64,33 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const volume = useAudioStore((s) => s.volume);
   const setMuted = useAudioStore((s) => s.setMuted);
   const setVolume = useAudioStore((s) => s.setVolume);
+  const musicVolume = useAudioStore((s) => s.musicVolume);
+  const setMusicVolume = useAudioStore((s) => s.setMusicVolume);
   const setPace = useGame((s) => s.setPace);
   const close = useRef<HTMLButtonElement>(null);
+  // Open at the top (the list now scrolls): focus lands on the heading, not on Done at the foot.
+  const heading = useRef<HTMLHeadingElement>(null);
   const setHowToOpen = useFlow((s) => s.setHowToOpen);
   const setEditor = useFlow((s) => s.setEditor);
+  const saveStore = useFlow((s) => s.store);
+  const [exportNote, setExportNote] = useState<string | null>(null);
+  const exportCopy = async () => {
+    setExportNote(null);
+    try {
+      const outcome = await exportSave(saveStore);
+      setExportNote(outcome === "exported" ? "Save file exported." : outcome === "no-save" ? "There is no saved campaign yet." : null);
+    } catch (error) {
+      setExportNote(`The save file could not be exported (${error instanceof Error ? error.message : "unknown error"}).`);
+    }
+  };
   const resetGuide = useGuide((s) => s.reset);
   const guideFresh = useGuide((s) => !s.introSeen && s.coach === "active" && s.step === "select");
 
   return (
-    <Modal className="modal settings" labelledBy="settings-title" initialFocus={close} onCancel={onClose}>
-      <h2 id="settings-title">Settings</h2>
+    <Modal className="modal settings" labelledBy="settings-title" initialFocus={heading} onCancel={onClose}>
+      <h2 id="settings-title" ref={heading} tabIndex={-1}>
+        Settings
+      </h2>
 
       <Row title="Graphics" help="Low drops bloom and tilt-shift for older Macs. Ultra renders at full display resolution.">
         <Segmented label="Graphics quality" value={settings.quality} options={QUALITY} onChange={(quality) => settings.set({ quality })} />
@@ -91,6 +114,25 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             />
           </label>
         </div>
+      </Row>
+
+      <Row title="Music" help="The background score, under the master volume.">
+        <label className="volume">
+          <span className="sr-only">Music volume</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={Math.round(musicVolume * 100)}
+            disabled={muted}
+            aria-label="Music volume"
+            onChange={(event) => setMusicVolume(Number(event.target.value) / 100)}
+          />
+        </label>
+      </Row>
+
+      <Row title="Depth of field" help="The tilt-shift blur at the board's edges. Subtle keeps your companies sharp; Off turns it off.">
+        <Segmented label="Depth of field" value={settings.depthOfField} options={DOF} onChange={(depthOfField) => settings.set({ depthOfField })} />
       </Row>
 
       <Row title="Battle pace" help="How fast each phase plays out. You can still switch during a battle.">
@@ -157,6 +199,31 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           Open the editor
         </button>
       </Row>
+
+      <h3 className="settings-section">Support</h3>
+      <Row title="Show battle details" help="Shows each battle's seed in the top bar, reports and results. Useful when reporting a bug.">
+        <label className="check">
+          <input
+            type="checkbox"
+            aria-label="Show battle details"
+            checked={settings.showBattleDetails}
+            onChange={(event) => settings.set({ showBattleDetails: event.target.checked })}
+          />{" "}
+          On
+        </label>
+      </Row>
+      <Row title="Export save file" help="Saves a copy of your campaign to send with a bug report.">
+        <div className="settings-audio">
+          <button type="button" className="btn-quiet" onClick={exportCopy}>
+            Export save file…
+          </button>
+        </div>
+      </Row>
+      {exportNote && (
+        <p className="settings-help" role="status">
+          {exportNote}
+        </p>
+      )}
 
       <div className="modal-actions">
         <button ref={close} type="button" className="btn-command" onClick={onClose}>

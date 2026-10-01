@@ -71,7 +71,8 @@ describe("command flow on The First Breach (fortune off)", () => {
 
     // Report for phase 1, then play on until the battle ends.
     expect(screen.getByText("Chronicle · Phase 1")).toBeInTheDocument();
-    expect(screen.getByText(/seed/)).toHaveTextContent("#1");
+    // The seed stays out of sight unless Settings → Support → Show battle details is on.
+    expect(screen.queryByText(/seed/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Next Phase" }));
     expect(game().stage).toBe("command");
 
@@ -349,6 +350,40 @@ describe("phase playback", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("announces a weather shift as a chyron in the top bar, not a banner over the board", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await sealPhase(user);
+    act(() => void game().pushCallout({ kind: "weather", hex: null, faction: null, title: "The weather turns", text: "Rain", repeat: false, linger: 2200 }));
+    const bar = screen.getByRole("banner");
+    const chyron = bar.querySelector(".weather-chip.chyron");
+    expect(chyron).toHaveAttribute("role", "status");
+    // The new weather's effect, even before the board shows the rain.
+    expect(chyron).toHaveTextContent("The weather turns: Rain · Fords end a move; counter-charges hit softer.");
+    expect(document.querySelector(".callout-weather")).toBeNull();
+    // When it has played, the chip is the plain weather chip again.
+    act(() => game().dropCallout(game().callouts.find((callout) => callout.kind === "weather")!.id));
+    expect(within(bar).queryByText(/The weather turns/)).not.toBeInTheDocument();
+  });
+
+  it("moves the depth-of-field focus to the acting company, never the camera, and clears it after", async () => {
+    const user = userEvent.setup();
+    loadFirstBreach("on", 146);
+    render(<App />);
+    const focused: (string | null)[] = [];
+    const stop = useAppStore.subscribe((state, before) => {
+      if (state.focusSquadId !== before.focusSquadId) focused.push(state.focusSquadId);
+    });
+    act(() => useGame.setState({ playbackSpeed: 200 }));
+    await sealPhase(user);
+    await waitFor(() => expect(game().stage).toBe("report"), { timeout: 5000 });
+    stop();
+    const squads = new Set(game().view.squads.map((squad) => squad.id));
+    expect(focused.filter((id) => id !== null).length).toBeGreaterThan(0);
+    expect(focused.every((id) => id === null || squads.has(id))).toBe(true);
+    expect(useAppStore.getState().focusSquadId).toBeNull();
   });
 
   it("skips to the final state with Space", async () => {

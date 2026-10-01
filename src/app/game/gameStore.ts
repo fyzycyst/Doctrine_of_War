@@ -25,7 +25,9 @@ import {
   type CheckedVariant,
 } from "../../game/engine";
 import { ashAndBanner, applyCampaign, startCampaign, type CampaignDefinition, type CampaignState } from "../../game/campaign";
+import { admitCallout } from "../playback/callouts";
 import type { CalloutSpec } from "../playback/director";
+import { useGuide } from "../guide/guideStore";
 import type { Pace } from "../playback/timeline";
 import { useSettings } from "../settingsStore";
 import { useAppStore } from "../store";
@@ -331,7 +333,9 @@ export const useGame = create<GameState>((set, get) => ({
   pushCallout: (spec) => {
     calloutIds += 1;
     const id = calloutIds;
-    set({ callouts: [...get().callouts.slice(-7), { ...spec, id }] });
+    // Declutter (T19): Host repeats stay in the caption bar, and at most MAX_CALLOUTS banners show.
+    const next = admitCallout(get().callouts, { ...spec, id }, get().scenario.playerFaction, useGuide.getState().watchCallout);
+    if (next) set({ callouts: next });
     return id;
   },
   dropCallout: (id) => set({ callouts: get().callouts.filter((callout) => callout.id !== id) }),

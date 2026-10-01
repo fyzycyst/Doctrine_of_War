@@ -3,6 +3,7 @@ import App from "../App";
 import { isCaptureToggle, useCaptureStore } from "./captureStore";
 import { CampaignScreen } from "./flow/CampaignScreen";
 import { EndScreen } from "./flow/EndScreen";
+import { startAudioCues } from "./audioCues";
 import { useFlow } from "./flow/flowStore";
 import { DoctrineEditor } from "./variants/DoctrineEditor";
 import { useVariants } from "./variants/variantStore";
@@ -24,6 +25,8 @@ export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: st
   const captureMode = useCaptureStore((s) => s.captureMode);
   const editor = useFlow((s) => s.editor);
   const setEditor = useFlow((s) => s.setEditor);
+  // Music and drum cues follow the screen and the battle stage (T19, T20's audio).
+  useEffect(() => startAudioCues(), []);
   // Doctrine variants (T16): read once; a broken store leaves the standard doctrines.
   useEffect(() => {
     if (useVariants.getState().status === "idle") void useVariants.getState().load();

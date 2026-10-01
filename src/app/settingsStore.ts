@@ -18,6 +18,8 @@ export interface Settings {
   motion: MotionPreference;
   /** Depth of field: "on" | "subtle" (default) | "off" (T20). */
   depthOfField: DofMode;
+  /** Settings → Support: show each battle's seed (for bug reports). Off: the seed stays in saves only. */
+  showBattleDetails: boolean;
   set: (patch: Partial<Omit<Settings, "set">>) => void;
 }
 
@@ -31,12 +33,20 @@ export const useSettings = create<Settings>()(
       doctrineOnly: false,
       motion: "system",
       depthOfField: "subtle",
+      showBattleDetails: false,
       set: (patch) => set(patch),
     }),
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ quality, defaultPace, doctrineOnly, motion, depthOfField }) => ({ quality, defaultPace, doctrineOnly, motion, depthOfField }),
+      partialize: ({ quality, defaultPace, doctrineOnly, motion, depthOfField, showBattleDetails }) => ({
+        quality,
+        defaultPace,
+        doctrineOnly,
+        motion,
+        depthOfField,
+        showBattleDetails,
+      }),
     },
   ),
 );
@@ -49,3 +59,6 @@ function applyDisplay({ quality, motion, depthOfField }: Pick<Settings, "quality
 }
 applyDisplay(useSettings.getState());
 useSettings.subscribe((settings) => applyDisplay(settings));
+
+/** Whether the UI shows battle seeds (Settings → Support → Show battle details). */
+export const useShowSeed = () => useSettings((s) => s.showBattleDetails);

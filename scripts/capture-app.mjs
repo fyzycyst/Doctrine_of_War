@@ -32,12 +32,34 @@ const STAGES = [
   { name: "guide-5-watch", query: "stage=resolving&coach=watch&plan=intended", probe: "__playbackFrozen", settleMs: 700, sizes: [[1600, 1000]] },
   { name: "guide-6-chronicle", query: "stage=report&coach=chronicle&plan=intended", sizes: [[1600, 1000]] },
   { name: "howto", query: "screen=title&howto=1", settleMs: 1500, sizes: [[1600, 1000]] },
+  // T19 #2: the doctrine editor from the title, Test in the field run on a picked battle (real worker).
+  {
+    name: "t19-editor-field-test",
+    query: "screen=title",
+    settleMs: 4000,
+    sizes: [[1600, 1000]],
+    eval: `(async () => {
+      const click = (re, root = document) => [...root.querySelectorAll("button")].find((b) => re.test(b.textContent) || re.test(b.getAttribute("aria-label") ?? ""))?.click();
+      click(/Doctrine editor/);
+      await new Promise((r) => setTimeout(r, 400));
+      const editor = document.querySelector("dialog.editor");
+      click(/^Move order 2 up$/, editor);
+      await new Promise((r) => setTimeout(r, 200));
+      click(/^Run the test$/, editor);
+      await new Promise((r) => setTimeout(r, 2500));
+      editor.querySelector(".field-test")?.scrollIntoView({ block: "end" });
+    })()`,
+  },
   // T18 QA: every battle mid-playback, the new battles' command windows, dawn, maps, ending.
   ...[
     ["qa-fb-play", "scenario=firstBreach&stage=resolving&plan=intended&pauseAt=rule-mine"],
     ["qa-ef-play", "scenario=emberFord&stage=resolving&plan=intended&pauseAt=rule-mine"],
     ["qa-sm-play", "scenario=saltmarshColumn&stage=resolving&plan=intended&pauseAt=rule-mine"],
     ["qa-hfd-play", "scenario=holdForDawn&stage=resolving&plan=intended&pauseAt=rule-mine"],
+    // T19: a busy moment of the largest battle (declutter, anchored camera, emphasis ring).
+    ["t19-hfd-busy", "scenario=holdForDawn&stage=resolving&phase=1&plan=intended&pauseAt=busy"],
+    // T19: a weather shift as a chyron in the top bar (Ember Ford turns to rain in phase 3).
+    ["t19-weather-chyron", "scenario=emberFord&stage=resolving&phase=3&plan=intended&pauseAt=weather"],
     ["qa-sm-play2", "scenario=saltmarshColumn&stage=resolving&phase=2&plan=intended&pauseAt=rule-mine"],
     ["qa-hfd-dawn", "scenario=holdForDawn&stage=resolving&phase=4&plan=intended&speed=25&pauseAt=stage"],
     ["qa-capture-play", "scenario=emberFord&stage=resolving&plan=intended&pauseAt=rule-mine&capture=1"],
@@ -59,6 +81,9 @@ const STAGES = [
   { name: "deploy", query: "stage=deploy&select=greyford_shields" },
   { name: "command", query: "stage=command&select=greyford_shields" },
   { name: "command-enemy", query: "stage=command&select=cinder_vanguard" },
+  // T19: the terrain chip, Greyford Shields reading the North Ridge (better ground) and the ford (worse).
+  { name: "t19-terrain-ridge", query: "stage=command&select=greyford_shields&hover=1,0", sizes: [[1600, 1000]] },
+  { name: "t19-terrain-ford", query: "stage=command&select=greyford_shields&hover=0,2", sizes: [[1600, 1000]] },
   {
     name: "command-lift",
     query: "stage=command&select=mercy_standard",

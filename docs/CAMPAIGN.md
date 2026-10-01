@@ -120,6 +120,12 @@ doctrine families in meaningful roles, and swapping out any one family costs at 
     path, so a process that swaps the userData folder for a symlink in between can
     redirect a read; exploiting that needs write access to the user's own Library
     folder, which already grants control of the app's data, so it is out of scope.
+- **Seeds and support** (T19): every battle's seed stays in the save (each history
+  record) and in the phase log, but the UI shows it only with Settings → Support →
+  "Show battle details" (off by default). "Export save file…" copies the campaign save
+  for a bug report: a download on the web; in Electron a fixed-purpose channel,
+  `doctrine-of-war:saves:export`, that takes no arguments: main reads and validates its
+  own save and writes it where the user picks in the native save dialog.
 - **Doctrine variants** (T16, Experimental) live in their own versioned store,
   `{"version": 1, "variants": […]}` (at most 24, 64 KiB): `localStorage` key
   `doctrine-of-war:variants` on the web, or a second fixed file,

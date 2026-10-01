@@ -11,17 +11,20 @@ import { useDisposable } from "../dispose";
 
 /**
  * Hex overlays drawn on the tile tops: a hover outline, a selected-hex outline
- * (both from the store) and a pulsing deployment-zone tint for a set of hexes
- * passed in as a prop.
+ * (both from the store), a pulsing deployment-zone tint for a set of hexes
+ * passed in as a prop, and a pulsing emphasis outline on the hex playback is acting on.
  */
 export function BoardHighlights({
   island,
   deploymentHexes,
   deploymentColor = "#ffcf6e",
+  emphasisHex = null,
 }: {
   island: IslandBuild;
   deploymentHexes?: HexCoord[];
   deploymentColor?: string;
+  /** T19: emphasis without moving the camera (the acting company during playback). */
+  emphasisHex?: HexCoord | null;
 }) {
   const hovered = useAppStore((s) => s.hoveredHex);
   const selected = useAppStore((s) => s.selectedHex);
@@ -35,6 +38,7 @@ export function BoardHighlights({
   };
   const hoverPos = at(hovered);
   const selectedPos = at(selected);
+  const emphasisPos = at(emphasisHex);
 
   return (
     <>
@@ -45,6 +49,7 @@ export function BoardHighlights({
         <HexOutline position={hoverPos} color="#fff4d6" opacity={0.45} width={0.05} />
       )}
       {selectedPos && <HexOutline position={selectedPos} color="#ffd27a" opacity={0.85} width={0.07} pulse />}
+      {emphasisPos && <HexOutline position={emphasisPos} color="#fff4d6" opacity={0.95} width={0.11} pulse />}
     </>
   );
 }

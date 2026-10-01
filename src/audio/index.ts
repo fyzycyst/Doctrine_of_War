@@ -27,10 +27,11 @@ export const swellDrums = (moment: "clash" | "rout" | "horn" | "dread" | "reveal
 export { DRUM_BASE } from "./drums";
 /**
  * The background score (T20): follows the battle's time of day by itself;
- * menus can pin a mood ("dusk", "sunrise", ...) or pass null for silence.
+ * menus can pin a mood ("dusk", "sunrise", ...) or pass null for silence, and
+ * undefined releases the pin so the score follows the battle again (T19).
  * Volume: `useAudioStore.musicVolume`; it ducks under every SFX.
  */
-export const setMusic = (mood: MusicMood | null) => audio.setMusic(mood);
+export const setMusic = (mood: MusicMood | null | undefined) => audio.setMusic(mood);
 export { MOODS, type MusicMood } from "./music";
 
 /** Keeps the ambience in sync with a spec and unlocks on the first gesture. */
