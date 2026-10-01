@@ -6,6 +6,7 @@ import { hexDistance, sameHex, type HexCoord } from "../../game/board";
 import type { VisibleSquad, VisibleState } from "../../game/engine";
 import { useGame } from "../game/gameStore";
 import { isRelief, musterProblems, musterTargets, planFor, type MusterTargets } from "../game/muster";
+import type { ZoneStyle } from "../../render/terrain/BoardHighlights";
 import { useAppStore } from "../store";
 
 const NONE: MusterTargets = { hexes: [], relieve: [] };
@@ -84,4 +85,15 @@ export function describePlan(
   if (!plan) return null;
   if (isRelief(plan)) return plan.squadId === squadId ? `Relieves ${nameOf(plan.relieve)}` : `Relieved by ${nameOf(plan.squadId)}`;
   return `Musters to ${hexName(plan.to)}`;
+}
+
+/**
+ * What the board highlights and how: the deployment zone while deploying ("deploy"), the
+ * selected company's muster targets in a command window ("march": chevrons from the
+ * company, oriented by the renderer from the selection), else nothing.
+ */
+export function boardZone(stage: string, deployHexes: () => HexCoord[], musterHexes: HexCoord[]): { hexes?: HexCoord[]; style: ZoneStyle } {
+  if (stage === "deploy") return { hexes: deployHexes(), style: "deploy" };
+  if (stage === "command" && musterHexes.length) return { hexes: musterHexes, style: "march" };
+  return { style: "deploy" };
 }
