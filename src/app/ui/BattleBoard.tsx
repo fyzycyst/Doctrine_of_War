@@ -19,7 +19,7 @@ import { useGame, useShownView } from "../game/gameStore";
 import { toDioramaSquads } from "../game/view";
 import { useAppStore } from "../store";
 import { FrameProbe } from "./FrameProbe";
-import { usePrefersReducedMotion } from "./motion";
+import { boardCamera, usePrefersReducedMotion } from "./motion";
 import { PlaybackStage } from "./PlaybackStage";
 
 export function BattleBoard({
@@ -45,6 +45,9 @@ export function BattleBoard({
   const shot = useMemo(() => wideShotFor(scenario.board), [scenario.board]);
   // Reduced motion: no idle camera drift. (Embers, water and fire shimmer are render-owned; see T08.)
   const reducedMotion = usePrefersReducedMotion();
+  // Playback leaves the camera where the player put it and rings the acting company instead.
+  const focus = useGame((s) => s.focus);
+  const camera = boardCamera({ stage, still, reducedMotion, focus });
   // The hour of the phase on show. (The engine's state.timeOfDay only turns when a phase
   // resolves, so the orders window of a new hour, e.g. Hold for Dawn's sunrise, would
   // otherwise still be lit for the old one.)
@@ -74,18 +77,19 @@ export function BattleBoard({
         onPointerMissed={() => clearSelection()}
       >
         <LookProvider skin={emberDusk} timeOfDay={lightingFor(hour)} weather={weatherFor(view.weather)} timeOfDayFade={dawnFade}>
-          <DioramaCamera shot={shot} drift={!still && !reducedMotion} />
+          <DioramaCamera shot={shot} drift={camera.drift} />
           <Diorama
             key={scenario.id}
             board={scenario.board}
             squads={squads}
             deploymentHexes={zone}
             exitHexes={exitHexes}
+            emphasisHex={camera.emphasisHex}
             visibility={visibility}
             animationRef={animationRef}
             onFiguresReady={onFiguresReady}
           />
-          <PlaybackStage board={scenario.board} shot={shot} reducedMotion={reducedMotion} />
+          <PlaybackStage board={scenario.board} />
           <PostFX />
           <FrameProbe ready={figuresReady} />
         </LookProvider>

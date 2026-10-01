@@ -1,12 +1,9 @@
-// In-canvas playback pieces (T06): callouts anchored above squads, and a gentle
-// camera lean toward the active squad. Rendered inside BattleBoard's <Canvas>.
+// In-canvas playback pieces (T06): callouts anchored above squads. The camera does not
+// move for playback (T19); the acting company is emphasised on the board instead
+// (BattleBoard passes the focus hex to the Diorama). Rendered inside BattleBoard's <Canvas>.
 import { Html } from "@react-three/drei";
-import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo } from "react";
-import * as THREE from "three";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { hexDistance, type BoardLayout } from "../../game/board";
-import type { CameraShot } from "../../render/camera/DioramaCamera";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
 import { useCaptureStore } from "../captureStore";
 import { useGame, useShownView, type Callout } from "../game/gameStore";
@@ -15,19 +12,14 @@ import { Sigil } from "./glyphs";
 
 /** Height above the board at which callouts float (over the squad's banner). */
 const CALLOUT_Y = 1.45;
-/** How far the camera target leans toward the active squad (0..1 of the way). */
-const LEAN = 0.18;
-/** Lean response rate (1/s): slow enough to read as a drift, never a swing. */
-const LEAN_RATE = 1.6;
 
-export function PlaybackStage({ board, shot, reducedMotion }: { board: BoardLayout; shot: CameraShot; reducedMotion: boolean }) {
+export function PlaybackStage({ board }: { board: BoardLayout }) {
   const allCallouts = useGame((s) => s.callouts);
   const hidden = useCaptureStore((s) => s.captureMode && !s.keepCallouts);
   const callouts = hidden ? [] : allCallouts;
   const center = useMemo(() => boardCenter(board), [board]);
   return (
     <>
-      {!reducedMotion && <CameraEmphasis center={center} shot={shot} />}
       <WardMarkers center={center} />
       {callouts
         .filter((callout) => callout.hex)
@@ -108,25 +100,4 @@ function WardMarkers({ center }: { center: { x: number; z: number } }) {
         })}
     </>
   );
-}
-
-function CameraEmphasis({ center, shot }: { center: { x: number; z: number }; shot: CameraShot }) {
-  const focus = useGame((s) => s.focus);
-  const controls = useThree((state) => state.controls) as OrbitControlsImpl | null;
-  const base = useMemo(() => new THREE.Vector3(...shot.target), [shot]);
-  const goal = useMemo(() => new THREE.Vector3(), []);
-
-  useFrame((_, dt) => {
-    if (!controls) return;
-    if (focus) {
-      const [x, z] = hexToWorld(focus, center);
-      goal.set(x, base.y, z).sub(base).multiplyScalar(LEAN).add(base);
-    } else {
-      goal.copy(base);
-    }
-    if (controls.target.distanceToSquared(goal) < 1e-6) return;
-    controls.target.lerp(goal, 1 - Math.exp(-dt * LEAN_RATE));
-    controls.update();
-  });
-  return null;
 }

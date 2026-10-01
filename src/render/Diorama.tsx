@@ -64,6 +64,7 @@ export function Diorama({
   mistDensity,
   deploymentHexes,
   exitHexes,
+  emphasisHex,
   visibility,
   animationRef,
   onFiguresReady,
@@ -80,6 +81,8 @@ export function Diorama({
    * glow toward the off-board side and faint chevrons drifting off the board.
    */
   exitHexes?: HexCoord[];
+  /** The hex to emphasise with a pulsing outline (playback's acting company; T19). */
+  emphasisHex?: HexCoord | null;
   /** Fog of war; omit for everything visible. */
   visibility?: DioramaVisibility;
   animationRef?: Ref<SquadAnimationApi>;
@@ -238,7 +241,7 @@ export function Diorama({
       <Reeds island={island} />
       <Fires island={island} />
       {island.gateBanner && <GateBanner anchor={island.gateBanner} />}
-      <BoardHighlights island={island} deploymentHexes={deploymentHexes} />
+      <BoardHighlights island={island} deploymentHexes={deploymentHexes} emphasisHex={emphasisHex} />
       {exitHexes && exitHexes.length > 0 && <ExitMarkers board={board} island={island} hexes={exitHexes} />}
       <SquadMarkers placed={placed} animator={animator} waterLevel={island.waterLevel} />
       <Suspense fallback={null}>
