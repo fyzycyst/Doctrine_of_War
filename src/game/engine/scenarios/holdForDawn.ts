@@ -60,7 +60,7 @@ export const holdForDawn: EngineScenario = {
   maxPhases: 5,
   timeOfDay: "predawn",
   timeOfDayByPhase: { 5: "sunrise" },
-  curatedSeed: 8,
+  curatedSeed: 53,
   board,
   objectives: [
     { id: "last_gate", name: "The Last Gate", description: "Hold it until dawn.", hex: GATE, integrity: 100, defender: BANNERS },

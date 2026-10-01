@@ -161,7 +161,8 @@ function draft(
         lingerBase: quiet ? 0 : repeat ? LINGER_MS.ruleRepeat : LINGER_MS.rule,
       };
     }
-    case "move": {
+    case "move":
+    case "mustered": {
       if (event.path.length === 0) {
         return null;
       }
@@ -200,6 +201,7 @@ function draft(
     case "outcome":
       return { ...plain, kind: "outcome", base: STEP_MS.outcome, lingerBase: 0 };
     case "blocked":
+    case "relieved":
       return null;
   }
 }
@@ -381,7 +383,8 @@ export function applyStep(view: VisibleState, step: Step, known: Known): Visible
     return view;
   }
   switch (event.kind) {
-    case "move": {
+    case "move":
+    case "mustered": {
       const end = step.path[step.path.length - 1];
       let next = step.emerges || !view.squads.some((squad) => squad.id === event.squadId) ? reveal(view, event.squadId, step.path[0], step, known) : view;
       next = mapSquad(next, event.squadId, (squad) => ({
@@ -434,6 +437,7 @@ export function applyStep(view: VisibleState, step: Step, known: Known): Visible
       return { ...view, status: event.status };
     case "ruleFired":
     case "blocked":
+    case "relieved":
       return view;
   }
 }

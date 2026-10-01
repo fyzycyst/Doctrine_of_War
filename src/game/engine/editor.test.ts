@@ -144,6 +144,7 @@ describe("the bounds against the final rules (T17)", () => {
       "rs_rally.value=75 [10–90/5]",
       "rs_seek.value=50 [10–90/5]",
       "cc_disengage.value=30 [10–90/5]",
+      "cc_hunt.range=3 [2–5/1]",
     ]);
   });
 

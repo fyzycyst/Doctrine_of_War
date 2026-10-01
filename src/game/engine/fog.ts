@@ -279,7 +279,11 @@ export function witnessEvent(
       visibleTo = witnessed([factionOf(event.squadId)], [hexOf(event.squadId)]);
       break;
     case "move":
+    case "mustered":
       visibleTo = witnessed([factionOf(event.squadId)], event.path);
+      break;
+    case "relieved":
+      visibleTo = witnessed([factionOf(event.squadId)], [event.hex]);
       break;
     case "rout":
     case "exit":
@@ -317,9 +321,12 @@ export function witnessEvent(
       case "blocked":
       case "fortune":
       case "move":
+      case "mustered":
       case "rout":
       case "exit":
         return [event.squadId];
+      case "relieved":
+        return [event.squadId, event.relievedId];
       default:
         return [];
     }
@@ -365,7 +372,7 @@ export function witnessEvent(
     if (event.kind === "dread" && !actorSeen(faction, event.sourceId)) {
       hide(faction, "sourceId");
     }
-    if (event.kind === "move" && factionOf(event.squadId) !== faction) {
+    if ((event.kind === "move" || event.kind === "mustered") && factionOf(event.squadId) !== faction) {
       const pathSeen = event.path.map((hex) => factionSees(ctx, faction, hex));
       if (pathSeen.some((seen) => !seen)) {
         redactions[faction] = { ...redactions[faction], pathSeen };
@@ -394,7 +401,7 @@ export function projectEvent(event: EngineEvent, faction: FactionId): EngineEven
   if (redaction?.introduces) {
     projected.introduces = redaction.introduces;
   }
-  if (redaction?.pathSeen && projected.kind === "move") {
+  if (redaction?.pathSeen && (projected.kind === "move" || projected.kind === "mustered")) {
     const seen = redaction.pathSeen;
     projected.from = seen[0] ? projected.from : null;
     projected.to = seen[seen.length - 1] ? projected.to : null;

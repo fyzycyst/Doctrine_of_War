@@ -150,7 +150,10 @@ export function describeEvent(event: EngineEvent, names: Names, key = ""): Chron
       ]);
     case "outcome":
       return line("outcome", `${capitalize(event.status)}: ${event.reason}`);
+    case "relieved":
+      return line("rally", `${names.name(event.squadId)} relieved ${names.name(event.relievedId)} in the line`);
     case "move":
+    case "mustered":
     case "blocked":
       return null;
   }

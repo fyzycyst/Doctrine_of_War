@@ -23,6 +23,7 @@ import type {
   Orders,
   PhaseResult,
 } from "./types";
+import { executeMuster, type MusterMove } from "./muster";
 import { getSquad, isActive } from "./world";
 
 export const BEATS_PER_PHASE = 3;
@@ -42,6 +43,11 @@ export interface ResolveOptions {
    * is emitted. Must not mutate anything. Used by the fog property tests.
    */
   onEmit?: (event: EngineEvent, state: EngineState) => void;
+  /**
+   * The player's muster for this phase (T21), applied at beat 0 before anything else.
+   * Must pass validateMuster against the state the player saw; an invalid muster throws.
+   */
+  muster?: MusterMove[];
 }
 
 export function createInitialState(scenario: EngineScenario, options: BattleOptions = {}): EngineState {
@@ -191,7 +197,11 @@ export function resolvePhase(
     },
   };
 
-  // Phase start (beat 0): the hour, weather, then sightings and dread at the new positions.
+  // Phase start (beat 0): the player's muster (before the Host acts, so it sees the new
+  // positions), the hour, weather, then sightings and dread at the new positions.
+  if (options.muster?.length) {
+    executeMuster(ctx, options.muster);
+  }
   state.timeOfDay = timeOfDayAt(scenario, phase);
   phaseStartWeather(ctx);
   afterChange(ctx);

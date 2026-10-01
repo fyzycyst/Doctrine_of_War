@@ -94,8 +94,40 @@ last event is then an `outcome` event, and nothing after it resolves.
 
 At phase start (beat 0), the Host's orders from `scenario.hostSchedule` for that phase
 are applied (Host squads not listed keep their previous doctrine), then the player's
-orders. After that the weather may shift, and sighting and dread are refreshed. The
-report title is the schedule entry's `intent`.
+orders. Then the player's **muster** (below) is applied, before the Host acts, so the
+Host sees the mustered positions. After that the weather may shift, and sighting and
+dread are refreshed. The report title is the schedule entry's `intent`.
+
+## Muster and relief of the line (`muster.ts`, T21)
+
+Each command window opens with a short repositioning, passed as
+`resolvePhase(state, orders, scenario, { muster })` with `muster: MusterMove[]`:
+- `{ squadId, to }`: a company **not in contact** (no adjacent enemy) moves up to 1 hex
+  (cavalry 2) along a clear path. The usual rules apply: walls, deep river, objective
+  hexes and occupied hexes cannot be entered; marsh, a ford in rain, and an enemy's zone
+  of control end the move.
+- `{ squadId, relieve }`: a fresh company (not in contact itself) next to an **engaged**
+  friendly company swaps hexes with it; the tired company steps back out of contact.
+  This is the only way to pull a company out of contact, and it costs a fresh company
+  in the line.
+- Each company musters or relieves at most once per window (a relieved company counts
+  as having mustered). Moves apply in order, so a hex one company leaves is free for
+  the next. The Column never musters ("The Column moves on its own orders.").
+
+**For the UI:** `musterOptions(state, scenario)` lists, per company, the hexes it may
+muster to and the engaged neighbours it may relieve; `validateMuster(state, scenario,
+moves)` returns a plain-language reason per refused company (empty = valid). Both read
+**only what the player's side sees**: an unseen enemy's hex looks free, and no reason
+ever names it. The engine applies the muster on the true state: a company that runs
+into something it could not see halts short (`mustered.halted`, or a `blocked` event
+with the neutral reason "The way was barred."). `applyMuster(state, scenario, moves)`
+is the same on a copy, for tests; a UI previews a muster from its own planned moves,
+never from it (that would leak the truth). An invalid muster passed to `resolvePhase`
+throws, like an invalid order.
+
+Events (beat 0, before the phase's other events): `mustered {squadId, path, from, to,
+halted}` (shaped like a move, and projected per faction like one) and `relieved
+{squadId, relievedId, hex}`, which is followed by the two companies' `mustered` moves.
 
 ## Actions
 
@@ -149,10 +181,13 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   `enemyWithin`, `enemyBelow`, `allyAdjacentBelow`, `allyBelow`, `enemyOverextended`,
   `objectiveThreatened` (an enemy within 2 of an objective the squad's faction defends),
   `atObjective` (the squad is adjacent to an objective it assaults), `retreatOpen` (its
-  side has exit hexes on this field), and `wardNear {range, minRange?}` (an allied
-  noncombatant is within range).
+  side has exit hexes on this field), `wardNear {range, minRange?}` (an allied
+  noncombatant is within range), and `fightBeyond {range}` (an ally is in contact with
+  an enemy this side sees, and no seen enemy is within `range` of the squad: idle while
+  the fight is elsewhere).
 - `TargetSelector`: `nearestEnemy`, `weakestEnemy {stat, range?}`,
-  `overextendedEnemy {range?}`, `weakestAlly {stat}`, `objective {side: own|enemy, objectiveId?}`,
+  `overextendedEnemy {range?}`, `fightingEnemy` (the nearest seen enemy in contact with
+  one of the squad's allies), `weakestAlly {stat}`, `objective {side: own|enemy, objectiveId?}`,
   `exitEdge`, `ward` (the nearest allied noncombatant). Ties always fall back to distance,
   then squad-list order. `attack` and
   `counterCharge` take only an `EnemySelector` (the three enemy selectors, or
@@ -219,7 +254,7 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
 - Events (`phase`, `beat` on each, where beat 0 means phase-level): `ruleFired`, `move {path, reason}`,
   `blocked`, `engagement {charge, reckless}`, `rally`, `rout`, `exit`, `objectiveDamage`,
   `outcome`, `fortune {outcome: surge|waver}`, `dread {title, shock}`, `weatherShift {from, to}`,
-  `sighted {faction, squadId, byId, hex}`.
+  `sighted {faction, squadId, byId, hex}`, `mustered`, `relieved` (see Muster).
   `report.lines` is prose generated from these events (`report.ts`).
 
 The library (`doctrines.ts`) holds the Free Banners doctrines *Shield the Line*,
@@ -233,6 +268,14 @@ doctrine: batter the gate, ram whoever is adjacent, else drive on the gate; pass
 defense +6 and cohesion +12, so blows glance off) and *The Nerve Fails* (always fall
 back 2 hexes; the schedule hands it out at dawn). *Keep the Column Moving* is the
 noncombatant column's own doctrine and is never offered to the player. Every rule list ends with an `always` catch-all.
+
+**Smarter fallback (T21).** Clean Counterstroke has "If the nearest fight is beyond 3
+hexes → march toward it" (`cc_hunt`) before "Otherwise → hold and watch", so a company
+is not left sitting idle after an isolated enemy breaks. It fires only once a fight has
+started somewhere. Shield the Line deliberately has no such rule: the wall does not
+leave its post (in Hold for Dawn a "close on the line" rule pulled the shields off the
+gate and dropped the intended win rate from 98% to 54%). The muster covers a shield
+company stranded off to the side.
 
 ## Friction & fortune (`fortune.ts`, `fog.ts`)
 
@@ -259,8 +302,14 @@ chance outcome is an event with its own callout.
 
 `npm run balance -- [--seeds 500] [--fortune on|off] [--scenario id]` (run via `vite-node`)
 plays each scenario's reference plans (`intended`, `bad`) and every mono-doctrine plan
-(all player squads on doctrine X) across seeds 1..N. It prints win rates and the mean
-objective integrity, and exits 1 if a guardrail fails:
+(all player squads on doctrine X) across seeds 1..N. Plans are played with a
+**muster policy**: `"heuristic"` (`heuristicMuster`: relieve an engaged company below 35
+cohesion with a fresh neighbour of 60+, then step idle fighting companies, those with
+no seen enemy within 3, toward the fight or the line of retreat; standards stay put;
+it reads only the player's view) or `"none"`. The guardrails are judged with the
+heuristic, the player-realistic one; with `"none"` the intended plan must still pass
+the winnability floor. It prints win rates and the mean objective integrity, and exits 1
+if a guardrail fails:
 
 - the intended plan wins ≥ 75%;
 - the bad plan wins ≤ 35%;

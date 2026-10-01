@@ -26,6 +26,11 @@ function within(squads: ActiveSquad[], from: HexCoord, range: number): ActiveSqu
   return squads.filter((squad) => hexDistance(squad.hex, from) <= range);
 }
 
+/** Seen enemies in contact with one of this squad's allies (a fight in progress). */
+function fighting(world: PerceivedWorld): ActiveSquad[] {
+  return world.enemies.filter((enemy) => world.allies.some((ally) => !ally.noncombatant && hexDistance(ally.hex, enemy.hex) === 1));
+}
+
 function defendedObjectives(ctx: RuleContext, squad: ActiveSquad, objectiveId?: string) {
   return ctx.state.objectives.filter(
     (objective) =>
@@ -56,6 +61,8 @@ export function evaluateCondition(
       return within(enemies, squad.hex, 1).length > 0;
     case "enemyWithin":
       return within(enemies, squad.hex, condition.range).length > 0;
+    case "fightBeyond":
+      return fighting(world).length > 0 && within(enemies, squad.hex, condition.range).length === 0;
     case "enemyBelow":
       return within(enemies, squad.hex, condition.range).some(
         (enemy) => enemy[condition.stat] < condition.value,
@@ -129,6 +136,9 @@ export function resolveTarget(
       break;
     case "weakestAlly":
       chosen = sortByStat(allies, selector.stat, squad.hex)[0];
+      break;
+    case "fightingEnemy":
+      chosen = byDistance(fighting(world), squad.hex)[0];
       break;
     case "objective": {
       const objective = ctx.state.objectives.find(

@@ -38,6 +38,15 @@ export function narrateEvent(event: EngineEvent, names: NameSource): string | nu
     }
     case "blocked":
       return `${name(event.squadId)} could not act (${event.reason}).`;
+    case "mustered":
+      if (event.from === null || event.to === null) {
+        return `${name(event.squadId)} shifted position in the dark.`;
+      }
+      return event.halted
+        ? `${name(event.squadId)} mustered to ${hexKey(event.to)}, then halted: the way was barred.`
+        : `${name(event.squadId)} mustered to ${hexKey(event.to)}.`;
+    case "relieved":
+      return `${name(event.squadId)} relieved ${name(event.relievedId)} in the line.`;
     case "engagement": {
       const lost = (id: string) =>
         `${-event.strengthChanges[id]} strength, ${-event.cohesionChanges[id]} cohesion`;

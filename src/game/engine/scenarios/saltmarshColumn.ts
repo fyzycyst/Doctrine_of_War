@@ -65,7 +65,7 @@ export const saltmarshColumn: EngineScenario = {
   objectives: [],
   playerDoctrineIds: ["shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke", "hold_for_dawn"],
   squads: [
-    { id: "saltmarsh_column", name: "The Saltmarsh Column", faction: "free_banners", role: "support", hex: { q: 3, r: 2 }, strength: 56, cohesion: 63, resolve: 0, doctrineId: "keep_the_column_moving", noncombatant: true },
+    { id: "saltmarsh_column", name: "The Saltmarsh Column", faction: "free_banners", role: "support", hex: { q: 3, r: 2 }, strength: 56, cohesion: 65, resolve: 0, doctrineId: "keep_the_column_moving", noncombatant: true },
     { id: "greyford_shields", name: "Greyford Shields", faction: "free_banners", role: "frontline", hex: { q: 3, r: 1 }, strength: 84, cohesion: 74, resolve: 1, doctrineId: "fighting_withdrawal" },
     { id: "dawnwatch_archers", name: "Dawnwatch Archers", faction: "free_banners", role: "skirmish", hex: { q: 2, r: 2 }, strength: 66, cohesion: 70, resolve: 1, doctrineId: "fighting_withdrawal" },
     { id: "mercy_standard", name: "Mercy Standard", faction: "free_banners", role: "support", hex: { q: 3, r: 3 }, strength: 52, cohesion: 80, resolve: 0, doctrineId: "rescue_standard" },
