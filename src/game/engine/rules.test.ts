@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { doctrineLibrary } from "./doctrines";
 import { chooseRule, evaluateCondition, resolveTarget } from "./rules";
 import { actionContext, doctrine, scenario, squad } from "./testKit";
 import type { Condition, SquadSetup } from "./types";
@@ -167,5 +168,19 @@ describe("chooseRule", () => {
     const kit = actionContext(scenario({ squads: [squad("a", FB, { q: 1, r: 1 })] }));
     const doc = doctrine("d", FB, [[{ kind: "enemyAdjacent" }, { kind: "hold" }]]);
     expect(chooseRule(kit.ctx, kit.get("a"), doc)).toBeUndefined();
+  });
+
+  it("Clean Counterstroke marches to a fight beyond 3 hexes, but never before there is one (T21)", () => {
+    const hunt = { kind: "fightBeyond", range: 3 } as const;
+    // An ally is fighting at (0,2)-(1,2); the idle company at (6,2) is beyond 3 hexes of any enemy.
+    const fighting = [squad("idle", FB, { q: 6, r: 2 }), squad("ally", FB, { q: 1, r: 2 }), squad("h", AH, { q: 0, r: 2 })];
+    expect(check(fighting, hunt)).toBe(true);
+    const kit = actionContext(scenario({ squads: fighting }));
+    expect(chooseRule(kit.ctx, kit.get("idle"), doctrineLibrary.clean_counterstroke)?.id).toBe("cc_hunt");
+    expect(resolveTarget(kit.ctx, kit.get("idle"), { kind: "fightingEnemy" })).toMatchObject({ kind: "squad", squad: { id: "h" } });
+    // No fight yet (the Host is still coming): it holds and watches.
+    expect(check([squad("idle", FB, { q: 6, r: 2 }), squad("ally", FB, { q: 4, r: 0 }), squad("h", AH, { q: 0, r: 2 })], hunt)).toBe(false);
+    // A fight within 3 hexes is this company's own: no march.
+    expect(check([squad("idle", FB, { q: 3, r: 2 }), squad("ally", FB, { q: 1, r: 2 }), squad("h", AH, { q: 0, r: 2 })], hunt)).toBe(false);
   });
 });

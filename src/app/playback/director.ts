@@ -281,7 +281,8 @@ export class PlaybackDirector {
         return;
       }
 
-      case "move": {
+      case "move":
+      case "mustered": {
         // Each run is a stretch the player saw; between runs the squad was out of sight.
         const legs = step.runs.reduce((sum, run) => sum + Math.max(0, run.length - 1), 0);
         const gaps = step.runs.length - 1;

@@ -130,6 +130,12 @@ export const doctrines: Doctrine[] = [
         then: { kind: "attack", target: { kind: "nearestEnemy" }, power: -1 },
       },
       {
+        id: "cc_hunt",
+        label: "If the nearest fight is beyond 3 hexes → march toward it",
+        when: { kind: "fightBeyond", range: 3 },
+        then: { kind: "advance", toward: { kind: "fightingEnemy" } },
+      },
+      {
         id: "cc_wait",
         label: "Otherwise → hold and watch",
         when: { kind: "always" },

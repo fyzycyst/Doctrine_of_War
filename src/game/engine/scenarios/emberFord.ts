@@ -85,9 +85,9 @@ export const emberFord: EngineScenario = {
     { id: "harrow_riders", name: "Harrow Riders", faction: "free_banners", role: "cavalry", hex: { q: 5, r: 5 }, strength: 66, cohesion: 64, resolve: 1, doctrineId: "clean_counterstroke" },
 
     // The crossing vanguard (the win condition's targets).
-    { id: "pyre_sworn", name: "Pyre-Sworn", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 1 }, strength: 60, cohesion: 72, resolve: 3, doctrineId: "through_the_embers", renown: { title: "The Unquenched" } },
-    { id: "emberline_spears", name: "Emberline Spears", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 4 }, strength: 54, cohesion: 66, resolve: 1, doctrineId: "through_the_embers" },
-    { id: "ashbound_levies", name: "Ashbound Levies", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 2 }, strength: 50, cohesion: 62, resolve: -1, doctrineId: "no_step_back" },
+    { id: "pyre_sworn", name: "Pyre-Sworn", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 1 }, strength: 60, cohesion: 66, resolve: 3, doctrineId: "through_the_embers", renown: { title: "The Unquenched" } },
+    { id: "emberline_spears", name: "Emberline Spears", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 4 }, strength: 54, cohesion: 60, resolve: 1, doctrineId: "through_the_embers" },
+    { id: "ashbound_levies", name: "Ashbound Levies", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 2 }, strength: 50, cohesion: 56, resolve: -1, doctrineId: "no_step_back" },
     // Outriders: they never fight, they run for the roads through any gap.
     { id: "cinderhook_raiders", name: "Cinderhook Raiders", faction: "ashen_host", role: "skirmish", hex: { q: 6, r: 0 }, strength: 42, cohesion: 64, resolve: 0, doctrineId: "no_step_back" },
     { id: "soot_hounds", name: "Soot Hounds", faction: "ashen_host", role: "cavalry", hex: { q: 6, r: 5 }, strength: 40, cohesion: 60, resolve: 0, doctrineId: "no_step_back" },
