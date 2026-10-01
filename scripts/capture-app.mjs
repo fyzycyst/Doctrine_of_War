@@ -58,6 +58,8 @@ const STAGES = [
     ["qa-hfd-play", "scenario=holdForDawn&stage=resolving&plan=intended&pauseAt=rule-mine"],
     // T19: a busy moment of the largest battle (declutter, anchored camera, emphasis ring).
     ["t19-hfd-busy", "scenario=holdForDawn&stage=resolving&phase=1&plan=intended&pauseAt=busy"],
+    // T19: a weather shift as a chyron in the top bar (Ember Ford turns to rain in phase 3).
+    ["t19-weather-chyron", "scenario=emberFord&stage=resolving&phase=3&plan=intended&pauseAt=weather"],
     ["qa-sm-play2", "scenario=saltmarshColumn&stage=resolving&phase=2&plan=intended&pauseAt=rule-mine"],
     ["qa-hfd-dawn", "scenario=holdForDawn&stage=resolving&phase=4&plan=intended&speed=25&pauseAt=stage"],
     ["qa-capture-play", "scenario=emberFord&stage=resolving&plan=intended&pauseAt=rule-mine&capture=1"],

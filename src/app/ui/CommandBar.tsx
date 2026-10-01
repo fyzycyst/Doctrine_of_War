@@ -33,6 +33,11 @@ export function CommandBar() {
   const setPace = useGame((s) => s.setPace);
   const log = useGame((s) => s.log);
   const WeatherIcon = WEATHER_ICON[view.weather];
+  // A weather shift plays as a chyron in this bar (T19), not as a banner over the board.
+  const shift = useGame((s) => s.callouts.find((callout) => callout.kind === "weather"));
+  // The new weather, from the callout: the board only takes it once the step lands.
+  const turning = shift ? ((Object.keys(WEATHER_NAME) as Weather[]).find((key) => WEATHER_NAME[key] === shift.text) ?? view.weather) : view.weather;
+  const TurningIcon = WEATHER_ICON[turning];
   // In the chronicle and aftermath, show the phase just fought, not the one to come.
   const reporting = stage === "resolving" || stage === "report" || stage === "outcome";
   const phase = reporting && log.length > 0 ? log[log.length - 1].phase : Math.min(view.phase, view.maxPhases);
@@ -66,13 +71,23 @@ export function CommandBar() {
           )}
         </div>
       )}
-      <div className="chip weather-chip" title={WEATHER_EFFECT[view.weather]}>
-        <WeatherIcon size={15} aria-hidden="true" />
-        <span>
-          {WEATHER_NAME[view.weather]}
-          <span className="sr-only">. {WEATHER_EFFECT[view.weather]}</span>
-        </span>
-      </div>
+      {shift ? (
+        <div key={shift.id} className="chip weather-chip chyron" role="status">
+          <TurningIcon size={15} aria-hidden="true" />
+          <span className="chyron-text">
+            <span className="chyron-title">{shift.title}:</span> <strong>{shift.text}</strong>
+            <span className="chyron-effect"> · {WEATHER_EFFECT[turning]}</span>
+          </span>
+        </div>
+      ) : (
+        <div className="chip weather-chip" title={WEATHER_EFFECT[view.weather]}>
+          <WeatherIcon size={15} aria-hidden="true" />
+          <span>
+            {WEATHER_NAME[view.weather]}
+            <span className="sr-only">. {WEATHER_EFFECT[view.weather]}</span>
+          </span>
+        </div>
+      )}
       <div className="chip fortune-chip" aria-label={showSeed ? `Fortune ${view.fortune}, seed ${view.seed}` : `Fortune ${view.fortune}`}>
         <span className={`fortune-dot ${view.fortune}`} aria-hidden="true" />
         <span aria-hidden="true">

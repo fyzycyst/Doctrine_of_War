@@ -352,6 +352,22 @@ describe("phase playback", () => {
     }
   });
 
+  it("announces a weather shift as a chyron in the top bar, not a banner over the board", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await sealPhase(user);
+    act(() => void game().pushCallout({ kind: "weather", hex: null, faction: null, title: "The weather turns", text: "Rain", repeat: false, linger: 2200 }));
+    const bar = screen.getByRole("banner");
+    const chyron = bar.querySelector(".weather-chip.chyron");
+    expect(chyron).toHaveAttribute("role", "status");
+    // The new weather's effect, even before the board shows the rain.
+    expect(chyron).toHaveTextContent("The weather turns: Rain · Fords end a move; counter-charges hit softer.");
+    expect(document.querySelector(".callout-weather")).toBeNull();
+    // When it has played, the chip is the plain weather chip again.
+    act(() => game().dropCallout(game().callouts.find((callout) => callout.kind === "weather")!.id));
+    expect(within(bar).queryByText(/The weather turns/)).not.toBeInTheDocument();
+  });
+
   it("skips to the final state with Space", async () => {
     const user = userEvent.setup();
     loadFirstBreach("on", 146);

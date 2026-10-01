@@ -222,17 +222,11 @@ function PlaybackBar({ skipRef, onSkip }: { skipRef: RefObject<HTMLButtonElement
   const beat = useGame((s) => s.beat);
   const caption = useGame((s) => s.caption);
   const callouts = useGame((s) => s.callouts);
-  const weather = callouts.filter((callout) => callout.hex === null && callout.kind === "weather");
+  // (A weather shift is a chyron in the command bar: see CommandBar.)
   const turn = callouts.find((callout) => callout.kind === "stage");
 
   return (
     <>
-      {weather.map((callout) => (
-        <div key={callout.id} className="callout callout-weather screen" role="status">
-          <span className="callout-title">{callout.title}</span>
-          <span className="callout-text">{callout.text}</span>
-        </div>
-      ))}
       <div className="playback-dock">
       {turn && (
           <div className="stage-banner" role="status">
