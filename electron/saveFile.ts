@@ -190,18 +190,56 @@ function writeFixedFile(userDataDir: string, spec: FixedFile, data: unknown, tem
 
 export type ExportResult = { exported: true } | { exported: false; reason: "no-save" | "cancelled" };
 
+/** Shown when the export's chosen file is a link: never write through one. */
+export const EXPORT_LINK_REFUSED = "Can't save over a link; choose another file.";
+
+/** The chosen destination may be new or a plain file; a link (or anything else) is refused. */
+async function checkExportTarget(target: string): Promise<void> {
+  try {
+    const stats = await fs.lstat(target);
+    if (stats.isSymbolicLink()) throw new Error(EXPORT_LINK_REFUSED);
+    if (!stats.isFile()) throw new Error("Can't save over that; choose a file.");
+  } catch (error) {
+    if (code(error) === "ENOENT") return;
+    throw error;
+  }
+}
+
 /**
  * Settings → Support → "Export save file…": copies the campaign save to a file the user
  * picks, for a bug report. The renderer supplies neither the data nor the path: main reads
  * its own save (with every check readSaveFile makes), validates it, and asks the user where
  * to put it (`choosePath`: the native save dialog; null when cancelled).
+ *
+ * The write follows no links: a link at the chosen path is refused, and the copy goes to
+ * a fresh, exclusively created temp file beside it, renamed over the destination (a rename
+ * replaces a link that appears meanwhile rather than writing through it).
  */
-export async function exportSaveFile(userDataDir: string, choosePath: () => Promise<string | null>): Promise<ExportResult> {
+export async function exportSaveFile(
+  userDataDir: string,
+  choosePath: () => Promise<string | null>,
+  tempId: () => string = randomUUID,
+): Promise<ExportResult> {
   const data = await readSaveFile(userDataDir);
   if (data === null) return { exported: false, reason: "no-save" };
   checkSavePayload(data);
   const target = await choosePath();
   if (!target) return { exported: false, reason: "cancelled" };
-  await fs.writeFile(target, data, { encoding: "utf8", mode: 0o600 });
+  await checkExportTarget(target);
+  const temp = path.join(path.dirname(target), `.${path.basename(target)}.${tempId()}.tmp`);
+  const handle = await fs.open(temp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | NOFOLLOW, 0o600);
+  try {
+    try {
+      await handle.writeFile(data, "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await checkExportTarget(target);
+    await fs.rename(temp, target);
+  } catch (error) {
+    await fs.rm(temp, { force: true });
+    throw error;
+  }
   return { exported: true };
 }
