@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { AmbienceSpec } from "./ambience";
 import { AudioEngine, type SfxName } from "./engine";
+import type { MusicMood } from "./music";
 
 export type { AmbienceSpec, AmbientBed } from "./ambience";
 export { ambienceMix, AMBIENT_BEDS } from "./ambience";
@@ -24,6 +25,13 @@ export const setDrumIntensity = (base: number) => audio.setDrumIntensity(base);
 /** Swell the drums for a moment: clash, rout, horn, dread and reveal SFX do it themselves; "dawn" fires on predawn → sunrise. */
 export const swellDrums = (moment: "clash" | "rout" | "horn" | "dread" | "reveal" | "dawn") => audio.swellDrums(moment);
 export { DRUM_BASE } from "./drums";
+/**
+ * The background score (T20): follows the battle's time of day by itself;
+ * menus can pin a mood ("dusk", "sunrise", ...) or pass null for silence.
+ * Volume: `useAudioStore.musicVolume`; it ducks under every SFX.
+ */
+export const setMusic = (mood: MusicMood | null) => audio.setMusic(mood);
+export { MOODS, type MusicMood } from "./music";
 
 /** Keeps the ambience in sync with a spec and unlocks on the first gesture. */
 export function useAmbience(spec: AmbienceSpec) {

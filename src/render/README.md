@@ -63,6 +63,15 @@ imported (see `fromEngine.ts`); engine logic may not.
   `unlockAudio()` from a user gesture (`useAmbience` does it on the first pointerdown). Mute and
   volume live in `useAudioStore` (`src/app/audioStore.ts`, persisted to localStorage). Sources and
   licences are in `/CREDITS.md`.
+  - **War drums (T20):** a martial 16-step ostinato whose density, force, tempo and closeness
+    follow battle intensity: `setDrumIntensity(DRUM_BASE.command | DRUM_BASE.playback)` sets the
+    resting level; clash/rout/horn/dread/reveal SFX and predawn → sunrise swell it by themselves
+    (`swellDrums(moment)` for anything else).
+  - **Score (T20):** a generative score per time of day (`music.ts`), following the ambience by
+    itself (`setMusic(mood | null)` pins a mood for menus). It ducks under every SFX and has its own
+    volume, `useAudioStore.musicVolume`.
+  - **Demos:** `npm run audio:demo` renders the drums (command, playback, an engagement swell) and
+    each mood offline to `captures/audio/*.wav` with a levels report.
 - **Render scale:** `canvasDpr(quality, ultra?)` in `quality.ts`: high caps at DPR 1.5, low is 1,
   and ultra (opt-in) is full device DPR.
 - **Showcase (T13), `src/render/showcase/`:**

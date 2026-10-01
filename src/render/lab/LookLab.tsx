@@ -102,7 +102,7 @@ function readParams() {
     dpr: num("dpr"),
     hover: p.get("hover"),
     revealAt: num("revealAt") ?? 2,
-    view: (p.get("view") ?? "diorama") as "diorama" | "title" | "campaign",
+    view: (p.get("view") ?? "diorama") as "diorama" | "title" | "campaign" | "audioDemo",
     campaignMock: p.get("campaignMock") === "b" ? "b" : "a",
     path: p.get("path") as CinematicPathId | null,
     seq: p.get("seq") === "1",
@@ -116,6 +116,7 @@ function readParams() {
 
 export function LookLab() {
   const initial = useMemo(readParams, []);
+  if (initial.view === "audioDemo") return <AudioDemoLab />;
   if (initial.view === "title") return <TitleLab seq={initial.seq} />;
   if (initial.view === "campaign") return <CampaignLab seq={initial.seq} mock={initial.campaignMock as "a" | "b"} />;
   return <DioramaLab initial={initial} />;
@@ -651,3 +652,20 @@ function AudioPanel() {
     </div>
   );
 }
+
+/**
+ * view=audioDemo (T20): renders the drum and score demos offline and exposes
+ * them as window.__audioDemo for scripts/audio-demo.mjs to write as WAVs.
+ */
+function AudioDemoLab() {
+  const [status, setStatus] = useState("rendering…");
+  useEffect(() => {
+    void import("../../audio/demo").then(async ({ renderAllDemos }) => {
+      const demos = await renderAllDemos();
+      (window as unknown as { __audioDemo?: unknown }).__audioDemo = demos;
+      setStatus(Object.entries(demos).map(([name, d]) => `${name}: ${d.seconds}s, peak ${d.peakDb} dBFS, rms ${d.rmsDb} dBFS`).join("\n"));
+    });
+  }, []);
+  return <pre style={{ color: "#ddd", padding: 24 }}>{status}</pre>;
+}
+

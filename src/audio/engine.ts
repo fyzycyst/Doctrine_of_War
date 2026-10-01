@@ -1,7 +1,8 @@
 import { useAudioStore } from "../app/audioStore";
 import { AMBIENT_BEDS, ambienceMix, type AmbienceSpec, type AmbientBed } from "./ambience";
 import { DRUM_SWELLS, drumBar, DrumIntensity, drumTempo, type DrumVoice } from "./drums";
-import { drumVoice } from "./voices";
+import { DUCK, MOODS, MUSIC_LEVEL, midiToHz, musicBar, type MusicMood } from "./music";
+import { droneVoice, drumVoice, makeImpulse, padVoice, pluckVoice } from "./voices";
 
 /**
  * Small Web Audio engine (no dependencies):
@@ -42,6 +43,10 @@ export class AudioEngine {
   private spec: AmbienceSpec | null = null;
   /** Battle intensity driving the war drums (T20): a base plus SFX swells. */
   readonly drums = new DrumIntensity();
+  /** The score (T20): its bus (music volume), the duck under SFX, and the mood. */
+  private musicBus: GainNode | null = null;
+  private duck: GainNode | null = null;
+  private musicOverride: MusicMood | null | undefined = undefined;
 
   constructor() {
     useAudioStore.subscribe(() => this.applyVolume());
@@ -64,9 +69,20 @@ export class AudioEngine {
       this.ambientBus.connect(this.master);
       this.sfxBus = this.ctx.createGain();
       this.sfxBus.connect(this.master);
+      // Score: dry + a soft room, ducked under SFX, at the player's music volume.
+      this.duck = this.ctx.createGain();
+      this.duck.connect(this.master);
+      this.musicBus = this.ctx.createGain();
+      const room = this.ctx.createConvolver();
+      room.buffer = makeImpulse(this.ctx);
+      const wet = this.ctx.createGain();
+      wet.gain.value = 0.45;
+      this.musicBus.connect(this.duck);
+      this.musicBus.connect(room).connect(wet).connect(this.duck);
       this.noise = this.makeNoise();
       this.applyVolume();
       this.buildBeds();
+      this.buildScore();
       void this.loadSamples();
     }
     if (this.ctx.state !== "running") await this.ctx.resume();
@@ -104,12 +120,31 @@ export class AudioEngine {
     return this.ctx ? this.ctx.currentTime : performance.now() / 1000;
   }
 
+  /**
+   * The score's mood: a time of day, or null for silence. Until set, the
+   * score follows the ambience's time of day (battles); menus can pin one.
+   */
+  setMusic(mood: MusicMood | null) {
+    this.musicOverride = mood;
+  }
+
+  private get mood(): MusicMood | null {
+    return this.musicOverride !== undefined ? this.musicOverride : (this.spec?.timeOfDay ?? null);
+  }
+
   playSfx(name: SfxName) {
     // Battle moments push the drums (harmless before audio is unlocked).
     this.swellDrums(name);
     const ctx = this.ctx;
     if (!ctx || !this.sfxBus || ctx.state !== "running") return;
     const t = ctx.currentTime + 0.01;
+    // Duck the score under the effect, then let it back up.
+    if (this.duck) {
+      const g = this.duck.gain;
+      g.cancelScheduledValues(ctx.currentTime);
+      g.setTargetAtTime(DUCK.depth, ctx.currentTime, DUCK.attack / 3);
+      g.setTargetAtTime(1, ctx.currentTime + 0.35, DUCK.release / 3);
+    }
     switch (name) {
       case "clash":
         this.sample(pick(SAMPLES.clash), t, 0.9, 0.9 + Math.random() * 0.2);
@@ -146,10 +181,11 @@ export class AudioEngine {
 
   private applyVolume() {
     if (!this.master || !this.ctx) return;
-    const { muted, volume } = useAudioStore.getState();
+    const { muted, volume, musicVolume } = useAudioStore.getState();
     const now = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setTargetAtTime(muted ? 0 : volume, now, 0.05);
+    this.musicBus?.gain.setTargetAtTime(musicVolume * MUSIC_LEVEL, now, 0.1);
   }
 
   private makeNoise() {
@@ -233,20 +269,23 @@ export class AudioEngine {
       src.start();
     }
     // Drums and fire crackle are scheduled hits. The drums sit a little
-    // distant (low-passed, a short slap echo) and come closer, brighter and
-    // faster as the battle's intensity rises (drums.ts).
+    // distant (low-passed, a faint long echo off the hills; a short slap made
+    // every hit a "lub-dub") and come closer, brighter and faster as the
+    // battle's intensity rises (drums.ts).
     const drums = this.bed("drums");
     const drumBus = ctx.createGain();
     const delay = ctx.createDelay(1);
-    delay.delayTime.value = 0.19;
+    delay.delayTime.value = 0.42;
     const fb = ctx.createGain();
-    fb.gain.value = 0.16;
+    fb.gain.value = 0.12;
+    const send = ctx.createGain();
+    send.gain.value = 0.22;
     const far = ctx.createBiquadFilter();
     far.type = "lowpass";
     far.frequency.value = 1100;
     drumBus.connect(far);
     far.connect(drums);
-    far.connect(delay);
+    far.connect(send).connect(delay);
     delay.connect(fb).connect(delay);
     delay.connect(drums);
     const fire = this.bed("fire");
@@ -278,6 +317,43 @@ export class AudioEngine {
       }
     };
     this.schedulers.push(window.setInterval(tick, 80));
+  }
+
+  /** Bar scheduler for the generative score (music.ts): pad, drone and a plucked melody. */
+  private buildScore() {
+    const ctx = this.ctx!;
+    let nextBar = ctx.currentTime + 0.5;
+    let index = 0;
+    let last = 4;
+    let playing: MusicMood | null = null;
+    const tick = () => {
+      const c = this.ctx;
+      const bus = this.musicBus;
+      if (!c || !bus) return;
+      while (nextBar < c.currentTime + 0.3) {
+        const mood = this.mood;
+        if (!mood) {
+          nextBar = c.currentTime + 0.5;
+          playing = null;
+          break;
+        }
+        if (mood !== playing) {
+          playing = mood;
+          index = 0;
+        }
+        const m = MOODS[mood];
+        const beat = 60 / m.bpm;
+        const barLen = beat * 4;
+        const { bar, lastDegree } = musicBar(m, index, Math.random, last);
+        last = lastDegree;
+        padVoice(c, bus, bar.chord.map(midiToHz), nextBar, barLen, m.brightness);
+        droneVoice(c, bus, midiToHz(bar.drone), nextBar, barLen);
+        for (const n of bar.melody) pluckVoice(c, bus, midiToHz(n.midi), nextBar + n.beat * beat, n.velocity);
+        nextBar += barLen;
+        index += 1;
+      }
+    };
+    this.schedulers.push(window.setInterval(tick, 100));
   }
 
   private drum(dest: AudioNode, voice: DrumVoice, t: number, velocity: number) {
