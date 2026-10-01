@@ -20,14 +20,15 @@ Licence text: http://creativecommons.org/publicdomain/zero/1.0/
 Host drums, fire crackle) and the `horn`, `dread` and `reveal` SFX are generated with Web Audio in
 `src/audio/engine.ts`. `rout` layers the RPG Audio footsteps and cloth over a synthesized falling tone.
 
-**Orchestral samples (T20b), `public/assets/audio/orch/`, 91 files, about 2.9 MB:** Versilian
+**Orchestral samples (T20b), `public/assets/audio/orch/`, 128 files, about 3.5 MB:** Versilian
 Studios Chamber Orchestra 2, Community Edition (VSCO 2 CE), **CC0 1.0**. The licence was checked
 on the source page, <https://versilian-studios.com/vsco-community/> ("Licensed under CC0 (Creative
 Commons Zero) you can do whatever you want with these samples"), and on the repository, whose
 LICENSE is CC0-1.0: <https://github.com/sgossner/VSCO-2-CE>. Used: the violin, cello and
-contrabass sections (sustain), F horn, tenor trombone and tuba (sustain), harp, timpani hits and
+contrabass sections (sustain), F horn, tenor trombone and tuba (sustain), trumpet (sustain and
+staccato), F horn and trombone (staccato), harp, timpani hits and
 rolls, and from the VSCO 1 percussion set a large ethnic drum (mallet), a low tenor drum, a
-marching snare and a bass drum. Sparse notes, one velocity layer, trimmed with a release fade and
+marching snare, a bass drum and a clash cymbal. Sparse notes, one velocity layer, trimmed with a release fade and
 re-encoded as mono Opus by `npm run build:orchestra` (scripts/build-orchestra.mjs). No attribution
 is required; this note is for provenance.
 

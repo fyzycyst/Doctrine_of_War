@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { MOODS, motifNotes, musicBar, PART_OCTAVE, type MotifKind, type MusicMood } from "./music";
+import { MOODS, MOTIF_PERC, MOTIFS, motifNotes, musicBar, type MotifKind, type MusicMood } from "./music";
 import { ORCH_PERC, ORCH_TONAL } from "./orchestraManifest";
 import { instrumentRange, nearestSample, Orchestra, percLayer, type TonalInstrument } from "./sampler";
-import { fold, playScoreBar } from "./score";
+import { fold, PART_INSTRUMENT, playScoreBar } from "./score";
 
 /** A minimal fake BaseAudioContext that records what was created. */
 function fakeContext() {
@@ -58,7 +58,9 @@ describe("orchestra sampler", () => {
   it("keeps every tonal instrument sparsely sampled within a few semitones", () => {
     for (const [name, list] of Object.entries(ORCH_TONAL)) {
       const gaps = list.slice(1).map((s, i) => s.midi - list[i].midi);
-      expect(gaps.every((g) => g > 0 && g <= 5), name).toBe(true);
+      // Short (staccato) notes hide a larger shift than sustains.
+      const max = name.endsWith("Stac") ? 7 : 5;
+      expect(gaps.every((g) => g > 0 && g <= max), name).toBe(true);
     }
     for (const files of Object.values(ORCH_PERC)) expect(files.length).toBeGreaterThan(0);
   });
@@ -76,10 +78,9 @@ describe("orchestra sampler", () => {
       const [lo, hi] = instrumentRange(inst);
       return fold(inst, m) >= lo - 4 && fold(inst, m) <= hi + 4;
     };
-    const parts: Record<keyof typeof PART_OCTAVE, TonalInstrument[]> = { horns: ["horns"], lowBrass: ["trombones", "tuba"], strings: ["strings"], celli: ["celli"], basses: ["basses"] };
     for (const mood of Object.keys(MOODS) as MusicMood[]) {
-      for (const kind of ["banners", "host", "dawn", "victory", "defeat"] as MotifKind[]) {
-        for (const n of motifNotes(kind, MOODS[mood])) for (const inst of parts[n.part]) expect(within(inst, n.midi), `${kind} ${n.part} ${n.midi}`).toBe(true);
+      for (const kind of Object.keys(MOTIFS) as MotifKind[]) {
+        for (const n of motifNotes(kind, MOODS[mood])) for (const inst of PART_INSTRUMENT[n.part]) expect(within(inst, n.midi), `${kind} ${n.part} ${n.midi}`).toBe(true);
       }
       const { bar } = musicBar(MOODS[mood], 0, () => 0.3);
       expect(within("celli", bar.chord[0])).toBe(true);
@@ -115,5 +116,31 @@ describe("orchestra sampler", () => {
     playScoreBar(live.ctx, {} as AudioNode, loaded, mood, bar, 0, 0.5);
     expect(live.created).toContain("bufferSource");
     expect(live.created).not.toContain("oscillator");
+  });
+
+  it("makes the victory stinger a heraldic fanfare on the Banners' call", () => {
+    for (const kind of ["victory", "victoryAlt"] as MotifKind[]) {
+      const notes = MOTIFS[kind];
+      const end = Math.max(...notes.map((x) => x.at + x.hold));
+      expect(end, kind).toBeGreaterThanOrEqual(4);
+      expect(end, kind).toBeLessThanOrEqual(6);
+      // Triplet pickups: the same short brass note repeated within ~0.12 s.
+      const stac = notes.filter((x) => x.part === "trumpetsStac").sort((a, b) => a.at - b.at);
+      expect(stac.some((x, i) => i > 0 && x.semis === stac[i - 1].semis && x.at - stac[i - 1].at <= 0.12), kind).toBe(true);
+      // It ends on a held major chord in the trumpets: root, third and fifth.
+      const lastAt = Math.max(...notes.filter((x) => x.part === "trumpets").map((x) => x.at));
+      const final = notes.filter((x) => x.part === "trumpets" && x.at === lastAt);
+      expect(new Set(final.map((x) => ((x.semis % 12) + 12) % 12)), kind).toEqual(new Set([0, 4, 7]));
+      expect(Math.min(...final.map((x) => x.hold))).toBeGreaterThanOrEqual(1.5);
+      // Horns and trombones under it, strings sustaining, and the roll lands on the downbeat with the cymbal.
+      for (const part of ["horns", "trombones", "strings"] as const) expect(notes.some((x) => x.part === part && x.at >= lastAt - 0.2), `${kind} ${part}`).toBe(true);
+      const roll = MOTIF_PERC[kind].find((h) => h.voice === "timpaniRoll")!;
+      expect(roll.at + (roll.duration ?? 0)).toBeCloseTo(lastAt, 1);
+      expect(MOTIF_PERC[kind].some((h) => h.voice === "cymbal" && h.at === lastAt)).toBe(true);
+    }
+    // The head is the Banners' horn call: root, fifth, octave, in that order.
+    const longs = MOTIFS.victory.filter((x) => x.part === "trumpets").sort((a, b) => a.at - b.at).slice(0, 2);
+    expect([0, ...longs.map((x) => x.semis)]).toEqual([0, 7, 12]);
+    expect(MOTIFS.banners.filter((x) => x.semis !== 7 || x.at < 0.9).map((x) => x.semis)).toEqual([0, 7, 12]);
   });
 });
