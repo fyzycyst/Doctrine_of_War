@@ -231,12 +231,23 @@ export function executeMuster(ctx: EngineContext, moves: MusterMove[]) {
   if (first) {
     throw new Error(`Invalid muster for ${first[0]}: ${first[1]}`);
   }
+  // Every planned move ends in exactly one outcome for its company: a `mustered` move (a
+  // relief also emits `relieved`), or a neutral `blocked` when it cannot be carried out as
+  // planned (an earlier move halted short, the way is gone): never silence, never a cause.
+  const barred = (squadId: string) => ctx.emit({ kind: "blocked", squadId, reason: MUSTER_HALTED });
   for (const move of moves) {
     const squad = state.squads.find((item) => item.id === move.squadId);
-    if (!squad || !isActive(squad)) continue;
+    if (!squad) continue;
+    if (!isActive(squad)) {
+      barred(squad.id);
+      continue;
+    }
     if (isRelief(move)) {
       const tired = state.squads.find((item) => item.id === move.relieve);
-      if (!tired || !isActive(tired)) continue;
+      if (!tired || !isActive(tired) || hexDistance(tired.hex, squad.hex) !== 1) {
+        barred(squad.id);
+        continue;
+      }
       const line = { ...tired.hex };
       const rear = { ...squad.hex };
       ctx.emit({ kind: "relieved", squadId: squad.id, relievedId: tired.id, hex: line });
@@ -248,7 +259,10 @@ export function executeMuster(ctx: EngineContext, moves: MusterMove[]) {
     }
     // The path the player planned, from what it could see; walked on the true state.
     const planned = reach(knowledge(state, scenario, false), squad).get(hexKey(move.to));
-    if (!planned) continue;
+    if (!planned) {
+      barred(squad.id);
+      continue;
+    }
     const truth = knowledge(state, scenario, true);
     const path: HexCoord[] = [planned[0]];
     let halted = false;
@@ -264,7 +278,7 @@ export function executeMuster(ctx: EngineContext, moves: MusterMove[]) {
       }
     }
     if (path.length < 2) {
-      ctx.emit({ kind: "blocked", squadId: squad.id, reason: MUSTER_HALTED });
+      barred(squad.id);
       continue;
     }
     squad.hex = { ...path[path.length - 1] };

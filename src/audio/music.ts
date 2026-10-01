@@ -101,8 +101,9 @@ export const DUCK = { depth: 0.4, attack: 0.04, release: 1.4 } as const;
 
 // --- Motifs and stingers (T20b) ------------------------------------------------
 
-export type MotifKind = "banners" | "host" | "dawn" | "victory" | "defeat";
-export type MotifPart = "horns" | "lowBrass" | "strings" | "celli" | "basses";
+export type MotifKind = "banners" | "host" | "dawn" | "victory" | "victoryAlt" | "defeat";
+/** Sustained parts, and (T20c) trumpets plus short "Stac" brass for fanfare pickups. */
+export type MotifPart = "horns" | "lowBrass" | "strings" | "celli" | "basses" | "trumpets" | "trumpetsStac" | "hornsStac" | "trombones" | "tromboneStac";
 
 export interface MotifNote {
   part: MotifPart;
@@ -116,15 +117,143 @@ export interface MotifNote {
 }
 
 /** Each part's octave offset from the mood root (MIDI semitones), to land in its sampled range. */
-export const PART_OCTAVE: Record<MotifPart, number> = { horns: -12, lowBrass: -24, strings: 0, celli: -12, basses: -24 };
+export const PART_OCTAVE: Record<MotifPart, number> = {
+  horns: -12,
+  lowBrass: -24,
+  strings: 0,
+  celli: -12,
+  basses: -24,
+  trumpets: 0,
+  trumpetsStac: 0,
+  hornsStac: -12,
+  trombones: -12,
+  tromboneStac: -12,
+};
 
 const n = (part: MotifPart, at: number, semis: number, hold: number, velocity: number): MotifNote => ({ part, at, semis, hold, velocity });
+
+/** A chord of `semis` for one part, all starting at `at`. */
+const chord = (part: MotifPart, at: number, semis: number[], hold: number, velocity: number) => semis.map((x) => n(part, at, x, hold, velocity));
+
+/**
+ * The victory fanfare (T20c), about 5 s in D major (the sunrise key):
+ * - head: the Banners' call as a fanfare, "ta-ta-TAAA" (a triplet pickup on the
+ *   root, then the fifth) and the octave, horns a fifth/octave below;
+ * - answer: "ta-ta-TA-ti-TAAA", dotted, rising third, fifth, sixth into
+ * - the final held D major chord: trumpets, horns and trombones in close
+ *   harmony, tuba and strings underneath. The timpani roll into it and the
+ *   downbeat lands with timpani, bass drum and cymbal (VICTORY_PERC).
+ */
+const VICTORY: MotifNote[] = [
+  // Head: ta-ta-TAAA (root, root, fifth), then the octave.
+  n("trumpetsStac", 0, 0, 0.08, 0.85),
+  n("trumpetsStac", 0.11, 0, 0.08, 0.85),
+  n("trumpets", 0.22, 7, 0.4, 0.95),
+  n("hornsStac", 0, 0, 0.08, 0.75),
+  n("hornsStac", 0.11, 0, 0.08, 0.75),
+  n("horns", 0.22, 12, 0.4, 0.85),
+  n("trumpets", 0.72, 12, 0.55, 1),
+  n("horns", 0.72, 12, 0.55, 0.85),
+  n("trombones", 0.72, 0, 0.55, 0.8),
+  // Answer: ta-ta (third) TA (fifth, dotted) ti (sixth)...
+  n("trumpetsStac", 1.4, 4, 0.08, 0.85),
+  n("trumpetsStac", 1.51, 4, 0.08, 0.85),
+  n("trumpets", 1.62, 7, 0.22, 0.95),
+  n("trumpetsStac", 1.9, 9, 0.08, 0.9),
+  n("hornsStac", 1.4, 12, 0.08, 0.75),
+  n("hornsStac", 1.51, 12, 0.08, 0.75),
+  n("horns", 1.62, 4, 0.22, 0.8),
+  n("hornsStac", 1.9, 7, 0.08, 0.8),
+  n("tromboneStac", 1.4, 0, 0.08, 0.75),
+  n("tromboneStac", 1.62, 0, 0.2, 0.8),
+  // ...TAAA: the held D major chord.
+  ...chord("trumpets", 2.02, [7, 12, 16], 2.4, 1),
+  ...chord("horns", 2.02, [4, 7, 12], 2.4, 0.75),
+  ...chord("trombones", 2.02, [-5, 0], 2.4, 0.8),
+  n("lowBrass", 2.02, 0, 2.4, 0.8),
+  ...chord("strings", 1.9, [12, 16, 19], 2.6, 0.6),
+  n("celli", 1.9, 0, 2.6, 0.8),
+  n("basses", 2.02, 0, 2.4, 0.8),
+];
+
+/** The alternative: a herald's antiphon, trumpets call, horns and trombones answer, then IV-I tutti. */
+const VICTORY_ALT: MotifNote[] = [
+  // Trumpets: ta-ta-ta TA ti TAAA (D5 D5 D5, A4 dotted, B4, D5).
+  n("trumpetsStac", 0, 12, 0.08, 0.85),
+  n("trumpetsStac", 0.1, 12, 0.08, 0.85),
+  n("trumpetsStac", 0.2, 12, 0.08, 0.85),
+  n("trumpets", 0.3, 7, 0.3, 0.9),
+  n("trumpetsStac", 0.66, 9, 0.08, 0.85),
+  n("trumpets", 0.78, 12, 0.55, 1),
+  // Horns and trombones answer a fourth below.
+  ...[1.5, 1.6, 1.7].flatMap((at) => [n("hornsStac", at, 7, 0.08, 0.8), n("tromboneStac", at, -5, 0.08, 0.75)]),
+  n("horns", 1.8, 4, 0.3, 0.85),
+  n("trombones", 1.8, -8, 0.3, 0.8),
+  n("hornsStac", 2.16, 2, 0.08, 0.8),
+  n("horns", 2.28, 7, 0.55, 0.9),
+  n("trombones", 2.28, -5, 0.55, 0.85),
+  // Tutti: a triplet pickup, the IV chord, then I held.
+  ...[3.0, 3.1, 3.2].map((at) => n("trumpetsStac", at, 7, 0.08, 0.9)),
+  ...chord("trumpets", 3.3, [5, 9, 12], 0.42, 0.95),
+  ...chord("horns", 3.3, [5, 9], 0.42, 0.85),
+  n("trombones", 3.3, -7, 0.42, 0.85),
+  ...chord("trumpets", 3.78, [7, 12, 16], 1.7, 1),
+  ...chord("horns", 3.78, [4, 7, 12], 1.7, 0.75),
+  ...chord("trombones", 3.78, [-5, 0], 1.7, 0.8),
+  n("lowBrass", 3.78, 0, 1.7, 0.8),
+  ...chord("strings", 3.7, [12, 16, 19], 1.9, 0.6),
+  n("celli", 3.7, 0, 1.9, 0.8),
+  n("basses", 3.78, 0, 1.7, 0.8),
+];
+
+export type MotifPerc = "timpani" | "timpaniRoll" | "bassDrum" | "cymbal" | "drumLow";
+export interface MotifHit {
+  at: number;
+  voice: MotifPerc;
+  velocity: number;
+  /** Cut a long sample (a roll) after this many seconds. */
+  duration?: number;
+  /** Overrides the voice's default level in motifs. */
+  gain?: number;
+}
+
+/** Percussion under each motif. */
+export const MOTIF_PERC: Record<MotifKind, MotifHit[]> = {
+  banners: [],
+  host: [
+    ...[0, 1, 2, 2.8].map((at): MotifHit => ({ at, voice: "drumLow", velocity: 0.95 })),
+    { at: 1.6, voice: "timpaniRoll", velocity: 0.8, gain: 0.7 },
+  ],
+  dawn: [
+    { at: 0, voice: "timpaniRoll", velocity: 0.6, gain: 0.6 },
+    { at: 2.4, voice: "timpani", velocity: 1, gain: 0.9 },
+    { at: 2.4, voice: "bassDrum", velocity: 0.9, gain: 0.7 },
+  ],
+  victory: [
+    { at: 0.22, voice: "timpani", velocity: 0.6 },
+    { at: 0.72, voice: "timpani", velocity: 0.75 },
+    { at: 1.36, voice: "timpaniRoll", velocity: 0.8, duration: 0.68 },
+    { at: 2.02, voice: "timpani", velocity: 1 },
+    { at: 2.02, voice: "bassDrum", velocity: 0.95 },
+    { at: 2.02, voice: "cymbal", velocity: 0.9 },
+  ],
+  victoryAlt: [
+    { at: 0.78, voice: "timpani", velocity: 0.6 },
+    { at: 2.28, voice: "timpani", velocity: 0.65 },
+    { at: 3.0, voice: "timpaniRoll", velocity: 0.8, duration: 0.78 },
+    { at: 3.78, voice: "timpani", velocity: 1 },
+    { at: 3.78, voice: "bassDrum", velocity: 0.95 },
+    { at: 3.78, voice: "cymbal", velocity: 0.95 },
+  ],
+  defeat: [{ at: 4.1, voice: "timpani", velocity: 0.25, gain: 0.6 }],
+};
 
 /**
  * - banners: the Free Banners' horn call (root, fifth, octave), on rallies and charges;
  * - host: low brass grinding a half-step and falling a fourth, on dread (drums underneath);
  * - dawn: the sunrise turn, strings swelling on the major chord under a rising horn line;
- * - victory: a short horn fanfare (I-IV-V-I) over strings;
+ * - victory: a heraldic fanfare whose head is the Banners' call (see VICTORY below);
+ * - victoryAlt: a herald's antiphon, trumpets calling and horns answering, then I-IV-I tutti;
  * - defeat: a sparse low cello line falling over a held bass.
  */
 export const MOTIFS: Record<MotifKind, MotifNote[]> = {
@@ -147,20 +276,8 @@ export const MOTIFS: Record<MotifKind, MotifNote[]> = {
     n("horns", 1.8, 7, 0.6, 0.85),
     n("horns", 2.4, 12, 1.8, 0.95),
   ],
-  victory: [
-    n("horns", 0, 0, 0.3, 0.85),
-    n("horns", 0.35, 5, 0.3, 0.85),
-    n("horns", 0.7, 7, 0.3, 0.9),
-    n("horns", 1.05, 12, 2.2, 1),
-    n("horns", 1.05, 7, 2.2, 0.8),
-    n("strings", 0, 4, 0.7, 0.6),
-    n("strings", 0.35, 5, 0.35, 0.6),
-    n("strings", 0.7, 11, 0.35, 0.7),
-    n("strings", 1.05, 12, 2.4, 0.85),
-    n("strings", 1.05, 16, 2.4, 0.8),
-    n("celli", 0, 0, 3.2, 0.8),
-    n("basses", 1.05, 0, 2.4, 0.8),
-  ],
+  victory: VICTORY,
+  victoryAlt: VICTORY_ALT,
   defeat: [
     n("basses", 0, 0, 5, 0.55),
     n("celli", 0.2, 3, 1.4, 0.6),
@@ -177,7 +294,7 @@ export function motifNotes(kind: MotifKind, mood: Mood): Array<MotifNote & { mid
 
 /** Which mood's key a motif speaks in (dawn and victory always in the sunrise major). */
 export function motifMood(kind: MotifKind, current: MusicMood | null): MusicMood {
-  if (kind === "dawn" || kind === "victory") return "sunrise";
+  if (kind === "dawn" || kind === "victory" || kind === "victoryAlt") return "sunrise";
   if (kind === "defeat") return "nightFires";
   return current ?? "dusk";
 }

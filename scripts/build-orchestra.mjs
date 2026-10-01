@@ -37,6 +37,12 @@ const TONAL = {
   trombones: { dir: "Brass/Tenor Trombone/sus", file: "tenortbn_sus_NOTE_v2_1.wav", notes: ["A#0", "C#1", "F1", "A#1", "D2", "F2"], shift: 1, dur: 4.5, fade: 1.1 },
   tuba: { dir: "Brass/Tuba/sus", file: "Tuba3_sus_NOTE_v2_rr1_Mid.wav", notes: ["A#0", "D#1", "F1", "A#1", "D2", "F2"], shift: 1, dur: 4.5, fade: 1.1 },
   harp: { dir: "Strings/Harp", file: "KSHarp_NOTE_mf.wav", notes: ["B1", "D2", "F2", "A2", "C3", "E3", "G3", "B3", "D4", "F4", "A4", "C5", "E5", "G5"], shift: 0, dur: 4, fade: 1.5 },
+  // T20c, the victory fanfare: bright trumpets (loud layer), and short (staccato) brass for the pickups.
+  trumpets: { dir: "Brass/Trumpet/sus", file: "Sum_SHTrumpet_sus_NOTE_v3_rr1.wav", notes: ["F2", "A2", "C3", "D#3", "G3", "A#3", "D4", "F4", "A4", "C5"], shift: 1, dur: 4, fade: 1 },
+  trumpetsStac: { dir: "Brass/Trumpet/stac", file: "Sum_SHTrumpet_stac_NOTE_v3_rr1.wav", notes: ["F2", "A2", "C3", "D#3", "F3", "G3", "A#3", "D4", "F4", "A4", "C5"], shift: 1, dur: 1.2, fade: 0.45 },
+  // The horn's staccato has no samples between C4 and D5 (sounding), so only its lower range is used.
+  hornsStac: { dir: "Brass/F Horn/stac", file: (note) => `MOHorn_stac_${note}_v${["C1", "D#1", "G1"].includes(note) ? 2 : 3}_rr1.wav`, notes: ["C1", "D#1", "G1", "A#1", "D2", "F2", "A2", "C3"], shift: 1, dur: 1.2, fade: 0.45 },
+  tromboneStac: { dir: "Brass/Tenor Trombone/stac", file: "tenortbn_stac_NOTE_v3_rr1.wav", notes: ["F1", "A#1", "F2", "A#2", "D3", "F3"], shift: 1, dur: 1.2, fade: 0.45 },
 };
 
 /** Percussion: plain files grouped by voice, from soft to loud (round-robin within a level). */
@@ -47,6 +53,7 @@ const PERC = {
   tenor: { dir: "VSCO 1 Percussion/drums/tenor/tenor_lower", files: ["tenor_pp_1.wav", "tenor_mp_1.wav", "tenor_mf_1.wav", "tenor_f_1.wav", "tenor_ff_1.wav", "tenor_ff_2.wav"], dur: 1.4, fade: 0.5 },
   snare: { dir: "VSCO 1 Percussion/drums/snare/drum3_marching", files: ["snare3_p_1.wav", "snare3_mp_1.wav", "snare3_f_1.wav", "snare3_f_2.wav", "snare3_rimshot_f_1.wav"], dur: 0.8, fade: 0.3 },
   bassDrum: { dir: "VSCO 1 Percussion/drums/bass", files: ["bdrum_mp_1.wav", "bdrum_f_1.wav", "bdrum_ff_1.wav"], dur: 2.5, fade: 1 },
+  cymbal: { dir: "VSCO 1 Percussion/varMetal/Cymbals/clash", files: ["crash_hit_ff_loose.wav", "crash_hit_fff_loose.wav"], dur: 3.2, fade: 1.6 },
 };
 
 const exists = (p) => access(p).then(() => true, () => false);
@@ -78,17 +85,20 @@ function encode(src, dst, { dur, fade, gainDb = 0 }) {
   execFileSync("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-i", src, "-af", af, "-ac", "1", "-ar", "48000", "-c:a", "libopus", "-b:a", "56k", "-vbr", "on", dst]);
 }
 
-await rm(OUT, { recursive: true, force: true });
+// Incremental: Opus output isn't byte-identical between runs, so existing files are kept
+// (no churn in git) unless `--force` rebuilds everything.
+const FORCE = process.argv.includes("--force");
+if (FORCE) await rm(OUT, { recursive: true, force: true });
 await mkdir(OUT, { recursive: true });
 const manifest = { tonal: {}, perc: {} };
 
 for (const [name, inst] of Object.entries(TONAL)) {
   manifest.tonal[name] = [];
   for (const note of inst.notes) {
-    const src = await fetchWav(inst.dir, inst.file.replace("NOTE", note));
+    const src = await fetchWav(inst.dir, typeof inst.file === "function" ? inst.file(note) : inst.file.replace("NOTE", note));
     const midi = midiOf(note, inst.shift);
     const out = `${name}-${midi}.ogg`;
-    encode(src, path.join(OUT, out), { ...inst, gainDb: -1 - peakDb(src) });
+    if (FORCE || !(await exists(path.join(OUT, out)))) encode(src, path.join(OUT, out), { ...inst, gainDb: -1 - peakDb(src) });
     manifest.tonal[name].push({ midi, file: out });
     process.stdout.write(".");
   }
@@ -102,7 +112,7 @@ for (const [name, group] of Object.entries(PERC)) {
   const gainDb = -1 - Math.max(...sources.map(peakDb));
   for (const [i, src] of sources.entries()) {
     const out = `${name}-${i}.ogg`;
-    encode(src, path.join(OUT, out), { ...group, gainDb });
+    if (FORCE || !(await exists(path.join(OUT, out)))) encode(src, path.join(OUT, out), { ...group, gainDb });
     manifest.perc[name].push(out);
     process.stdout.write(".");
   }
