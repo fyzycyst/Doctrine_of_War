@@ -47,6 +47,11 @@ export type Condition =
   | { kind: "selfStrengthBelow"; value: number }
   | { kind: "enemyAdjacent" }
   | { kind: "enemyWithin"; range: number }
+  /**
+   * An idle company while the fight is elsewhere: an ally is in contact with an enemy
+   * this side sees, and no seen enemy is within `range` of this squad.
+   */
+  | { kind: "fightBeyond"; range: number }
   /** An enemy within `range` whose stat is below `value`. */
   | { kind: "enemyBelow"; stat: Stat; value: number; range: number }
   | { kind: "allyAdjacentBelow"; stat: Stat; value: number }
@@ -68,6 +73,8 @@ export type EnemySelector =
   | { kind: "nearestEnemy" }
   | { kind: "weakestEnemy"; stat: Stat; range?: number }
   | { kind: "overextendedEnemy"; range?: number }
+  /** The nearest seen enemy that is in contact with one of this squad's allies: "the nearest fight". */
+  | { kind: "fightingEnemy" }
   | { kind: "objective"; side: "enemy"; objectiveId?: string };
 
 /** Any target a squad may move toward. */
@@ -370,6 +377,20 @@ export type EngineEvent =
       reason: "advance" | "fallBack" | "charge";
     })
   | (EventBase & { kind: "blocked"; squadId: string; reason: string })
+  /**
+   * A muster move at the start of a phase (beat 0), shaped like a move. `halted`: it
+   * stopped short of where it was ordered (it ran into something it could not see).
+   */
+  | (EventBase & {
+      kind: "mustered";
+      squadId: string;
+      path: HexCoord[];
+      from: HexCoord | null;
+      to: HexCoord | null;
+      halted: boolean;
+    })
+  /** Relief of the line: `squadId` takes `relievedId`'s place at `hex`; two `mustered` moves follow. */
+  | (EventBase & { kind: "relieved"; squadId: string; relievedId: string; hex: HexCoord })
   | (EventBase & {
       kind: "engagement";
       attackerId: string;

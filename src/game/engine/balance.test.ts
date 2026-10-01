@@ -9,9 +9,13 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
     // Campaign battles are checked on every reference roster (see docs/CAMPAIGN.md).
     for (const variant of balanceVariantsFor(ashAndBanner, scenarios, scenario)) {
       it(`${scenario.title} [${variant.kind} roster] meets its guardrails over 60 seeds with fortune on`, () => {
-        const rows = runBalance(variant.scenario, 60, "on");
+        // Judged with the player-realistic heuristic muster...
+        const rows = runBalance(variant.scenario, 60, "on", "heuristic");
         expect(guardrailFailures(rows, variant.policy), formatTable(variant.scenario, rows)).toEqual([]);
-      }, 60_000); // hundreds of simulated battles; the 5 s default times out under full-suite load
+        // ...and still winnable by a player who never musters.
+        const still = runBalance(variant.scenario, 60, "on", "none", ["intended", "bad"]);
+        expect(guardrailFailures(still, "floor"), formatTable(variant.scenario, still)).toEqual([]);
+      }, 90_000); // hundreds of simulated battles; the 5 s default times out under full-suite load
     }
   }
 

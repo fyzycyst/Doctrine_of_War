@@ -38,8 +38,9 @@ if (selected.length === 0) {
 }
 
 console.log(
-  `Guardrails: intended >= ${GUARDRAILS.intendedMin * 100}%, bad <= ${GUARDRAILS.badMax * 100}%, ` +
-    `every mono plan advances (wins + stalemates) < ${GUARDRAILS.monoMax * 100}%   (fortune ${fortune})\n`,
+  `Guardrails (heuristic muster): intended >= ${GUARDRAILS.intendedMin * 100}%, bad <= ${GUARDRAILS.badMax * 100}%, ` +
+    `every mono plan advances (wins + stalemates) < ${GUARDRAILS.monoMax * 100}%   (fortune ${fortune}); ` +
+    `with no muster, intended still advances >= ${GUARDRAILS.intendedMin * 100}%\n`,
 );
 
 let failed = false;
@@ -53,6 +54,11 @@ for (const scenario of selected) {
       console.log(formatTable(label, rows));
       if (variant.roster) console.log(`  roster: ${variant.roster}`);
       const failures = guardrailFailures(rows, variant.policy);
+      // A player who never musters must still be able to win (a winnability floor).
+      const still = runBalance(variant.scenario, seeds, fortune as FortuneMode, "none", ["intended", "bad"]);
+      const pct = (row: (typeof still)[number]) => `${(row.winRate * 100).toFixed(1)}% wins + ${(row.stalemateRate * 100).toFixed(1)}% stalemates`;
+      console.log(`  no muster: intended ${pct(still[0])}, bad ${pct(still[1])}`);
+      failures.push(...guardrailFailures(still, "floor").map((failure) => `no muster: ${failure}`));
       console.log(failures.length === 0 ? "  PASS\n" : failures.map((failure) => `  FAIL ${failure}`).join("\n") + "\n");
       failed ||= failures.length > 0;
     }

@@ -22,6 +22,7 @@ export const EDIT_BOUNDS: Partial<Record<Condition["kind"], Record<string, Param
   selfCohesionBelow: { value: { min: 10, max: 90, step: 5 } },
   selfStrengthBelow: { value: { min: 10, max: 90, step: 5 } },
   enemyWithin: { range: { min: 1, max: 4, step: 1 } },
+  fightBeyond: { range: { min: 2, max: 5, step: 1 } },
   enemyBelow: { value: { min: 10, max: 90, step: 5 }, range: { min: 1, max: 4, step: 1 } },
   allyAdjacentBelow: { value: { min: 10, max: 90, step: 5 } },
   allyBelow: { value: { min: 10, max: 90, step: 5 } },

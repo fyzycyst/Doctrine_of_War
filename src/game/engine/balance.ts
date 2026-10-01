@@ -1,6 +1,7 @@
 // Monte Carlo balance harness (tech plan §4a). Plays every reference plan and
 // every mono-doctrine plan across many seeds and checks the guardrails:
 // doctrine decides the odds; fortune decides the moment.
+import { heuristicMuster, type MusterPolicy } from "./muster";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import type { EngineScenario, EngineState, FortuneMode, Orders } from "./types";
 
@@ -32,10 +33,16 @@ export interface BalanceRow extends BalancePlan {
   meanObjective: number | null;
 }
 
-export function playBattle(scenario: EngineScenario, orders: Orders, seed: number, fortune: FortuneMode): EngineState {
+/**
+ * One battle with fixed orders. `muster` is how the player repositions each command
+ * window: "none" (never), or "heuristic" (heuristicMuster: relieve the worn, close idle
+ * companies on the fight), which reads only the player's view.
+ */
+export function playBattle(scenario: EngineScenario, orders: Orders, seed: number, fortune: FortuneMode, muster: MusterPolicy = "none"): EngineState {
   let state = createInitialState(scenario, { seed, fortune });
   while (state.status === "command") {
-    state = resolvePhase(state, orders, scenario).state;
+    const moves = muster === "heuristic" ? heuristicMuster(state, scenario) : [];
+    state = resolvePhase(state, orders, scenario, { muster: moves }).state;
   }
   return state;
 }
@@ -60,16 +67,26 @@ export function balancePlans(scenario: EngineScenario): BalancePlan[] {
   return plans;
 }
 
-export function runBalance(scenario: EngineScenario, seeds: number, fortune: FortuneMode = "on"): BalanceRow[] {
+/**
+ * The guardrails are judged with the player-realistic "heuristic" muster; "none" (the
+ * player never musters) is checked as a winnability floor. `kinds` limits the plans.
+ */
+export function runBalance(
+  scenario: EngineScenario,
+  seeds: number,
+  fortune: FortuneMode = "on",
+  muster: MusterPolicy = "heuristic",
+  kinds: PlanKind[] = ["intended", "bad", "mono"],
+): BalanceRow[] {
   if (!Number.isInteger(seeds) || seeds < 1) {
     throw new Error(`Seed count must be a positive integer, got ${seeds}`);
   }
-  return balancePlans(scenario).map((plan) => {
+  return balancePlans(scenario).filter((plan) => kinds.includes(plan.kind)).map((plan) => {
     let wins = 0;
     let stalemates = 0;
     let objectiveSum = 0;
     for (let seed = 1; seed <= seeds; seed += 1) {
-      const final = playBattle(scenario, plan.orders, seed, fortune);
+      const final = playBattle(scenario, plan.orders, seed, fortune, muster);
       wins += final.status === "victory" ? 1 : 0;
       stalemates += final.status === "stalemate" ? 1 : 0;
       objectiveSum += final.objectives[0]?.integrity ?? 0;
