@@ -3655,3 +3655,26 @@ html.reduce-motion *::after {
 .modal h2[tabindex="-1"]:focus {
   outline: none;
 }
+
+/* Settings in two columns where there is room (T19b): Display & motion and Rules on the
+   left, Sound & pace and Help & support on the right. One column on narrow windows. */
+.settings-column > .settings-section:first-child {
+  margin-top: 8px;
+}
+
+@media (min-width: 1280px) {
+  .modal.settings {
+    width: min(1060px, calc(100vw - 48px));
+  }
+
+  .settings-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 36px;
+    align-items: start;
+  }
+}
+
+.modal.settings .modal-actions {
+  margin-top: 16px;
+}

@@ -18,6 +18,14 @@ const STAGES = [
     settleMs: 1200,
     eval: `[...document.querySelectorAll(".title-menu button")].find((b) => b.textContent === "Settings")?.click()`,
   },
+  // T19b: below 1280 wide Settings keeps one column.
+  {
+    name: "settings-narrow",
+    query: "screen=title",
+    settleMs: 1200,
+    sizes: [[1100, 760]],
+    eval: `[...document.querySelectorAll(".title-menu button")].find((b) => b.textContent === "Settings")?.click()`,
+  },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
   { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },

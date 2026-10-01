@@ -149,4 +149,18 @@ describe("the Settings dialog", () => {
     render(<Root />);
     expect(screen.getByRole("heading", { name: "Settings" })).toHaveFocus();
   });
+
+  it("groups its rows in two columns: Display & motion and Rules | Sound & pace and Help & support", () => {
+    useFlow.setState({ settingsOpen: true });
+    render(<Root />);
+    const columns = [...document.querySelectorAll(".settings-columns > .settings-column")];
+    expect(columns).toHaveLength(2);
+    const outline = columns.map((column) =>
+      [...column.querySelectorAll(".settings-section, .settings-title")].map((node) => node.textContent),
+    );
+    expect(outline).toEqual([
+      ["Display & motion", "Graphics", "Depth of field", "Motion", "Rules", "Doctrine only", "Doctrine editor"],
+      ["Sound & pace", "Sound", "Music", "Battle pace", "Help & support", "Guidance", "Show battle details", "Export save file"],
+    ]);
+  });
 });

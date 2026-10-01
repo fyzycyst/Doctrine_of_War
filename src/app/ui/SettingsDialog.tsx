@@ -92,138 +92,141 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         Settings
       </h2>
 
-      <Row title="Graphics" help="Low drops bloom and tilt-shift for older Macs. Ultra renders at full display resolution.">
-        <Segmented label="Graphics quality" value={settings.quality} options={QUALITY} onChange={(quality) => settings.set({ quality })} />
-      </Row>
+      <div className="settings-columns">
+        <div className="settings-column">
+          <h3 className="settings-section">Display &amp; motion</h3>
+          <Row title="Graphics" help="Low drops bloom and tilt-shift for older Macs. Ultra renders at full display resolution.">
+            <Segmented label="Graphics quality" value={settings.quality} options={QUALITY} onChange={(quality) => settings.set({ quality })} />
+          </Row>
+          <Row title="Depth of field" help="The tilt-shift blur at the board's edges. Subtle keeps your companies sharp; Off turns it off.">
+            <Segmented label="Depth of field" value={settings.depthOfField} options={DOF} onChange={(depthOfField) => settings.set({ depthOfField })} />
+          </Row>
+          <Row title="Motion" help="Reduced keeps callouts and cuts, but stops camera moves, drift and shakes.">
+            <Segmented label="Motion" value={settings.motion} options={MOTION} onChange={(motion) => settings.set({ motion })} />
+          </Row>
 
-      <Row title="Sound">
-        <div className="settings-audio">
-          <label className="check">
-            <input type="checkbox" aria-label="Sound" checked={!muted} onChange={(event) => setMuted(!event.target.checked)} /> On
-          </label>
-          <label className="volume">
-            <span className="sr-only">Volume</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(volume * 100)}
-              disabled={muted}
-              aria-label="Volume"
-              onChange={(event) => setVolume(Number(event.target.value) / 100)}
-            />
-          </label>
-        </div>
-      </Row>
-
-      <Row title="Music" help="The background score, under the master volume.">
-        <label className="volume">
-          <span className="sr-only">Music volume</span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={Math.round(musicVolume * 100)}
-            disabled={muted}
-            aria-label="Music volume"
-            onChange={(event) => setMusicVolume(Number(event.target.value) / 100)}
-          />
-        </label>
-      </Row>
-
-      <Row title="Depth of field" help="The tilt-shift blur at the board's edges. Subtle keeps your companies sharp; Off turns it off.">
-        <Segmented label="Depth of field" value={settings.depthOfField} options={DOF} onChange={(depthOfField) => settings.set({ depthOfField })} />
-      </Row>
-
-      <Row title="Battle pace" help="How fast each phase plays out. You can still switch during a battle.">
-        <Segmented
-          label="Default battle pace"
-          value={settings.defaultPace}
-          options={[
-            { value: "readable", label: "Readable" },
-            { value: "fast", label: "Fast" },
-          ]}
-          onChange={(defaultPace) => {
-            settings.set({ defaultPace });
-            setPace(defaultPace);
-          }}
-        />
-      </Row>
-
-      <Row
-        title="Doctrine only"
-        help="Turns off friction and fortune: no courage or wavering, no shifting weather, no fog of war, no dread. Every battle then plays out exactly as your doctrines dictate. Applies to battles you begin from now on."
-      >
-        <label className="check">
-          <input
-            type="checkbox"
-            aria-label="Doctrine only"
-            checked={settings.doctrineOnly}
-            onChange={(event) => settings.set({ doctrineOnly: event.target.checked })}
-          />{" "}
-          On
-        </label>
-      </Row>
-
-      <Row title="Motion" help="Reduced keeps callouts and cuts, but stops camera moves, drift and shakes.">
-        <Segmented label="Motion" value={settings.motion} options={MOTION} onChange={(motion) => settings.set({ motion })} />
-      </Row>
-
-      <Row title="Guidance" help="The field manual, or the first battle's guide again (it shows on your next First Breach).">
-        <div className="settings-audio">
-          <button
-            type="button"
-            className="btn-quiet"
-            onClick={() => {
-              onClose();
-              setHowToOpen(true);
-            }}
+          <h3 className="settings-section">Rules</h3>
+          <Row
+            title="Doctrine only"
+            help="Turns off friction and fortune: no courage or wavering, no shifting weather, no fog of war, no dread. Every battle then plays out exactly as your doctrines dictate. Applies to battles you begin from now on."
           >
-            How to play
-          </button>
-          <button type="button" className="btn-quiet" disabled={guideFresh} onClick={resetGuide}>
-            {guideFresh ? "Guide ready" : "Show the guide again"}
-          </button>
+            <label className="check">
+              <input
+                type="checkbox"
+                aria-label="Doctrine only"
+                checked={settings.doctrineOnly}
+                onChange={(event) => settings.set({ doctrineOnly: event.target.checked })}
+              />{" "}
+              On
+            </label>
+          </Row>
+          <Row title="Doctrine editor" help="Experimental. Cut your own copy of a doctrine: reorder its orders, move its thresholds.">
+            <button
+              type="button"
+              className="btn-quiet"
+              onClick={() => {
+                onClose();
+                setEditor({});
+              }}
+            >
+              Open the editor
+            </button>
+          </Row>
         </div>
-      </Row>
 
-      <Row title="Doctrine editor" help="Experimental. Cut your own copy of a doctrine: reorder its orders, move its thresholds.">
-        <button
-          type="button"
-          className="btn-quiet"
-          onClick={() => {
-            onClose();
-            setEditor({});
-          }}
-        >
-          Open the editor
-        </button>
-      </Row>
+        <div className="settings-column">
+          <h3 className="settings-section">Sound &amp; pace</h3>
+          <Row title="Sound">
+            <div className="settings-audio">
+              <label className="check">
+                <input type="checkbox" aria-label="Sound" checked={!muted} onChange={(event) => setMuted(!event.target.checked)} /> On
+              </label>
+              <label className="volume">
+                <span className="sr-only">Volume</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round(volume * 100)}
+                  disabled={muted}
+                  aria-label="Volume"
+                  onChange={(event) => setVolume(Number(event.target.value) / 100)}
+                />
+              </label>
+            </div>
+          </Row>
+          <Row title="Music" help="The background score, under the master volume.">
+            <label className="volume">
+              <span className="sr-only">Music volume</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(musicVolume * 100)}
+                disabled={muted}
+                aria-label="Music volume"
+                onChange={(event) => setMusicVolume(Number(event.target.value) / 100)}
+              />
+            </label>
+          </Row>
+          <Row title="Battle pace" help="How fast each phase plays out. You can still switch during a battle.">
+            <Segmented
+              label="Default battle pace"
+              value={settings.defaultPace}
+              options={[
+                { value: "readable", label: "Readable" },
+                { value: "fast", label: "Fast" },
+              ]}
+              onChange={(defaultPace) => {
+                settings.set({ defaultPace });
+                setPace(defaultPace);
+              }}
+            />
+          </Row>
 
-      <h3 className="settings-section">Support</h3>
-      <Row title="Show battle details" help="Shows each battle's seed in the top bar, reports and results. Useful when reporting a bug.">
-        <label className="check">
-          <input
-            type="checkbox"
-            aria-label="Show battle details"
-            checked={settings.showBattleDetails}
-            onChange={(event) => settings.set({ showBattleDetails: event.target.checked })}
-          />{" "}
-          On
-        </label>
-      </Row>
-      <Row title="Export save file" help="Saves a copy of your campaign to send with a bug report.">
-        <div className="settings-audio">
-          <button type="button" className="btn-quiet" onClick={exportCopy}>
-            Export save file…
-          </button>
+          <h3 className="settings-section">Help &amp; support</h3>
+          <Row title="Guidance" help="The field manual, or the first battle's guide again (it shows on your next First Breach).">
+            <div className="settings-audio">
+              <button
+                type="button"
+                className="btn-quiet"
+                onClick={() => {
+                  onClose();
+                  setHowToOpen(true);
+                }}
+              >
+                How to play
+              </button>
+              <button type="button" className="btn-quiet" disabled={guideFresh} onClick={resetGuide}>
+                {guideFresh ? "Guide ready" : "Show the guide again"}
+              </button>
+            </div>
+          </Row>
+          <Row title="Show battle details" help="Shows each battle's seed in the top bar, reports and results. Useful when reporting a bug.">
+            <label className="check">
+              <input
+                type="checkbox"
+                aria-label="Show battle details"
+                checked={settings.showBattleDetails}
+                onChange={(event) => settings.set({ showBattleDetails: event.target.checked })}
+              />{" "}
+              On
+            </label>
+          </Row>
+          <Row title="Export save file" help="Saves a copy of your campaign to send with a bug report.">
+            <div className="settings-audio">
+              <button type="button" className="btn-quiet" onClick={exportCopy}>
+                Export save file…
+              </button>
+            </div>
+          </Row>
+          {exportNote && (
+            <p className="settings-help" role="status">
+              {exportNote}
+            </p>
+          )}
         </div>
-      </Row>
-      {exportNote && (
-        <p className="settings-help" role="status">
-          {exportNote}
-        </p>
-      )}
+      </div>
 
       <div className="modal-actions">
         <button ref={close} type="button" className="btn-command" onClick={onClose}>
