@@ -15,6 +15,7 @@
     "balance": "vite-node scripts/balance.ts --",
     "capture": "node scripts/capture.mjs",
     "capture:app": "node scripts/capture-app.mjs",
+    "build:orchestra": "node scripts/build-orchestra.mjs",
     "audio:demo": "node scripts/audio-demo.mjs",
     "smoke:field-test": "ELECTRON=1 vite build && electron scripts/smoke-field-test.mjs",
     "fetch:cc0": "node scripts/fetch-cc0.mjs"
