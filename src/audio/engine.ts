@@ -1,8 +1,10 @@
 import { useAudioStore } from "../app/audioStore";
 import { AMBIENT_BEDS, ambienceMix, type AmbienceSpec, type AmbientBed } from "./ambience";
-import { DRUM_SWELLS, drumBar, DrumIntensity, drumTempo, type DrumVoice } from "./drums";
-import { DUCK, MOODS, MUSIC_LEVEL, midiToHz, musicBar, type MusicMood } from "./music";
-import { droneVoice, drumVoice, makeImpulse, padVoice, pluckVoice } from "./voices";
+import { DRUM_SWELLS, drumBar, DrumIntensity, drumTempo } from "./drums";
+import { DUCK, MOODS, MUSIC_LEVEL, musicBar, type MotifKind, type MusicMood } from "./music";
+import { Orchestra } from "./sampler";
+import { playDrumBarExtras, playDrumHit, playMotif, playScoreBar } from "./score";
+import { makeImpulse } from "./voices";
 
 /**
  * Small Web Audio engine (no dependencies):
@@ -47,6 +49,13 @@ export class AudioEngine {
   private musicBus: GainNode | null = null;
   private duck: GainNode | null = null;
   private musicOverride: MusicMood | null | undefined = undefined;
+  /** Phrase dynamics: the score swells with battle intensity (hush in command windows). */
+  private dyn: GainNode | null = null;
+  /** Motifs and stingers: same music volume, not ducked (they answer the SFX). */
+  private motifBus: GainNode | null = null;
+  private drumBus: GainNode | null = null;
+  /** The sampled orchestra (T20b): lazy-loaded on unlock; synth voices until it decodes. */
+  readonly orchestra = new Orchestra();
 
   constructor() {
     useAudioStore.subscribe(() => this.applyVolume());
@@ -73,17 +82,25 @@ export class AudioEngine {
       this.duck = this.ctx.createGain();
       this.duck.connect(this.master);
       this.musicBus = this.ctx.createGain();
+      this.dyn = this.ctx.createGain();
       const room = this.ctx.createConvolver();
       room.buffer = makeImpulse(this.ctx);
       const wet = this.ctx.createGain();
       wet.gain.value = 0.45;
-      this.musicBus.connect(this.duck);
-      this.musicBus.connect(room).connect(wet).connect(this.duck);
+      this.musicBus.connect(this.dyn);
+      this.dyn.connect(this.duck);
+      this.dyn.connect(room).connect(wet).connect(this.duck);
+      this.motifBus = this.ctx.createGain();
+      this.motifBus.connect(this.master);
+      this.motifBus.connect(room);
+      wet.connect(this.master);
       this.noise = this.makeNoise();
       this.applyVolume();
       this.buildBeds();
       this.buildScore();
       void this.loadSamples();
+      // The orchestra is ~3 MB: fetched only now, after the first interaction.
+      void this.orchestra.load(this.ctx, `${import.meta.env.BASE_URL}`);
     }
     if (this.ctx.state !== "running") await this.ctx.resume();
     if (this.spec) this.setAmbience(this.spec);
@@ -91,7 +108,10 @@ export class AudioEngine {
 
   setAmbience(spec: AmbienceSpec) {
     // The dawn turn (predawn → sunrise) is a drum moment by itself.
-    if (this.spec?.timeOfDay === "predawn" && spec.timeOfDay === "sunrise") this.swellDrums("dawn");
+    if (this.spec?.timeOfDay === "predawn" && spec.timeOfDay === "sunrise") {
+      this.swellDrums("dawn");
+      this.motif("dawn");
+    }
     this.spec = spec;
     if (!this.ctx) return;
     const mix = ambienceMix(spec);
@@ -167,14 +187,27 @@ export class AudioEngine {
         break;
       case "horn":
         this.horn(t);
+        this.motif("banners", 0.15);
         break;
       case "dread":
         this.dread(t);
+        this.motif("host", 0.1);
         break;
       case "reveal":
         this.reveal(t);
         break;
     }
+  }
+
+  /** End-of-battle stinger on the score: "victory" (horn fanfare over strings) or "defeat" (a low cello line). */
+  playSting(kind: "victory" | "defeat") {
+    this.motif(kind);
+  }
+
+  private motif(kind: MotifKind, delay = 0.05) {
+    const ctx = this.ctx;
+    if (!ctx || !this.motifBus || !this.drumBus || ctx.state !== "running") return;
+    playMotif(ctx, this.motifBus, this.drumBus, this.orchestra, kind, this.mood, ctx.currentTime + delay, this.noise);
   }
 
   // --- internals ---------------------------------------------------------------
@@ -186,6 +219,7 @@ export class AudioEngine {
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setTargetAtTime(muted ? 0 : volume, now, 0.05);
     this.musicBus?.gain.setTargetAtTime(musicVolume * MUSIC_LEVEL, now, 0.1);
+    this.motifBus?.gain.setTargetAtTime(musicVolume * MUSIC_LEVEL * 1.1, now, 0.1);
   }
 
   private makeNoise() {
@@ -274,6 +308,7 @@ export class AudioEngine {
     // battle's intensity rises (drums.ts).
     const drums = this.bed("drums");
     const drumBus = ctx.createGain();
+    this.drumBus = drumBus;
     const delay = ctx.createDelay(1);
     delay.delayTime.value = 0.42;
     const fb = ctx.createGain();
@@ -305,8 +340,9 @@ export class AudioEngine {
           hits = drumBar(k, bar);
           far.frequency.setTargetAtTime(900 + 1700 * k, nextStep, 0.4);
           drumBus.gain.setTargetAtTime(0.55 + 0.6 * k, nextStep, 0.3);
+          playDrumBarExtras(c, drumBus, this.orchestra, nextStep, (60 / drumTempo(k)) * 4, k, bar);
         }
-        for (const h of hits) if (h.step === step) this.drum(drumBus, h.voice, nextStep, h.velocity);
+        for (const h of hits) if (h.step === step) playDrumHit(c, drumBus, this.orchestra, this.noise, h.voice, nextStep, h.velocity);
         nextStep += 60 / drumTempo(k) / 4;
         step = (step + 1) % 16;
         if (step === 0) bar += 1;
@@ -342,22 +378,18 @@ export class AudioEngine {
           index = 0;
         }
         const m = MOODS[mood];
-        const beat = 60 / m.bpm;
-        const barLen = beat * 4;
+        const barLen = (60 / m.bpm) * 4;
         const { bar, lastDegree } = musicBar(m, index, Math.random, last);
         last = lastDegree;
-        padVoice(c, bus, bar.chord.map(midiToHz), nextBar, barLen, m.brightness);
-        droneVoice(c, bus, midiToHz(bar.drone), nextBar, barLen);
-        for (const n of bar.melody) pluckVoice(c, bus, midiToHz(n.midi), nextBar + n.beat * beat, n.velocity);
+        const k = this.drums.value(nextBar);
+        // Phrase dynamics: hush in command windows, crescendo into engagements.
+        this.dyn?.gain.setTargetAtTime(0.7 + 0.55 * k, nextBar, barLen / 3);
+        playScoreBar(c, bus, this.orchestra, m, bar, nextBar, k);
         nextBar += barLen;
         index += 1;
       }
     };
     this.schedulers.push(window.setInterval(tick, 100));
-  }
-
-  private drum(dest: AudioNode, voice: DrumVoice, t: number, velocity: number) {
-    drumVoice(this.ctx!, dest, this.noise!, voice, t, velocity);
   }
 
   private crackle(dest: AudioNode, t: number) {
