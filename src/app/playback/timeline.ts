@@ -15,6 +15,12 @@ export const PACE_SCALE: Record<Pace, number> = { readable: 1, fast: 0.5 };
  * A whole phase at Readable fits in its budget; longer phases are compressed to it. The
  * budget grows with the battle (T19 playtest: large battles cycled too fast): 24 s, plus
  * 2 s for each company acting in the phase beyond 8, up to 45 s. Fast is half.
+ *
+ * 45 s is a target, not a cap: readability wins, so no step is squeezed below MIN_SQUEEZE
+ * of its natural length, and a very dense phase may run longer. PHASE_CEILING_MS is the
+ * hard ceiling: past it the least important steps go first (the Host's repeat rule banners,
+ * then the Host's moves, both become instant and caption-only), and only then is
+ * everything squeezed to fit.
  */
 export const PHASE_BUDGET_MS = 24_000;
 export const PHASE_BUDGET_MAX_MS = 45_000;
@@ -22,6 +28,8 @@ export const BUDGET_PER_COMPANY_MS = 2_000;
 export const BUDGET_FREE_COMPANIES = 8;
 /** Compression never takes a step below this share of its natural (Readable) length. */
 export const MIN_SQUEEZE = 0.55;
+/** No Readable phase runs longer than this (Fast: half). */
+export const PHASE_CEILING_MS = 60_000;
 
 /** The Readable budget for a phase in which `companies` companies act. */
 export function phaseBudgetMs(companies: number): number {
@@ -275,7 +283,42 @@ export function buildTimeline(
     at += step.duration;
     return step;
   });
-  return { pace, steps, totalMs: at, budgetMs: budget, naturalMs: natural };
+  const totalMs = fitCeiling(steps, PHASE_CEILING_MS * PACE_SCALE[pace], (id) => factionOf(id) === playerFaction);
+  return { pace, steps, totalMs, budgetMs: budget, naturalMs: natural };
+}
+
+/**
+ * Holds a phase to the hard ceiling (see PHASE_CEILING_MS). Lowest priority first: the
+ * Host's repeat rules (already caption-only) take no time, then the Host's moves become
+ * instant; if it still does not fit, every step shrinks evenly. Re-times `at`; returns the total.
+ */
+function fitCeiling(steps: Step[], ceiling: number, mine: (squadId: string) => boolean): number {
+  let total = steps.reduce((sum, step) => sum + step.duration, 0);
+  const squadOf = (step: Step) => (step.event && "squadId" in step.event ? step.event.squadId : null);
+  const tiers: Array<(step: Step) => boolean> = [
+    (step) => step.kind === "rule" && step.quiet,
+    (step) => step.kind === "move" && squadOf(step) !== null && !mine(squadOf(step)!),
+  ];
+  for (const tier of tiers) {
+    for (const step of steps) {
+      if (total <= ceiling) break;
+      if (!tier(step) || step.duration === 0) continue;
+      total -= step.duration;
+      step.duration = 0;
+      step.linger = 0;
+      step.quiet = true;
+    }
+  }
+  if (total > ceiling) {
+    const shrink = ceiling / total;
+    for (const step of steps) step.duration = Math.floor(step.duration * shrink);
+  }
+  let at = 0;
+  for (const step of steps) {
+    step.at = at;
+    at += step.duration;
+  }
+  return at;
 }
 
 // ---------------------------------------------------------------------------
