@@ -118,6 +118,8 @@ const STAGES = [
       document.querySelector(".muster-choices button:not(.relieve)")?.click();
     })()`,
   },
+  // T21: the muster line, once, in the first battle's second command window.
+  { name: "t21-guide-muster", query: "stage=command&phase=2&plan=intended&select=stoneford_riders", sizes: [[1600, 1000]] },
   {
     name: "t21-relief",
     query: "scenario=holdForDawn&stage=command&phase=2&plan=intended&select=greyford_shields",

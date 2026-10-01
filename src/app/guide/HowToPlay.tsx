@@ -57,7 +57,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
               </li>
             ))}
           </ol>
-          <p>In each beat the Host acts first, then your companies. Readable takes about 24 seconds a phase, Fast half that, and Skip jumps to the end.</p>
+          <p>In each beat the Host acts first, then your companies. Readable takes about 24 seconds a phase (longer in big battles), Fast half that, and Skip jumps to the end.</p>
         </section>
 
         <section className="howto-panel" aria-labelledby="h-resolve">
@@ -91,6 +91,15 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
             <SealedCard />
           </div>
           <p>You see what your companies can see. Enemies out of sight stay where they were last seen, their orders sealed.</p>
+        </section>
+
+        <section className="howto-panel wide" aria-labelledby="h-muster">
+          <h3 id="h-muster">Muster &amp; relief</h3>
+          <p>
+            Before you seal, each company not in contact may <strong>muster</strong> 1 hex (cavalry 2): select it and click a glowing hex. A
+            company in contact cannot pull back, but a fresh company beside it can <strong>relieve</strong> it: they swap places and the worn
+            one steps out of the line. Musters move first, before the phase begins.
+          </p>
         </section>
       </div>
 

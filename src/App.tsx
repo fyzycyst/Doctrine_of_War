@@ -16,6 +16,7 @@ import { useBoardDeployment } from "./app/ui/useBoardDeployment";
 import { useBoardMuster } from "./app/ui/useMuster";
 import { useCaptureStore } from "./app/captureStore";
 import { CoachLayer } from "./app/guide/CoachLayer";
+import { MusterTip } from "./app/guide/MusterTip";
 import { DoctrineIntro } from "./app/guide/DoctrineIntro";
 import { FIRST_BATTLE } from "./app/guide/coach";
 import { useGuide } from "./app/guide/guideStore";
@@ -59,6 +60,7 @@ function App({ still = false, pauseAt }: { still?: boolean; pauseAt?: string }) 
           {stage === "resolving" && <Playback animation={animation} pauseAt={pauseAt} />}
           {stage === "report" && <PhaseReport />}
           <CoachLayer />
+          <MusterTip />
           {stage === "outcome" && <Outcome />}
         </main>
       )}

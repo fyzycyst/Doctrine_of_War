@@ -3803,3 +3803,18 @@ html.reduce-motion *::after {
   border-color: rgba(143, 176, 232, 0.8);
   color: var(--lapis-text);
 }
+
+/* The muster line (T21): beside the roster, clear of the hand and the inspector. */
+.coach-panel.muster-tip {
+  left: 262px;
+  top: 96px;
+}
+
+.muster-tip-how {
+  color: var(--muted);
+}
+
+/* A panel across the whole How to play grid (Muster & relief: short text, full width). */
+.howto-panel.wide {
+  grid-column: 1 / -1;
+}
