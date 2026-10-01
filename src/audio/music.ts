@@ -98,3 +98,86 @@ export const midiToHz = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 export const MUSIC_LEVEL = 0.55;
 /** How far SFX duck the music (gain multiplier) and how fast it comes back (s). */
 export const DUCK = { depth: 0.4, attack: 0.04, release: 1.4 } as const;
+
+// --- Motifs and stingers (T20b) ------------------------------------------------
+
+export type MotifKind = "banners" | "host" | "dawn" | "victory" | "defeat";
+export type MotifPart = "horns" | "lowBrass" | "strings" | "celli" | "basses";
+
+export interface MotifNote {
+  part: MotifPart;
+  /** Seconds from the motif's start. */
+  at: number;
+  /** Semitones from the mood's root (the part's octave is applied by `motifNotes`). */
+  semis: number;
+  /** Seconds held before the release. */
+  hold: number;
+  velocity: number;
+}
+
+/** Each part's octave offset from the mood root (MIDI semitones), to land in its sampled range. */
+export const PART_OCTAVE: Record<MotifPart, number> = { horns: -12, lowBrass: -24, strings: 0, celli: -12, basses: -24 };
+
+const n = (part: MotifPart, at: number, semis: number, hold: number, velocity: number): MotifNote => ({ part, at, semis, hold, velocity });
+
+/**
+ * - banners: the Free Banners' horn call (root, fifth, octave), on rallies and charges;
+ * - host: low brass grinding a half-step and falling a fourth, on dread (drums underneath);
+ * - dawn: the sunrise turn, strings swelling on the major chord under a rising horn line;
+ * - victory: a short horn fanfare (I-IV-V-I) over strings;
+ * - defeat: a sparse low cello line falling over a held bass.
+ */
+export const MOTIFS: Record<MotifKind, MotifNote[]> = {
+  banners: [n("horns", 0, 0, 0.35, 0.8), n("horns", 0.45, 7, 0.35, 0.85), n("horns", 0.9, 12, 1.6, 0.95), n("horns", 0.9, 7, 1.6, 0.7)],
+  host: [
+    n("lowBrass", 0, 0, 0.9, 0.9),
+    n("lowBrass", 1.0, 1, 0.9, 0.9),
+    n("lowBrass", 2.0, 0, 0.7, 0.85),
+    n("lowBrass", 2.8, -5, 2.0, 1),
+    n("basses", 0, 0, 4.5, 0.7),
+  ],
+  dawn: [
+    n("strings", 0, 0, 3.4, 0.7),
+    n("strings", 0, 4, 3.4, 0.7),
+    n("strings", 0, 7, 3.4, 0.7),
+    n("celli", 0, 0, 3.4, 0.75),
+    n("basses", 0, 0, 3.4, 0.7),
+    n("horns", 0.6, 0, 0.6, 0.75),
+    n("horns", 1.2, 4, 0.6, 0.8),
+    n("horns", 1.8, 7, 0.6, 0.85),
+    n("horns", 2.4, 12, 1.8, 0.95),
+  ],
+  victory: [
+    n("horns", 0, 0, 0.3, 0.85),
+    n("horns", 0.35, 5, 0.3, 0.85),
+    n("horns", 0.7, 7, 0.3, 0.9),
+    n("horns", 1.05, 12, 2.2, 1),
+    n("horns", 1.05, 7, 2.2, 0.8),
+    n("strings", 0, 4, 0.7, 0.6),
+    n("strings", 0.35, 5, 0.35, 0.6),
+    n("strings", 0.7, 11, 0.35, 0.7),
+    n("strings", 1.05, 12, 2.4, 0.85),
+    n("strings", 1.05, 16, 2.4, 0.8),
+    n("celli", 0, 0, 3.2, 0.8),
+    n("basses", 1.05, 0, 2.4, 0.8),
+  ],
+  defeat: [
+    n("basses", 0, 0, 5, 0.55),
+    n("celli", 0.2, 3, 1.4, 0.6),
+    n("celli", 1.7, 1, 1.2, 0.55),
+    n("celli", 3.0, 0, 1.0, 0.5),
+    n("celli", 4.1, -2, 2.4, 0.45),
+  ],
+};
+
+/** A motif's notes as MIDI for a mood's key: semitones over the root, in the part's octave. */
+export function motifNotes(kind: MotifKind, mood: Mood): Array<MotifNote & { midi: number }> {
+  return MOTIFS[kind].map((note) => ({ ...note, midi: mood.root + PART_OCTAVE[note.part] + note.semis }));
+}
+
+/** Which mood's key a motif speaks in (dawn and victory always in the sunrise major). */
+export function motifMood(kind: MotifKind, current: MusicMood | null): MusicMood {
+  if (kind === "dawn" || kind === "victory") return "sunrise";
+  if (kind === "defeat") return "nightFires";
+  return current ?? "dusk";
+}

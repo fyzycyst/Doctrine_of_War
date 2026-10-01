@@ -32,6 +32,8 @@ export { DRUM_BASE } from "./drums";
  * Volume: `useAudioStore.musicVolume`; it ducks under every SFX.
  */
 export const setMusic = (mood: MusicMood | null | undefined) => audio.setMusic(mood);
+/** End-of-battle stinger (T20b): a horn fanfare for "victory", a low cello line for "defeat". */
+export const playSting = (kind: "victory" | "defeat") => audio.playSting(kind);
 export { MOODS, type MusicMood } from "./music";
 
 /** Keeps the ambience in sync with a spec and unlocks on the first gesture. */

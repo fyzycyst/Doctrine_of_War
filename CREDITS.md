@@ -20,10 +20,22 @@ Licence text: http://creativecommons.org/publicdomain/zero/1.0/
 Host drums, fire crackle) and the `horn`, `dread` and `reveal` SFX are generated with Web Audio in
 `src/audio/engine.ts`. `rout` layers the RPG Audio footsteps and cloth over a synthesized falling tone.
 
+**Orchestral samples (T20b), `public/assets/audio/orch/`, 91 files, about 2.9 MB:** Versilian
+Studios Chamber Orchestra 2, Community Edition (VSCO 2 CE), **CC0 1.0**. The licence was checked
+on the source page, <https://versilian-studios.com/vsco-community/> ("Licensed under CC0 (Creative
+Commons Zero) you can do whatever you want with these samples"), and on the repository, whose
+LICENSE is CC0-1.0: <https://github.com/sgossner/VSCO-2-CE>. Used: the violin, cello and
+contrabass sections (sustain), F horn, tenor trombone and tuba (sustain), harp, timpani hits and
+rolls, and from the VSCO 1 percussion set a large ethnic drum (mallet), a low tenor drum, a
+marching snare and a bass drum. Sparse notes, one velocity layer, trimmed with a release fade and
+re-encoded as mono Opus by `npm run build:orchestra` (scripts/build-orchestra.mjs). No attribution
+is required; this note is for provenance.
+
 **Background score (T20): generated in code, no recordings.** One mood per time of day (keys,
 progressions and a random-walk melody in `src/audio/music.ts`, voices in `src/audio/voices.ts`), so
-there are no music licences to verify and it adds 0 bytes of assets. The war drums are synthesized
-the same way (`src/audio/drums.ts`).
+there are no music licences to verify. Since T20b it plays on the CC0 orchestral samples above
+(the synth voices remain as the fallback). The war drums' ostinato (`src/audio/drums.ts`) plays
+on the sampled taiko, tenor drum and snare over a faint synth tom, with timpani.
 
 ## 3D figures (dev-only Look Lab fallback, not committed and never shipped; `npm run fetch:cc0`)
 

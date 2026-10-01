@@ -1,5 +1,5 @@
 // Electron side of `npm run audio:demo`. See scripts/audio-demo.mjs.
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { app, BrowserWindow } from "electron";
 
@@ -8,6 +8,7 @@ const TIMEOUT_MS = 120_000;
 app.dock?.hide();
 
 app.whenReady().then(async () => {
+  await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
   const win = new BrowserWindow({ width: 800, height: 600, show: false, webPreferences: { backgroundThrottling: false } });
   await win.loadURL(url);
@@ -22,7 +23,8 @@ app.whenReady().then(async () => {
     demos = await win.webContents.executeJavaScript("window.__audioDemo ?? null");
     if (!demos) await new Promise((r) => setTimeout(r, 250));
   }
-  const report = [];
+  const orchestra = await win.webContents.executeJavaScript("window.__audioDemoOrchestra ?? 'unknown'");
+  const report = [`orchestra samples: ${orchestra}`];
   for (const [name, d] of Object.entries(demos)) {
     await writeFile(path.join(outDir, `${name}.wav`), Buffer.from(d.wav, "base64"));
     report.push(`${name}.wav  ${d.seconds}s  peak ${d.peakDb} dBFS  rms ${d.rmsDb} dBFS`);

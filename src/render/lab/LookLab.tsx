@@ -661,9 +661,10 @@ function AudioDemoLab() {
   const [status, setStatus] = useState("rendering…");
   useEffect(() => {
     void import("../../audio/demo").then(async ({ renderAllDemos }) => {
-      const demos = await renderAllDemos();
+      const { demos, orchestra } = await renderAllDemos();
+      (window as unknown as { __audioDemoOrchestra?: string }).__audioDemoOrchestra = orchestra;
       (window as unknown as { __audioDemo?: unknown }).__audioDemo = demos;
-      setStatus(Object.entries(demos).map(([name, d]) => `${name}: ${d.seconds}s, peak ${d.peakDb} dBFS, rms ${d.rmsDb} dBFS`).join("\n"));
+      setStatus(`orchestra: ${orchestra}\n` + Object.entries(demos).map(([name, d]) => `${name}: ${d.seconds}s, peak ${d.peakDb} dBFS, rms ${d.rmsDb} dBFS`).join("\n"));
     });
   }, []);
   return <pre style={{ color: "#ddd", padding: 24 }}>{status}</pre>;
