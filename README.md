@@ -51,6 +51,22 @@ Electron binary is never downloaded and `npm run dev:mac` / `npm run capture` fa
 node node_modules/electron/install.js
 ```
 
+**Benign Electron log lines on macOS.** `npm run dev:mac` may print these to the terminal. They are
+Chromium's, not the game's, and nothing in the game depends on them:
+
+- `ERROR:sandbox/mac/system_services.cc:35] SetApplicationIsDaemon: … paramErr (-50)`: Chromium's
+  macOS sandbox calls `SetApplicationIsDaemon()` in every sandboxed helper process as it starts
+  (GPU, network, audio service, …), and recent macOS (seen on 26.x) rejects the call. It shows up
+  when a helper process launches, e.g. the audio service on the first click.
+- `ERROR:gpu/…/shared_image_manager.cc:254] SharedImageManager::ProduceSkia: Trying to Produce a
+  Skia representation from a non-existent mailbox`: Chromium's GPU process asked to draw a shared
+  image (e.g. a WebGL canvas frame) that was already released, which can happen when a canvas is
+  destroyed or its context is lost between compositor frames. It's reported across Chromium apps.
+  Each screen (title, campaign map, battle) mounts its own WebGL canvas, but T20 couldn't
+  reproduce the message on Electron 44.4.5 / macOS 26.5.1 through title → campaign → battle,
+  resizes, hide/minimize/restore or the first audio click. If it ever comes with a visible
+  glitch, the fix is one persistent `<Canvas>` shared across screens; until then it's log noise.
+
 ### Look Lab and screenshots
 
 - `npm run dev`, then open `/?lab=1` for the dev-only diorama lab (`&scenario=firstBreach|emberFord`,

@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useAudioStore } from "../../app/audioStore";
 import { useCaptureStore } from "../../app/captureStore";
-import { useAppStore, type RenderQuality } from "../../app/store";
+import { useAppStore, type DofMode, type RenderQuality } from "../../app/store";
 import { emberFord } from "../../game/engine/scenarios/emberFord";
 import { firstBreach } from "../../game/engine/scenarios/firstBreach";
 import { holdForDawn } from "../../game/engine/scenarios/holdForDawn";
@@ -98,10 +98,11 @@ function readParams() {
     animSquad: p.get("animSquad"),
     animFreeze: num("animFreeze"),
     select: p.get("select"),
+    dof: ((v): DofMode | undefined => (v === "on" || v === "subtle" || v === "off" ? v : undefined))(p.get("dof")),
     dpr: num("dpr"),
     hover: p.get("hover"),
     revealAt: num("revealAt") ?? 2,
-    view: (p.get("view") ?? "diorama") as "diorama" | "title" | "campaign",
+    view: (p.get("view") ?? "diorama") as "diorama" | "title" | "campaign" | "audioDemo",
     campaignMock: p.get("campaignMock") === "b" ? "b" : "a",
     path: p.get("path") as CinematicPathId | null,
     seq: p.get("seq") === "1",
@@ -115,6 +116,7 @@ function readParams() {
 
 export function LookLab() {
   const initial = useMemo(readParams, []);
+  if (initial.view === "audioDemo") return <AudioDemoLab />;
   if (initial.view === "title") return <TitleLab seq={initial.seq} />;
   if (initial.view === "campaign") return <CampaignLab seq={initial.seq} mock={initial.campaignMock as "a" | "b"} />;
   return <DioramaLab initial={initial} />;
@@ -362,7 +364,7 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
             animationRef={animations}
             onFiguresReady={onFiguresReady}
           />
-          <PostFX />
+          <PostFX dof={initial.dof} />
           <LabProbes ready={figuresReady} seq={initial.seq} />
           <AtmosphereFreezer />
           {state.fog === "reveal" && figuresReady && !revealed && (
@@ -650,3 +652,20 @@ function AudioPanel() {
     </div>
   );
 }
+
+/**
+ * view=audioDemo (T20): renders the drum and score demos offline and exposes
+ * them as window.__audioDemo for scripts/audio-demo.mjs to write as WAVs.
+ */
+function AudioDemoLab() {
+  const [status, setStatus] = useState("rendering…");
+  useEffect(() => {
+    void import("../../audio/demo").then(async ({ renderAllDemos }) => {
+      const demos = await renderAllDemos();
+      (window as unknown as { __audioDemo?: unknown }).__audioDemo = demos;
+      setStatus(Object.entries(demos).map(([name, d]) => `${name}: ${d.seconds}s, peak ${d.peakDb} dBFS, rms ${d.rmsDb} dBFS`).join("\n"));
+    });
+  }, []);
+  return <pre style={{ color: "#ddd", padding: 24 }}>{status}</pre>;
+}
+
