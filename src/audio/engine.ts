@@ -124,7 +124,7 @@ export class AudioEngine {
    * The score's mood: a time of day, or null for silence. Until set, the
    * score follows the ambience's time of day (battles); menus can pin one.
    */
-  setMusic(mood: MusicMood | null) {
+  setMusic(mood: MusicMood | null | undefined) {
     this.musicOverride = mood;
   }
 

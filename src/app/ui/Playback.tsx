@@ -1,10 +1,12 @@
 import { FastForward, Sunrise } from "lucide-react";
 import { useEffect, useRef, type RefObject } from "react";
 import { playSfx } from "../../audio";
+import { sameHex } from "../../game/board";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { emberDusk } from "../../render/skins";
 import { useCaptureStore } from "../captureStore";
 import { useGame } from "../game/gameStore";
+import { useAppStore } from "../store";
 import { FIRST_BATTLE } from "../guide/coach";
 import { useGuide } from "../guide/guideStore";
 import { PlaybackDirector } from "../playback/director";
@@ -111,7 +113,13 @@ export function Playback({
           freeze(run, animation.current, later);
         }
       },
-      focus: (focus) => useGame.getState().setPlayback({ focus }),
+      focus: (focus) => {
+        useGame.getState().setPlayback({ focus });
+        // The depth-of-field band follows the company acting there (T20); the camera does not move.
+        const display = useGame.getState().display ?? entry.start;
+        const acting = focus ? display.squads.find((squad) => squad.hex && squad.status === "active" && sameHex(squad.hex, focus)) : undefined;
+        useAppStore.getState().setFocusSquad(acting?.id ?? null);
+      },
       shake: () => useGame.getState().setPlayback({ shakeAt: performance.now() }),
       sfx: (name) => playSfx(name),
       caption: (caption) => useGame.getState().setPlayback({ caption }),
@@ -172,6 +180,7 @@ export function Playback({
       unsubscribeGuide();
       if (useGuide.getState().watchCallout !== null) useGuide.getState().pinCallout(null);
       run.skip();
+      useAppStore.getState().setFocusSquad(null);
       timers.forEach(clearTimeout);
       animation.current?.reset();
     };

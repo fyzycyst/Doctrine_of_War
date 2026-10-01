@@ -368,6 +368,24 @@ describe("phase playback", () => {
     expect(within(bar).queryByText(/The weather turns/)).not.toBeInTheDocument();
   });
 
+  it("moves the depth-of-field focus to the acting company, never the camera, and clears it after", async () => {
+    const user = userEvent.setup();
+    loadFirstBreach("on", 146);
+    render(<App />);
+    const focused: (string | null)[] = [];
+    const stop = useAppStore.subscribe((state, before) => {
+      if (state.focusSquadId !== before.focusSquadId) focused.push(state.focusSquadId);
+    });
+    act(() => useGame.setState({ playbackSpeed: 200 }));
+    await sealPhase(user);
+    await waitFor(() => expect(game().stage).toBe("report"), { timeout: 5000 });
+    stop();
+    const squads = new Set(game().view.squads.map((squad) => squad.id));
+    expect(focused.filter((id) => id !== null).length).toBeGreaterThan(0);
+    expect(focused.every((id) => id === null || squads.has(id))).toBe(true);
+    expect(useAppStore.getState().focusSquadId).toBeNull();
+  });
+
   it("skips to the final state with Space", async () => {
     const user = userEvent.setup();
     loadFirstBreach("on", 146);

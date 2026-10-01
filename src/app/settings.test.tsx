@@ -1,4 +1,4 @@
-import { act, render, renderHook, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { usePrefersReducedMotion } from "../render/motion";
@@ -123,5 +123,22 @@ describe("Settings → Support", () => {
     await user.click(screen.getByRole("button", { name: "Export save file…" }));
     expect(await screen.findByText("There is no saved campaign yet.")).toBeInTheDocument();
     expect(exporter).toHaveBeenCalledWith();
+  });
+});
+
+describe("render and music settings (T20)", () => {
+  it("sets depth of field (pushed to the renderer) and the music volume", async () => {
+    const user = userEvent.setup();
+    useFlow.setState({ settingsOpen: true });
+    render(<Root />);
+    const dof = screen.getByRole("radiogroup", { name: "Depth of field" });
+    expect(within(dof).getByRole("radio", { name: "Subtle" })).toHaveAttribute("aria-checked", "true");
+    await user.click(within(dof).getByRole("radio", { name: "Off" }));
+    expect(useSettings.getState().depthOfField).toBe("off");
+    expect(useAppStore.getState().dofMode).toBe("off");
+    const music = screen.getByRole("slider", { name: "Music volume" });
+    fireEvent.change(music, { target: { value: "25" } });
+    expect(useAudioStore.getState().musicVolume).toBeCloseTo(0.25);
+    act(() => useSettings.getState().set({ depthOfField: "subtle" }));
   });
 });

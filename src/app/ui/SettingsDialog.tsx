@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { useAudioStore } from "../audioStore";
 import { useGame } from "../game/gameStore";
 import { useSettings, type QualitySetting } from "../settingsStore";
-import type { MotionPreference } from "../store";
+import type { DofMode, MotionPreference } from "../store";
 import { useFlow } from "../flow/flowStore";
 import { useGuide } from "../guide/guideStore";
 import { exportSave } from "../support";
@@ -47,6 +47,11 @@ const QUALITY: { value: QualitySetting; label: string }[] = [
   { value: "high", label: "High" },
   { value: "ultra", label: "Ultra" },
 ];
+const DOF: { value: DofMode; label: string }[] = [
+  { value: "on", label: "On" },
+  { value: "subtle", label: "Subtle" },
+  { value: "off", label: "Off" },
+];
 const MOTION: { value: MotionPreference; label: string }[] = [
   { value: "system", label: "Like my system" },
   { value: "reduce", label: "Reduced" },
@@ -59,6 +64,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const volume = useAudioStore((s) => s.volume);
   const setMuted = useAudioStore((s) => s.setMuted);
   const setVolume = useAudioStore((s) => s.setVolume);
+  const musicVolume = useAudioStore((s) => s.musicVolume);
+  const setMusicVolume = useAudioStore((s) => s.setMusicVolume);
   const setPace = useGame((s) => s.setPace);
   const close = useRef<HTMLButtonElement>(null);
   const setHowToOpen = useFlow((s) => s.setHowToOpen);
@@ -103,6 +110,25 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             />
           </label>
         </div>
+      </Row>
+
+      <Row title="Music" help="The background score, under the master volume.">
+        <label className="volume">
+          <span className="sr-only">Music volume</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={Math.round(musicVolume * 100)}
+            disabled={muted}
+            aria-label="Music volume"
+            onChange={(event) => setMusicVolume(Number(event.target.value) / 100)}
+          />
+        </label>
+      </Row>
+
+      <Row title="Depth of field" help="The tilt-shift blur at the board's edges. Subtle keeps your companies sharp; Off turns it off.">
+        <Segmented label="Depth of field" value={settings.depthOfField} options={DOF} onChange={(depthOfField) => settings.set({ depthOfField })} />
       </Row>
 
       <Row title="Battle pace" help="How fast each phase plays out. You can still switch during a battle.">
