@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useAudioStore } from "../../app/audioStore";
 import { useCaptureStore } from "../../app/captureStore";
-import { useAppStore, type RenderQuality } from "../../app/store";
+import { useAppStore, type DofMode, type RenderQuality } from "../../app/store";
 import { emberFord } from "../../game/engine/scenarios/emberFord";
 import { firstBreach } from "../../game/engine/scenarios/firstBreach";
 import { holdForDawn } from "../../game/engine/scenarios/holdForDawn";
@@ -98,6 +98,7 @@ function readParams() {
     animSquad: p.get("animSquad"),
     animFreeze: num("animFreeze"),
     select: p.get("select"),
+    dof: ((v): DofMode | undefined => (v === "on" || v === "subtle" || v === "off" ? v : undefined))(p.get("dof")),
     dpr: num("dpr"),
     hover: p.get("hover"),
     revealAt: num("revealAt") ?? 2,
@@ -362,7 +363,7 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
             animationRef={animations}
             onFiguresReady={onFiguresReady}
           />
-          <PostFX />
+          <PostFX dof={initial.dof} />
           <LabProbes ready={figuresReady} seq={initial.seq} />
           <AtmosphereFreezer />
           {state.fog === "reveal" && figuresReady && !revealed && (

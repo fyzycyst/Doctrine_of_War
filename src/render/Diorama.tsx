@@ -1,5 +1,6 @@
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { lazy, Suspense, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
+import * as THREE from "three";
 import { useAppStore } from "../app/store";
 import { hexKey, type BoardLayout, type HexCoord } from "../game/board";
 import { GroundMist, type MistDensityMap } from "./atmosphere/GroundMist";
@@ -9,7 +10,7 @@ import { SkyDome } from "./atmosphere/SkyDome";
 import { SquadAnimator, type AnimatorScene, type SquadAnimationApi } from "./figures/squadAnimation";
 import { SquadMarkers } from "./figures/SquadMarkers";
 import { ToySoldierSquads } from "./figures/ToySoldierSquads";
-import { placeSquads, type DioramaSquad, type FigureApproach } from "./figures/types";
+import { placeSquads, type DioramaSquad, type FigureApproach, type PlacedSquad } from "./figures/types";
 import { wideShotFor } from "./camera/DioramaCamera";
 import { boardRadius, hexToWorld } from "./hexWorld";
 import { LightRig } from "./lighting/LightRig";
@@ -208,6 +209,7 @@ export function Diorama({
       {/* Tickers first so every consumer below sees this frame's state. */}
       <AtmosphereTicker />
       <AnimatorTicker animator={animator} />
+      <DofFocusWriter placed={placed} animator={animator} />
       <SkyDome />
       <LightRig shadowRadius={island.radius * 0.8} fogOffset={fogOffsetFor(board)} />
       <mesh
@@ -253,6 +255,29 @@ export function Diorama({
       <Particles extent={island.radius} />
     </>
   );
+}
+
+/**
+ * Depth of field follows the company that matters: the active one during
+ * playback (`focusSquadId`), else the selected one; otherwise null (PostFX's
+ * default band over the board). Read imperatively so it never re-renders.
+ */
+function DofFocusWriter({ placed, animator }: { placed: PlacedSquad[]; animator: SquadAnimator }) {
+  const { dofFocus } = useLook();
+  const point = useMemo(() => new THREE.Vector3(), []);
+  useEffect(() => () => void (dofFocus.point = null), [dofFocus]);
+  useFrame(() => {
+    const { focusSquadId, selectedSquadId } = useAppStore.getState();
+    const id = focusSquadId ?? selectedSquadId;
+    const p = id ? placed.find((q) => q.squad.id === id) : undefined;
+    if (!p) {
+      dofFocus.point = null;
+      return;
+    }
+    const a = animator.squadPose(p.squad.id)?.anchor;
+    dofFocus.point = point.set(a?.x ?? p.x, (a?.y ?? p.y) + 0.15, a?.z ?? p.z);
+  });
+  return null;
 }
 
 function AnimatorTicker({ animator }: { animator: SquadAnimator }) {

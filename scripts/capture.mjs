@@ -23,6 +23,11 @@ const jobs = [
   { name: "rotate-left", query: "preset=dusk&figures=a&az=-95" },
   { name: "rotate-right", query: "preset=dusk&figures=a&az=79" },
   { name: "rotate-hfd-right", query: "scenario=holdForDawn&preset=sunrise&figures=a&az=79" },
+  // T20: depth of field holds the selected company (ember_runners, on the far ridge).
+  { name: "dof-select-on", query: "preset=dusk&figures=a&select=ember_runners&dof=on" },
+  { name: "dof-select-subtle", query: "preset=dusk&figures=a&select=ember_runners&dof=subtle" },
+  { name: "dof-select-off", query: "preset=dusk&figures=a&select=ember_runners&dof=off" },
+  { name: "dof-default", query: "preset=dusk&figures=a" },
   { name: "dusk-underside", query: "preset=dusk&figures=a&polar=64&az=-22" },
   { name: "stress-dusk", query: "preset=dusk&figures=a&board=stress" },
   { name: "stress-dusk-low", query: "preset=dusk&figures=a&board=stress&quality=low" },
