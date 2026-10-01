@@ -32,6 +32,24 @@ const STAGES = [
   { name: "guide-5-watch", query: "stage=resolving&coach=watch&plan=intended", probe: "__playbackFrozen", settleMs: 700, sizes: [[1600, 1000]] },
   { name: "guide-6-chronicle", query: "stage=report&coach=chronicle&plan=intended", sizes: [[1600, 1000]] },
   { name: "howto", query: "screen=title&howto=1", settleMs: 1500, sizes: [[1600, 1000]] },
+  // T19 #2: the doctrine editor from the title, Test in the field run on a picked battle (real worker).
+  {
+    name: "t19-editor-field-test",
+    query: "screen=title",
+    settleMs: 4000,
+    sizes: [[1600, 1000]],
+    eval: `(async () => {
+      const click = (re, root = document) => [...root.querySelectorAll("button")].find((b) => re.test(b.textContent) || re.test(b.getAttribute("aria-label") ?? ""))?.click();
+      click(/Doctrine editor/);
+      await new Promise((r) => setTimeout(r, 400));
+      const editor = document.querySelector("dialog.editor");
+      click(/^Move order 2 up$/, editor);
+      await new Promise((r) => setTimeout(r, 200));
+      click(/^Run the test$/, editor);
+      await new Promise((r) => setTimeout(r, 2500));
+      editor.querySelector(".field-test")?.scrollIntoView({ block: "end" });
+    })()`,
+  },
   // T18 QA: every battle mid-playback, the new battles' command windows, dawn, maps, ending.
   ...[
     ["qa-fb-play", "scenario=firstBreach&stage=resolving&plan=intended&pauseAt=rule-mine"],

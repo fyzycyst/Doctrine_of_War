@@ -334,7 +334,7 @@ export function DoctrineEditor({ target, onClose }: { target: EditorTarget; onCl
         </section>
       </div>
 
-      {inBattle && <FieldTestPanel baseId={draft.baseId} variant={preview} squadId={target.squadId} edited={edited} />}
+      <FieldTestPanel baseId={draft.baseId} variant={preview} squadId={target.squadId} edited={edited} />
     </Modal>
   );
 }

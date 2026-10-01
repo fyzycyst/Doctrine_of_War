@@ -3509,3 +3509,28 @@ h3 {
   margin: 2px 0 0;
   font-size: 13px;
 }
+
+.field-test-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+
+.field-test-pick label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.field-test-pick select {
+  padding: 4px 8px;
+  border: 1px solid rgba(239, 227, 200, 0.22);
+  border-radius: 4px;
+  background: rgba(18, 15, 22, 0.9);
+  color: var(--bone);
+  font: inherit;
+  font-size: 13.5px;
+}

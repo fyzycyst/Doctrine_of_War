@@ -1,7 +1,9 @@
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { firstBreach } from "../../game/engine";
+import { ashAndBanner } from "../../game/campaign";
+import { emberFord, firstBreach } from "../../game/engine";
+import { campaignAfter } from "../flow/devCampaign";
 import { useFlow } from "../flow/flowStore";
 import { memoryStore } from "../flow/testKit";
 import { useGame } from "../game/gameStore";
@@ -30,7 +32,7 @@ beforeEach(async () => {
   cleanup();
   fieldTests.length = 0;
   useVariants.setState({ status: "ready", variants: [], notice: null, store: memoryStore() });
-  useFlow.setState({ editor: null });
+  useFlow.setState({ editor: null, screen: "battle", campaign: null });
   act(() => useGame.getState().loadBattle(firstBreach, { seed: firstBreach.curatedSeed ?? 1, fortune: "on" }, "command"));
 });
 
@@ -236,5 +238,52 @@ describe("test in the field", () => {
     );
     expect(within(panel).getByText("Clearly better")).toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: "Run longer" })).not.toBeInTheDocument();
+  });
+});
+
+describe("test in the field, outside a battle", () => {
+  beforeEach(() => useFlow.setState({ screen: "title" }));
+
+  it("is always there: from the title it fields First Breach from its start with the reference plan", async () => {
+    const user = userEvent.setup();
+    render(<DoctrineEditor target={{ baseId: "shield_the_line" }} onClose={() => {}} />);
+    const panel = screen.getByRole("region", { name: "Test in the field" });
+    expect(within(panel).getByRole("combobox", { name: "Battle" })).toHaveValue("first_breach");
+    expect(within(panel).getByRole("combobox", { name: "Company" })).toHaveValue("greyford_shields");
+    expect(panel).toHaveTextContent(/Replays The First Breach from its start/);
+    expect(panel).toHaveTextContent("Every other company follows the battle's reference plan.");
+
+    await user.click(screen.getByRole("button", { name: "Move order 2 up" }));
+    await user.click(within(panel).getByRole("button", { name: "Run the test" }));
+    const { input } = fieldTests[0];
+    expect(input).toMatchObject({ squadIds: ["greyford_shields"], baseId: "shield_the_line", firstSeed: firstBreach.curatedSeed });
+    expect(input.scenario.id).toBe("first_breach");
+    expect(input.orders).toEqual(firstBreach.referencePlans!.intended);
+    expect(input.scenario.playerDoctrineIds).toContain(input.variantId);
+  });
+
+  it("lets the player pick another battle and company, and greys out battles without the doctrine", async () => {
+    const user = userEvent.setup();
+    render(<DoctrineEditor target={{ baseId: "fighting_withdrawal" }} onClose={() => {}} />);
+    const panel = screen.getByRole("region", { name: "Test in the field" });
+    const battle = within(panel).getByRole("combobox", { name: "Battle" });
+    const offered = within(battle).getAllByRole("option").map((option) => [(option as HTMLOptionElement).value, (option as HTMLOptionElement).disabled]);
+    for (const [id, disabled] of offered) {
+      const scenario = [firstBreach, emberFord].find((item) => item.id === id);
+      if (scenario) expect(disabled).toBe(!scenario.playerDoctrineIds.includes("fighting_withdrawal"));
+    }
+    await user.selectOptions(battle, "ember_ford");
+    await user.selectOptions(within(panel).getByRole("combobox", { name: "Company" }), "kestrel_lancers");
+    expect(panel).toHaveTextContent(/Replays Ember Ford from its start/);
+    await user.click(screen.getByRole("button", { name: "Move order 2 up" }));
+    await user.click(within(panel).getByRole("button", { name: "Run the test" }));
+    expect(fieldTests[0].input).toMatchObject({ squadIds: ["kestrel_lancers"], firstSeed: emberFord.curatedSeed });
+    expect(fieldTests[0].input.scenario.id).toBe("ember_ford");
+  });
+
+  it("defaults to the campaign's next battle", () => {
+    useFlow.setState({ campaign: campaignAfter(ashAndBanner, 1) });
+    render(<DoctrineEditor target={{ baseId: "shield_the_line" }} onClose={() => {}} />);
+    expect(within(screen.getByRole("region", { name: "Test in the field" })).getByRole("combobox", { name: "Battle" })).toHaveValue("ember_ford");
   });
 });
