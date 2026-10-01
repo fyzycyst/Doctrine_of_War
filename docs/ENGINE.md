@@ -120,7 +120,10 @@ moves)` returns a plain-language reason per refused company (empty = valid). Bot
 **only what the player's side sees**: an unseen enemy's hex looks free, and no reason
 ever names it. The engine applies the muster on the true state: a company that runs
 into something it could not see halts short (`mustered.halted`, or a `blocked` event
-with the neutral reason "The way was barred."). `applyMuster(state, scenario, moves)`
+with the neutral reason "The way was barred."). Every planned move yields exactly one
+outcome for its company: a `mustered` move (after `relieved` for a relief), or that
+neutral `blocked` when it can no longer be carried out as planned, for example because
+an earlier move halted on the hex it was counting on. `applyMuster(state, scenario, moves)`
 is the same on a copy, for tests; a UI previews a muster from its own planned moves,
 never from it (that would leak the truth). An invalid muster passed to `resolvePhase`
 throws, like an invalid order.
