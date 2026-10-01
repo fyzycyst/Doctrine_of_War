@@ -101,7 +101,11 @@ export function Playback({
         later(spec.linger, () => {
           if (!frozen) useGame.getState().dropCallout(id);
         });
-        const match = pauseAt === spec.kind || (pauseAt === "rule-mine" && spec.kind === "rule" && spec.faction === game.scenario.playerFaction && !spec.repeat);
+        const match =
+          pauseAt === spec.kind ||
+          (pauseAt === "rule-mine" && spec.kind === "rule" && spec.faction === game.scenario.playerFaction && !spec.repeat) ||
+          // Dev capture of a crowded moment (T19 declutter): three banners on the board.
+          (pauseAt === "busy" && useGame.getState().callouts.filter((callout) => callout.hex).length >= 3);
         if (import.meta.env.DEV && match && !frozen) {
           frozen = true;
           freeze(run, animation.current, later);

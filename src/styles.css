@@ -3544,3 +3544,14 @@ h3 {
   text-transform: uppercase;
   color: var(--gold);
 }
+
+/* Banners slide clear of each other (T19 declutter); the lift is set per frame. */
+.callout-slot {
+  transition: transform 0.18s var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .callout-slot {
+    transition: none;
+  }
+}
