@@ -7,6 +7,7 @@ import { blendPresets } from "./blendPresets";
 import { SURFACE_UNIFORMS } from "../shaders/surface";
 import { emberDusk } from "../skins/emberDusk";
 import type { LightingPreset, Skin, TimeOfDay, WeatherKind } from "../skins/types";
+import type * as THREE from "three";
 
 /**
  * The resolved look for the current scene: the active skin, the lighting preset
@@ -27,6 +28,12 @@ export interface Look {
   motion: number;
   /** Seconds a time-of-day change cross-fades over (0 under reduced motion). */
   timeOfDayFade: number;
+  /**
+   * Depth-of-field focus for this canvas: the Diorama writes the world point
+   * to hold sharp each frame (active/selected company), PostFX reads it; null
+   * keeps PostFX's default band.
+   */
+  dofFocus: { point: THREE.Vector3 | null };
 }
 
 const LookContext = createContext<Look | null>(null);
@@ -60,6 +67,7 @@ export function LookProvider({
 
   const fade = reducedMotion ? 0 : Math.max(0, timeOfDayFade);
   const preset = useTimeOfDayFade(skin, timeOfDay, fade);
+  const dofFocus = useRef<{ point: THREE.Vector3 | null }>({ point: null }).current;
 
   const value = useMemo<Look>(
     () => ({
@@ -72,6 +80,7 @@ export function LookProvider({
       reducedMotion,
       motion: reducedMotion ? REDUCED_MOTION_SCALE : 1,
       timeOfDayFade: fade,
+      dofFocus,
     }),
     [skin, timeOfDay, weather, preset, quality, atmosphere, reducedMotion, fade],
   );
@@ -124,6 +133,7 @@ function useTimeOfDayFade(skin: Skin, timeOfDay: TimeOfDay, duration: number): L
 }
 
 const fallbackAtmosphere = new AtmosphereRuntime(emberDusk.weather, "clear");
+const fallbackFocus: { point: THREE.Vector3 | null } = { point: null };
 
 export function useLook(): Look {
   const look = useContext(LookContext);
@@ -139,6 +149,7 @@ export function useLook(): Look {
     reducedMotion: false,
     motion: 1,
     timeOfDayFade: TIME_OF_DAY_FADE,
+    dofFocus: fallbackFocus,
   };
 }
 

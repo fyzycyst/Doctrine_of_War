@@ -60,8 +60,15 @@ export function closeShot(target: [number, number, number]): CameraShot {
 const deg = THREE.MathUtils.degToRad;
 
 /**
- * Clamped diorama orbit (tech plan §6: ±25° azimuth, limited tilt and zoom),
- * with a gentle idle drift that eases in after the user lets go.
+ * Horizontal orbit either side of the shot's azimuth, in degrees. Playtest 1
+ * asked for much more than the original ±25°: ±90° gives full side-on views
+ * of the board. The polar clamp is unchanged, so the board never flips.
+ */
+export const AZIMUTH_RANGE = 90;
+
+/**
+ * Clamped diorama orbit (±AZIMUTH_RANGE azimuth, limited tilt and zoom), with a
+ * gentle idle drift that eases in after the user lets go.
  */
 export function DioramaCamera({ shot, drift = true }: { shot: CameraShot; drift?: boolean }) {
   const controls = useRef<OrbitControlsImpl>(null);
@@ -105,8 +112,8 @@ export function DioramaCamera({ shot, drift = true }: { shot: CameraShot; drift?
       dampingFactor={0.08}
       rotateSpeed={0.5}
       zoomSpeed={0.6}
-      minAzimuthAngle={deg(shot.azimuth - 25)}
-      maxAzimuthAngle={deg(shot.azimuth + 25)}
+      minAzimuthAngle={deg(shot.azimuth - AZIMUTH_RANGE)}
+      maxAzimuthAngle={deg(shot.azimuth + AZIMUTH_RANGE)}
       minPolarAngle={deg(34)}
       maxPolarAngle={deg(64)}
       minDistance={4.5}

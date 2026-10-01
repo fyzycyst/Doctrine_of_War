@@ -25,8 +25,9 @@ export function ambienceMix(spec: AmbienceSpec): Record<AmbientBed, number> {
   if (spec.weather === "ashWind") wind = 0.62;
   const rain = raining ? (spec.weather === "rain" ? 0.7 : 0.55) : 0;
   const river = spec.water ? (raining ? 0.22 : 0.34) : 0;
-  let drums = spec.hostDrums ? (night ? 0.55 : 0.36) : 0;
-  if (spec.hostDrums && spec.weather === "ashWind") drums += 0.1;
+  // Louder since playtest 1; the engine's battle intensity rides on top.
+  let drums = spec.hostDrums ? (night ? 0.85 : 0.72) : 0;
+  if (spec.hostDrums && spec.weather === "ashWind") drums += 0.08;
   const fire = spec.timeOfDay === "nightFires" ? 0.45 : spec.timeOfDay === "predawn" ? 0.18 : 0;
   return { wind, rain, river, drums, fire };
 }

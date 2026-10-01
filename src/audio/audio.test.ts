@@ -26,6 +26,9 @@ describe("audio", () => {
     expect(useAudioStore.getState().volume).toBe(1);
     useAudioStore.getState().toggleMuted();
     const saved = JSON.parse(localStorage.getItem(AUDIO_STORAGE_KEY) ?? "{}");
-    expect(saved.state).toEqual({ muted: true, volume: 1 });
+    expect(saved.state).toEqual({ muted: true, volume: 1, musicVolume: 0.6 });
+    useAudioStore.getState().setMusicVolume(-1);
+    expect(useAudioStore.getState().musicVolume).toBe(0);
+    useAudioStore.getState().setMusicVolume(0.6);
   });
 });
