@@ -25,6 +25,9 @@ export interface GuideState {
   /** The rule callout the "watch" mark points at; playback waits while it is pinned. */
   watchCallout: number | null;
   pinCallout: (id: number | null) => void;
+  /** The muster line (T21), shown once in the first battle's second command window. */
+  musterTipSeen: boolean;
+  seeMusterTip: () => void;
   skip: () => void;
   reset: () => void;
 }
@@ -54,13 +57,15 @@ export const useGuide = create<GuideState>()(
       },
       watchCallout: null,
       pinCallout: (watchCallout) => set({ watchCallout }),
+      musterTipSeen: false,
+      seeMusterTip: () => set({ musterTipSeen: true }),
       skip: () => set({ coach: "done" }),
-      reset: () => set({ introSeen: false, coach: "active", step: "select", watchCallout: null }),
+      reset: () => set({ introSeen: false, coach: "active", step: "select", watchCallout: null, musterTipSeen: false }),
     }),
     {
       name: GUIDE_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ introSeen, coach }) => ({ introSeen, coach }),
+      partialize: ({ introSeen, coach, musterTipSeen }) => ({ introSeen, coach, musterTipSeen }),
     },
   ),
 );

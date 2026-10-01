@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { firstBreach } from "../../game/engine";
+import { emberFord, firstBreach } from "../../game/engine";
 import { memoryStore } from "../flow/testKit";
 import { useFlow } from "../flow/flowStore";
 import { useGame } from "../game/gameStore";
@@ -175,5 +175,48 @@ describe("How to play", () => {
     await user.click(within(screen.getByRole("dialog", { name: "Settings" })).getByRole("button", { name: "How to play" }));
     expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
+  });
+});
+
+describe("the muster line (T21)", () => {
+  beforeEach(() => act(() => useGuide.setState({ introSeen: true, coach: "done" })));
+
+  it("appears once, in the first battle's second command window, and stays dismissed", async () => {
+    const user = userEvent.setup();
+    firstBattleAt("command");
+    render(<Root />);
+    expect(screen.queryByText("Muster & relief")).not.toBeInTheDocument(); // not before phase 1 has played
+    act(() => {
+      useGame.setState({ playbackSpeed: 400 });
+      useGame.getState().sealOrders();
+      useGame.getState().finishPlayback();
+      useGame.getState().nextPhase();
+    });
+    const tip = screen.getByRole("region", { name: "Guide" });
+    expect(tip).toHaveTextContent("Between phases, free companies can muster 1 hex (cavalry 2), or a fresh company can relieve one that's worn out.");
+    await user.click(within(tip).getByRole("button", { name: "Got it" }));
+    expect(screen.queryByText("Muster & relief")).not.toBeInTheDocument();
+    expect(localStorage.getItem(GUIDE_STORAGE_KEY)).toContain('"musterTipSeen":true');
+    // Show the guide again (Settings) brings it back for the next first battle.
+    act(() => guide().reset());
+    expect(guide().musterTipSeen).toBe(false);
+  });
+
+  it("stays out of every other battle", () => {
+    act(() => useGame.getState().loadBattle(emberFord, { fortune: "on", seed: emberFord.curatedSeed! }, "command"));
+    useFlow.setState({ screen: "battle" });
+    render(<Root />);
+    act(() => {
+      useGame.getState().sealOrders();
+      useGame.getState().finishPlayback();
+      useGame.getState().nextPhase();
+    });
+    expect(screen.queryByText("Muster & relief")).not.toBeInTheDocument();
+  });
+
+  it("has a panel in How to play", () => {
+    useFlow.setState({ howToOpen: true });
+    render(<Root />);
+    expect(screen.getByRole("region", { name: "Muster & relief" })).toHaveTextContent(/relieve/);
   });
 });

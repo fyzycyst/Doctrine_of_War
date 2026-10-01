@@ -5,7 +5,7 @@
 // phase log's `events` (eventsFor the player's faction). `engine` is the raw state the
 // engine needs for the next call; it is never rendered.
 import { create } from "zustand";
-import type { HexCoord } from "../../game/board";
+import { sameHex, type HexCoord } from "../../game/board";
 import {
   createInitialState,
   doctrineLibrary,
@@ -22,8 +22,12 @@ import {
   type Weather,
   isOrderAllowed,
   withVariants,
+  heuristicMuster,
+  validateMuster,
   type CheckedVariant,
+  type MusterMove,
 } from "../../game/engine";
+import { isRelief, musterProblems, musterTargets, withoutPlan, withPlan } from "./muster";
 import { ashAndBanner, applyCampaign, startCampaign, type CampaignDefinition, type CampaignState } from "../../game/campaign";
 import { admitCallout } from "../playback/callouts";
 import type { CalloutSpec } from "../playback/director";
@@ -79,6 +83,11 @@ export interface GameState {
   deployment: Deployment;
   /** Explicit doctrine assignments for the phase being planned. */
   orders: Orders;
+  /**
+   * The muster planned for this command window (T21), in the order it will apply. Checked
+   * with the engine's player-view rule; resolved by the engine only when the orders are sealed.
+   */
+  muster: MusterMove[];
   log: PhaseLog[];
   pace: Pace;
   /** The last thing the UI refused, in plain words (deploy rejections). */
@@ -117,6 +126,13 @@ export interface GameState {
   /** Squads that would fight this phase on a doctrine the player did not choose. */
   defaultedSquads: () => string[];
   sealOrders: () => void;
+  /** Plans a muster move or relief; refuses (with the engine's reason as the notice) if it cannot be made. */
+  planMuster: (move: MusterMove) => boolean;
+  /** Drops anything planned for this company (its own move, or a relief of it). */
+  undoMuster: (squadId: string) => void;
+  resetMuster: () => void;
+  /** Replaces the plan with the engine's suggestion (player view only); returns how many moves it suggests. */
+  suggestMuster: () => number;
   nextPhase: () => void;
   retry: (seed: "same" | "new") => void;
   setPace: (pace: Pace) => void;
@@ -164,6 +180,7 @@ function freshBattle(baseScenario: EngineScenario, setup: BattleSetup, stage: St
     log: [],
     notice: null,
     variants: useVariants.getState().variants,
+    muster: [],
     customOrders: false,
     ...idle,
     ...battleFor(scenario, deployment, setup),
@@ -275,8 +292,16 @@ export const useGame = create<GameState>((set, get) => ({
     if (stage !== "command" || engine.status !== "command") {
       return;
     }
+    const { muster } = get();
+    const problems = musterProblems(engine, scenario, muster);
+    const stuck = Object.keys(problems)[0];
+    if (stuck) {
+      // A planned muster can no longer be made (e.g. a move it counted on was undone): say why, do not seal.
+      set({ notice: problems[stuck] });
+      return;
+    }
     const battle = played(get());
-    const result = resolvePhase(engine, orders, battle.scenario, { doctrines: battle.doctrines });
+    const result = resolvePhase(engine, orders, battle.scenario, { doctrines: battle.doctrines, muster });
     const entry: PhaseLog = {
       phase: result.report.phase,
       title: result.report.title,
@@ -291,6 +316,7 @@ export const useGame = create<GameState>((set, get) => ({
     set({
       ...derive(scenario, result.state),
       orders: {},
+      muster: [],
       log: [...log, entry],
       customOrders: get().customOrders || Object.values(orders).some(isVariantId),
       stage: "resolving",
@@ -342,6 +368,28 @@ export const useGame = create<GameState>((set, get) => ({
 
   setPace: (pace) => set({ pace }),
   clearNotice: () => set({ notice: null }),
+  planMuster: (move) => {
+    const { stage, engine, scenario, muster } = get();
+    if (stage !== "command") return false;
+    const targets = musterTargets(engine, scenario, muster, move.squadId);
+    const offered = isRelief(move) ? targets.relieve.includes(move.relieve) : targets.hexes.some((hex) => sameHex(hex, move.to));
+    if (!offered) {
+      const reason = validateMuster(engine, scenario, [...withoutPlan(muster, move.squadId), move])[move.squadId];
+      set({ notice: reason ?? "That muster cannot be made." });
+      return false;
+    }
+    set({ muster: withPlan(muster, move), notice: null });
+    return true;
+  },
+  undoMuster: (squadId) => set({ muster: withoutPlan(get().muster, squadId), notice: null }),
+  resetMuster: () => set({ muster: [], notice: null }),
+  suggestMuster: () => {
+    const { stage, engine, scenario } = get();
+    if (stage !== "command") return 0;
+    const suggested = heuristicMuster(engine, scenario);
+    set({ muster: suggested, notice: suggested.length ? null : "Nothing to suggest: every company is where it should be." });
+    return suggested.length;
+  },
   syncVariants: (live) => {
     const { variants, orders, engine } = get();
     const liveIds = new Set(live.map((item) => item.variant.id));

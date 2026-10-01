@@ -8,6 +8,7 @@ import { MAX_SAVE_BYTES as CAMPAIGN_MAX_SAVE_BYTES, saveCampaign } from "../src/
 import { serializeVariants } from "../src/game/engine/editor";
 import {
   checkSavePayload,
+  EXPORT_LINK_REFUSED,
   exportSaveFile,
   MAX_SAVE_BYTES,
   readSaveFile,
@@ -218,6 +219,34 @@ describe("Electron save export (Settings → Support)", () => {
     await writeSaveFile(dir, validSave());
     await expect(exportSaveFile(dir, async () => null)).resolves.toEqual({ exported: false, reason: "cancelled" });
     expect(await fs.readdir(dir)).toEqual([SAVE_FILE_NAME]);
+  });
+
+  it("refuses to write through a link at the chosen path (review: export followed symlinks)", async () => {
+    await writeSaveFile(dir, validSave());
+    const victim = path.join(dir, "victim.txt");
+    await fs.writeFile(victim, "untouched");
+    const picked = path.join(dir, "picked.json");
+    await fs.symlink(victim, picked);
+    await expect(exportSaveFile(dir, async () => picked)).rejects.toThrow(EXPORT_LINK_REFUSED);
+    expect(await fs.readFile(victim, "utf8")).toBe("untouched");
+    expect((await fs.readdir(dir)).sort()).toEqual([SAVE_FILE_NAME, "picked.json", "victim.txt"].sort()); // no temp left behind
+  });
+
+  it("replaces an existing plain file whole, through a temp file beside it", async () => {
+    const payload = validSave();
+    await writeSaveFile(dir, payload);
+    const target = path.join(dir, "old.json");
+    await fs.writeFile(target, "an older export that is much longer than the new one ".repeat(400));
+    await expect(exportSaveFile(dir, async () => target, () => "fixed")).resolves.toEqual({ exported: true });
+    expect(await fs.readFile(target, "utf8")).toBe(payload);
+    expect((await fs.lstat(target)).isSymbolicLink()).toBe(false);
+    expect((await fs.readdir(dir)).sort()).toEqual([SAVE_FILE_NAME, "old.json"].sort());
+  });
+
+  it("will not save over a folder", async () => {
+    await writeSaveFile(dir, validSave());
+    await fs.mkdir(path.join(dir, "folder"));
+    await expect(exportSaveFile(dir, async () => path.join(dir, "folder"))).rejects.toThrow(/choose a file/);
   });
 
   it("refuses to export a save the game would not load", async () => {

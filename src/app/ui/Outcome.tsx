@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { playSting } from "../../audio";
 import { scenarios } from "../../game/engine";
 import { currentBattle } from "../../game/campaign";
 import type { VisibleSquad } from "../../game/engine";
@@ -35,6 +36,15 @@ export function Outcome() {
 
   const status = String(view.status);
   const won = status !== "defeat";
+  // The outcome's stinger, once as the screen appears. A stalemate stays silent: the score carries it.
+  const stung = useRef(false);
+  useEffect(() => {
+    if (stung.current) return;
+    stung.current = true;
+    if (status === "victory" || status === "defeat") playSting(status);
+    // Once per outcome screen, whatever re-renders follow.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const copy = OUTCOME[status] ?? { word: status, line: "" };
   const outcomeEvent = log
     .flatMap((entry) => entry.events)

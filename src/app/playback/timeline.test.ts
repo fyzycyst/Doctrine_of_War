@@ -20,6 +20,7 @@ import {
   MIN_SQUEEZE,
   PHASE_BUDGET_MAX_MS,
   PHASE_BUDGET_MS,
+  PHASE_CEILING_MS,
   phaseBudgetMs,
   routDirection,
   sightingSnapshot,
@@ -129,12 +130,15 @@ describe("buildTimeline", () => {
     expect(actingCompanies([])).toBe(0);
   });
 
-  it("never compresses a step below MIN_SQUEEZE of its natural length, however crowded the phase", () => {
+  it("never compresses a step below MIN_SQUEEZE of its natural length, up to the hard ceiling", () => {
     const events = curatedPhases()[0];
-    const crowded = Array.from({ length: 6 }, () => events).flat();
+    const crowded = Array.from({ length: 2 }, () => events).flat();
     const timeline = buildTimeline(crowded, "readable", ctx);
-    expect(timeline.naturalMs * MIN_SQUEEZE).toBeGreaterThan(timeline.budgetMs); // the floor binds here
+    expect(timeline.naturalMs * MIN_SQUEEZE).toBeGreaterThan(timeline.budgetMs); // the floor binds here…
+    expect(timeline.naturalMs * MIN_SQUEEZE).toBeLessThan(PHASE_CEILING_MS); // …and the ceiling does not
     expect(timeline.totalMs).toBeGreaterThanOrEqual(Math.floor(timeline.naturalMs * MIN_SQUEEZE) - timeline.steps.length);
+    // Six times as crowded: past the ceiling, which wins.
+    expect(buildTimeline(Array.from({ length: 6 }, () => events).flat(), "readable", ctx).totalMs).toBeLessThanOrEqual(PHASE_CEILING_MS);
   });
 
   it("gives a large battle more time per step than the old flat 24 s budget (Hold for Dawn)", () => {
@@ -418,5 +422,54 @@ describe("sighting snapshots", () => {
       doctrineId: "iron_tide",
       hex: { q: 2, r: 2 },
     });
+  });
+});
+
+describe("the hard ceiling (review: dense phases ran past 45 s)", () => {
+  /** The reviewer's case: 19 companies (10 yours, 9 the Host's), 350 rule firings over three beats. */
+  function densePhase(withHostMoves = false) {
+    const ids = [...Array.from({ length: 10 }, (_, i) => `p${i}`), ...Array.from({ length: 9 }, (_, i) => `h${i}`)];
+    const sideOf = (id: string): FactionId => (id.startsWith("p") ? "free_banners" : "ashen_host");
+    const events: EngineEvent[] = [];
+    for (let i = 0; i < 350; i += 1) {
+      const squadId = ids[i % ids.length];
+      const ruleId = `r${Math.floor(i / ids.length) % 3}`;
+      events.push({ ...base, beat: 1 + Math.floor((i * 3) / 350), kind: "ruleFired", squadId, doctrineId: "d", ruleId, label: `If ${ruleId} → act ${ruleId}` });
+      if (withHostMoves && squadId.startsWith("h") && i % 3 === 0) {
+        events.push({ ...base, beat: events[events.length - 1].beat, kind: "move", squadId, from: { q: 0, r: 0 }, to: { q: 1, r: 0 }, path: [{ q: 0, r: 0 }, { q: 1, r: 0 }] } as EngineEvent);
+      }
+    }
+    return { events, ctx: { playerFaction: PLAYER, factionOf: sideOf } };
+  }
+
+  it("never runs a Readable phase past 60 s (Fast: 30 s), with 45 s as the target", () => {
+    const { events, ctx: dense } = densePhase();
+    const readable = buildTimeline(events, "readable", dense);
+    expect(readable.budgetMs).toBe(PHASE_BUDGET_MAX_MS);
+    expect(readable.naturalMs * MIN_SQUEEZE).toBeGreaterThan(PHASE_BUDGET_MAX_MS); // the floor alone would overrun the target
+    expect(readable.totalMs).toBeLessThanOrEqual(PHASE_CEILING_MS);
+    expect(buildTimeline(events, "fast", dense).totalMs).toBeLessThanOrEqual(PHASE_CEILING_MS / 2);
+    // Steps are re-timed end to end.
+    readable.steps.forEach((step, i) => expect(step.at).toBe(i === 0 ? 0 : readable.steps[i - 1].at + readable.steps[i - 1].duration));
+  });
+
+  it("drops the Host's repeat banners first, then the Host's moves; your first firings keep their time", () => {
+    const { events, ctx: dense } = densePhase(true);
+    const { steps, totalMs } = buildTimeline(events, "readable", dense);
+    expect(totalMs).toBeLessThanOrEqual(PHASE_CEILING_MS);
+    const hostQuiet = steps.filter((step) => step.kind === "rule" && step.event && "squadId" in step.event && step.event.squadId.startsWith("h") && step.quiet);
+    expect(hostQuiet.length).toBeGreaterThan(0);
+    expect(hostQuiet.every((step) => step.duration === 0 && step.linger === 0)).toBe(true);
+    const mineFirst = steps.filter((step) => step.kind === "rule" && !step.repeat && step.event && "squadId" in step.event && step.event.squadId.startsWith("p"));
+    expect(mineFirst.length).toBeGreaterThan(0);
+    expect(mineFirst.every((step) => step.duration > 0)).toBe(true);
+  });
+
+  it("leaves every phase that fits alone (the curated First Breach phases)", () => {
+    for (const events of curatedPhases()) {
+      const { steps, totalMs, budgetMs } = buildTimeline(events, "readable", ctx);
+      expect(totalMs).toBeLessThanOrEqual(budgetMs);
+      expect(steps.filter((step) => step.kind !== "beat" && step.duration === 0)).toEqual([]);
+    }
   });
 });

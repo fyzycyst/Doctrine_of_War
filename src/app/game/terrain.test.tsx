@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { getHex, terrainDefenseBonus } from "../../game/board";
-import { firstBreach, saltmarshColumn, sightRangeAt } from "../../game/engine";
+import { getHex, hexKey, terrainDefenseBonus } from "../../game/board";
+import { createInitialState, firstBreach, holdForDawn, saltmarshColumn, sightRangeAt, visibleHexes, visibleState } from "../../game/engine";
 import { terrainReadout } from "./terrain";
 
 vi.mock("@react-three/drei", () => ({ Html: () => null }));
@@ -52,5 +52,26 @@ describe("the terrain chip", () => {
   it("drops the numbers on ground no company can enter", () => {
     render(<TerrainChipCard readout={terrainReadout(firstBreach, day, { q: 4, r: 2 }, shields)!} company="Greyford Shields" />);
     expect(screen.getByRole("note")).toHaveTextContent("Greyford Gate (wall)Impassable");
+  });
+});
+
+describe("the chip under fog (terrain is public; fog hides companies)", () => {
+  it("reads a fogged hex's ground and nothing of the company hidden on it", () => {
+    const state = createInitialState(holdForDawn, { fortune: "on", seed: holdForDawn.curatedSeed ?? 1 });
+    const seen = new Set(visibleState(state, holdForDawn.playerFaction).squads.map((squad) => squad.id));
+    const lit = new Set(visibleHexes(state, holdForDawn, holdForDawn.playerFaction).map(hexKey));
+    const hidden = state.squads.find((squad) => squad.faction !== holdForDawn.playerFaction && squad.hex && !seen.has(squad.id) && !lit.has(hexKey(squad.hex)));
+    expect(hidden).toBeDefined(); // predawn: the Host waits in the dark
+    const from = holdForDawn.squads.find((squad) => squad.faction === holdForDawn.playerFaction)!.hex;
+    const conditions = { weather: "clear" as const, timeOfDay: "predawn" as const };
+    const readout = terrainReadout(holdForDawn, conditions, hidden!.hex!, from)!;
+    // The map alone: the same with the hidden company gone from the field.
+    const empty = { ...holdForDawn, squads: holdForDawn.squads.filter((squad) => squad.id !== hidden!.id) };
+    expect(terrainReadout(empty, conditions, hidden!.hex!, from)).toEqual(readout);
+    expect(Object.keys(readout).sort()).toEqual(["compare", "defense", "defenseDelta", "name", "notes", "passable", "sight", "sightDelta", "terrain"]);
+    render(<TerrainChipCard readout={readout} company="Greyford Shields" />);
+    const chip = screen.getByRole("note");
+    expect(chip.textContent).not.toMatch(new RegExp(hidden!.name, "i"));
+    expect(chip.textContent).not.toMatch(/enemy|host|occupied|held/i);
   });
 });
