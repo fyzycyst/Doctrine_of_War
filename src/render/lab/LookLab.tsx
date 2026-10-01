@@ -13,7 +13,7 @@ import { CinematicCamera } from "../camera/CinematicCamera";
 import { CampaignMap, type CampaignMapBattle } from "../showcase/CampaignMap";
 import { TitleScene } from "../showcase/TitleScene";
 import { playSfx, SFX_NAMES, useAmbience } from "../../audio";
-import { hexKey } from "../../game/board";
+import { hexDistance, hexKey } from "../../game/board";
 import { closeShot, DioramaCamera, wideShotFor, type CameraShot } from "../camera/DioramaCamera";
 import { Diorama } from "../Diorama";
 import type { SquadAnimationApi, SquadAnimator } from "../figures/squadAnimation";
@@ -57,6 +57,8 @@ type LabState = {
   weather: WeatherKind;
   deploy: boolean;
   exit: boolean;
+  /** T21 muster zone: "march" (the march style) or "gold" (same hexes, deployment style, for comparison). */
+  march: "march" | "gold" | null;
 };
 
 declare global {
@@ -89,6 +91,7 @@ function readParams() {
       weather: (WEATHER_KINDS as string[]).includes(p.get("weather") ?? "") ? (p.get("weather") as WeatherKind) : "clear",
       deploy: p.get("deploy") === "1",
       exit: p.get("exit") === "1",
+      march: p.get("march") === "1" ? "march" : p.get("march") === "gold" ? "gold" : null,
     } as LabState,
     quality: (p.get("quality") === "low" ? "low" : "high") as RenderQuality,
     ui: p.get("ui") !== "0",
@@ -261,6 +264,13 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
   }, [state.figures, state.board, clearSelection]);
 
   const scene = LAB_SCENES[state.board];
+  // march=1 (T21): a muster zone, the free hexes within two of the selected company.
+  const marchZone = useMemo(() => {
+    const from = scene.squads.find((sq) => sq.id === initial.select)?.hex;
+    if (!from) return undefined;
+    const taken = new Set(scene.squads.map((sq) => hexKey(sq.hex)));
+    return scene.board.hexes.map((h) => h.coord).filter((c) => hexDistance(c, from) <= 2 && !taken.has(hexKey(c)));
+  }, [scene, initial.select]);
   const skin = getSkin(state.skin);
   const shot = useMemo<CameraShot>(() => {
     const [fq, fr] = (initial.focusHex ?? "").split(",").map(Number);
@@ -359,7 +369,8 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
             visibility={fog?.visibility}
             onReveal={onReveal}
             figures={state.figures}
-            deploymentHexes={state.deploy ? scene.deployment : undefined}
+            deploymentHexes={state.deploy ? scene.deployment : state.march ? marchZone : undefined}
+            zoneStyle={state.march === "march" ? "march" : "deploy"}
             exitHexes={state.exit ? scene.exits : undefined}
             animationRef={animations}
             onFiguresReady={onFiguresReady}

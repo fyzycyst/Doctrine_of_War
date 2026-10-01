@@ -197,3 +197,16 @@ describe("known exit edge", () => {
   });
 });
 
+describe("march zone", () => {
+  it("points each march hex's chevrons away from the company", async () => {
+    const { marchDirection } = await import("./terrain/MarchZone");
+    const center = { x: 0, z: 0 };
+    const east = marchDirection({ q: 3, r: 2 }, { q: 4, r: 2 }, center)!;
+    expect(east[0]).toBeGreaterThan(0.5);
+    expect(Math.hypot(east[0], east[1])).toBeCloseTo(1);
+    const west = marchDirection({ q: 3, r: 2 }, { q: 2, r: 2 }, center)!;
+    expect(west[0]).toBeCloseTo(-east[0]);
+    expect(marchDirection({ q: 3, r: 2 }, { q: 3, r: 2 }, center)).toBeNull();
+  });
+});
+

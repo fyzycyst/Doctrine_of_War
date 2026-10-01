@@ -28,6 +28,15 @@ const jobs = [
   { name: "dof-select-subtle", query: "preset=dusk&figures=a&select=ember_runners&dof=subtle" },
   { name: "dof-select-off", query: "preset=dusk&figures=a&select=ember_runners&dof=off" },
   { name: "dof-default", query: "preset=dusk&figures=a" },
+  // T21 muster: where the selected company can march (gold = the old deployment tint, for comparison).
+  ...[
+    ["fb", "preset=dusk&figures=a&select=greyford_shields", "3,2"],
+    ["ef", "scenario=emberFord&preset=nightFires&figures=a&select=tollbridge_pikes", "6,1"],
+  ].flatMap(([id, q, at]) => [
+    { name: `march-${id}-gold`, query: `${q}&march=gold` },
+    { name: `march-${id}`, query: `${q}&march=1` },
+    { name: `march-${id}-close`, query: `${q}&march=1&cam=close&focusHex=${at}` },
+  ]),
   { name: "dusk-underside", query: "preset=dusk&figures=a&polar=64&az=-22" },
   { name: "stress-dusk", query: "preset=dusk&figures=a&board=stress" },
   { name: "stress-dusk-low", query: "preset=dusk&figures=a&board=stress&quality=low" },
