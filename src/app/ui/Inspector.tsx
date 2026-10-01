@@ -7,6 +7,8 @@ import { getDoctrine, resolveRank, rosterName } from "../game/view";
 import { useAppStore } from "../store";
 import { DoctrineCardFace, SealedCard } from "./DoctrineCard";
 import { ColumnGlyph, ROLE_NAME, RoleGlyph } from "./glyphs";
+import { planFor } from "../game/muster";
+import { describePlan, inContact, useMuster } from "./useMuster";
 
 const signed = (value: number) => (value >= 0 ? `+${value}` : `${value}`);
 
@@ -124,6 +126,8 @@ export function Inspector() {
         </div>
       </dl>
 
+      {stage === "command" && own && !ward && !previewing && squad.status === "active" && <MusterChoices squad={squad} />}
+
       {stage === "deploy" && own && !previewing ? (
         <DeployChoices squad={squad} />
       ) : doctrine ? (
@@ -172,6 +176,79 @@ function DeployChoices({ squad }: { squad: VisibleSquad }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * Muster (T21), the keyboard path: where this company may muster, the engaged companies it
+ * may relieve, or its planned move with Undo. The board offers the same by clicking.
+ */
+function MusterChoices({ squad }: { squad: VisibleSquad }) {
+  const scenario = useGame((s) => s.scenario);
+  const planMuster = useGame((s) => s.planMuster);
+  const undoMuster = useGame((s) => s.undoMuster);
+  const notice = useGame((s) => s.notice);
+  const muster = useMuster();
+  const nameOf = (id: string) => {
+    const other = muster.view.squads.find((item) => item.id === id);
+    return other ? rosterName(other) : id;
+  };
+  const planned = planFor(muster.plan, squad.id);
+  const problem = planned ? muster.problems[planned.squadId] : undefined;
+  const engaged = inContact(muster.view, squad);
+  const targets = muster.targetsFor(squad.id);
+  const relievers = engaged
+    ? muster.view.squads.filter((other) => other.faction === muster.view.viewer && other.id !== squad.id && muster.targetsFor(other.id).relieve.includes(squad.id))
+    : [];
+
+  return (
+    <div className="insp-muster" role="group" aria-label={`Muster ${rosterName(squad)}`}>
+      <p className="insp-label">Muster</p>
+      {planned ? (
+        <div className="muster-planned">
+          <span>{describePlan(planned, squad.id, nameOf, (hex) => hexName(scenario, hex))}</span>
+          <button type="button" className="btn-quiet" onClick={() => undoMuster(squad.id)}>
+            Undo muster
+          </button>
+          {problem && (
+            <p className="muster-problem" role="alert">
+              {problem}
+            </p>
+          )}
+        </div>
+      ) : engaged ? (
+        <p className="muster-note">
+          In contact: it cannot pull back.{" "}
+          {relievers.length
+            ? `${relievers.map(rosterName).join(", ")} can relieve it: select ${relievers.length === 1 ? "it" : "one"} and choose Relieve.`
+            : "No fresh company stands beside it to relieve it."}
+        </p>
+      ) : targets.hexes.length === 0 && targets.relieve.length === 0 ? (
+        <p className="muster-note">Nowhere to muster from here.</p>
+      ) : (
+        <ul className="muster-choices">
+          {targets.relieve.map((tired) => (
+            <li key={tired}>
+              <button type="button" className="relieve" onClick={() => planMuster({ squadId: squad.id, relieve: tired })}>
+                Relieve {nameOf(tired)}
+              </button>
+            </li>
+          ))}
+          {targets.hexes.map((hex) => (
+            <li key={hexKey(hex)}>
+              <button type="button" onClick={() => planMuster({ squadId: squad.id, to: hex })}>
+                {hexName(scenario, hex)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {notice && !planned && (
+        <p className="muster-problem" role="alert">
+          {notice}
+        </p>
+      )}
     </div>
   );
 }

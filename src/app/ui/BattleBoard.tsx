@@ -21,7 +21,9 @@ import { useAppStore } from "../store";
 import { FrameProbe } from "./FrameProbe";
 import { boardCamera, usePrefersReducedMotion } from "./motion";
 import { PlaybackStage } from "./PlaybackStage";
+import { MusterPlans } from "./MusterPlans";
 import { TerrainChip } from "./TerrainChip";
+import { musterZone, useMuster } from "./useMuster";
 
 export function BattleBoard({
   still = false,
@@ -41,7 +43,14 @@ export function BattleBoard({
   const onFiguresReady = useCallback(() => setFiguresReady(true), []);
 
   const squads = useMemo(() => toDioramaSquads(view), [view]);
-  const zone = useMemo(() => (stage === "deploy" ? deploymentHexes(scenario) : undefined), [stage, scenario]);
+  // The deployment zone while deploying; in a command window, where the selected company may muster (T21).
+  const selectedId = useAppStore((s) => s.selectedSquadId);
+  const muster = useMuster();
+  const musterHexes = useMemo(() => musterZone(muster.view, muster.targetsFor(selectedId)), [muster, selectedId]);
+  const zone = useMemo(
+    () => (stage === "deploy" ? deploymentHexes(scenario) : stage === "command" && musterHexes.length ? musterHexes : undefined),
+    [stage, scenario, musterHexes],
+  );
   // Tighter, Banner-biased framing on the big boards; the classic shot elsewhere.
   const shot = useMemo(() => wideShotFor(scenario.board), [scenario.board]);
   // Reduced motion: no idle camera drift. (Embers, water and fire shimmer are render-owned; see T08.)
@@ -92,6 +101,7 @@ export function BattleBoard({
           />
           <PlaybackStage board={scenario.board} />
           <TerrainChip board={scenario.board} />
+          <MusterPlans board={scenario.board} />
           <PostFX />
           <FrameProbe ready={figuresReady} />
         </LookProvider>

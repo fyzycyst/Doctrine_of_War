@@ -89,6 +89,41 @@ const STAGES = [
   { name: "deploy", query: "stage=deploy&select=greyford_shields" },
   { name: "command", query: "stage=command&select=greyford_shields" },
   { name: "command-enemy", query: "stage=command&select=cinder_vanguard" },
+  // T21: muster on Hold for Dawn's phase 2: the tint for a free company, a planned move, a relief.
+  {
+    name: "t21-muster-tint",
+    query: "scenario=holdForDawn&stage=command&phase=2&plan=intended",
+    sizes: [[1600, 1000]],
+    eval: `(async () => {
+      const wait = () => new Promise((r) => setTimeout(r, 120));
+      for (const tab of document.querySelectorAll('.roster [role="option"].own')) {
+        tab.click();
+        await wait();
+        if (document.querySelector(".muster-choices button:not(.relieve)")) break;
+      }
+      
+    })()`,
+  },
+  {
+    name: "t21-muster-arrow",
+    query: "scenario=holdForDawn&stage=command&phase=2&plan=intended",
+    sizes: [[1600, 1000]],
+    eval: `(async () => {
+      const wait = () => new Promise((r) => setTimeout(r, 120));
+      for (const tab of document.querySelectorAll('.roster [role="option"].own')) {
+        tab.click();
+        await wait();
+        if (document.querySelector(".muster-choices button:not(.relieve)")) break;
+      }
+      document.querySelector(".muster-choices button:not(.relieve)")?.click();
+    })()`,
+  },
+  {
+    name: "t21-relief",
+    query: "scenario=holdForDawn&stage=command&phase=2&plan=intended&select=greyford_shields",
+    sizes: [[1600, 1000]],
+    eval: `[...document.querySelectorAll(".muster-choices button.relieve")].find((b) => /Gatewarden Spears/.test(b.textContent))?.click()`,
+  },
   // T19: the terrain chip, Greyford Shields reading the North Ridge (better ground) and the ford (worse).
   { name: "t19-terrain-ridge", query: "stage=command&select=greyford_shields&hover=1,0", sizes: [[1600, 1000]] },
   { name: "t19-terrain-ford", query: "stage=command&select=greyford_shields&hover=0,2", sizes: [[1600, 1000]] },

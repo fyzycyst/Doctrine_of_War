@@ -15,7 +15,7 @@ import { Root } from "./app/Root";
 import { useSettings } from "./app/settingsStore";
 import { useAppStore } from "./app/store";
 import { ashAndBanner, currentBattle, loadCampaign } from "./game/campaign";
-import { doctrineLibrary } from "./game/engine";
+import { doctrineLibrary, holdForDawn } from "./game/engine";
 
 vi.mock("./render/showcase/TitleScene", async () => ({ TitleScene: (await import("./app/flow/testKit")).FakeTitleScene }));
 vi.mock("./render/showcase/CampaignMap", async () => ({ CampaignMap: (await import("./app/flow/testKit")).FakeCampaignMap }));
@@ -199,5 +199,58 @@ describe("end-to-end campaign", () => {
     launch(store);
     await user.click(await screen.findByRole("button", { name: /Continue\s*Ember Ford/ }));
     expect(currentBattle(ashAndBanner, useFlow.getState().campaign!)?.title).toBe("Ember Ford");
+  }, 30_000);
+
+  it("musters and relieves once in Hold for Dawn, with real clicks, and the engine plays both", async () => {
+    const user = userEvent.setup();
+    act(() => useGame.getState().loadBattle(holdForDawn, { seed: holdForDawn.curatedSeed ?? 1, fortune: "on" }, "briefing"));
+    useFlow.setState({ screen: "battle", campaign: null, store: memoryStore(), settingsOpen: false });
+    render(<Root />);
+    await user.click(screen.getByRole("button", { name: "Take Command" }));
+    await user.click(screen.getByRole("button", { name: "March to positions" }));
+    // Phase 1 as planned.
+    await orderByHand(user, "intended");
+    await user.click(screen.getByRole("button", { name: "Seal Orders" }));
+    const first = screen.queryByRole("alertdialog");
+    if (first) await user.click(within(first).getByRole("button", { name: "Seal anyway" }));
+    await user.click(screen.getByRole("button", { name: /Skip\s*Space/ }));
+    await waitFor(() => expect(game().stage).toBe("report"));
+    await user.click(screen.getByRole("button", { name: "Next Phase" }));
+    expect(game().stage).toBe("command");
+
+    // Relief of the line: the fresh Greyford Shields take the worn Gatewarden Spears' place.
+    await user.click(screen.getByRole("option", { name: /Greyford Shields/ }));
+    const relief = screen.getByRole("group", { name: "Muster Greyford Shields" });
+    await user.click(within(relief).getByRole("button", { name: "Relieve Gatewarden Spears" }));
+    expect(within(screen.getByRole("group", { name: "Muster Greyford Shields" })).getByText("Relieves Gatewarden Spears")).toBeInTheDocument();
+
+    // A muster: the first other company with somewhere to go moves one step.
+    const mine = game().view.squads.filter((squad) => squad.faction === game().view.viewer && squad.status === "active" && !squad.noncombatant);
+    let mustered: string | null = null;
+    for (const squad of mine.filter((item) => item.id !== "greyford_shields" && item.id !== "gatewarden_spears")) {
+      await user.click(screen.getByRole("option", { name: new RegExp(squad.name) }));
+      const group = screen.queryByRole("group", { name: `Muster ${squad.name}` });
+      const hex = group && within(group).queryAllByRole("button").find((button) => !button.classList.contains("relieve"));
+      if (hex) {
+        await user.click(hex);
+        mustered = squad.id;
+        break;
+      }
+    }
+    expect(mustered).not.toBeNull();
+    expect(screen.getByText(/3 to muster/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Seal Orders" }));
+    const confirm = screen.queryByRole("alertdialog");
+    if (confirm) {
+      expect(confirm).toHaveTextContent("3 companies will muster before the phase begins.");
+      await user.click(within(confirm).getByRole("button", { name: "Seal anyway" }));
+    }
+    expect(game().stage).toBe("resolving");
+    const events = game().log[1].events;
+    expect(events.find((event) => event.kind === "relieved")).toMatchObject({ squadId: "greyford_shields", relievedId: "gatewarden_spears", beat: 0 });
+    expect(events.some((event) => event.kind === "mustered" && event.squadId === mustered && event.beat === 0)).toBe(true);
+    await user.click(screen.getByRole("button", { name: /Skip\s*Space/ }));
+    await waitFor(() => expect(game().stage).toBe("report"));
   }, 30_000);
 });

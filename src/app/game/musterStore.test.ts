@@ -1,8 +1,10 @@
-import { act } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { hexDistance, sameHex } from "../../game/board";
 import { createInitialState, holdForDawn, resolvePhase } from "../../game/engine";
 import { useGame } from "./gameStore";
+import { useAppStore } from "../store";
+import { useBoardMuster } from "../ui/useMuster";
 import { musterTargets } from "./muster";
 
 const game = () => useGame.getState();
@@ -77,5 +79,32 @@ describe("muster in the game store", () => {
     const count = game().suggestMuster();
     expect(game().muster).toHaveLength(count);
     if (count === 0) expect(game().notice).toMatch(/Nothing to suggest/);
+  });
+});
+
+describe("muster by clicking the board", () => {
+  it("plans a move on a muster hex and a relief on a worn company, keeping the company selected", async () => {
+    renderHook(() => useBoardMuster());
+    const app = useAppStore.getState();
+    const { id, to } = freeMover();
+    act(() => app.selectSquad(id));
+    // The Diorama's picking: the hex, then the squad on it (none here).
+    act(() => {
+      useAppStore.getState().selectHex({ ...to });
+      useAppStore.getState().selectSquad(null);
+    });
+    await act(() => Promise.resolve());
+    expect(game().muster).toEqual([{ squadId: id, to }]);
+    expect(useAppStore.getState().selectedSquadId).toBe(id);
+
+    act(() => useAppStore.getState().selectSquad("greyford_shields"));
+    const tired = game().view.squads.find((squad) => squad.id === "gatewarden_spears")!.hex!;
+    act(() => {
+      useAppStore.getState().selectHex({ ...tired });
+      useAppStore.getState().selectSquad("gatewarden_spears");
+    });
+    await act(() => Promise.resolve());
+    expect(game().muster).toContainEqual({ squadId: "greyford_shields", relieve: "gatewarden_spears" });
+    expect(useAppStore.getState().selectedSquadId).toBe("greyford_shields");
   });
 });

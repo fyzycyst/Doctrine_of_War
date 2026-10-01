@@ -13,6 +13,7 @@ import { Playback } from "./app/ui/Playback";
 import { Roster } from "./app/ui/Roster";
 import { SealOrders } from "./app/ui/SealOrders";
 import { useBoardDeployment } from "./app/ui/useBoardDeployment";
+import { useBoardMuster } from "./app/ui/useMuster";
 import { useCaptureStore } from "./app/captureStore";
 import { CoachLayer } from "./app/guide/CoachLayer";
 import { DoctrineIntro } from "./app/guide/DoctrineIntro";
@@ -33,6 +34,7 @@ function App({ still = false, pauseAt }: { still?: boolean; pauseAt?: string }) 
   const firstBattle = useGame((s) => s.campaign !== null && s.baseScenario.id === FIRST_BATTLE);
   const showIntro = !introSeen && firstBattle;
   useBoardDeployment();
+  useBoardMuster();
 
   return (
     <div className={`shell stage-${stage}`}>

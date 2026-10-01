@@ -4,6 +4,8 @@ import { useAppStore } from "../store";
 import { useGame, useShownView } from "../game/gameStore";
 import { getDoctrine, resolveRank, rosterName } from "../game/view";
 import { ColumnGlyph, RoleGlyph, ROLE_NAME } from "./glyphs";
+import { isRelief, planFor } from "../game/muster";
+import { inContact, useMuster } from "./useMuster";
 
 /** More companies than this and the roster turns compact. */
 const DENSE_FROM = 7;
@@ -33,6 +35,10 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
   const selectedId = useAppStore((s) => s.selectedSquadId);
   const selectSquad = useAppStore((s) => s.selectSquad);
   const listRef = useRef<HTMLDivElement>(null);
+  // Muster (T21): planned moves, and who may relieve the selected company if it is in contact.
+  const muster = useMuster();
+  const selectedSquad = view.squads.find((squad) => squad.id === selectedId);
+  const relieving = muster.active && selectedSquad && selectedSquad.faction === view.viewer && inContact(muster.view, selectedSquad) ? selectedSquad.id : null;
 
   const mine = view.squads.filter((squad) => squad.faction === view.viewer);
   const enemies = view.squads.filter((squad) => squad.faction !== view.viewer && squad.status === "active");
@@ -70,6 +76,9 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
     const out = squad.status !== "active";
     // The Column is a charge, not a company: it cannot be ordered, only brought out.
     const ward = Boolean(squad.noncombatant);
+    const planned = muster.active && own ? planFor(muster.plan, squad.id) : undefined;
+    const problem = planned ? muster.problems[planned.squadId] : undefined;
+    const canRelieve = Boolean(relieving && own && squad.id !== relieving && muster.targetsFor(squad.id).relieve.includes(relieving));
     return (
       <div
         key={squad.id}
@@ -98,6 +107,11 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
               STATUS_WORD[squad.status]
             ) : own ? (
               <>
+                {(planned || canRelieve) && (
+                  <span className={`banner-muster ${problem ? "problem" : ""} ${canRelieve ? "can-relieve" : ""}`} title={problem ?? undefined}>
+                    {canRelieve ? "Can relieve" : problem ? "Can't muster" : isRelief(planned!) ? (planned!.squadId === squad.id ? "Relief" : "Relieved") : "Muster"}
+                  </span>
+                )}
                 <span className="rank">{resolveRank(squad.resolve)}</span>
                 {squad.renown && <span className="renown">“{squad.renown.title}”</span>}
                 {doctrine && <span className={`banner-order ${orders[squad.id] ? "chosen" : ""}`}>{doctrine.name}</span>}
