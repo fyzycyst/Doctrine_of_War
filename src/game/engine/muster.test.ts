@@ -5,9 +5,13 @@ import { playBattle } from "./balance";
 import { eventsFor, visibleState } from "./fog";
 import { applyMuster, heuristicMuster, MUSTER_HALTED, musterOptions, validateMuster } from "./muster";
 import { createInitialState, resolvePhase } from "./resolvePhase";
+import { createRng } from "./rng";
+import { scenarios } from "./scenarios";
 import { saltmarshColumn } from "./scenarios/saltmarshColumn";
 import { kinds, library, openBoard, scenario, squad } from "./testKit";
-import type { EngineScenario } from "./types";
+import type { EngineScenario, EngineState } from "./types";
+import type { EventBody } from "./context";
+import type { MusterMove } from "./muster";
 
 const FB = "free_banners" as const;
 const AH = "ashen_host" as const;
@@ -160,6 +164,128 @@ describe("muster under fog", () => {
     const { events: stuck } = applyMuster(state, scen, [{ squadId: "cav", to: { q: 3, r: 2 } }]);
     expect(stuck.every((event) => event.kind !== "blocked" || event.reason === MUSTER_HALTED)).toBe(true);
     expect(JSON.stringify(events)).not.toContain('"h"');
+  });
+
+  it("a later move that counted on a hex an earlier one never reached is barred, not lost (review)", () => {
+    // The cavalry plans (4,2) -> (2,2) through (3,2); the company at (3,3) plans to take (3,2)
+    // once it is clear. The cavalry halts at (3,2) on the unseen Host's zone of control.
+    const scen = scenario({
+      maxPhases: 2,
+      timeOfDay: "predawn",
+      squads: [squad("cav", FB, { q: 4, r: 2 }, { role: "cavalry" }), squad("foot", FB, { q: 3, r: 3 }), squad("h", AH, { q: 2, r: 2 })],
+    });
+    const state = createInitialState(scen, { fortune: "on", seed: 1 });
+    const moves: MusterMove[] = [
+      { squadId: "cav", to: { q: 2, r: 2 } },
+      { squadId: "foot", to: { q: 3, r: 2 } },
+    ];
+    expect(validateMuster(state, scen, moves)).toEqual({});
+    const { state: after, events } = applyMuster(state, scen, moves);
+    expect(after.squads.find((item) => item.id === "cav")?.hex).toEqual({ q: 3, r: 2 });
+    expect(after.squads.find((item) => item.id === "foot")?.hex).toEqual({ q: 3, r: 3 });
+    expect(events).toEqual([
+      { kind: "mustered", squadId: "cav", path: [{ q: 4, r: 2 }, { q: 3, r: 2 }], from: { q: 4, r: 2 }, to: { q: 3, r: 2 }, halted: true },
+      { kind: "blocked", squadId: "foot", reason: MUSTER_HALTED },
+    ]);
+  });
+});
+
+/** Every planned move yields exactly one outcome for its company: `mustered` (with `relieved` first for a relief) or `blocked`. */
+function outcomesFor(events: EventBody[], moves: MusterMove[]) {
+  return moves.map((move) => {
+    const own = events.filter((event) => (event.kind === "mustered" || event.kind === "blocked" || event.kind === "relieved") && event.squadId === move.squadId);
+    return own.map((event) => event.kind).join("+");
+  });
+}
+
+/** A random muster the player could have planned: options and reliefs from its own view, kept only while valid. */
+function randomMuster(state: EngineState, scen: EngineScenario, seed: number): MusterMove[] {
+  const rng = createRng(seed);
+  const moves: MusterMove[] = [];
+  for (const option of musterOptions(state, scen)) {
+    const roll = rng.next();
+    const pick =
+      option.relieve.length > 0 && roll < 0.3
+        ? { squadId: option.squadId, relieve: option.relieve[Math.floor(rng.next() * option.relieve.length)] }
+        : option.hexes.length > 0 && roll < 0.8
+          ? { squadId: option.squadId, to: option.hexes[Math.floor(rng.next() * option.hexes.length)] }
+          : null;
+    if (pick && Object.keys(validateMuster(state, scen, [...moves, pick])).length === 0) moves.push(pick);
+  }
+  return moves;
+}
+
+describe("muster outcomes (property)", () => {
+  it("every planned muster move yields exactly one mustered or blocked event, in every battle and phase", () => {
+    let planned = 0;
+    let barred = 0;
+    for (const scen of scenarios) {
+      for (const seed of [1, 2, 3, 4]) {
+        let state = createInitialState(scen, { seed, fortune: "on" });
+        while (state.status === "command") {
+          const moves = randomMuster(state, scen, seed * 100 + state.phase);
+          const { events } = applyMuster(state, scen, moves);
+          outcomesFor(events, moves).forEach((outcome, index) => {
+            expect(["mustered", "blocked", "relieved+mustered"], `${scen.id}#${seed} P${state.phase} ${JSON.stringify(moves[index])}`).toContain(outcome);
+          });
+          for (const event of events) {
+            if (event.kind === "blocked") expect(event.reason).toBe(MUSTER_HALTED);
+          }
+          planned += moves.length;
+          barred += events.filter((event) => event.kind === "blocked").length;
+          state = resolvePhase(state, scen.referencePlans!.intended, scen, { muster: moves }).state;
+        }
+      }
+    }
+    expect(planned).toBeGreaterThan(50);
+    void barred;
+  }, 60_000);
+
+  it("holds in the dark too, where unseen enemies cut planned moves short", () => {
+    let planned = 0;
+    let barred = 0;
+    let halted = 0;
+    for (let seed = 1; seed <= 150; seed += 1) {
+      // A dark field: the Banners see one hex; four Host companies hide at random in the middle.
+      const rng = createRng(seed);
+      const taken = new Set(["5,1", "5,2", "5,3", "6,2"]);
+      const host = Array.from({ length: 4 }, (_, index) => {
+        let hex = { q: 0, r: 0 };
+        do hex = { q: 1 + Math.floor(rng.next() * 3), r: Math.floor(rng.next() * 5) };
+        while (taken.has(`${hex.q},${hex.r}`));
+        taken.add(`${hex.q},${hex.r}`);
+        return squad(`h${index}`, AH, hex);
+      });
+      const scen = scenario({
+        maxPhases: 2,
+        timeOfDay: "predawn",
+        squads: [
+          squad("cav", FB, { q: 5, r: 2 }, { role: "cavalry" }),
+          squad("a", FB, { q: 5, r: 1 }),
+          squad("b", FB, { q: 5, r: 3 }),
+          squad("lance", FB, { q: 6, r: 2 }, { role: "cavalry" }),
+          ...host,
+        ],
+      });
+      const state = createInitialState(scen, { seed, fortune: "on" });
+      const moves = randomMuster(state, scen, seed);
+      const { events } = applyMuster(state, scen, moves);
+      outcomesFor(events, moves).forEach((outcome, index) => {
+        expect(["mustered", "blocked", "relieved+mustered"], `#${seed} ${JSON.stringify(moves[index])}`).toContain(outcome);
+      });
+      for (const event of events) {
+        if (event.kind === "blocked") expect(event.reason).toBe(MUSTER_HALTED);
+      }
+      // Fog-safe: nothing the Banners could not see is named.
+      for (const event of events) expect(JSON.stringify(event)).not.toMatch(/"h\d"/);
+      planned += moves.length;
+      barred += events.filter((event) => event.kind === "blocked").length;
+      halted += events.filter((event) => event.kind === "mustered" && event.halted).length;
+    }
+    expect(planned).toBeGreaterThan(200);
+    // The property is exercised: unseen enemies do halt and bar planned moves here.
+    expect(halted).toBeGreaterThan(0);
+    expect(barred).toBeGreaterThan(0);
   });
 });
 
