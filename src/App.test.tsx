@@ -71,7 +71,8 @@ describe("command flow on The First Breach (fortune off)", () => {
 
     // Report for phase 1, then play on until the battle ends.
     expect(screen.getByText("Chronicle · Phase 1")).toBeInTheDocument();
-    expect(screen.getByText(/seed/)).toHaveTextContent("#1");
+    // The seed stays out of sight unless Settings → Support → Show battle details is on.
+    expect(screen.queryByText(/seed/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Next Phase" }));
     expect(game().stage).toBe("command");
 

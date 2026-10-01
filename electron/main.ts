@@ -1,8 +1,8 @@
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
-import { SAVE_READ_CHANNEL, SAVE_WRITE_CHANNEL, VARIANTS_READ_CHANNEL, VARIANTS_WRITE_CHANNEL } from "./saveChannels";
-import { readSaveFile, readVariantsFile, writeSaveFile, writeVariantsFile } from "./saveFile";
+import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from "electron";
+import { SAVE_EXPORT_CHANNEL, SAVE_READ_CHANNEL, SAVE_WRITE_CHANNEL, VARIANTS_READ_CHANNEL, VARIANTS_WRITE_CHANNEL } from "./saveChannels";
+import { exportSaveFile, readSaveFile, readVariantsFile, writeSaveFile, writeVariantsFile } from "./saveFile";
 import { isAppUrl, isTrustedSender, type AppLocation } from "./security";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -71,6 +71,20 @@ function registerSaveHandlers() {
   ipcMain.handle(SAVE_WRITE_CHANNEL, (event, data: unknown) => {
     trusted(event, SAVE_WRITE_CHANNEL);
     return writeSaveFile(app.getPath("userData"), data);
+  });
+  // Support (T19): a copy of the save to a path the user picks in the native dialog.
+  ipcMain.handle(SAVE_EXPORT_CHANNEL, (event) => {
+    trusted(event, SAVE_EXPORT_CHANNEL);
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    return exportSaveFile(app.getPath("userData"), async () => {
+      const options = {
+        title: "Export save file",
+        defaultPath: path.join(app.getPath("documents"), "doctrine-of-war-save.json"),
+        filters: [{ name: "Save file", extensions: ["json"] }],
+      };
+      const { canceled, filePath } = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options);
+      return canceled || !filePath ? null : filePath;
+    });
   });
   // Doctrine variants (T16): a second fixed file, same checks.
   ipcMain.handle(VARIANTS_READ_CHANNEL, (event) => {

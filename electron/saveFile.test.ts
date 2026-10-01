@@ -1,13 +1,14 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startCampaign } from "../src/game/campaign/campaign";
 import { ashAndBanner } from "../src/game/campaign/definition";
 import { MAX_SAVE_BYTES as CAMPAIGN_MAX_SAVE_BYTES, saveCampaign } from "../src/game/campaign/save";
 import { serializeVariants } from "../src/game/engine/editor";
 import {
   checkSavePayload,
+  exportSaveFile,
   MAX_SAVE_BYTES,
   readSaveFile,
   readVariantsFile,
@@ -190,5 +191,38 @@ describe("Electron doctrine variants file", () => {
     await fs.writeFile(outside, serializeVariants([variant]));
     await fs.symlink(outside, path.join(dir, VARIANTS_FILE_NAME));
     await expect(readVariantsFile(dir)).rejects.toThrow(/not a regular file/);
+  });
+});
+
+describe("Electron save export (Settings → Support)", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "dow-export-"));
+  });
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("copies the validated save to the path the user picked", async () => {
+    const payload = validSave();
+    await writeSaveFile(dir, payload);
+    const target = path.join(dir, "picked.json");
+    await expect(exportSaveFile(dir, async () => target)).resolves.toEqual({ exported: true });
+    expect(await fs.readFile(target, "utf8")).toBe(payload);
+  });
+
+  it("does nothing without a save, or when the dialog is cancelled", async () => {
+    const choose = vi.fn(async () => path.join(dir, "never.json"));
+    await expect(exportSaveFile(dir, choose)).resolves.toEqual({ exported: false, reason: "no-save" });
+    expect(choose).not.toHaveBeenCalled();
+    await writeSaveFile(dir, validSave());
+    await expect(exportSaveFile(dir, async () => null)).resolves.toEqual({ exported: false, reason: "cancelled" });
+    expect(await fs.readdir(dir)).toEqual([SAVE_FILE_NAME]);
+  });
+
+  it("refuses to export a save the game would not load", async () => {
+    await fs.writeFile(path.join(dir, SAVE_FILE_NAME), "{ broken");
+    await expect(exportSaveFile(dir, async () => path.join(dir, "copy.json"))).rejects.toThrow();
+    expect(await fs.readdir(dir)).toEqual([SAVE_FILE_NAME]);
   });
 });

@@ -7,6 +7,7 @@ import { useAudioStore } from "../audioStore";
 import type { Weather } from "../../game/engine";
 import { useGame, useShownView, type Stage } from "../game/gameStore";
 import { WEATHER_EFFECT, WEATHER_NAME } from "../game/view";
+import { useShowSeed } from "../settingsStore";
 
 const WEATHER_ICON: Record<Weather, typeof Sun> = { clear: Sun, rain: CloudRain, mist: CloudFog, ashWind: Wind };
 
@@ -20,6 +21,7 @@ const STAGE_NAME: Record<Stage, string> = {
 };
 
 export function CommandBar() {
+  const showSeed = useShowSeed();
   const scenario = useGame((s) => s.scenario);
   // During playback the weather chip follows the board (a shift lands when it plays).
   const view = useShownView();
@@ -71,10 +73,16 @@ export function CommandBar() {
           <span className="sr-only">. {WEATHER_EFFECT[view.weather]}</span>
         </span>
       </div>
-      <div className="chip fortune-chip" aria-label={`Fortune ${view.fortune}, seed ${view.seed}`}>
+      <div className="chip fortune-chip" aria-label={showSeed ? `Fortune ${view.fortune}, seed ${view.seed}` : `Fortune ${view.fortune}`}>
         <span className={`fortune-dot ${view.fortune}`} aria-hidden="true" />
         <span aria-hidden="true">
-          Fortune {view.fortune} · <span className="mono">#{view.seed}</span>
+          Fortune {view.fortune}
+          {showSeed && (
+            <>
+              {" "}
+              · <span className="mono">#{view.seed}</span>
+            </>
+          )}
         </span>
       </div>
       <button

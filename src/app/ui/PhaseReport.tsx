@@ -19,6 +19,7 @@ import { useGuide } from "../guide/guideStore";
 import { InlineCoach } from "../guide/InlineCoach";
 import { ExperimentalBadge } from "./DoctrineCard";
 import { Modal, rosterFocus } from "./Modal";
+import { useShowSeed } from "../settingsStore";
 
 const TONE_ICON: Record<ChronicleTone, LucideIcon> = {
   order: Flag,
@@ -55,6 +56,7 @@ export function ObjectiveStatus() {
 
 /** The chronicle of one phase, built only from the player's filtered event stream. */
 export function PhaseReport() {
+  const showSeed = useShowSeed();
   const log = useGame((s) => s.log);
   const view = useGame((s) => s.view);
   const nextPhase = useGame((s) => s.nextPhase);
@@ -145,7 +147,13 @@ export function PhaseReport() {
         <footer className="report-foot">
           <ObjectiveStatus />
           <p className="report-meta">
-            {WEATHER_NAME[entry.weather]} · seed <span className="mono">#{entry.seed}</span>
+            {WEATHER_NAME[entry.weather]}
+            {showSeed && (
+              <>
+                {" "}
+                · seed <span className="mono">#{entry.seed}</span>
+              </>
+            )}
           </p>
           <button type="button" className="btn-quiet" onClick={replay}>
             <RotateCcw size={14} aria-hidden="true" /> Replay phase

@@ -187,3 +187,21 @@ function writeFixedFile(userDataDir: string, spec: FixedFile, data: unknown, tem
     }
   });
 }
+
+export type ExportResult = { exported: true } | { exported: false; reason: "no-save" | "cancelled" };
+
+/**
+ * Settings → Support → "Export save file…": copies the campaign save to a file the user
+ * picks, for a bug report. The renderer supplies neither the data nor the path: main reads
+ * its own save (with every check readSaveFile makes), validates it, and asks the user where
+ * to put it (`choosePath`: the native save dialog; null when cancelled).
+ */
+export async function exportSaveFile(userDataDir: string, choosePath: () => Promise<string | null>): Promise<ExportResult> {
+  const data = await readSaveFile(userDataDir);
+  if (data === null) return { exported: false, reason: "no-save" };
+  checkSavePayload(data);
+  const target = await choosePath();
+  if (!target) return { exported: false, reason: "cancelled" };
+  await fs.writeFile(target, data, { encoding: "utf8", mode: 0o600 });
+  return { exported: true };
+}

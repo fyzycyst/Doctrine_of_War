@@ -1,10 +1,11 @@
-import { useRef, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useAudioStore } from "../audioStore";
 import { useGame } from "../game/gameStore";
 import { useSettings, type QualitySetting } from "../settingsStore";
 import type { MotionPreference } from "../store";
 import { useFlow } from "../flow/flowStore";
 import { useGuide } from "../guide/guideStore";
+import { exportSave } from "../support";
 import { Modal } from "./Modal";
 
 function Segmented<T extends string>({
@@ -62,6 +63,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const close = useRef<HTMLButtonElement>(null);
   const setHowToOpen = useFlow((s) => s.setHowToOpen);
   const setEditor = useFlow((s) => s.setEditor);
+  const saveStore = useFlow((s) => s.store);
+  const [exportNote, setExportNote] = useState<string | null>(null);
+  const exportCopy = async () => {
+    setExportNote(null);
+    try {
+      const outcome = await exportSave(saveStore);
+      setExportNote(outcome === "exported" ? "Save file exported." : outcome === "no-save" ? "There is no saved campaign yet." : null);
+    } catch (error) {
+      setExportNote(`The save file could not be exported (${error instanceof Error ? error.message : "unknown error"}).`);
+    }
+  };
   const resetGuide = useGuide((s) => s.reset);
   const guideFresh = useGuide((s) => !s.introSeen && s.coach === "active" && s.step === "select");
 
@@ -157,6 +169,31 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           Open the editor
         </button>
       </Row>
+
+      <h3 className="settings-section">Support</h3>
+      <Row title="Show battle details" help="Shows each battle's seed in the top bar, reports and results. Useful when reporting a bug.">
+        <label className="check">
+          <input
+            type="checkbox"
+            aria-label="Show battle details"
+            checked={settings.showBattleDetails}
+            onChange={(event) => settings.set({ showBattleDetails: event.target.checked })}
+          />{" "}
+          On
+        </label>
+      </Row>
+      <Row title="Export save file" help="Saves a copy of your campaign to send with a bug report.">
+        <div className="settings-audio">
+          <button type="button" className="btn-quiet" onClick={exportCopy}>
+            Export save file…
+          </button>
+        </div>
+      </Row>
+      {exportNote && (
+        <p className="settings-help" role="status">
+          {exportNote}
+        </p>
+      )}
 
       <div className="modal-actions">
         <button ref={close} type="button" className="btn-command" onClick={onClose}>

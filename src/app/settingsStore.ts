@@ -16,6 +16,8 @@ export interface Settings {
   /** "Doctrine only": fortune off for battles begun from now on. */
   doctrineOnly: boolean;
   motion: MotionPreference;
+  /** Settings → Support: show each battle's seed (for bug reports). Off: the seed stays in saves only. */
+  showBattleDetails: boolean;
   set: (patch: Partial<Omit<Settings, "set">>) => void;
 }
 
@@ -28,12 +30,13 @@ export const useSettings = create<Settings>()(
       defaultPace: "readable",
       doctrineOnly: false,
       motion: "system",
+      showBattleDetails: false,
       set: (patch) => set(patch),
     }),
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ quality, defaultPace, doctrineOnly, motion }) => ({ quality, defaultPace, doctrineOnly, motion }),
+      partialize: ({ quality, defaultPace, doctrineOnly, motion, showBattleDetails }) => ({ quality, defaultPace, doctrineOnly, motion, showBattleDetails }),
     },
   ),
 );
@@ -46,3 +49,6 @@ function applyDisplay({ quality, motion }: Pick<Settings, "quality" | "motion">)
 }
 applyDisplay(useSettings.getState());
 useSettings.subscribe((settings) => applyDisplay(settings));
+
+/** Whether the UI shows battle seeds (Settings → Support → Show battle details). */
+export const useShowSeed = () => useSettings((s) => s.showBattleDetails);

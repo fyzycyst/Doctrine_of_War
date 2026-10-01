@@ -7,6 +7,7 @@ import { useGame } from "../game/gameStore";
 import { resolveRank } from "../game/view";
 import { Modal, rosterFocus } from "./Modal";
 import { ObjectiveStatus } from "./PhaseReport";
+import { useShowSeed } from "../settingsStore";
 
 const OUTCOME: Record<string, { word: string; line: string }> = {
   victory: { word: "Victory", line: "The banners still stand." },
@@ -15,6 +16,7 @@ const OUTCOME: Record<string, { word: string; line: string }> = {
 };
 
 export function Outcome() {
+  const showSeed = useShowSeed();
   const view = useGame((s) => s.view);
   const log = useGame((s) => s.log);
   const scenario = useGame((s) => s.scenario);
@@ -58,7 +60,13 @@ export function Outcome() {
       <ObjectiveStatus />
       {inCampaign && record && <ResolveChanges />}
       <p className="report-meta">
-        Fortune {view.fortune} · seed <span className="mono">#{view.seed}</span>
+        Fortune {view.fortune}
+        {showSeed && (
+          <>
+            {" "}
+            · seed <span className="mono">#{view.seed}</span>
+          </>
+        )}
         {inCampaign && (saveError ? <span className="save-error"> · {saveError}</span> : " · campaign saved")}
       </p>
       {inCampaign ? (
