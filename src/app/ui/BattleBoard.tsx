@@ -21,6 +21,7 @@ import { useAppStore } from "../store";
 import { FrameProbe } from "./FrameProbe";
 import { boardCamera, usePrefersReducedMotion } from "./motion";
 import { PlaybackStage } from "./PlaybackStage";
+import { TerrainChip } from "./TerrainChip";
 
 export function BattleBoard({
   still = false,
@@ -90,6 +91,7 @@ export function BattleBoard({
             onFiguresReady={onFiguresReady}
           />
           <PlaybackStage board={scenario.board} />
+          <TerrainChip board={scenario.board} />
           <PostFX />
           <FrameProbe ready={figuresReady} />
         </LookProvider>

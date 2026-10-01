@@ -123,5 +123,8 @@ export function bootFromUrl(search: string): BootOptions {
   if (select) {
     useAppStore.getState().selectSquad(select);
   }
+  // `&hover=q,r`: a hovered hex, for the terrain chip capture (T19).
+  const hover = params.get("hover")?.split(",").map(Number);
+  if (hover?.length === 2 && hover.every(Number.isFinite)) useAppStore.getState().setHoveredHex({ q: hover[0], r: hover[1] });
   return { still: params.get("still") === "1", pauseAt: params.get("pauseAt") ?? undefined };
 }

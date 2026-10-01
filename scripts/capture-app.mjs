@@ -81,6 +81,9 @@ const STAGES = [
   { name: "deploy", query: "stage=deploy&select=greyford_shields" },
   { name: "command", query: "stage=command&select=greyford_shields" },
   { name: "command-enemy", query: "stage=command&select=cinder_vanguard" },
+  // T19: the terrain chip, Greyford Shields reading the North Ridge (better ground) and the ford (worse).
+  { name: "t19-terrain-ridge", query: "stage=command&select=greyford_shields&hover=1,0", sizes: [[1600, 1000]] },
+  { name: "t19-terrain-ford", query: "stage=command&select=greyford_shields&hover=0,2", sizes: [[1600, 1000]] },
   {
     name: "command-lift",
     query: "stage=command&select=mercy_standard",

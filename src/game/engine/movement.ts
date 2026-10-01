@@ -9,8 +9,9 @@ import {
   sameHex,
   type BoardLayout,
   type HexCoord,
+  type TerrainType,
 } from "../board";
-import type { EngineState } from "./types";
+import type { EngineState, Weather } from "./types";
 import { enemiesOf, squadAt, type ActiveSquad } from "./world";
 
 /** A hex can be entered if it is on the board, passable, not an objective and unoccupied. */
@@ -25,10 +26,13 @@ export function canEnter(state: EngineState, board: BoardLayout, hex: HexCoord):
   );
 }
 
-/** Entering marsh ends the move; so does entering a ford in rain. */
+/** Entering marsh ends the move; so does entering a ford in rain. (Exported for the UI's terrain readout.) */
+export function endsMove(terrain: TerrainType | undefined, weather: Weather): boolean {
+  return terrain === "marsh" || (weather === "rain" && terrain === "ford");
+}
+
 function slowedByWeather(state: EngineState, board: BoardLayout, hex: HexCoord): boolean {
-  const terrain = getHex(board, hex)?.terrain;
-  return terrain === "marsh" || (state.weather === "rain" && terrain === "ford");
+  return endsMove(getHex(board, hex)?.terrain, state.weather);
 }
 
 function inEnemyZone(state: EngineState, squad: ActiveSquad, hex: HexCoord): boolean {
