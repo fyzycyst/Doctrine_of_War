@@ -171,6 +171,7 @@ export async function renderAllDemos() {
     ["motif-host-dread", () => renderMotif("host", "nightFires", orch)],
     ["motif-dawn-turn", () => renderMotif("dawn", "predawn", orch)],
     ["victory", () => renderMotif("victory", "sunrise", orch)],
+    ["victory-alt", () => renderMotif("victoryAlt", "sunrise", orch)],
     ["defeat", () => renderMotif("defeat", "nightFires", orch)],
   ];
   const out: Record<string, { wav: string; peakDb: number; rmsDb: number; seconds: number }> = {};

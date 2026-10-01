@@ -1,5 +1,7 @@
 import type { DrumVoice } from "./drums";
-import { midiToHz, motifMood, motifNotes, MOODS, type Mood, type MotifKind, type MotifPart, type MusicBar, type MusicMood } from "./music";
+import { midiToHz, MOTIF_PERC, motifMood, motifNotes, MOODS, type Mood, type MotifKind, type MotifPart, type MotifPerc, type MusicBar, type MusicMood } from "./music";
+
+const PERC_GAIN: Record<Exclude<MotifPerc, "drumLow">, number> = { timpani: 0.9, timpaniRoll: 0.7, bassDrum: 0.75, cymbal: 0.55 };
 import { instrumentRange, type Orchestra, type TonalInstrument } from "./sampler";
 import { droneVoice, drumVoice, padVoice, pluckVoice } from "./voices";
 
@@ -49,45 +51,59 @@ export function playScoreBar(ctx: BaseAudioContext, bus: AudioNode, orch: Orches
   }
 }
 
-const PART_INSTRUMENT: Record<MotifPart, TonalInstrument[]> = {
+/** Output level per motif (linear). */
+const MOTIF_LEVEL: Partial<Record<MotifKind, number>> = { victory: 0.4, victoryAlt: 0.38 };
+
+/** Which sampled instruments voice each motif part. */
+export const PART_INSTRUMENT: Record<MotifPart, TonalInstrument[]> = {
   horns: ["horns"],
   lowBrass: ["trombones", "tuba"],
   strings: ["strings"],
   celli: ["celli"],
   basses: ["basses"],
+  trumpets: ["trumpets"],
+  trumpetsStac: ["trumpetsStac"],
+  hornsStac: ["hornsStac"],
+  trombones: ["trombones"],
+  tromboneStac: ["tromboneStac"],
 };
+
+const SUSTAINED_STRINGS: MotifPart[] = ["strings", "celli", "basses"];
+const STACCATO: MotifPart[] = ["trumpetsStac", "hornsStac", "tromboneStac"];
+/** Per-part level in motifs: the fanfare's trumpets on top, the low brass under them. */
+const PART_GAIN: Partial<Record<MotifPart, number>> = { horns: 0.55, hornsStac: 0.55, trumpets: 0.75, trumpetsStac: 0.85, tromboneStac: 0.5 };
 
 /**
  * A motif or stinger at `t` (banners horn call, Host low brass, the dawn
  * swell, victory, defeat), in the current mood's key. With no samples the
  * synth plays the line on plucks and pads so the moment still lands.
  */
-export function playMotif(ctx: BaseAudioContext, bus: AudioNode, drumBus: AudioNode, orch: Orchestra | null, kind: MotifKind, current: MusicMood | null, t: number, noise: AudioBuffer | null) {
+export function playMotif(ctx: BaseAudioContext, target: AudioNode, drumBus: AudioNode, orch: Orchestra | null, kind: MotifKind, current: MusicMood | null, t: number, noise: AudioBuffer | null) {
   const mood = MOODS[motifMood(kind, current)];
+  // The fanfares stack a dozen brass and string notes on the final chord: trim them to sit with the rest.
+  const bus = ctx.createGain();
+  bus.gain.value = MOTIF_LEVEL[kind] ?? 1;
+  bus.connect(target);
   for (const note of motifNotes(kind, mood)) {
     const instruments = PART_INSTRUMENT[note.part];
     let played = false;
+    const staccato = STACCATO.includes(note.part);
     for (const inst of instruments) {
-      const attack = note.part === "strings" || note.part === "celli" || note.part === "basses" ? 0.5 : 0.04;
-      const gain = inst === "tuba" ? 0.45 : note.part === "horns" ? 0.55 : 0.45;
-      played = !!orch?.note(ctx, bus, inst, fold(inst, note.midi), t + note.at, { velocity: note.velocity, duration: note.hold, attack, release: 1, gain }) || played;
+      const attack = SUSTAINED_STRINGS.includes(note.part) ? 0.5 : staccato ? 0 : 0.04;
+      const gain = inst === "tuba" ? 0.45 : (PART_GAIN[note.part] ?? 0.45);
+      const release = staccato ? 0.25 : 1;
+      played = !!orch?.note(ctx, bus, inst, fold(inst, note.midi), t + note.at, { velocity: note.velocity, duration: note.hold, attack, release, gain }) || played;
     }
     if (!played) {
       if (note.hold > 1.2) padVoice(ctx, bus, [midiToHz(note.midi)], t + note.at, note.hold, 1600, 0.06);
       else pluckVoice(ctx, bus, midiToHz(note.midi), t + note.at, note.velocity, 0.2);
     }
   }
-  // Percussion under the big moments.
-  if (kind === "host") {
-    for (const at of [0, 1, 2, 2.8]) playDrumHit(ctx, drumBus, orch, noise, "low", t + at, 0.95);
-    orch?.hit(ctx, drumBus, "timpaniRoll", t + 1.6, 0.8, 0.7);
+  // Percussion under the big moments (music.ts MOTIF_PERC).
+  for (const hit of MOTIF_PERC[kind]) {
+    if (hit.voice === "drumLow") playDrumHit(ctx, drumBus, orch, noise, "low", t + hit.at, hit.velocity);
+    else orch?.hit(ctx, drumBus, hit.voice, t + hit.at, hit.velocity, hit.gain ?? PERC_GAIN[hit.voice], hit.duration);
   }
-  if (kind === "dawn" || kind === "victory") {
-    orch?.hit(ctx, drumBus, "timpaniRoll", t, 0.6, 0.6);
-    orch?.hit(ctx, drumBus, "timpani", t + (kind === "victory" ? 1.05 : 2.4), 1, 0.9);
-    orch?.hit(ctx, drumBus, "bassDrum", t + (kind === "victory" ? 1.05 : 2.4), 0.9, 0.7);
-  }
-  if (kind === "defeat") orch?.hit(ctx, drumBus, "timpani", t + 4.1, 0.25, 0.6);
 }
 
 /**

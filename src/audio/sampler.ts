@@ -129,7 +129,7 @@ export class Orchestra {
   }
 
   /** Play a percussion hit; false if the voice isn't loaded. */
-  hit(ctx: BaseAudioContext, dest: AudioNode, voice: PercVoice, t: number, velocity: number, gain = 1): boolean {
+  hit(ctx: BaseAudioContext, dest: AudioNode, voice: PercVoice, t: number, velocity: number, gain = 1, duration?: number): boolean {
     if (!this.has(voice)) return false;
     const files = ORCH_PERC[voice];
     const file = files[percLayer(files.length, velocity, this.rr++)];
@@ -138,9 +138,16 @@ export class Orchestra {
     // A hair of detune per hit so repeats don't machine-gun.
     src.playbackRate.value = 1 + (Math.random() - 0.5) * 0.03;
     const g = ctx.createGain();
-    g.gain.value = gain * (0.45 + 0.55 * velocity);
+    const level = gain * (0.45 + 0.55 * velocity);
+    g.gain.setValueAtTime(level, t);
     src.connect(g).connect(dest);
     src.start(t);
+    if (duration !== undefined) {
+      // Cut a long sample (a timpani roll into a downbeat) with a short fade.
+      g.gain.setValueAtTime(level, t + duration);
+      g.gain.linearRampToValueAtTime(0.0001, t + duration + 0.08);
+      src.stop(t + duration + 0.1);
+    }
     return true;
   }
 }
