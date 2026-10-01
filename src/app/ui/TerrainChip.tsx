@@ -40,7 +40,11 @@ export function TerrainChipCard({ readout, company }: { readout: TerrainReadout;
   );
 }
 
-/** In the board's canvas: the chip beside the hovered hex. */
+/**
+ * In the board's canvas: the chip beside the hovered hex. Terrain is public (commanders
+ * have maps; see docs/ENGINE.md, fog), so the chip works on fogged hexes too, but it
+ * reads the map only: never the squads, so it says nothing of what stands on a hex.
+ */
 export function TerrainChip({ board }: { board: BoardLayout }) {
   const hovered = useAppStore((s) => s.hoveredHex);
   const selectedId = useAppStore((s) => s.selectedSquadId);
