@@ -4,6 +4,7 @@ import {
   createInitialState,
   eventsFor,
   firstBreach,
+  holdForDawn,
   resolvePhase,
   visibleState,
   type EngineEvent,
@@ -11,7 +12,22 @@ import {
   type FactionId,
 } from "../../game/engine";
 import { boardCenter, hexToWorld } from "../../render/hexWorld";
-import { applyStep, buildTimeline, sightingSnapshot, PHASE_BUDGET_MS, routDirection, snapshotBefore, STEP_MS, visibleRuns, type Step } from "./timeline";
+import {
+  actingCompanies,
+  applyStep,
+  BUDGET_PER_COMPANY_MS,
+  buildTimeline,
+  MIN_SQUEEZE,
+  PHASE_BUDGET_MAX_MS,
+  PHASE_BUDGET_MS,
+  phaseBudgetMs,
+  routDirection,
+  sightingSnapshot,
+  snapshotBefore,
+  STEP_MS,
+  visibleRuns,
+  type Step,
+} from "./timeline";
 
 const PLAYER: FactionId = "free_banners";
 const factionOf = (id: string) => firstBreach.squads.find((squad) => squad.id === id)?.faction;
@@ -92,10 +108,47 @@ describe("buildTimeline", () => {
     expect(fast.totalMs).toBeLessThanOrEqual(readable.totalMs / 2 + fast.steps.length);
   });
 
-  it("fits every curated First Breach phase in the budget: ≤ 24 s Readable, ≤ 12 s Fast", () => {
+  it("fits every curated First Breach phase in its budget (Readable), and Fast in half", () => {
     for (const events of curatedPhases()) {
-      expect(buildTimeline(events, "readable", ctx).totalMs).toBeLessThanOrEqual(PHASE_BUDGET_MS);
-      expect(buildTimeline(events, "fast", ctx).totalMs).toBeLessThanOrEqual(PHASE_BUDGET_MS / 2 + 50);
+      const budget = phaseBudgetMs(actingCompanies(events));
+      expect(budget).toBeLessThanOrEqual(PHASE_BUDGET_MS + 2 * BUDGET_PER_COMPANY_MS); // the tutorial stays brisk
+      expect(buildTimeline(events, "readable", ctx).totalMs).toBeLessThanOrEqual(budget);
+      expect(buildTimeline(events, "fast", ctx).totalMs).toBeLessThanOrEqual(budget / 2 + 50);
+    }
+  });
+
+  it("scales the budget with the companies acting: 24 s, +2 s each over 8, capped at 45 s", () => {
+    expect([0, 8, 9, 13, 18, 19, 40].map(phaseBudgetMs)).toEqual([24_000, 24_000, 26_000, 34_000, 44_000, 45_000, 45_000]);
+    expect(PHASE_BUDGET_MAX_MS).toBe(45_000);
+  });
+
+  it("counts the companies a phase's events involve, on both sides", () => {
+    const events = curatedPhases()[0];
+    const ids = new Set(events.flatMap((event) => ["squadId", "attackerId", "defenderId", "sourceId", "targetId"].map((key) => (event as unknown as Record<string, unknown>)[key]).filter((id) => typeof id === "string")));
+    expect(actingCompanies(events)).toBe(ids.size);
+    expect(actingCompanies([])).toBe(0);
+  });
+
+  it("never compresses a step below MIN_SQUEEZE of its natural length, however crowded the phase", () => {
+    const events = curatedPhases()[0];
+    const crowded = Array.from({ length: 6 }, () => events).flat();
+    const timeline = buildTimeline(crowded, "readable", ctx);
+    expect(timeline.naturalMs * MIN_SQUEEZE).toBeGreaterThan(timeline.budgetMs); // the floor binds here
+    expect(timeline.totalMs).toBeGreaterThanOrEqual(Math.floor(timeline.naturalMs * MIN_SQUEEZE) - timeline.steps.length);
+  });
+
+  it("gives a large battle more time per step than the old flat 24 s budget (Hold for Dawn)", () => {
+    let state = createInitialState(holdForDawn, { fortune: "on", seed: holdForDawn.curatedSeed ?? 1 });
+    for (let phase = 1; state.status === "command" && phase <= 3; phase += 1) {
+      const start = visibleState(state, PLAYER);
+      const result = resolvePhase(state, holdForDawn.referencePlans!.intended, holdForDawn);
+      const events = eventsFor(result.events, PLAYER);
+      const final = visibleState(result.state, PLAYER);
+      const factionOf = (id: string) => [...start.squads, ...final.squads].find((squad) => squad.id === id)?.faction;
+      const timeline = buildTimeline(events, "readable", { playerFaction: PLAYER, factionOf });
+      expect(timeline.budgetMs).toBeGreaterThan(PHASE_BUDGET_MS);
+      expect(timeline.totalMs / timeline.steps.length).toBeGreaterThan(PHASE_BUDGET_MS / timeline.steps.length);
+      state = result.state;
     }
   });
 
