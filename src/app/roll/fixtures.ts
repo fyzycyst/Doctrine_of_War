@@ -2,10 +2,13 @@
 // battle lands (M1 P5). Dev (`?mockRoll=1`) and tests only: never in the shipped registry.
 // Its first battle stands on the Saltmarsh board; names are placeholders, not canon.
 import type { CampaignDefinition } from "../../game/campaign";
+import { saltmarshColumn, type EngineScenario } from "../../game/engine";
 import { firstCall, type PackManifest } from "../../game/packs";
-import { saltmarshColumn } from "../../game/engine";
 
 export const PREVIEW_CAMPAIGN_ID = "cinder_road_preview";
+
+/** The Saltmarsh board under its own id (scenario ids are unique across packs). */
+export const crossingPreview: EngineScenario = { ...saltmarshColumn, id: "cr_crossing_preview", title: "Secure a Crossing (preview)" };
 
 export const cinderRoadPreview: CampaignDefinition = {
   id: PREVIEW_CAMPAIGN_ID,
@@ -25,7 +28,7 @@ export const cinderRoadPreview: CampaignDefinition = {
     {
       id: "cr_crossing",
       title: "Secure a Crossing",
-      scenarioId: saltmarshColumn.id,
+      scenarioId: crossingPreview.id,
       slots: {
         greyford_shields: "cr_ashgate_shields",
         dawnwatch_archers: "cr_fenmere_bowmen",
@@ -54,7 +57,7 @@ export const causewayPreview: CampaignDefinition = {
   id: "causeway_war_preview",
   title: "The Causeway War (preview)",
   mode: "roll",
-  companies: [],
+  companies: [{ id: "cw_causeway_guard", name: "Causeway Guard", role: "frontline", profile: { strength: 76, cohesion: 70 } }],
   battles: [{ id: "cw_1", title: "The Causeway", scenarioId: "cw_unbuilt_1", slots: {}, placeholder: true }],
 };
 
@@ -64,7 +67,7 @@ export const previewPack: PackManifest = {
   revision: { pack: 1, content: 1, rules: 1 },
   readsContent: [1],
   campaigns: [cinderRoadPreview, causewayPreview],
-  scenarios: [],
+  scenarios: [crossingPreview],
   doctrines: [],
   skirmishes: [],
 };

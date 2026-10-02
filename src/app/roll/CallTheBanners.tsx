@@ -3,7 +3,7 @@
 // is the story's. Click a post then a company, drag a company onto a post, or use each post's
 // list (the keyboard path). The Host's strength is fixed before you choose.
 import { Lock, Shuffle, Swords, Undo2, X } from "lucide-react";
-import { useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import {
   currentBattle,
   LEVY_ID,
@@ -94,6 +94,10 @@ export function CallTheBanners() {
   const [armed, setArmed] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
   const field = useRef<HTMLButtonElement>(null);
+  // Dev captures: no canvas here, so the screen says it is ready itself.
+  useEffect(() => {
+    if (import.meta.env.DEV) window.__battleBoard = { ready: true, frames: 9999 };
+  }, []);
   if (!called) return null;
   const { def, state, scenario, slots, entries, threat, recommended } = called;
 

@@ -4,7 +4,7 @@
 import { BookOpen, Flag, Home, Lock, Swords } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ashAndBanner, CARRY_OVER_MAX, CARRY_RESOLVE, currentBattle, type CampaignDefinition, type CampaignState } from "../../game/campaign";
-import { TitleScene } from "../../render/showcase/TitleScene";
+import { CampaignSelectBackdrop, type CampaignSelectChain } from "../../render/showcase/CampaignSelectBackdrop";
 import { packs } from "../roll/api";
 import { realmOf } from "../roll/realms";
 import { resolveRank } from "../game/view";
@@ -53,6 +53,11 @@ export function CampaignChoice({ onSettings }: { onSettings?: () => void }) {
   const flow = useFlow();
   const first = useRef<HTMLButtonElement>(null);
   const list = packs().packs;
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  // One chain of islands per campaign: the boards of its first built battles.
+  const chains: CampaignSelectChain[] = list.flatMap((pack) =>
+    pack.campaigns.map((def) => ({ id: def.id, boards: def.battles.map((battle) => scenarioFor(battle)?.board).filter((board) => board !== undefined).slice(0, 3) })),
+  );
 
   useEffect(() => {
     void flow.checkSave();
@@ -64,8 +69,7 @@ export function CampaignChoice({ onSettings }: { onSettings?: () => void }) {
 
   return (
     <div className="screen choice-screen">
-      {/* Placeholder backdrop until the render agent's campaign-select backdrop lands. */}
-      <TitleScene title="" subtitle="" inCanvas={<FrameProbe />}>
+      <CampaignSelectBackdrop chains={chains} highlightedId={highlighted} inCanvas={<FrameProbe />}>
         <section className="choice-panel" aria-labelledby="choice-title">
           <header>
             <p className="bar-stage">Doctrine of War</p>
@@ -79,7 +83,12 @@ export function CampaignChoice({ onSettings }: { onSettings?: () => void }) {
                   const status = campaignStatus(def, flow);
                   const Icon = status.kind === "complete" ? BookOpen : status.kind === "inProgress" ? Flag : Swords;
                   return (
-                    <li key={def.id} className={`choice-card status-${status.kind}`}>
+                    <li
+                      key={def.id}
+                      className={`choice-card status-${status.kind}`}
+                      onPointerEnter={() => setHighlighted(def.id)}
+                      onFocus={() => setHighlighted(def.id)}
+                    >
                       <div className="choice-body">
                         <h3>{def.title}</h3>
                         <p className="choice-kind">
@@ -122,7 +131,7 @@ export function CampaignChoice({ onSettings }: { onSettings?: () => void }) {
             )}
           </div>
         </section>
-      </TitleScene>
+      </CampaignSelectBackdrop>
       {flow.carryOver && <CarryOverPicker campaignId={flow.carryOver.campaignId} sources={flow.carryOver.sources} />}
     </div>
   );
