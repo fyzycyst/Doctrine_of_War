@@ -104,10 +104,11 @@ function registerSaveHandlers() {
   ipcMain.handle(SAVE_EXPORT_CHANNEL, (event, campaignId: unknown) => {
     trusted(event, SAVE_EXPORT_CHANNEL);
     const owner = BrowserWindow.fromWebContents(event.sender);
-    return exportSaveFile(app.getPath("userData"), async () => {
+    // The default name comes from saveFile.ts (main's allowlist), never from the renderer.
+    return exportSaveFile(app.getPath("userData"), async (defaultName) => {
       const options = {
         title: "Export save file",
-        defaultPath: path.join(app.getPath("documents"), "doctrine-of-war-save.json"),
+        defaultPath: path.join(app.getPath("documents"), defaultName),
         filters: [{ name: "Save file", extensions: ["json"] }],
       };
       const { canceled, filePath } = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options);
