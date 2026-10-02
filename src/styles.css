@@ -4027,42 +4027,129 @@ html.reduce-motion .ticker-text.static {
 /* Call the Banners. */
 .roll-screen {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 14px 22px;
-  padding: 22px 28px 18px;
+  gap: 14px 24px;
+  padding: 20px 28px 16px;
   background:
-    radial-gradient(90% 60% at 30% 0%, rgba(212, 166, 74, 0.1), transparent 70%),
+    radial-gradient(80% 50% at 25% 0%, rgba(212, 166, 74, 0.1), transparent 70%),
+    radial-gradient(60% 40% at 90% 10%, rgba(255, 122, 46, 0.08), transparent 70%),
     linear-gradient(180deg, #17131b, #0d0c12);
   color: var(--bone);
 }
 
 .roll-head {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 24px;
 }
 
 .roll-head h1 {
   font-family: var(--display);
-  font-size: 28px;
+  font-size: 30px;
   letter-spacing: 0.05em;
   color: var(--gold-hi);
 }
 
+/* The Host's fixed threat: a story beat, not a footnote. */
 .roll-threat {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  margin: 8px 0 0;
-  padding: 7px 12px;
-  border-left: 3px solid var(--ember);
-  background: rgba(58, 39, 36, 0.55);
-  font-size: 14px;
+  gap: 14px;
+  max-width: 720px;
+  margin-top: 12px;
+  padding: 12px 18px 12px 14px;
+  border: 1px solid rgba(255, 122, 46, 0.35);
+  border-left: 4px solid var(--ember);
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(58, 39, 36, 0.85), rgba(30, 20, 18, 0.6));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.roll-threat .sigil {
+  flex: none;
+  color: var(--rust-text);
+}
+
+.roll-threat h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 19px;
+  letter-spacing: 0.06em;
+  color: #ffb07a;
+}
+
+.roll-threat p {
+  margin: 3px 0 0;
+  font-size: 14.5px;
 }
 
 .roll-fixed {
   color: var(--muted);
   font-size: 12.5px;
+}
+
+.post-map {
+  margin: 0;
+  width: clamp(240px, 24vw, 380px);
+}
+
+.post-map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 210px;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.5));
+}
+
+.post-map polygon {
+  stroke: rgba(13, 12, 18, 0.7);
+  stroke-width: 0.8;
+}
+
+.post-map polygon.objective {
+  stroke: var(--gold-hi);
+  stroke-width: 1.6;
+}
+
+.post-map polygon.exit {
+  stroke: #f3e6c4;
+  stroke-width: 1.4;
+  stroke-dasharray: 2 1.5;
+}
+
+.post-marker circle {
+  fill: var(--lapis);
+  stroke: var(--bone);
+  stroke-width: 1.2;
+  transition: r 0.15s;
+}
+
+.post-marker text {
+  fill: var(--bone);
+  font-family: var(--display);
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.post-marker.on circle {
+  fill: var(--gold-hi);
+  stroke: #fff4d6;
+  stroke-width: 1.8;
+}
+
+.post-marker.on text {
+  fill: var(--ink);
+}
+
+.post-map figcaption {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+  text-align: center;
 }
 
 .roll-posts,
@@ -4091,42 +4178,68 @@ html.reduce-motion .ticker-text.static {
   list-style: none;
 }
 
+/* Posts as banner tabs, like the battle roster's. */
 .post {
+  position: relative;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 0.9fr) minmax(0, 1.1fr);
   align-items: center;
   gap: 4px 12px;
-  padding: 8px 10px;
-  border: 1px solid rgba(212, 166, 74, 0.24);
-  border-radius: 6px;
-  background: linear-gradient(180deg, var(--card-hi), var(--card));
+  padding: 8px 26px 8px 0;
+  background: linear-gradient(90deg, rgba(47, 79, 143, 0.32), rgba(20, 16, 23, 0.92) 30%, rgba(20, 16, 23, 0.82));
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 50%, 100% 100%, 0 100%);
+}
+
+.post::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--lapis);
 }
 
 .post.armed {
-  border-color: var(--gold-hi);
-  box-shadow: 0 0 0 1px var(--gold-hi);
+  background: linear-gradient(90deg, rgba(212, 166, 74, 0.36), rgba(28, 22, 20, 0.95) 34%, rgba(28, 22, 20, 0.9));
 }
 
-.post.problem {
-  border-color: rgba(224, 138, 98, 0.7);
+.post.armed::before {
+  background: var(--gold-hi);
+}
+
+.post.problem::before {
+  background: var(--rust-text);
 }
 
 .post.locked {
-  background: linear-gradient(180deg, #2a2420, #1d1916);
+  background: linear-gradient(90deg, rgba(212, 166, 74, 0.2), rgba(29, 25, 22, 0.95) 30%);
 }
 
 .post.levy {
-  border-style: dashed;
+  background: linear-gradient(90deg, rgba(142, 31, 26, 0.3), rgba(20, 16, 23, 0.92) 30%);
 }
 
 .post-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 4px;
+  padding: 2px 4px 2px 12px;
   border: 0;
   background: none;
   text-align: left;
+}
+
+.post-number {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold-hi);
 }
 
 .post-roles {
@@ -4138,8 +4251,9 @@ html.reduce-motion .ticker-text.static {
 .post-label {
   display: grid;
   font-family: var(--display);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .post-sub {
@@ -4151,17 +4265,44 @@ html.reduce-motion .ticker-text.static {
 
 .post-company {
   display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.post-choose {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  padding: 5px 10px;
+  border: 1px solid rgba(239, 227, 200, 0.16);
+  border-radius: 4px;
+  background: rgba(12, 10, 15, 0.55);
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.post-choose:hover,
+.post-choose[aria-expanded="true"] {
+  border-color: var(--gold-line);
+}
+
+.post-called {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 10px;
-  font-size: 13.5px;
+  gap: 2px 6px;
+  min-width: 0;
 }
 
 .post-called strong {
   font-weight: 600;
 }
 
-.post-numbers,
+.post-rank,
 .post-lock-note,
 .post-empty {
   font-size: 12.5px;
@@ -4173,29 +4314,57 @@ html.reduce-motion .ticker-text.static {
   font-style: italic;
 }
 
-.post-pick select {
-  padding: 2px 6px;
-  border: 1px solid rgba(239, 227, 200, 0.22);
-  border-radius: 4px;
-  background: rgba(18, 15, 22, 0.9);
-  color: var(--bone);
-  font: inherit;
-  font-size: 12.5px;
-}
-
 .post-clear {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  flex: none;
+  width: 24px;
+  height: 24px;
   border: 1px solid rgba(239, 227, 200, 0.2);
   border-radius: 4px;
   background: none;
 }
 
+.post-choices {
+  grid-column: 2;
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 4px;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--gold-line);
+  border-radius: 5px;
+  background: var(--glass-strong);
+}
+
+.post-choices button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  font-size: 13px;
+  text-align: left;
+}
+
+.post-choices button:hover,
+.post-choices button:focus-visible,
+.post-choices button[aria-selected="true"] {
+  background: rgba(212, 166, 74, 0.14);
+}
+
+.choice-elsewhere {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
 .post-problem {
   grid-column: 1 / -1;
-  margin: 2px 0 0;
+  margin: 2px 0 0 14px;
   font-size: 12.5px;
   color: var(--rust-text);
 }

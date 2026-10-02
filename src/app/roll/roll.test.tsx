@@ -159,30 +159,39 @@ describe("Call the Banners", () => {
 
   it("opens on the recommended force, with posts in order, a flex post and the Host's fixed threat", async () => {
     await toTheCall();
-    const posts = screen.getAllByRole("button", { name: /^Post:/ });
-    expect(posts.map((post) => post.getAttribute("aria-label"))).toEqual([
-      "Post: Greyford Shields",
-      "Post: Dawnwatch Archers",
-      "Post: Mercy Standard",
-      "Post: Stoneford Riders",
-      "Post: Kestrel Lancers (flex: Cavalry or Line infantry)",
-      "Post: Mill Lane Guard",
-    ]);
-    expect(screen.getByRole("note")).toHaveTextContent(/The Host .*Fixed before you choose/);
+    const posts = screen.getAllByRole("button", { name: /^Post \d/ }).map((post) => post.getAttribute("aria-label")!);
+    // Positions in activation order, never the borrowed board's squad names.
+    expect(posts).toHaveLength(6);
+    expect(posts.map((label) => label.match(/^Post (\d)/)![1])).toEqual(["1", "2", "3", "4", "5", "6"]);
+    expect(posts[4]).toMatch(/flex: Cavalry or Line infantry$/);
+    for (const borrowed of ["Greyford Shields", "Dawnwatch Archers", "Mercy Standard", "Stoneford Riders", "Kestrel Lancers", "Mill Lane Guard"]) {
+      expect(posts.join(" ")).not.toContain(borrowed);
+    }
+    // Where they stand: one numbered marker per post on the map of the ground.
+    expect(screen.getByRole("figure", { name: "Where the posts stand" }).querySelectorAll(".post-marker")).toHaveLength(6);
+    expect(screen.getByRole("region", { name: "The Host" })).toHaveTextContent(/The Host .*Fixed before you choose/);
     expect(screen.getByRole("button", { name: "Take the field" })).toBeEnabled();
     expect(screen.getByRole("button", { name: /Recommended force/ })).toBeDisabled(); // already it
   });
 
   it("shows the engine's problems inline, keeps the threat fixed, and Recommended force puts it right", async () => {
     const user = await toTheCall();
-    const threat = screen.getByRole("note").textContent;
-    // The keyboard path: each post's list. Call the Ashgate Shields to a second post.
-    await user.selectOptions(screen.getByRole("combobox", { name: "Company for Mill Lane Guard" }), "cr_ashgate_shields");
+    const threat = screen.getByRole("region", { name: "The Host" }).textContent;
+    // The keyboard path: a post's company opens its list (arrows, Enter). Call the Ashgate
+    // Shields to the sixth post.
+    const sixth = screen.getAllByRole("button", { name: /^Company for / })[5];
+    sixth.focus();
+    await user.keyboard("{Enter}");
+    const list = screen.getByRole("listbox", { name: /^Choose a company for / });
+    expect(within(list).getByRole("option", { name: /Ashgate Shields/ })).toHaveTextContent(/now at/);
+    within(list).getByRole("option", { name: /Ashgate Shields/ }).focus();
+    await user.keyboard("{Enter}");
     // A company answers one post: it moved, leaving its first post empty.
-    expect(screen.getByRole("combobox", { name: "Company for Greyford Shields" })).toHaveValue("");
+    expect(screen.getAllByRole("button", { name: /^Company for / })[0]).toHaveAccessibleName(/: none$/);
+    expect(screen.getAllByRole("button", { name: /^Company for / })[5]).toHaveAccessibleName(/: Ashgate Shields$/);
     expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Take the field" })).toBeDisabled();
-    expect(screen.getByRole("note").textContent).toBe(threat);
+    expect(screen.getByRole("region", { name: "The Host" }).textContent).toBe(threat);
     await user.click(screen.getByRole("button", { name: /Recommended force/ }));
     expect(screen.queryAllByRole("alert")).toEqual([]);
     expect(screen.getByRole("button", { name: "Take the field" })).toBeEnabled();
@@ -190,10 +199,12 @@ describe("Call the Banners", () => {
 
   it("calls by click: arm a post, then choose a company from the Roll", async () => {
     const user = await toTheCall();
-    await user.click(screen.getByRole("button", { name: "Post: Mill Lane Guard" }));
+    const sixth = screen.getAllByRole("button", { name: /^Post \d/ })[5];
+    await user.click(sixth);
+    expect(sixth).toHaveAttribute("aria-pressed", "true");
     await user.click(screen.getByRole("button", { name: /^Heron Stair Guard/ }));
-    expect(screen.getByRole("combobox", { name: "Company for Mill Lane Guard" })).toHaveValue("cr_heron_stair_guard");
-    expect(screen.getByRole("button", { name: /^Heron Stair Guard.*called to Mill Lane Guard/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Company for / })[5]).toHaveAccessibleName(/: Heron Stair Guard$/);
+    expect(screen.getByRole("button", { name: /^Heron Stair Guard.*called to / })).toBeInTheDocument();
   });
 
   it("shows conditions from a real battle: Worn rests, Reforming sits out, a levy fills what no one can", async () => {
@@ -209,7 +220,7 @@ describe("Call the Banners", () => {
     expect(sitting).toBeDisabled();
     expect(sitting).toHaveTextContent("Reforming · sits out");
     // The only standard bearers sit out, so a levy fills their post, plainly marked.
-    expect(screen.getByRole("combobox", { name: "Company for Lanternbearers" })).toHaveValue(LEVY_ID);
+    expect(screen.getAllByRole("button", { name: /^Company for .*: levy$/ })).toHaveLength(1);
     expect(document.querySelector(".post.levy")).toHaveTextContent("Levy (no ready company)");
     // The carried veteran answers the call with its renown.
     expect(within(roll).getByRole("button", { name: /^Greyford Shields/ })).toHaveTextContent("The Iron Hinge");
