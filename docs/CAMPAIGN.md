@@ -47,6 +47,71 @@ Code: `src/game/campaign/` (pure TypeScript; the campaign-map UI lives in the ap
   "The Fordwardens" or "The Unbowed"), rerolled if another company already holds the
   same title. The title is kept when Resolve later dips, and lost only on destruction.
 
+## Packs (`src/game/packs`, M1)
+
+Content ships as **packs**: `packs -> campaigns -> battles`, plus a skirmish list per
+pack. A `PackManifest` is plain, versioned data (`revision {pack, content, rules}`,
+`readsContent`: the content revisions whose saves it still replays). Packs are compiled
+in, but `createRegistry` treats every manifest as untrusted: `parsePackManifest`
+rebuilds it field by field through a fail-closed schema (unknown fields and kinds are
+refused; ids, numbers and lists are bounded), then `lintPacks` checks ids unique across
+packs (packs, campaigns, **companies**, scenarios, doctrines, skirmishes), every
+reference, each scenario's internal consistency, and each campaign against its
+scenarios. Nothing is exposed from a set that fails. `registry.compatibility(provenance)`
+says whether a saved run (pack, campaign, content and rules revision) can continue.
+The shipped pack is `first_call` (The First Call), holding the intro.
+
+Adding an engine condition, action, selector, win or defeat kind means adding it to
+`packs/manifest.ts` too; the shipped-pack round-trip test fails until you do.
+
+## The Roll (`roll.ts`, M1): Roll campaigns
+
+A campaign with `mode: "roll"` calls companies from its **Roll** into each battle; the
+intro stays `"fixed"` and is untouched.
+
+- **Slots** are the scenario's player squads (stable slot id = squad id; activation
+  order = squad order, never changed by selection). `battle.slots` is the authored
+  default. `battle.call.flex` allows at most 2 role-variable slots, each with the squad's
+  own role first and a doctrine per role; `battle.call.locked` story-locks a company.
+- **Companies own their profile** (`strength`, `cohesion`), linted against a per-role
+  band (`PROFILE_BANDS`), and **arrive** at an authored battle (`joins`).
+- **Assignment** (`slot id -> company id`) is checked by `validateAssignment` (plain
+  reasons per slot); `recommendedForce` is always legal: locks, then the readiest company
+  per slot (fresh before Worn, then Resolve and renown; ties to the authored company).
+- **The Host's threat is fixed at battle entry** (`battleThreat`): the intro's bounded
+  escalation, computed from the *recommended* force and the state at entry, not from the
+  picks. A defeat changes nothing it reads, so retries face the same Host.
+- `assembleBattle` returns an ordinary `EngineScenario`: each slot squad takes its
+  company's name, role, profile (minus the Worn penalty), Resolve, renown and, on a flex
+  slot, the doctrine for its role. `recordBattle(..., { assignment })` settles it.
+
+**Worn, reserves and reform (B2).** Conditions change only on an advancing result
+(victory or stalemate); a defeat changes nobody's readiness.
+
+| A company that... | becomes |
+| --- | --- |
+| was fielded and destroyed | **Reforming** (Resolve −2, renown lost, as today): sits out the next advancing battle |
+| was fielded and routed | **Worn** |
+| was fielded and ended under half the strength it took the field with | **Worn** |
+| was fielded otherwise | keeps its condition (only rest clears Worn) |
+| sat in reserve | **fresh** (one advancing battle in reserve clears Worn and Reforming) |
+
+Precedence: destroyed > routed > under strength. A Worn company may be fielded at −15
+strength and −10 cohesion (`WORN_PENALTY`). A Reforming company cannot be assigned unless
+a slot story-locks it, and then it fights with the Worn penalty (and comes out Worn).
+**Legal force:** a slot no ready company can fill takes a nameless **levy** (`LEVY_ID`;
+the bottom of its role's band, Resolve −1, no renown, never settled). A levy is only
+legal where it is forced. Records store each slot's `startStrength` and `endStrength`, so
+conditions re-derive on replay.
+
+**Carry-over.** Starting a Roll campaign, the player may bring up to 5 companies from a
+*completed* campaign (`carryOverCandidates`, `snapshotCarryOver`). Each is snapshotted
+into the new run (`state.carried`: id, name, role, profile, Resolve clamped to −1…+2,
+renown kept, origin); replay starts from the snapshot and never re-reads the earlier
+save. Carried companies join the Roll at the start, beside the authored army, and count
+toward the Host's threat like any other. Company ids are unique across campaigns (lint).
+The intro's companies carry their Hold for Dawn numbers as their profile.
+
 ## Balancing campaign battles
 
 Carried-over Resolve and renown change a battle a lot, so `npm run balance` checks

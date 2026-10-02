@@ -66,7 +66,7 @@ export function fameOf(entries: { resolve: number; renown?: { title: string } | 
 }
 
 /** How much the Host hardens (or eases) against these companies, relative to the authored roster. */
-export function hostEscalation(companies: CampaignCompany[], authoredFame: number): HostEscalation {
+export function hostEscalation(companies: { resolve: number; renown?: { title: string } | null }[], authoredFame: number): HostEscalation {
   const fame = fameOf(companies) - authoredFame;
   const sign = Math.sign(fame);
   const size = Math.abs(fame);
@@ -82,7 +82,7 @@ export function hostEscalation(companies: CampaignCompany[], authoredFame: numbe
 
 export const STALEMATE_ROUT_PENALTY = 1;
 
-const clampResolve = (value: number) => Math.max(RESOLVE_MIN, Math.min(RESOLVE_MAX, value));
+export const clampResolve = (value: number) => Math.max(RESOLVE_MIN, Math.min(RESOLVE_MAX, value));
 
 /**
  * A new run. `carryOver` (Roll campaigns only) is the validated snapshot from
@@ -129,7 +129,7 @@ export function rosterFor(def: CampaignDefinition, state: CampaignState, battle:
   return roster;
 }
 
-function playableBattle(def: CampaignDefinition, state: CampaignState, scenarioId: string): CampaignBattle {
+export function playableBattle(def: CampaignDefinition, state: CampaignState, scenarioId: string): CampaignBattle {
   const battle = currentBattle(def, state);
   if (!battle) {
     throw new Error(`Campaign ${def.id} is complete`);
