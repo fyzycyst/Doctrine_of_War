@@ -110,6 +110,14 @@ into the new run (`state.carried`: id, name, role, profile, Resolve clamped to �
 renown kept, origin); replay starts from the snapshot and never re-reads the earlier
 save. Carried companies join the Roll at the start, beside the authored army, and count
 toward the Host's threat like any other. Company ids are unique across campaigns (lint).
+Loading a run checks each carried snapshot against this build's registry: the origin pack
+and campaign exist, the company is in that campaign's definition with the same id, name
+and role, its profile is the frozen definition profile, Resolve is inside the clamp, and
+renown is none or a title the generator can give that company. **Trust decision:** the
+snapshot does not prove that the source run was completed, or that the company really
+earned that Resolve or renown there. The game is single-player and the snapshot stands
+alone by design (the earlier save is never re-read), so editing a local save only changes
+the player's own campaign.
 The intro's companies carry their Hold for Dawn numbers as their profile.
 
 ## Balancing campaign battles
@@ -190,19 +198,23 @@ doctrine families in meaningful roles, and swapping out any one family costs at 
   keeps its v1 file and localStorage key and is read and written exactly as before (no
   migration, no backup file; a v1 fixture corpus written by the `v1.0-intro` build,
   `fixtures/v1/`, must load and re-save byte for byte). Every other campaign writes a
-  **v2 envelope** `{"version": 2, "provenance": {packId, campaignId, contentRevision,
-  rulesRevision}, "campaign": …}` (at most `MAX_RUN_BYTES`, 512 KiB per campaign; a full
+  **v2 envelope** `{"version": 2, "provenance": {packId, packRevision, campaignId,
+  contentRevision, rulesRevision}, "campaign": …}` (at most `MAX_RUN_BYTES`, 512 KiB per campaign; a full
   11-battle run with 120 attempts and five carried companies uses well under half).
   - `readCampaignSave(registry, id, payload)` never throws: `empty`, `ok`, `unavailable`
-    (a well-formed run this build cannot continue: other pack, campaign, content or
-    rules revision) or `unreadable`. v2 loading rebuilds every field and replays the
+    (a well-formed run this build cannot continue: other pack, pack format, campaign,
+    content or rules revision) or `unreadable`. v2 loading rebuilds every field and replays the
     history from the carried snapshot with the Roll rules (`loadRollCampaignState`):
     each assignment must be legal in the replayed state, start strengths as fielded, end
     strengths no higher and 0 exactly when destroyed, and conditions, Resolve, renown and
     the Roll must match.
   - **Preserved runs:** `saveCampaignRun` refuses to replace an `unavailable` or
-    `unreadable` v2 save; the player sets it aside first (`store.setAside`, which keeps
-    it under `:aside` / `<file>.aside-<time>-<id>`). Each v2 write keeps the previous
+    `unreadable` v2 save; the player sets it aside first (`store.setAside`), which copies
+    it to a new slot (`:aside:1`…`:aside:8` in the browser; an exclusively created
+    `<file>.aside-<time>-<id>` in Electron, retrying on a clash), verifies the copy and
+    only then removes the save. Set-aside runs are never replaced or deleted: past
+    `MAX_ASIDES` (8) per campaign, setting another aside is refused. The intro is never
+    set aside. Each v2 write keeps the previous
     save as a backup (`:backup` / `<file>.bak`); `loadCampaignBackup` reads it for
     recovery.
   - **Electron:** the save channels take an optional campaign id (none means the

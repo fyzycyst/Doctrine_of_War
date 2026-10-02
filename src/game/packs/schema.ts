@@ -5,6 +5,7 @@
 //
 // Adding a condition, action, selector, win or defeat kind to the engine means adding it
 // here too; the shipped-pack round-trip test fails until you do.
+import { RESERVED_IDS } from "../ids";
 import { PackError } from "./types";
 
 export type Reader<T> = (value: unknown, path: string) => T;
@@ -33,6 +34,7 @@ export const prose =
 export const id: Reader<string> = (value, path) => {
   const result = text(64)(value, path);
   if (!ID_PATTERN.test(result)) fail(path, "must be a lowercase id ([a-z0-9_])");
+  if (RESERVED_IDS.has(result)) fail(path, `may not be "${result}"`);
   return result;
 };
 
@@ -81,7 +83,7 @@ export interface Field<T> {
 export const req = <T>(read: Reader<T>): Field<T> => ({ read, optional: false });
 export const opt = <T>(read: Reader<T>): Field<T> => ({ read, optional: true });
 
-type Shape = Record<string, Field<unknown>>;
+export type Shape = Record<string, Field<unknown>>;
 type FromShape<S extends Shape> = { [K in keyof S as S[K]["optional"] extends true ? never : K]: S[K] extends Field<infer T> ? T : never } & {
   [K in keyof S as S[K]["optional"] extends true ? K : never]?: S[K] extends Field<infer T> ? T : never;
 };
@@ -110,9 +112,12 @@ export const record =
     if (!isPlainObject(value)) fail(path, "must be an object");
     const entries = Object.entries(value);
     if (entries.length > max) fail(path, `has more than ${max} entries`);
-    const result = {} as Record<K, V>;
+    // A null-prototype map: no key, however spelled, can reach Object.prototype.
+    const result = Object.create(null) as Record<K, V>;
     for (const [rawKey, rawValue] of entries) {
-      result[key(rawKey, `${path} key`)] = item(rawValue, `${path}.${rawKey}`);
+      const checked = key(rawKey, `${path} key`);
+      if (RESERVED_IDS.has(checked)) fail(`${path} key`, `may not be "${checked}"`);
+      result[checked] = item(rawValue, `${path}.${rawKey}`);
     }
     return result;
   };

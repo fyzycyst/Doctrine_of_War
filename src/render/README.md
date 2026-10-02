@@ -106,9 +106,13 @@ imported (see `fromEngine.ts`); engine logic may not.
     The overview camera fits width and depth (`overviewFrame`, steeper for several rows), and the
     scene fog, shadows and embers scale with the layout.
   - `<CampaignSelectBackdrop chains={[{ id, boards }]} highlightedId?>{overlay}</CampaignSelectBackdrop>`:
-    a calm "choose a campaign" establishing shot. One chain of up to three miniature islands per
-    campaign at dusk, Cinderreach low on the horizon (ash ridges, kiln-town glows, ember haze), a
-    slow drift (still under reduced motion); `highlightedId` lifts that chain and dims the others.
+    a calm "choose a campaign" establishing shot, composed for a campaign list on the left third.
+    Each campaign is a cluster of up to three miniature islands (rock undersides kept) joined by a
+    faint ink trail under a Banners pennant; clusters sit centre and right with clear sky between.
+    `highlightedId` moves that cluster to the nearest, largest slot and dims the rest (they ease
+    between slots). Cinderreach smoulders on the horizon: layered broken ash ridges fading into an
+    ember haze, kiln glows as soft smudges at different depths and sizes, two thin smoke columns;
+    never a single peak. Low, slowly drifting camera (still under reduced motion).
     Lab: `?lab=1&view=campaignSelect&highlight=<id>`.
   - **Capture mode:** `useCaptureStore` (`src/app/captureStore.ts`), on with `?capture=1`.
   - **Cinematic paths:** `camera/cameraPath.ts` has keyframed `CameraPath`s with a pure

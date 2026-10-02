@@ -49,3 +49,11 @@ export function renownTitle(companyId: string, taken: Iterable<string> = []): st
   }
   return `The ${companyId.replace(/_/g, " ")} Company`;
 }
+
+/** Every title renownTitle() could ever give `companyId` (any set of titles already taken). */
+export function possibleRenownTitles(companyId: string): Set<string> {
+  const titles = new Set<string>();
+  for (let attempt = 0; attempt < 64; attempt += 1) titles.add(candidate(companyId, attempt));
+  titles.add(`The ${companyId.replace(/_/g, " ")} Company`);
+  return titles;
+}
