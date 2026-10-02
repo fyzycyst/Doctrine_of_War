@@ -14,6 +14,14 @@ const HOURS = ["day", "nightFires", "rainGrey", "predawn", "sunrise"] as const;
 const STAT = oneOf("cohesion", "strength");
 
 const faction = oneOf(...FACTIONS);
+/** A short, plain display name: no surrounding space, control characters or markup. */
+const plainName =
+  (max: number): Reader<string> =>
+  (value, path) => {
+    const result = text(max)(value, path);
+    if (result.trim() !== result || /[\u0000-\u001f<>]/.test(result)) fail(path, "must be a plain name");
+    return result;
+  };
 const literalTrue: Reader<true> = (value, path) => {
   if (value !== true) fail(path, "must be true when present");
   return true;
@@ -210,6 +218,7 @@ export const readCampaign: Reader<CampaignDefinition> = object({
           object({
             flex: opt(record(id, object({ roles: req(list(role, 5, 2)), doctrines: req(record(role, id, 5)) }), 4)),
             locked: opt(record(id, id, 30)),
+            labels: opt(record(id, plainName(40), 30)),
           }),
         ),
         placeholder: opt(bool),
