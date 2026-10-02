@@ -12,7 +12,7 @@ import { prototypeScenarios } from "./fixtures/wagonPark";
 import { chooseRule, evaluateCondition, resolveTarget, type ResolvedTarget } from "./rules";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { createRng } from "./rng";
-import { scenarios } from "./scenarios";
+import { registry } from "../packs/registry";
 import type { Action, EngineEvent, EngineScenario, EngineState, Orders } from "./types";
 import { isActive } from "./world";
 
@@ -153,7 +153,7 @@ describe("fog projection property", () => {
   const pick = createRng(20260928);
   const seeds = Array.from({ length: 10 }, () => 1 + Math.floor(pick.next() * 100000));
 
-  for (const scenario of [...scenarios, ...prototypeScenarios]) {
+  for (const scenario of [...registry.scenarios(), ...prototypeScenarios]) {
     const plans = propertyPlans(scenario);
     for (const [planName, orders] of Object.entries(plans)) {
       it(`${scenario.title} (${planName}): the Banners' projected stream only mentions what they could see`, () => {
@@ -240,7 +240,7 @@ describe("fog decision property (P4)", () => {
   const pick = createRng(20261002);
   const seeds = Array.from({ length: 6 }, () => 1 + Math.floor(pick.next() * 100000));
 
-  for (const scenario of [...scenarios, ...prototypeScenarios]) {
+  for (const scenario of [...registry.scenarios(), ...prototypeScenarios]) {
     for (const [planName, orders] of Object.entries(propertyPlans(scenario))) {
       it(`${scenario.title} (${planName}): Banner decisions never depend on unseen enemies`, () => {
         const leaks: string[] = [];

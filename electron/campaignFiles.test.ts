@@ -103,8 +103,9 @@ describe("Electron per-campaign saves", () => {
     for (const data of refused) {
       await expect(write(dir, data)).rejects.toThrow();
     }
-    // The shipped registry has no Cinder Road yet: main refuses it until the campaign ships.
-    await expect(writeCampaignFile(dir, ROAD, run(1))).rejects.toThrow(/does not have|no campaign/);
+    // Main validates against the shipped registry's own Cinder Road: a run of another
+    // campaign under that id (the test road) is refused.
+    await expect(writeCampaignFile(dir, ROAD, run(1))).rejects.toThrow(/does not have|no campaign|Invalid campaign save/);
     expect(await fs.readdir(dir)).toEqual([]);
   });
 

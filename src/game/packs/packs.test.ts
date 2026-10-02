@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { cinderRoad } from "../campaign/cinderRoad";
 import { ashAndBanner } from "../campaign/definition";
 import { doctrineLibrary } from "../engine/doctrines";
 import { scenarios } from "../engine/scenarios";
@@ -166,10 +167,11 @@ describe("lintPacks (cross-pack ids and references)", () => {
 });
 
 describe("the registry", () => {
-  it("serves the shipped content: the intro campaign and every engine scenario", () => {
+  it("serves the shipped content: the intro campaign and every engine scenario, then Cinder Road", () => {
     expect(registry.campaign("ash_and_banner")).toMatchObject({ pack: { id: "first_call" }, campaign: { id: ashAndBanner.id } });
     expect(registry.campaign("ash_and_banner")?.campaign).toEqual(ashAndBanner);
-    expect(registry.scenarios().map((item) => item.id)).toEqual(scenarios.map((item) => item.id));
+    expect(registry.campaign("cinder_road")?.campaign).toEqual(cinderRoad);
+    expect(registry.scenarios().map((item) => item.id)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh"]);
     expect(registry.scenario("hold_for_dawn")).toEqual(scenarios.find((item) => item.id === "hold_for_dawn"));
     expect(registry.skirmishes().map(({ skirmish }) => skirmish.scenarioId)).toEqual(scenarios.map((item) => item.id));
     expect(registry.campaign("nowhere")).toBeUndefined();

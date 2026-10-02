@@ -8,6 +8,8 @@
 import { playBattle, type GuardrailPolicy } from "../engine/balance";
 import type { EngineScenario } from "../engine/types";
 import { applyCampaign, recordBattle, REFORMED_RESOLVE, rosterFor, startCampaign } from "./campaign";
+import { isRollCampaign } from "./roll";
+import { rollCalls, type RollCallKind } from "./rollCalls";
 import type { CampaignDefinition, CampaignState } from "./types";
 
 export type RosterKind = "baseline" | "strong" | "rough";
@@ -56,9 +58,15 @@ export function roughPathState(def: CampaignDefinition, scenarios: EngineScenari
 }
 
 export interface BalanceVariant {
-  kind: RosterKind;
-  /** Guardrail policy: the rough roster is a winnability floor only. */
-  policy: GuardrailPolicy;
+  kind: RosterKind | RollCallKind;
+  /** Display name (the kind, or a Roll call's name such as "role: bows=frontline"). */
+  name?: string;
+  /**
+   * Guardrail policy: the rough roster is a winnability floor only; "diagnostic" (a Roll
+   * campaign's weakest-legal call) is reported, never gated: its recovery force (the
+   * recommended call on the same state) is gated instead.
+   */
+  policy: GuardrailPolicy | "diagnostic";
   scenario: EngineScenario;
   /** Who takes the field (empty for the baseline). */
   roster: string;
@@ -86,6 +94,41 @@ export function balanceRosters(def: CampaignDefinition, scenarios: EngineScenari
 export function balanceVariantsFor(def: CampaignDefinition, scenarios: EngineScenario[], scenario: EngineScenario): BalanceVariant[] {
   const index = def.battles.findIndex((battle) => battle.scenarioId === scenario.id && !battle.placeholder);
   return index < 0 ? [{ kind: "baseline", policy: "full", scenario, roster: "" }] : balanceRosters(def, scenarios, index);
+}
+
+/** A completed campaign whose companies a strong player carries into a Roll campaign. */
+export interface CarrySource {
+  def: CampaignDefinition;
+  state: CampaignState;
+  packId: string;
+}
+
+/**
+ * Balance variants for any scenario, across campaigns: a Roll campaign's named calls
+ * (rollCalls), a fixed campaign's rosters (balanceVariantsFor), or the baseline.
+ */
+export function balanceVariantsIn(
+  campaigns: readonly CampaignDefinition[],
+  scenarios: EngineScenario[],
+  scenario: EngineScenario,
+  carryFrom?: () => CarrySource,
+): BalanceVariant[] {
+  const owner = campaigns.find((def) => def.battles.some((battle) => battle.scenarioId === scenario.id && !battle.placeholder));
+  if (!owner) return [{ kind: "baseline", policy: "full", scenario, roster: "" }];
+  if (!isRollCampaign(owner)) return balanceVariantsFor(owner, scenarios, scenario);
+  const index = owner.battles.findIndex((battle) => battle.scenarioId === scenario.id && !battle.placeholder);
+  return rollCalls(owner, scenarios, index, index === 0 ? carryFrom?.() : undefined).map((item) => ({
+    kind: item.kind,
+    name: item.name,
+    policy: item.policy,
+    scenario: item.scenario,
+    roster: item.roster,
+  }));
+}
+
+/** The intro, completed along its curated path: the source of a strong player's carry-over. */
+export function introCarrySource(def: CampaignDefinition, scenarios: EngineScenario[], packId: string): CarrySource {
+  return { def, state: curatedPathState(def, scenarios, def.battles.length), packId };
 }
 
 /** For reports: each fielded company's Resolve (and renown) in a roster. */
