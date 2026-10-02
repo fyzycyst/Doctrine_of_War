@@ -86,7 +86,7 @@ function useCalled(): Called | null {
       battle,
       scenario,
       slots,
-      names: postNames(battle, scenario, slots),
+      names: postNames(slots),
       entries: api.rollFor(def, state),
       threat: api.battleThreat(def, state, scenario),
       recommended: api.recommendedForce(def, state, scenario),

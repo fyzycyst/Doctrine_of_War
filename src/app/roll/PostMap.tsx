@@ -4,7 +4,6 @@
 import { boardPixelBounds, hexPolygonPoints, hexToPixel, sameHex, type TerrainType } from "../../game/board";
 import type { RollSlot } from "../../game/campaign";
 import type { EngineScenario } from "../../game/engine";
-import { postHex } from "./posts";
 
 const SIZE = 10;
 const GROUND: Record<TerrainType, string> = {
@@ -38,9 +37,7 @@ export function PostMap({ scenario, slots, names, active }: { scenario: EngineSc
           return <polygon key={`${hex.coord.q},${hex.coord.r}`} points={points} fill={GROUND[hex.terrain]} className={`${objective ? "objective" : ""} ${exit ? "exit" : ""}`} />;
         })}
         {slots.map((slot, index) => {
-          const hex = postHex(scenario, slot.slotId);
-          if (!hex) return null;
-          const { x, y } = hexToPixel(hex, SIZE);
+          const { x, y } = hexToPixel(slot.hex, SIZE);
           const on = active === slot.slotId;
           return (
             <g key={slot.slotId} className={`post-marker ${on ? "on" : ""}`} data-post={slot.slotId}>
