@@ -194,6 +194,7 @@ export const readCampaign: Reader<CampaignDefinition> = object({
   id: req(id),
   title: req(text(80)),
   mode: opt(oneOf("fixed", "roll")),
+  maxCarriedFielded: opt(int(0, 5)),
   companies: req(
     list(
       object({

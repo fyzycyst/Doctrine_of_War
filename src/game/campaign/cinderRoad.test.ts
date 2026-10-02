@@ -12,6 +12,7 @@ import {
   assembleBattle,
   battleThreat,
   CARRY_OVER_MAX,
+  carriedFielded,
   lintRollCampaign,
   MAX_FLEX_SLOTS,
   PROFILE_BANDS,
@@ -118,7 +119,10 @@ describe("Cinder Road with carried intro veterans (Q3)", () => {
     expect(threat.strength).toBe(HOST_STRENGTH_CAP);
     expect(threat.resolve).toBe(HOST_RESOLVE_CAP);
     for (const score of [greedyScore, weakestScore]) {
-      const assembled = assembleBattle(cinderRoad, state, cinderRoad1, pickForce(cinderRoad, state, cinderRoad1, score)!);
+      const force = pickForce(cinderRoad, state, cinderRoad1, score)!;
+      // The harness fields at most two veterans too.
+      expect(carriedFielded(cinderRoad, state, force).fielded).toBeLessThanOrEqual(2);
+      const assembled = assembleBattle(cinderRoad, state, cinderRoad1, force);
       const host = assembled.squads.find((squad) => squad.id === "sootbank_spears")!;
       expect(host.strength).toBe(64 + HOST_STRENGTH_CAP);
     }

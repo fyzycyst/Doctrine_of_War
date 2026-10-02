@@ -46,6 +46,10 @@ describe("parsePackManifest (untrusted data)", () => {
     realm.campaigns[0].companies[0].realm = "glassweald";
     expect(reason(realm)).toMatch(/companies\[0\]\.realm must be one of greyford_march, fenwardens, dawnwatch_holds/);
 
+    const cap = JSON.parse(JSON.stringify(clone()));
+    cap.campaigns[0].maxCarriedFielded = 9;
+    expect(reason(cap)).toMatch(/maxCarriedFielded must be an integer in 0\.\.5/);
+
     const badId = clone();
     badId.campaigns[0].companies[0].id = "Greyford Shields";
     expect(reason(badId)).toMatch(/companies\[0\]\.id must be a lowercase id/);

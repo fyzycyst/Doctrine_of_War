@@ -94,6 +94,12 @@ export interface CampaignDefinition {
    * role-typed slots; companies own their profiles; Worn, reserves and carry-over apply.
    */
   mode?: "fixed" | "roll";
+  /**
+   * Roll campaigns: at most this many carried veterans take the field in one battle
+   * (0..CARRY_OVER_MAX; default DEFAULT_MAX_CARRIED_FIELDED, 2). Up to CARRY_OVER_MAX
+   * may still be carried in; the rest wait in reserve.
+   */
+  maxCarriedFielded?: number;
   companies: CompanyDefinition[];
   battles: CampaignBattle[];
 }

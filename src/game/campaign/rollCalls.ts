@@ -18,7 +18,7 @@
 import { playBattle, type BalanceRow, type GuardrailPolicy } from "../engine/balance";
 import type { EngineScenario, Orders, SquadRole } from "../engine/types";
 import { REFORMED_RESOLVE, fameOf, recordBattle, startCampaign } from "./campaign";
-import { assembleBattle, battleThreat, CARRY_OVER_MAX, carryOverCandidates, recommendedForce, rollRoster, rollSlots, validateAssignment, type RollSlot } from "./roll";
+import { assembleBattle, battleThreat, CARRY_OVER_MAX, carriedFieldedLimit, carryOverCandidates, recommendedForce, rollRoster, rollSlots, validateAssignment, type RollSlot } from "./roll";
 import { LEVY_ID, type Assignment, type CampaignCompany, type CampaignDefinition, type CampaignState, type CarriedCompany } from "./types";
 
 export type RollCallKind = "recommended" | "curated" | "rough" | "greedy" | "weakest" | "role" | "carried-recommended" | "carried-greedy";
@@ -94,7 +94,8 @@ export function strongCarryOver(source: { def: CampaignDefinition; state: Campai
 /**
  * A legal force picked by `score` (higher first; ties by Roll order): single-role posts
  * first, then flex posts (each restricted to `roles[slotId]` when given), story locks
- * honoured, a levy only where no company can hold the post. Null when `roles` forces a
+ * honoured, at most carriedFieldedLimit() carried veterans fielded, a levy only where no
+ * company can hold the post. Null when `roles` forces a
  * levy onto a flex post another company could hold (an illegal pattern).
  */
 export function pickForce(
@@ -116,14 +117,18 @@ export function pickForce(
   }
   const fits = (company: CampaignCompany, slot: RollSlot) =>
     (roles[slot.slotId] ? company.role === roles[slot.slotId] : slot.roles.includes(company.role)) && company.condition !== "reforming";
+  // Carried veterans: at most the campaign's limit take the field (any locked ones count).
+  const limit = carriedFieldedLimit(def);
+  let veterans = Object.values(assignment).filter((companyId) => roster.find((company) => company.id === companyId)?.carriedFrom).length;
   for (const slot of [...slots.filter((item) => !item.flex), ...slots.filter((item) => item.flex)]) {
     if (assignment[slot.slotId]) continue;
     const best = roster
       .map((company, index) => ({ company, index }))
-      .filter(({ company }) => !used.has(company.id) && fits(company, slot))
+      .filter(({ company }) => !used.has(company.id) && fits(company, slot) && !(company.carriedFrom && veterans >= limit))
       .sort((a, b) => score(b.company) - score(a.company) || a.index - b.index)[0];
     assignment[slot.slotId] = best ? best.company.id : LEVY_ID;
     if (best) used.add(best.company.id);
+    if (best?.company.carriedFrom) veterans += 1;
   }
   const ordered = Object.fromEntries(slots.map((slot) => [slot.slotId, assignment[slot.slotId]]));
   return Object.keys(validateAssignment(def, state, scenario, ordered)).length === 0 ? ordered : null;
@@ -225,8 +230,9 @@ export function rollCalls(
     if (assignment) calls.push(call("role", name, "floor", def, curated, scenario, assignment));
   }
   if (carryFrom && index === 0) {
-    // Floors: a fully veteran carry-over outruns the Host's capped threat, so doctrine
-    // dominance is policed on the authored army (recommended, curated), as for rough.
+    // Floors. Even with at most carriedFieldedLimit() veterans fielded, two carried veterans
+    // at +2 lift "all Bring the Water" to about 78% advance (500 seeds), past the 60% mono
+    // cap, so doctrine dominance is still policed on the authored army (recommended, curated).
     const carried = curatedRollState(def, scenarios, 0, strongCarryOver(carryFrom));
     calls.push(call("carried-recommended", "carried: recommended", "floor", def, carried, scenario, recommendedForce(def, carried, scenario)));
     const greedyCarried = pickForce(def, carried, scenario, greedyScore);
