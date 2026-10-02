@@ -1,6 +1,6 @@
 // parsePackManifest: a pack read as untrusted data (P1). Structure only; references
 // and cross-pack uniqueness are lintPacks()'s job.
-import type { CampaignDefinition } from "../campaign/types";
+import { REALM_IDS, type CampaignDefinition } from "../campaign/types";
 import type { Action, Condition, DefeatCondition, Doctrine, EnemySelector, EngineScenario, TargetSelector, WinCondition } from "../engine/types";
 import { bool, fail, id, int, list, num, object, oneOf, opt, prose, record, req, text, union, type Reader, type Shape } from "./schema";
 import type { PackManifest } from "./types";
@@ -201,6 +201,7 @@ export const readCampaign: Reader<CampaignDefinition> = object({
         name: req(text(60)),
         role: req(role),
         startingResolve: opt(int(-3, 3)),
+        realm: opt(oneOf(...REALM_IDS)),
         profile: opt(profile),
         joins: opt(id),
       }),

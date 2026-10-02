@@ -6,21 +6,23 @@ export const ashAndBanner: CampaignDefinition = {
   title: "Ash & Banner",
   // Profiles (each company's Hold for Dawn numbers) are unused by this fixed campaign;
   // they are what a company takes with it when it marches on into a Roll campaign.
+  // Home realms per the setting bible (lore v2); Mercy Standard, Kestrel Lancers and
+  // Lamplight Sisters are not in its table and are placed by temperament and arrival.
   companies: [
     // The tutorial's companies keep the Resolve the tutorial was balanced around.
-    { id: "greyford_shields", name: "Greyford Shields", role: "frontline", startingResolve: 2, profile: { strength: 86, cohesion: 76 } },
-    { id: "dawnwatch_archers", name: "Dawnwatch Archers", role: "skirmish", startingResolve: 1, profile: { strength: 66, cohesion: 70 } },
-    { id: "mercy_standard", name: "Mercy Standard", role: "support", startingResolve: 0, profile: { strength: 54, cohesion: 80 } },
-    { id: "stoneford_riders", name: "Stoneford Riders", role: "cavalry", startingResolve: -1, profile: { strength: 70, cohesion: 66 } },
+    { id: "greyford_shields", name: "Greyford Shields", role: "frontline", realm: "greyford_march", startingResolve: 2, profile: { strength: 86, cohesion: 76 } },
+    { id: "dawnwatch_archers", name: "Dawnwatch Archers", role: "skirmish", realm: "dawnwatch_holds", startingResolve: 1, profile: { strength: 66, cohesion: 70 } },
+    { id: "mercy_standard", name: "Mercy Standard", role: "support", realm: "fenwardens", startingResolve: 0, profile: { strength: 54, cohesion: 80 } },
+    { id: "stoneford_riders", name: "Stoneford Riders", role: "cavalry", realm: "greyford_march", startingResolve: -1, profile: { strength: 70, cohesion: 66 } },
     // Companies that join at Ember Ford arrive fresh (Resolve 0).
-    { id: "kestrel_lancers", name: "Kestrel Lancers", role: "cavalry", profile: { strength: 72, cohesion: 66 } },
-    { id: "mill_lane_guard", name: "Mill Lane Guard", role: "frontline", profile: { strength: 78, cohesion: 70 } },
-    { id: "reedmarsh_levy", name: "Reedmarsh Levy", role: "frontline", profile: { strength: 72, cohesion: 66 } },
+    { id: "kestrel_lancers", name: "Kestrel Lancers", role: "cavalry", realm: "greyford_march", profile: { strength: 72, cohesion: 66 } },
+    { id: "mill_lane_guard", name: "Mill Lane Guard", role: "frontline", realm: "greyford_march", profile: { strength: 78, cohesion: 70 } },
+    { id: "reedmarsh_levy", name: "Reedmarsh Levy", role: "frontline", realm: "fenwardens", profile: { strength: 72, cohesion: 66 } },
     // Companies raised in the hill fort for the last stand join fresh.
-    { id: "gatewarden_spears", name: "Gatewarden Spears", role: "frontline", profile: { strength: 82, cohesion: 74 } },
-    { id: "hillfort_slingers", name: "Hillfort Slingers", role: "skirmish", profile: { strength: 62, cohesion: 66 } },
-    { id: "lamplight_sisters", name: "Lamplight Sisters", role: "support", profile: { strength: 50, cohesion: 82 } },
-    { id: "dawnrider_lances", name: "Dawnrider Lances", role: "cavalry", profile: { strength: 70, cohesion: 68 } },
+    { id: "gatewarden_spears", name: "Gatewarden Spears", role: "frontline", realm: "dawnwatch_holds", profile: { strength: 82, cohesion: 74 } },
+    { id: "hillfort_slingers", name: "Hillfort Slingers", role: "skirmish", realm: "dawnwatch_holds", profile: { strength: 62, cohesion: 66 } },
+    { id: "lamplight_sisters", name: "Lamplight Sisters", role: "support", realm: "dawnwatch_holds", profile: { strength: 50, cohesion: 82 } },
+    { id: "dawnrider_lances", name: "Dawnrider Lances", role: "cavalry", realm: "dawnwatch_holds", profile: { strength: 70, cohesion: 68 } },
   ],
   battles: [
     {

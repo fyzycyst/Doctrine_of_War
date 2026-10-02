@@ -43,6 +43,7 @@ import {
   type CompanyCondition,
   type CompanyProfile,
   type CompanyResult,
+  type RealmId,
 } from "./types";
 
 /** At most this many role-variable slots per battle. */
@@ -142,7 +143,10 @@ function battleIndexOf(def: CampaignDefinition, battleId: string | undefined): n
   return index < 0 ? Number.POSITIVE_INFINITY : index;
 }
 
-function freshCompany(company: { id: string; name: string; role: SquadRole; resolve: number; renown: { title: string } | null; profile: CompanyProfile }, carriedFrom?: CarriedCompany["from"]): CampaignCompany {
+function freshCompany(
+  company: { id: string; name: string; role: SquadRole; realm?: RealmId; resolve: number; renown: { title: string } | null; profile: CompanyProfile },
+  carriedFrom?: CarriedCompany["from"],
+): CampaignCompany {
   return {
     id: company.id,
     name: company.name,
@@ -155,6 +159,7 @@ function freshCompany(company: { id: string; name: string; role: SquadRole; reso
     condition: "fresh",
     profile: { ...company.profile },
     ...(carriedFrom ? { carriedFrom: { ...carriedFrom } } : {}),
+    ...(company.realm ? { realm: company.realm } : {}),
   };
 }
 
@@ -301,7 +306,8 @@ function problemsFor(battle: CampaignBattle, scenario: EngineScenario, roster: C
   const problems: AssignmentProblems = {};
   const slots = slotsOf(battle, scenario);
   const extra = Object.keys(assignment).filter((slotId) => !slots.some((slot) => slot.slotId === slotId));
-  if (extra.length > 0) problems.assignment = `No such post: ${extra.join(", ")}.`;
+  // Problem texts name posts only by their position label, never by slot (squad) id or squad name.
+  if (extra.length > 0) problems.assignment = `${extra.length === 1 ? "One post is" : `${extra.length} posts are`} not part of this battle.`;
   const seen = new Map<string, string>();
   for (const slot of slots) {
     const companyId = assignment[slot.slotId];
@@ -323,7 +329,7 @@ function problemsFor(battle: CampaignBattle, scenario: EngineScenario, roster: C
     }
     const first = seen.get(companyId);
     if (first) {
-      refuse(`${company.name} already holds another post.`);
+      refuse(`${company.name} already holds ${slots.find((other) => other.slotId === first)?.label ?? "another post"}.`);
       continue;
     }
     seen.set(companyId, slot.slotId);
@@ -550,6 +556,11 @@ export function recordRollBattle(
  * roster that has a profile (its own, or its definition's), snapshotted with Resolve
  * clamped to CARRY_RESOLVE and renown kept. Empty when `state` is not complete.
  */
+/** A roster company's realm: its own, or its definition's (fixed campaigns keep realms in the definition). */
+function realmOf(company: CampaignCompany, def: CampaignDefinition): RealmId | undefined {
+  return company.realm ?? def.companies.find((item) => item.id === company.id)?.realm;
+}
+
 export function carryOverCandidates(def: CampaignDefinition, state: CampaignState, packId: string): CarriedCompany[] {
   if (state.status !== "complete" || state.campaignId !== def.id) return [];
   return state.companies.flatMap((company) => {
@@ -560,6 +571,7 @@ export function carryOverCandidates(def: CampaignDefinition, state: CampaignStat
         id: company.id,
         name: company.name,
         role: company.role,
+        ...(realmOf(company, def) ? { realm: realmOf(company, def) } : {}),
         profile: { ...profile },
         resolve: Math.max(CARRY_RESOLVE.min, Math.min(CARRY_RESOLVE.max, company.resolve)),
         renown: company.renown ? { title: company.renown.title } : null,

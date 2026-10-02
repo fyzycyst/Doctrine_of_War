@@ -132,6 +132,8 @@ describe("v2 runs", () => {
     expect(tamper((draft) => draft.carried!.push(phantom))).toMatch(/names a campaign this build does not have/);
     expect(tamper((draft) => draft.carried!.push({ ...phantom, from: { packId: "first_call", campaignId: "ash_and_banner" } }))).toMatch(/phantom is not a company of ash_and_banner/);
     expect(tamper((draft) => (draft.carried![0].name = "Dawnwatch Heroes"))).toMatch(/must be Dawnwatch Archers \(skirmish\)/);
+    expect(tamper((draft) => (draft.carried![0].realm = "fenwardens"))).toMatch(/carried\[0\]\.realm must be dawnwatch_holds/);
+    expect(tamper((draft) => ((draft.carried![0] as { realm?: string }).realm = "glassweald"))).toMatch(/realm must be one of/);
     expect(tamper((draft) => (draft.carried![0].profile = { strength: 72, cohesion: 74 }))).toMatch(/must be dawnwatch_archers's profile/);
     expect(tamper((draft) => (draft.carried![0].renown = { title: "The Pyre-Breaker" }))).toMatch(/is not a title dawnwatch_archers can earn/);
     expect(tamper((draft) => (draft.carried![0].from = { packId: "other_pack", campaignId: "ash_and_banner" }))).toMatch(/names a campaign this build does not have/);

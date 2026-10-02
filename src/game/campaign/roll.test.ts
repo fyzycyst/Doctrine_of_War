@@ -73,6 +73,11 @@ const scenarios = [firstBreach, emberFord];
 const slotSquadHexes = (scenario: typeof firstBreach) =>
   scenario.squads.filter((squad) => squad.faction === scenario.playerFaction && !squad.noncombatant).map((squad) => squad.hex);
 
+/** Fights the first battle to a victory with the given endings. */
+function fightRoll2(state: CampaignState, endings: Parameters<typeof ended>[2]) {
+  return fight(state, "victory", endings);
+}
+
 /** A finished engine state from `scenario` with each slot ending as given. */
 function ended(scenario: ReturnType<typeof assembleBattle>, status: EngineState["status"], endings: Record<string, { status?: "active" | "routed" | "destroyed" | "escaped"; strength?: number }> = {}): EngineState {
   const state = createInitialState(scenario, { seed: 1, fortune: "off" });
@@ -136,14 +141,37 @@ describe("the Roll", () => {
     expect(validateAssignment(march, state, firstBreach, recommended)).toEqual({});
     const bad = (patch: Record<string, string>) => validateAssignment(march, state, firstBreach, { ...recommended, ...patch });
     expect(bad({ greyford_shields: "t_riders" })).toMatchObject({ greyford_shields: "Test Riders (cavalry) cannot hold a frontline post." });
-    expect(bad({ dawnwatch_archers: recommended.greyford_shields })).toMatchObject({ dawnwatch_archers: expect.stringMatching(/already holds another post/) });
+    expect(bad({ dawnwatch_archers: recommended.greyford_shields })).toMatchObject({ dawnwatch_archers: "Test Shields already holds Siege Approach." });
     expect(bad({ mercy_standard: "t_pikes" })).toMatchObject({ mercy_standard: "That company is not on the Roll." });
     expect(bad({ mercy_standard: LEVY_ID })).toMatchObject({ mercy_standard: expect.stringMatching(/a levy is only raised when no company can/) });
-    expect(bad({ nowhere: "t_spears" })).toMatchObject({ assignment: "No such post: nowhere." });
+    expect(bad({ nowhere: "t_spears" })).toMatchObject({ assignment: "One post is not part of this battle." });
     const { stoneford_riders: _gone, ...missing } = recommended;
     expect(validateAssignment(march, state, firstBreach, missing)).toMatchObject({ stoneford_riders: "Road · horse has no company." });
     // The flex slot takes a frontline company.
     expect(bad({ stoneford_riders: "t_spears" })).toEqual({});
+  });
+
+  it("names posts in every problem only by their position label, never by squad id or squad name", () => {
+    let state = startCampaign(march);
+    state = fightRoll2(state, { mercy_standard: { status: "destroyed" } });
+    const slots = rollSlots(march, state, emberFord);
+    const squadWords = emberFord.squads.flatMap((squad) => [squad.id, squad.name]);
+    const attempts: Assignment[] = [
+      {},
+      { ...recommendedForce(march, state, emberFord), tollbridge_pikes: "t_riders" },
+      { ...recommendedForce(march, state, emberFord), ashfen_bowmen: recommendedForce(march, state, emberFord).tollbridge_pikes },
+      { ...recommendedForce(march, state, emberFord), mill_lane_guard: "t_banner" },
+      { ...recommendedForce(march, state, emberFord), lanternbearers: "t_spears" },
+      { ...recommendedForce(march, state, emberFord), kestrel_lancers: LEVY_ID },
+      { ...recommendedForce(march, state, emberFord), reedmarsh_levy: "ghost", stray_post: "t_spears" },
+    ];
+    const texts = attempts.flatMap((attempt) => Object.values(validateAssignment(march, state, emberFord, attempt)));
+    expect(texts.length).toBeGreaterThan(8);
+    for (const text of texts) {
+      for (const word of squadWords) expect(text, text).not.toContain(word);
+    }
+    // ...and they do name the posts.
+    expect(texts.some((text) => slots.some((slot) => text.includes(slot.label)))).toBe(true);
   });
 
   it("assembles the battle: order kept, each company's identity, Worn penalty and the flex doctrine; pure", () => {
@@ -296,6 +324,7 @@ describe("carry-over", () => {
       id: "greyford_shields",
       name: "Greyford Shields",
       role: "frontline",
+      realm: "greyford_march",
       profile: { strength: 86, cohesion: 76 },
       resolve: 2,
       renown: { title: "The Steadfast" },
@@ -303,6 +332,14 @@ describe("carry-over", () => {
     });
     expect(candidates[1].resolve).toBe(-1);
     expect(carryOverCandidates(ashAndBanner, { ...finished, status: "inProgress" }, "first_call")).toEqual([]);
+  });
+
+  it("carries each company's home realm, from the definition, into the new Roll", () => {
+    const carried = snapshotCarryOver(source, march, ["greyford_shields", "mercy_standard"]);
+    expect(carried.map((item) => item.realm)).toEqual(["greyford_march", "fenwardens"]);
+    const roll = rollFor(march, startCampaign(march, { carryOver: carried }));
+    expect(roll[0].company.realm).toBe("greyford_march");
+    expect(ashAndBanner.companies.every((company) => company.realm !== undefined)).toBe(true);
   });
 
   it("validates the pick and snapshots it into the new run's Roll", () => {

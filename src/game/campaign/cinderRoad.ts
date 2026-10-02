@@ -13,17 +13,17 @@ export const cinderRoad: CampaignDefinition = {
   mode: "roll",
   companies: [
     // The Greyford March.
-    { id: "coldwater_shields", name: "Coldwater Shields", role: "frontline", startingResolve: 1, profile: { strength: 84, cohesion: 74 } },
-    { id: "ferrymoot_pikes", name: "Ferrymoot Pikes", role: "frontline", profile: { strength: 80, cohesion: 70 } },
-    { id: "thornwick_spears", name: "Thornwick Spears", role: "frontline", profile: { strength: 76, cohesion: 68 } },
+    { id: "coldwater_shields", name: "Coldwater Shields", role: "frontline", realm: "greyford_march", startingResolve: 1, profile: { strength: 84, cohesion: 74 } },
+    { id: "ferrymoot_pikes", name: "Ferrymoot Pikes", role: "frontline", realm: "greyford_march", profile: { strength: 80, cohesion: 70 } },
+    { id: "thornwick_spears", name: "Thornwick Spears", role: "frontline", realm: "greyford_march", profile: { strength: 76, cohesion: 68 } },
     // The Fenwardens.
-    { id: "sedgewick_levy", name: "Sedgewick Levy", role: "frontline", profile: { strength: 72, cohesion: 64 } },
-    { id: "wickmere_standard", name: "Wickmere Standard", role: "support", profile: { strength: 52, cohesion: 82 } },
-    { id: "heronwick_bows", name: "Heronwick Bows", role: "skirmish", profile: { strength: 64, cohesion: 70 } },
+    { id: "sedgewick_levy", name: "Sedgewick Levy", role: "frontline", realm: "fenwardens", profile: { strength: 72, cohesion: 64 } },
+    { id: "wickmere_standard", name: "Wickmere Standard", role: "support", realm: "fenwardens", profile: { strength: 52, cohesion: 82 } },
+    { id: "heronwick_bows", name: "Heronwick Bows", role: "skirmish", realm: "fenwardens", profile: { strength: 64, cohesion: 70 } },
     // The Dawnwatch Holds.
-    { id: "sunward_lances", name: "Sunward Lances", role: "cavalry", profile: { strength: 72, cohesion: 66 } },
-    { id: "brightcrag_riders", name: "Brightcrag Riders", role: "cavalry", profile: { strength: 68, cohesion: 64 } },
-    { id: "morningwall_slingers", name: "Morningwall Slingers", role: "skirmish", profile: { strength: 62, cohesion: 68 } },
+    { id: "sunward_lances", name: "Sunward Lances", role: "cavalry", realm: "dawnwatch_holds", profile: { strength: 72, cohesion: 66 } },
+    { id: "brightcrag_riders", name: "Brightcrag Riders", role: "cavalry", realm: "dawnwatch_holds", profile: { strength: 68, cohesion: 64 } },
+    { id: "morningwall_slingers", name: "Morningwall Slingers", role: "skirmish", realm: "dawnwatch_holds", profile: { strength: 62, cohesion: 68 } },
   ],
   battles: [
     {

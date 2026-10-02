@@ -78,6 +78,10 @@ intro stays `"fixed"` and is untouched.
   names, never a company's). `RollSlot.label` is that name, else the hex's board label,
   else "<Terrain> · <role>" ("Ridge · skirmishers"), never the scenario squad's name;
   `RollSlot.hex` says where the post stands.
+- **Realms.** A company may name its home realm (`realm`: `greyford_march`,
+  `fenwardens`, `dawnwatch_holds`; `REALM_IDS` grows with later packs). It is frozen on
+  release like the name, travels in carried snapshots, and is checked against the origin
+  campaign's definition on load.
 - **Companies own their profile** (`strength`, `cohesion`), linted against a per-role
   band (`PROFILE_BANDS`), and **arrive** at an authored battle (`joins`).
 - **Assignment** (`slot id -> company id`) is checked by `validateAssignment` (plain
