@@ -31,6 +31,11 @@ import { memoryStorage } from "./memoryStorage";
  * for real with the recommended force, on the first seed that leaves a company Worn.
  */
 export function wornRun(): CampaignState {
+  return wornBattle().after;
+}
+
+/** The same, with the state battle 1 was fought from (for the outcome's before/after). */
+export function wornBattle(): { before: CampaignState; after: CampaignState } {
   const start = startCampaign(cinderRoadPreview, {
     carryOver: [
       {
@@ -52,9 +57,9 @@ export function wornRun(): CampaignState {
     if (final.status === "defeat") continue;
     const after = recordBattle(cinderRoadPreview, start, final, { assignment });
     fallback ??= after;
-    if (after.companies.some((company) => company.condition === "worn" || company.condition === "reforming")) return after;
+    if (after.companies.some((company) => company.condition === "worn" || company.condition === "reforming")) return { before: start, after };
   }
-  return fallback ?? start;
+  return { before: start, after: fallback ?? start };
 }
 
 export function bootMockRoll(mode: string) {

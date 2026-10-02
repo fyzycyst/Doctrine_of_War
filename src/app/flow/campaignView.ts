@@ -9,7 +9,7 @@ import {
   type CampaignState,
 } from "../../game/campaign";
 import type { EngineScenario } from "../../game/engine";
-import { packs } from "../roll/api";
+import { packs, roll } from "../roll/api";
 import { lightingFor } from "../../render/fromEngine";
 import type { CampaignIslandStatus, CampaignMapBattle } from "../../render/showcase/CampaignMap";
 import type { PlaceholderKind } from "../../render/showcase/placeholderBoards";
@@ -66,6 +66,8 @@ export function mapBattles(def: CampaignDefinition, state: CampaignState): Campa
  * the companies the next battle will muster, so a new campaign is never empty.
  */
 export function ledger(def: CampaignDefinition, state: CampaignState): { companies: CampaignCompany[]; mustering: boolean } {
+  // A Roll campaign's ledger is the whole Roll (arrivals and carried companies), with conditions.
+  if (def.mode === "roll") return { companies: roll().rollFor(def, state).map((entry) => entry.company), mustering: false };
   const battle = currentBattle(def, state);
   if (!battle || battle.placeholder) {
     return { companies: state.companies, mustering: false };

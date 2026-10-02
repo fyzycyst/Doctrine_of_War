@@ -19,8 +19,9 @@ import { useFlow } from "../flow/flowStore";
 import { memoryStore } from "../flow/testKit";
 import { useGame } from "../game/gameStore";
 import { Root } from "../Root";
+import { Outcome } from "../ui/Outcome";
 import { engineRuns, installRollApi, runs } from "./api";
-import { wornRun } from "./devBoot";
+import { wornBattle, wornRun } from "./devBoot";
 import { cinderRoadPreview, previewPacks, PREVIEW_CAMPAIGN_ID } from "./fixtures";
 import { memoryStorage } from "./memoryStorage";
 
@@ -63,6 +64,9 @@ afterEach(() => {
   restore = () => {};
 });
 
+/** A run set aside is kept under some aside key (unique per set-aside), never deleted. */
+const keptAside = (payload: string) => Object.entries(storage.data).some(([key, value]) => key.startsWith(`${KEY}:aside`) && value === payload);
+
 const card = async (title: RegExp) => (await screen.findByRole("heading", { level: 3, name: title })).closest("li")!;
 
 describe("choose a campaign", () => {
@@ -99,7 +103,7 @@ describe("choose a campaign", () => {
     expect(storage.getItem(KEY)).toBe(stale);
     await user.click(within(cinder).getByRole("button", { name: /Restore from backup/ }));
     await waitFor(() => expect(useFlow.getState().screen).toBe("campaign"));
-    expect(storage.getItem(`${KEY}:aside`)).toBe(stale); // set aside, never deleted
+    expect(keptAside(stale)).toBe(true); // set aside, never deleted
     expect((await runs().load(PREVIEW_CAMPAIGN_ID)).kind).toBe("ok");
   });
 
@@ -116,7 +120,7 @@ describe("choose a campaign", () => {
     await user.click(within(cinder).getByRole("button", { name: /Set aside and start again/ }));
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Set aside and start again" }));
     await waitFor(() => expect(useFlow.getState().screen).toBe("campaign"));
-    expect(storage.getItem(`${KEY}:aside`)).toBe("{ not a save");
+    expect(keptAside("{ not a save")).toBe(true);
   });
 });
 
@@ -237,5 +241,34 @@ describe("Call the Banners", () => {
     expect(read.state.history).toHaveLength(1);
     expect(read.state.history[0].assignment?.greyford_shields).toBe("cr_ashgate_shields");
     expect(Object.values(read.state.history[0].assignment!)).not.toContain(LEVY_ID);
+  });
+});
+
+describe("after a Roll battle", () => {
+  it("the ledger shows the whole Roll with each company's condition", async () => {
+    const user = userEvent.setup();
+    launch({ run: serializeCampaignSave(registry, wornRun()) });
+    await user.click(await screen.findByRole("button", { name: /^Continue: Cinder Road/ }));
+    await waitFor(() => expect(useFlow.getState().screen).toBe("campaign"));
+    const ledger = screen.getByRole("complementary", { name: "Army ledger" });
+    expect(within(ledger).getByText("Greyford Shields")).toBeInTheDocument(); // carried, on the Roll
+    expect(within(ledger).getByText("Covenant Standard").closest("li")).toHaveTextContent("Reforming · sits out");
+    expect(within(ledger).getAllByText(/Worn −15\/−10/).length).toBeGreaterThan(0);
+  });
+
+  it("the outcome names each company's new condition, and any company rested back to fresh", () => {
+    const { before, after } = wornBattle();
+    launch();
+    cleanup();
+    const record = after.history[0];
+    act(() => {
+      useFlow.setState({ definition: cinderRoadPreview, campaign: after, lastRecord: record });
+      useGame.setState({ campaign: { def: cinderRoadPreview, state: before, assignment: record.assignment }, stage: "outcome" });
+    });
+    render(<Outcome />);
+    const list = screen.getByRole("list", { name: "Resolve after the battle" });
+    for (const company of after.companies.filter((item) => item.condition !== "fresh" && record.companies.some((result) => result.companyId === item.id))) {
+      expect(within(list).getByText(company.name).closest("li")).toHaveTextContent(company.condition === "worn" ? /Worn/ : /Reforming/);
+    }
   });
 });
