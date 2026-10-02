@@ -51,6 +51,12 @@ export interface BattleCall {
    * fielded even when Reforming (it then fights with the Worn penalty).
    */
   locked?: Record<string, string>;
+  /**
+   * Authored position names for the selection screen: slot id -> a short plain name of
+   * where the post stands ("The Ford Road", "Watcher's Rise"). Never a company's name.
+   * Slots without one get a derived name (see RollSlot.label).
+   */
+  labels?: Record<string, string>;
 }
 
 export interface CampaignBattle {

@@ -103,6 +103,20 @@ describe("prototype-safe ids and maps (review)", () => {
   });
 });
 
+describe("authored post labels", () => {
+  it("are read as short plain names under real ids", () => {
+    const pack = JSON.parse(JSON.stringify(clone()));
+    pack.campaigns[0].battles[0].call = { labels: { greyford_shields: "The Gate Road" } };
+    expect(parsePackManifest(pack).campaigns[0].battles[0].call?.labels).toEqual({ greyford_shields: "The Gate Road" });
+    pack.campaigns[0].battles[0].call = { labels: { greyford_shields: "<script>" } };
+    expect(reason(pack)).toMatch(/labels\.greyford_shields must be a plain name/);
+    pack.campaigns[0].battles[0].call = { labels: { greyford_shields: "x".repeat(41) } };
+    expect(reason(pack)).toMatch(/must be a string of 1\.\.40 characters/);
+    pack.campaigns[0].battles[0].call = { labels: JSON.parse('{"__proto__": "Gate"}') };
+    expect(reason(pack)).toMatch(/may not be "__proto__"/);
+  });
+});
+
 describe("lintPacks (cross-pack ids and references)", () => {
   it("passes the shipped packs", () => {
     expect(lintPacks(shippedPacks, doctrineLibrary)).toEqual([]);

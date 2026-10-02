@@ -73,6 +73,10 @@ intro stays `"fixed"` and is untouched.
   order = squad order, never changed by selection). `battle.slots` is the authored
   default. `battle.call.flex` allows at most 2 role-variable slots, each with the squad's
   own role first and a doctrine per role; `battle.call.locked` story-locks a company.
+  `battle.call.labels` names posts by where they stand ("The Ford Road"; short plain
+  names, never a company's). `RollSlot.label` is that name, else the hex's board label,
+  else "<Terrain> · <role>" ("Ridge · skirmishers"), never the scenario squad's name;
+  `RollSlot.hex` says where the post stands.
 - **Companies own their profile** (`strength`, `cohesion`), linted against a per-role
   band (`PROFILE_BANDS`), and **arrive** at an authored battle (`joins`).
 - **Assignment** (`slot id -> company id`) is checked by `validateAssignment` (plain
