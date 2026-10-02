@@ -40,6 +40,19 @@ function defendedObjectives(ctx: RuleContext, squad: ActiveSquad, objectiveId?: 
   );
 }
 
+/**
+ * The first standing objective on `side` (as the objective selector picks it). Objectives
+ * are public: both sides know where they stand and how battered they are.
+ */
+function standingObjective(ctx: RuleContext, squad: ActiveSquad, side: "own" | "enemy", objectiveId?: string) {
+  return ctx.state.objectives.find(
+    (item) =>
+      item.integrity > 0 &&
+      (item.defender === squad.faction) === (side === "own") &&
+      (objectiveId === undefined || item.id === objectiveId),
+  );
+}
+
 // Conditions and selectors read only the perceived world (see perception.ts):
 // under fog, the player's squads react only to what their side can see.
 export function evaluateCondition(
@@ -94,6 +107,16 @@ export function evaluateCondition(
       return defendedObjectives(ctx, squad, condition.objectiveId).some((objective) =>
         enemies.some((enemy) => hexDistance(enemy.hex, objective.hex) <= OBJECTIVE_THREAT_RANGE),
       );
+    case "aheadOfLine": {
+      // Fog-independent by construction: the objective's hex and own allies only.
+      const objective = standingObjective(ctx, squad, "enemy", condition.objectiveId);
+      const line = allies.filter((ally) => !ally.noncombatant && ally.doctrineId === squad.doctrineId);
+      if (!objective || line.length === 0) {
+        return false;
+      }
+      const nextInLine = Math.min(...line.map((ally) => hexDistance(ally.hex, objective.hex)));
+      return nextInLine - hexDistance(squad.hex, objective.hex) >= condition.by;
+    }
   }
 }
 
@@ -141,12 +164,7 @@ export function resolveTarget(
       chosen = byDistance(fighting(world), squad.hex)[0];
       break;
     case "objective": {
-      const objective = ctx.state.objectives.find(
-        (item) =>
-          item.integrity > 0 &&
-          (item.defender === squad.faction) === (selector.side === "own") &&
-          (selector.objectiveId === undefined || item.id === selector.objectiveId),
-      );
+      const objective = standingObjective(ctx, squad, selector.side, selector.objectiveId);
       return objective ? { kind: "objective", objective } : null;
     }
     case "exitEdge": {

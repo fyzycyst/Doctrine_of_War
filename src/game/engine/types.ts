@@ -66,7 +66,15 @@ export type Condition =
   /** This squad's side has a line of retreat on this field (exit hexes it may leave by). */
   | { kind: "retreatOpen" }
   /** An allied noncombatant (a column to escort) is within `minRange` (default 1)..`range` hexes. */
-  | { kind: "wardNear"; range: number; minRange?: number };
+  | { kind: "wardNear"; range: number; minRange?: number }
+  /**
+   * Keep step (an offensive covenant): this squad is out in front alone, at least `by`
+   * hexes nearer the enemy objective (`objectiveId`, else the first standing one it
+   * assaults) than every other company under the same doctrine. Reads only public or
+   * own-side data: the objective's hex and the squad's own allies; never an enemy.
+   * False when there is no such objective or no such company.
+   */
+  | { kind: "aheadOfLine"; by: number; objectiveId?: string };
 
 /** Targets an offensive action (attack, counterCharge) may strike. */
 export type EnemySelector =
@@ -184,7 +192,13 @@ export type WinCondition =
    * breaking `count` (default all) of `squadIds` wins. Holding to the end without
    * breaking them falls to the timeout rules.
    */
-  | { kind: "holdThenBreak"; objectiveId: string; dawnPhase: number; squadIds: string[]; count?: number };
+  | { kind: "holdThenBreak"; objectiveId: string; dawnPhase: number; squadIds: string[]; count?: number }
+  /**
+   * An offensive battle: victory the moment `objectiveId` (an objective the opposing
+   * side defends) is battered to integrity 0. Otherwise the timeout rules apply at the
+   * end of maxPhases. There is no "then hold": the break ends the battle.
+   */
+  | { kind: "breakObjective"; objectiveId: string };
 
 /** Extra ways the player can lose, on top of the win condition's own defeat rules. */
 export type DefeatCondition =

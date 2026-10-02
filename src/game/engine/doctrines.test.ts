@@ -10,13 +10,14 @@ const SPECIAL = ["keep_the_column_moving", "lie_in_wait"];
 const byFaction = (faction: FactionId) => doctrines.filter((item) => item.faction === faction && !SPECIAL.includes(item.id));
 
 describe("doctrine library", () => {
-  it("has the five Free Banners doctrines and the Ashen Host doctrines", () => {
+  it("has the six Free Banners doctrines and the Ashen Host doctrines", () => {
     expect(byFaction("free_banners").map((item) => item.name)).toEqual([
       "Shield the Line",
       "Fighting Withdrawal",
       "Rescue Standard",
       "Clean Counterstroke",
       "Hold for Dawn",
+      "Bring the Water",
     ]);
     expect(byFaction("ashen_host").map((item) => item.name)).toEqual([
       "Iron Tide",
@@ -30,7 +31,7 @@ describe("doctrine library", () => {
       "Hurl Fire",
       "The Nerve Fails",
     ]);
-    expect(Object.keys(doctrineLibrary)).toHaveLength(17);
+    expect(Object.keys(doctrineLibrary)).toHaveLength(18);
     expect(doctrineLibrary.keep_the_column_moving.faction).toBe("free_banners");
   });
 

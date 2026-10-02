@@ -63,6 +63,13 @@ resolvePhase(state, orders, scenario, { doctrines? }) → { state, events, repor
   to the Banners when the event happened, judged by the true state through the
   `onEmit` debug hook.
 
+  The same file checks the **decision** side (P4): at every move and rule firing, each
+  Banner company's chosen rule, its action's resolved target, `aheadOfLine` and
+  `atObjective` are identical on the true state and on copies with every unseen enemy
+  erased or moved to another free hex (shipped battles and prototypes, including an
+  everyone-on-Bring-the-Water plan). A mutant `aheadOfLine` that peeks at true enemy
+  positions fails it.
+
   `report.lines` is already built from the player's projected stream. The raw `events`
   array is for tests, the balance harness and a debug/capture mode, never for normal
   playback. With fortune off, every event is visible to everyone.
@@ -185,13 +192,25 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   `objectiveThreatened` (an enemy within 2 of an objective the squad's faction defends),
   `atObjective` (the squad is adjacent to an objective it assaults), `retreatOpen` (its
   side has exit hexes on this field), `wardNear {range, minRange?}` (an allied
-  noncombatant is within range), and `fightBeyond {range}` (an ally is in contact with
+  noncombatant is within range), `fightBeyond {range}` (an ally is in contact with
   an enemy this side sees, and no seen enemy is within `range` of the squad: idle while
-  the fight is elsewhere).
+  the fight is elsewhere), and `aheadOfLine {by, objectiveId?}` ("keep step", P4): every
+  other active company on the **same doctrine** (noncombatants excluded) stands at least
+  `by` hexes farther (hex distance) from the enemy objective than this squad does, so it
+  is out in front alone. The objective is `objectiveId`, else the first standing one the
+  squad's side assaults (the same one `objective {side: "enemy"}` picks). False with no
+  such objective or no such company. It reads only the objective's hex and the squad's
+  own side, never an enemy, so it means the same under fog; only the front company waits,
+  so a straggler (or a company falling back) never stalls the line.
 - `TargetSelector`: `nearestEnemy`, `weakestEnemy {stat, range?}`,
   `overextendedEnemy {range?}`, `fightingEnemy` (the nearest seen enemy in contact with
   one of the squad's allies), `weakestAlly {stat}`, `objective {side: own|enemy, objectiveId?}`,
-  `exitEdge`, `ward` (the nearest allied noncombatant). Ties always fall back to distance,
+  `exitEdge`, `ward` (the nearest allied noncombatant). **Fog-independent targets:**
+  `objective`, `exitEdge` and `ward` read only public data (objectives and terrain are on
+  every commander's map) or the squad's own side, so they always resolve under fog; the
+  enemy selectors see only enemies in sight and return null (`blocked "no target"`) when
+  none is. An offensive doctrine therefore anchors its march to `objective {side: "enemy"}`.
+  Ties always fall back to distance,
   then squad-list order. `attack` and
   `counterCharge` take only an `EnemySelector` (the three enemy selectors, or
   `objective {side: "enemy"}`). At runtime, a strike at an ally or at the squad's own
@@ -237,6 +256,17 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
     `"break"` or null (other win kinds) for the UI. Bad data (an objective the player
     does not defend, a dawn phase outside 1..`maxPhases`, player or missing targets)
     throws at `createInitialState`.
+  - `breakObjective {objectiveId}` (P4, offensive battles): victory the moment that
+    objective (one the opposing side defends, standing at battle start; otherwise
+    `createInitialState` throws) is battered to integrity 0. Integrity is the scenario's
+    `ObjectiveSetup.integrity`, lost to blows exactly as a gate is (`strength% × 12`, or
+    40 for siege, halved with an enemy adjacent). **Timing:** checked after every
+    activation, so the battle ends mid-beat on the breaking blow. **Precedence:** the break
+    is checked before the defeat conditions, like every win; a blow on an objective draws
+    no riposte, so a break and a defeat cannot become true in the same activation. While
+    it stands, `defeatConditions` and "no company left" apply as usual. Running out of
+    phases falls to `timeoutOutcome` (default defeat: "Time ran out with the Wagon Park
+    still standing."). There is no break-then-hold.
   - Optional `defeatConditions` add more ways to lose:
     - `enemyEscape {edgeHexes, count}`: the opposing side gets `count` squads off
       through those hexes. Its `exitEdge` selector points at them, and a Host squad
@@ -244,7 +274,7 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
     - `squadsLost {count}`: that many player squads are routed or destroyed ("the line
       breaks").
   - `timeoutOutcome: "defeat" | "stalemate"` (default `"defeat"`) decides what running out
-    of phases means for `escapeEdge`, `destroySquads` and `holdThenBreak`. A stalemate must be earned:
+    of phases means for `escapeEdge`, `destroySquads`, `holdThenBreak` and `breakObjective`. A stalemate must be earned:
     `stalemateRequires {minEnemyBroken, targetsOnly?}` turns a timeout with too few
     enemies broken into a defeat. For `escapeEdge` with `mustEscape`, the timeout is a
     stalemate only if every must-escape squad got out and at most one short of `count`. With `"stalemate"`, the battle
@@ -252,8 +282,8 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
     "advance, with a Resolve penalty". `holdObjective` always wins on time. The balance
     harness reports stalemates as their own column; they never count as wins.
   - In every mode it is defeat when no player squad is left on the field. For
-    `escapeEdge`, `destroySquads` and `holdThenBreak`, reaching the end of `maxPhases` is
-    also defeat.
+    `escapeEdge`, `destroySquads`, `holdThenBreak` and `breakObjective`, reaching the end
+    of `maxPhases` is also defeat (unless `timeoutOutcome` says stalemate).
 - Events (`phase`, `beat` on each, where beat 0 means phase-level): `ruleFired`, `move {path, reason}`,
   `blocked`, `engagement {charge, reckless}`, `rally`, `rout`, `exit`, `objectiveDamage`,
   `outcome`, `fortune {outcome: surge|waver}`, `dread {title, shock}`, `weatherShift {from, to}`,
@@ -261,7 +291,10 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
   `report.lines` is prose generated from these events (`report.ts`).
 
 The library (`doctrines.ts`) holds the Free Banners doctrines *Shield the Line*,
-*Fighting Withdrawal*, *Rescue Standard*, *Clean Counterstroke* and *Hold for Dawn*, and
+*Fighting Withdrawal*, *Rescue Standard*, *Clean Counterstroke*, *Hold for Dawn* and
+*Bring the Water* (the Advance, P4: fall back below 30 cohesion, batter the objective when
+beside it, strike whoever bars the way, wait when 2 hexes ahead of the line, otherwise
+march on the objective; passives 1/2/1; not yet offered by a shipped battle), and
 the Ashen Host doctrines *Iron Tide*, *Break the Gate*, *No Step Back*, *Cull the Weak*,
 *Terror Push*, *Through the Embers* (cross and cut through blockers toward the exits),
 *Slip the Leash* (outriders: never fight, run for the exits), *Hurl Fire* (a mangonel:
@@ -319,7 +352,9 @@ if a guardrail fails:
 - no mono plan **advances** (wins plus stalemates) ≥ 60%.
 
 `balance.test.ts` runs the same check with 60 seeds on every `npm test`. Every
-scenario in `scenarios/index.ts` must pass. The scenarios so far:
+scenario in `scenarios/index.ts` must pass, and so must the engine prototypes in
+`fixtures/` (test fixtures, never offered to the player; run one by name with
+`npm run balance -- --scenario proto_wagon_park`). The scenarios so far:
 Each battle has a **star doctrine** even when it uses a mix:
 - *The First Breach*: the tutorial; the star is the wall. Shields hold the gate, the
   standard rallies them, and the riders (Counterstroke) pounce on whatever comes alone.
@@ -337,6 +372,17 @@ Each battle has a **star doctrine** even when it uses a mix:
   and the standards keep the line standing. The hides burn through in the last hour of
   dark; at sunrise the Host falls back and the counterstroke companies break the exposed
   ram. Losing three companies breaks the line.
+
+- *The Wagon Park* (prototype, `fixtures/wagonPark.ts`, P4): the first battle with
+  **Banner initiative**, `breakObjective` and fog. The Banners cannot see the park's guard
+  from their start, so the assault is anchored to the objective: Bring the Water marches
+  four companies on the wagon park (integrity 48) while a Rescue Standard keeps them
+  standing against the Kept Coal's dread and the thralls' Terror Push charge. Everyone on
+  Bring the Water, standard included, is a storm without a standard and breaks on the
+  guard. 500 seeds, fortune on: intended 93% (91.8% with no muster), bad 0%, all Bring
+  the Water 23%, every other mono 0%. `btw_step` (keep step) does not fire in this
+  fixture's intended plan (the line starts and moves together); it is the guard against
+  a fast or forward company arriving alone, covered by `offensive.test.ts`.
 
 **Scenario design principle.** Every battle's intended plan uses at least two doctrine
 families in meaningful roles. Its scenario test ablates each family (swapping it for

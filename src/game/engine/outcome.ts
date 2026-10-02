@@ -54,6 +54,13 @@ export function validateWinCondition(scenario: EngineScenario) {
       throw new Error(`Scenario ${scenario.id}: holdThenBreak needs 1..${stages.squadIds.length} targets`);
     }
   }
+  if (scenario.winCondition.kind === "breakObjective") {
+    const target = scenario.winCondition.objectiveId;
+    const objective = scenario.objectives.find((item) => item.id === target);
+    if (!objective || objective.defender === scenario.playerFaction || !(objective.integrity > 0)) {
+      throw new Error(`Scenario ${scenario.id}: breakObjective needs a standing enemy-defended objective ${target}`);
+    }
+  }
   const win = scenario.winCondition;
   if (win.kind !== "destroySquads") {
     return;
@@ -83,6 +90,9 @@ export function winStage(scenario: EngineScenario, phase: number): "hold" | "bre
   const win = scenario.winCondition;
   return win.kind === "holdThenBreak" ? (phase >= win.dawnPhase ? "break" : "hold") : null;
 }
+
+const objectiveName = (state: EngineState, id: string) =>
+  (state.objectives.find((item) => item.id === id)?.name ?? "the objective").replace(/^The /, "the ");
 
 export interface Outcome {
   status: BattleOutcome;
@@ -131,6 +141,18 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
       }).length;
       if (state.phase >= win.dawnPhase && broken >= (win.count ?? win.squadIds.length)) {
         return { status: "victory", reason: `Dawn: ${objective.name} held, and the siege is broken.` };
+      }
+      break;
+    }
+    case "breakObjective": {
+      // Checked first, like every win: a blow on an objective draws no riposte, so the
+      // break and a defeat can never become true in the same activation.
+      const objective = state.objectives.find((item) => item.id === win.objectiveId);
+      if (!objective) {
+        throw new Error(`Unknown objective: ${win.objectiveId}`);
+      }
+      if (objective.integrity <= 0) {
+        return { status: "victory", reason: `${objective.name} is broken.` };
       }
       break;
     }
@@ -197,14 +219,21 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
           reason:
             win.kind === "holdThenBreak"
               ? "The wall held until dawn, but the siege was not broken."
-              : "Neither side broke: the Host did not get through, and its vanguard still stands.",
+              : win.kind === "breakObjective"
+                ? `The attack is spent, and ${objectiveName(state, win.objectiveId)} still stands.`
+                : "Neither side broke: the Host did not get through, and its vanguard still stands.",
         };
       }
       return { status: "defeat", reason: "Time ran out and the enemy was never truly tested." };
     }
     return {
       status: "defeat",
-      reason: win.kind === "holdThenBreak" ? "The wall held until dawn, but the siege was not broken." : "Time ran out before the task was done.",
+      reason:
+        win.kind === "holdThenBreak"
+          ? "The wall held until dawn, but the siege was not broken."
+          : win.kind === "breakObjective"
+            ? `Time ran out with ${objectiveName(state, win.objectiveId)} still standing.`
+            : "Time ran out before the task was done.",
     };
   }
 
