@@ -114,7 +114,15 @@ export interface LightingPreset {
   hemisphere: { sky: Hex; ground: Hex; intensity: number };
   fog: { color: Hex; near: number; far: number };
   /** `fogOfWar` scales the fog-of-war mist's opacity (default 1): lighter hours need it denser to read as unknown ground. */
-  mist: { color: Hex; density: number; height: number; speed: number; fogOfWar?: number };
+  mist: {
+    color: Hex;
+    density: number;
+    height: number;
+    speed: number;
+    fogOfWar?: number;
+    /** Scales how much the key light brightens fog-of-war crests (default 1). */
+    fogLit?: number;
+  };
   particles: { kind: "embers" | "rain" | "ash"; rate: number; color: Hex; speed: number; size: number };
   /** Point-light fires (braziers, burning river). 0 = none. */
   fires: { color: Hex; intensity: number };

@@ -37,6 +37,12 @@ const jobs = [
     { name: `march-${id}`, query: `${q}&march=1` },
     { name: `march-${id}-close`, query: `${q}&march=1&cam=close&focusHex=${at}` },
   ]),
+  // T23: mist readability per preset (each with the mist weather), and fog of war at dusk.
+  ...["dusk", "nightFires", "rainGrey", "predawn", "sunrise"].map((preset) => ({ name: `t23-${preset}`, query: `preset=${preset}&figures=a` })),
+  ...["dusk", "predawn"].map((preset) => ({ name: `t23-${preset}-mist`, query: `preset=${preset}&figures=a&weather=mist` })),
+  { name: "t23-hfd-sunrise", query: "scenario=holdForDawn&preset=sunrise&figures=a&weather=ashWind" },
+  { name: "t23-hfd-sunrise-clear", query: "scenario=holdForDawn&preset=sunrise&figures=a" },
+  { name: "t23-fog", query: "preset=dusk&figures=a&fog=reveal&revealAt=999" },
   { name: "dusk-underside", query: "preset=dusk&figures=a&polar=64&az=-22" },
   { name: "stress-dusk", query: "preset=dusk&figures=a&board=stress" },
   { name: "stress-dusk-low", query: "preset=dusk&figures=a&board=stress&quality=low" },
