@@ -11,7 +11,7 @@ import { SquadAnimator, type AnimatorScene, type SquadAnimationApi } from "./fig
 import { SquadMarkers } from "./figures/SquadMarkers";
 import { ToySoldierSquads } from "./figures/ToySoldierSquads";
 import { placeSquads, type DioramaSquad, type FigureApproach, type PlacedSquad } from "./figures/types";
-import { wideShotFor } from "./camera/DioramaCamera";
+import { wideShotFor } from "./camera/shots";
 import { boardRadius, hexToWorld } from "./hexWorld";
 import { LightRig } from "./lighting/LightRig";
 import { AtmosphereTicker, useLook } from "./look/LookContext";

@@ -156,8 +156,11 @@ describe("saltmarsh terrain and the Column", () => {
 });
 
 describe("wide shot framing", () => {
+  // Imports the pure framing module, not DioramaCamera: that one pulls in
+  // @react-three/drei, whose first transform took most of this test's time and
+  // pushed it past the 5 s timeout when the machine was heavily loaded.
   it("keeps small boards as they were and tightens big ones toward the Banners", async () => {
-    const { wideShot, wideShotFor } = await import("./camera/DioramaCamera");
+    const { wideShot, wideShotFor } = await import("./camera/shots");
     const { boardRadius } = await import("./hexWorld");
     const { emberFord } = await import("../game/engine/scenarios/emberFord");
     const { holdForDawn } = await import("../game/engine/scenarios/holdForDawn");
