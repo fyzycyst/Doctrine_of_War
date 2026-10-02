@@ -155,7 +155,10 @@ export interface CampaignSaveStore {
   write(campaignId: string, data: string): Promise<void>;
   /** The save before the current one, or null. */
   readBackup(campaignId: string): Promise<string | null>;
-  /** Moves the current save aside (kept, never deleted) so a fresh run can start. */
+  /**
+   * Moves the current save aside (kept, never deleted or replaced) so a fresh run can
+   * start. Refused for the intro, and once MAX_ASIDES set-aside runs are kept.
+   */
   setAside(campaignId: string): Promise<void>;
 }
 
@@ -187,6 +190,17 @@ export async function saveCampaignRun(store: CampaignSaveStore, registry: PackRe
 }
 
 type KeyValueStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+/**
+ * At most this many set-aside runs are kept per campaign. Set-aside runs are never
+ * deleted or replaced: past the limit, setting another aside is refused instead.
+ * Mirrored in electron/saveFile.ts.
+ */
+export const MAX_ASIDES = 8;
+export const TOO_MANY_ASIDES = `This campaign already has ${MAX_ASIDES} set-aside saves, which are kept. Export or remove one before setting another aside.`;
+export const INTRO_NOT_SET_ASIDE = "The intro's save is never set aside.";
+/** The browser key of set-aside slot `slot` (1..MAX_ASIDES). */
+export const asideKey = (key: string, slot: number) => `${key}:aside:${slot}`;
 
 /** localStorage, one key per campaign (plus `:backup` and `:aside` for v2 campaigns). */
 export function localStorageCampaignStore(storage: KeyValueStorage | null): CampaignSaveStore {
@@ -223,12 +237,18 @@ export function localStorageCampaignStore(storage: KeyValueStorage | null): Camp
       return guarded("read", () => need().getItem(`${key}:backup`));
     },
     async setAside(campaignId) {
+      if (campaignId === INTRO_CAMPAIGN_ID) throw new CampaignSaveError(INTRO_NOT_SET_ASIDE);
       const key = localStorageKeyFor(campaignId);
       guarded("written", () => {
         const store = need();
         const current = store.getItem(key);
         if (current === null) return;
-        store.setItem(`${key}:aside`, current);
+        // A fresh slot every time: an earlier set-aside run is never replaced or deleted.
+        let slot = 1;
+        while (slot <= MAX_ASIDES && store.getItem(asideKey(key, slot)) !== null) slot += 1;
+        if (slot > MAX_ASIDES) throw new CampaignSaveError(TOO_MANY_ASIDES);
+        store.setItem(asideKey(key, slot), current);
+        if (store.getItem(asideKey(key, slot)) !== current) throw new CampaignSaveError("the set-aside copy could not be verified");
         store.removeItem(key);
       });
     },

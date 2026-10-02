@@ -11,7 +11,11 @@ import { snapshotCarryOver } from "./roll";
 import { fightRoll, longRoad, testRegistry, testRoad } from "./rollTestKit";
 import { loadCampaign, MAX_SAVE_BYTES } from "./save";
 import {
+  asideKey,
   CAMPAIGN_SAVE_FILES,
+  INTRO_NOT_SET_ASIDE,
+  MAX_ASIDES,
+  TOO_MANY_ASIDES,
   INTRO_CAMPAIGN_ID,
   isSaveCampaignId,
   loadCampaignBackup,
@@ -154,7 +158,7 @@ describe("v2 runs", () => {
       expect(data.get(localStorageKeyFor("cinder_road"))).toBe(payload);
       // Setting it aside keeps it, and frees the slot.
       await store.setAside("cinder_road");
-      expect(data.get(`${localStorageKeyFor("cinder_road")}:aside`)).toBe(payload);
+      expect(data.get(`${localStorageKeyFor("cinder_road")}:aside:1`)).toBe(payload);
       await saveCampaignRun(store, testRegistry, startCampaign(testRoad));
       expect((await loadCampaignRun(store, testRegistry, "cinder_road")).kind).toBe("ok");
     }
@@ -200,7 +204,33 @@ describe("routing, isolation, backup and recovery (browser)", () => {
     await store.setAside("cinder_road");
     if (backup.kind === "ok") await saveCampaignRun(store, testRegistry, backup.state);
     expect(await loadCampaignRun(store, testRegistry, "cinder_road")).toMatchObject({ kind: "ok", state: first });
-    expect(data.get(`${localStorageKeyFor("cinder_road")}:aside`)).toBe('{"version":2,"provenance":');
+    expect(data.get(`${localStorageKeyFor("cinder_road")}:aside:1`)).toBe('{"version":2,"provenance":');
+  });
+
+  it("keeps every set-aside run: repeated cycles never replace one, and past the limit it refuses", async () => {
+    const { data, storage } = memory();
+    const store = localStorageCampaignStore(storage);
+    const key = localStorageKeyFor("cinder_road");
+    const payloads: string[] = [];
+    for (let cycle = 1; cycle <= MAX_ASIDES; cycle += 1) {
+      const payload = `{"damaged":${cycle}}`;
+      payloads.push(payload);
+      data.set(key, payload);
+      await store.setAside("cinder_road");
+      expect(data.has(key)).toBe(false);
+    }
+    expect(Array.from({ length: MAX_ASIDES }, (_, index) => data.get(asideKey(key, index + 1)))).toEqual(payloads);
+    data.set(key, '{"damaged":"one too many"}');
+    await expect(store.setAside("cinder_road")).rejects.toThrow(TOO_MANY_ASIDES);
+    expect(data.get(key)).toBe('{"damaged":"one too many"}');
+    expect(Array.from({ length: MAX_ASIDES }, (_, index) => data.get(asideKey(key, index + 1)))).toEqual(payloads);
+  });
+
+  it("never sets the intro's save aside", async () => {
+    const { data, storage } = memory();
+    data.set(LOCAL_STORAGE_KEY, corpus[0].payload);
+    await expect(localStorageCampaignStore(storage).setAside(INTRO_CAMPAIGN_ID)).rejects.toThrow(INTRO_NOT_SET_ASIDE);
+    expect([...data.entries()]).toEqual([[LOCAL_STORAGE_KEY, corpus[0].payload]]);
   });
 
   it("fails closed when storage is missing or throws", async () => {
