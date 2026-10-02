@@ -188,6 +188,27 @@ describe("v2 runs", () => {
   });
 });
 
+describe("levy results on replay (review)", () => {
+  it("compares a levy's whole saved result with the generated one", () => {
+    // A two-battle road without a second support company: the banner is destroyed, then a levy holds its post.
+    const thin = { ...testRoad, companies: testRoad.companies.filter((company) => !["r_lamps"].includes(company.id)), battles: [testRoad.battles[0], { ...testRoad.battles[0], id: "road_2" }] };
+    const reg = createRegistry([{ ...firstCall, campaigns: [...firstCall.campaigns, thin] }]);
+    let state = fightRoll(thin, startCampaign(thin), "victory", { mercy_standard: { status: "destroyed" } });
+    state = fightRoll(thin, state, "victory");
+    const line = state.history[1].companies.find((item) => item.squadId === "mercy_standard")!;
+    expect(line).toMatchObject({ companyId: "levy", levy: true, resolveBefore: -1 });
+    const json = serializeCampaignSave(reg, state);
+    expect(readCampaignSave(reg, "cinder_road", json).kind).toBe("ok");
+    const envelope = JSON.parse(json);
+    const forged = structuredClone(envelope);
+    forged.campaign.history[1].companies.find((item: { squadId: string }) => item.squadId === "mercy_standard").resolveBefore = 3;
+    expect(readCampaignSave(reg, "cinder_road", JSON.stringify(forged))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/resolveBefore must be -1/) });
+    const unmarked = structuredClone(envelope);
+    delete unmarked.campaign.history[1].companies.find((item: { squadId: string }) => item.squadId === "mercy_standard").levy;
+    expect(readCampaignSave(reg, "cinder_road", JSON.stringify(unmarked))).toMatchObject({ kind: "unreadable" });
+  });
+});
+
 describe("routing, isolation, backup and recovery (browser)", () => {
   it("keys each campaign separately and allowlists campaign ids", () => {
     expect(localStorageKeyFor("cinder_road")).toBe("doctrine-of-war:campaign:cinder_road");

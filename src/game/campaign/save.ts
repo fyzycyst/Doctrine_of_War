@@ -425,10 +425,15 @@ function checkRollHistory(state: CampaignState, def: CampaignDefinition, scenari
       return { squadId, ended: line.ended, startStrength: line.startStrength, endStrength: line.endStrength ?? 0 };
     });
     const lines = settleRollBattle(roster, plan, entry.outcome, results);
+    // The whole generated result must match the saved one, field for field (levies included).
+    const FIELDS = ["companyId", "squadId", "ended", "resolveBefore", "resolveAfter", "renownEarned", "startStrength", "endStrength", "levy"] as const;
     lines.forEach((line, index) => {
       const saved = entry.companies[index];
-      if (saved.resolveAfter !== line.resolveAfter) fail(`${path}.companies[${index}].resolveAfter`, `must be ${line.resolveAfter}`);
-      if (saved.renownEarned !== line.renownEarned) fail(`${path}.companies[${index}].renownEarned`, `must be ${line.renownEarned ?? "none"}`);
+      for (const field of FIELDS) {
+        if ((saved[field] ?? null) !== (line[field] ?? null)) {
+          fail(`${path}.companies[${index}].${field}`, `must be ${String(line[field] ?? "absent")}`);
+        }
+      }
     });
     const broken = entry.companies.filter((line) => line.ended === "routed" || line.ended === "destroyed").length;
     if (entry.companiesBroken !== broken) fail(`${path}.companiesBroken`, `must be ${broken}`);
