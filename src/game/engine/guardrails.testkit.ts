@@ -31,7 +31,7 @@ export function describeGuardrails(scenarioId: string) {
         const rows = runBalance(variant.scenario, 60, "on", "heuristic");
         played.push({ name, rows });
         // ...and still winnable by a player who never musters.
-        const still = runBalance(variant.scenario, 60, "on", "none", ["intended", "bad"]);
+        const still = runBalance(variant.scenario, 60, "on", "none", ["intended", "bad", "alternative"]);
         if (variant.policy === "diagnostic") return; // reported only: its recovery force is the recommended call
         expect(guardrailFailures(rows, variant.policy), formatTable(variant.scenario, rows)).toEqual([]);
         expect(guardrailFailures(still, "floor"), formatTable(variant.scenario, still)).toEqual([]);

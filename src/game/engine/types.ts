@@ -251,8 +251,12 @@ export interface EngineScenario {
   curatedSeed?: number;
   /** Defaults to clear skies that never shift. */
   forecast?: Forecast;
-  /** Reference plans for the balance harness and tutorial hints. */
-  referencePlans?: { intended: Orders; bad: Orders };
+  /**
+   * Reference plans for the balance harness and tutorial hints. `alternative` (optional):
+   * the strongest known cheap plan that is not the intended one, tracked as a diagnostic
+   * row (never gated) so a creeping alternative is seen before it beats the intended plan.
+   */
+  referencePlans?: { intended: Orders; bad: Orders; alternative?: Orders };
 }
 
 // ---------------------------------------------------------------------------

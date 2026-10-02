@@ -85,10 +85,11 @@ for (const scenario of selected) {
       if (variant.roster) console.log(`  roster: ${variant.roster}`);
       const failures = variant.policy === "diagnostic" ? [] : guardrailFailures(rows, variant.policy);
       // A player who never musters must still be able to win (a winnability floor).
-      const still = runBalance(variant.scenario, seeds, fortune as FortuneMode, "none", ["intended", "bad"], firstSeed);
+      const still = runBalance(variant.scenario, seeds, fortune as FortuneMode, "none", ["intended", "bad", "alternative"], firstSeed);
       playedNone.push({ name, rows: still });
       const pct = (row: (typeof still)[number]) => `${(row.winRate * 100).toFixed(1)}% wins + ${(row.stalemateRate * 100).toFixed(1)}% stalemates`;
-      console.log(`  no muster: intended ${pct(still[0])}, bad ${pct(still[1])}`);
+      const alternativeNone = still.find((row) => row.kind === "alternative");
+      console.log(`  no muster: intended ${pct(still[0])}, bad ${pct(still[1])}${alternativeNone ? `, strongest alternative ${pct(alternativeNone)} (diagnostic)` : ""}`);
       if (variant.policy !== "diagnostic") failures.push(...guardrailFailures(still, "floor").map((failure) => `no muster: ${failure}`));
       const verdict = variant.policy === "diagnostic" ? "  DIAGNOSTIC (not gated)\n" : "  PASS\n";
       console.log(failures.length === 0 ? verdict : failures.map((failure) => `  FAIL ${failure}`).join("\n") + "\n");
@@ -101,7 +102,8 @@ for (const scenario of selected) {
         const p = (value: number) => `${(value * 100).toFixed(1)}%`;
         console.log(
           `  diagnostics (${muster}): selection spread ${p(d.spread)} (best ${d.best.name} ${p(d.best.advance)}, worst ${d.worst.name} ${p(d.worst.advance)}); ` +
-            `plan beats roster: ${d.planBeatsRoster ? "yes" : "NO"} (bad plan at best ${p(d.bestBad.advance)} on ${d.bestBad.name} < intended on worst ${p(d.worst.advance)})`,
+            `plan beats roster: ${d.planBeatsRoster ? "yes" : "NO"} (bad plan at best ${p(d.bestBad.advance)} on ${d.bestBad.name} < intended on worst ${p(d.worst.advance)})` +
+            (d.alternative ? `; strongest alternative: intended leads by ${p(d.alternative.lead)} at the closest (${d.alternative.name}, alternative ${p(d.alternative.advance)})` : ""),
         );
       }
       console.log("");

@@ -134,6 +134,16 @@ export const cinderRoad1: EngineScenario = {
       standard: "shield_the_line",
       bows: "rescue_standard",
     },
+    // The strongest known cheap plan (P7 warden's probe): the stair held, everyone else
+    // marching, no banner with the assault. Tracked as a diagnostic, never gated.
+    alternative: {
+      van_west: "bring_the_water",
+      van_centre: "bring_the_water",
+      van_east: "bring_the_water",
+      outriders: "bring_the_water",
+      standard: "shield_the_line",
+      bows: "bring_the_water",
+    },
     // The pure march: every company goes for the barricade, the stair is left empty, and
     // the Hounds burn the boats however strong the army is.
     bad: {

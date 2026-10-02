@@ -187,6 +187,7 @@ function call(kind: RollCallKind, name: string, policy: RollCall["policy"], def:
       referencePlans: {
         intended: templatePlan(plans.intended, def, state, scenario, assignment),
         bad: templatePlan(plans.bad, def, state, scenario, assignment),
+        ...(plans.alternative ? { alternative: templatePlan(plans.alternative, def, state, scenario, assignment) } : {}),
       },
     },
   };
@@ -309,11 +310,17 @@ export interface RollDiagnostics {
   /** The bad plan on the call where it does best, against the intended plan on the worst call. */
   planBeatsRoster: boolean;
   bestBad: { name: string; advance: number };
+  /**
+   * The strongest known alternative plan (referencePlans.alternative), when the battle has
+   * one: the call where it comes closest to the intended plan, and the intended plan's lead
+   * there (negative = the alternative beats it). Null without an alternative.
+   */
+  alternative: { name: string; lead: number; advance: number } | null;
 }
 
 /** "Plan beats roster" and the selection spread over a battle's named calls (diagnostics, not gates). */
 export function rollDiagnostics(results: { name: string; rows: BalanceRow[] }[]): RollDiagnostics {
-  const advance = (rows: BalanceRow[], kind: "intended" | "bad") => {
+  const advance = (rows: BalanceRow[], kind: "intended" | "bad" | "alternative") => {
     const row = rows.find((item) => item.kind === kind);
     return row ? row.winRate + row.stalemateRate : Number.NaN;
   };
@@ -322,5 +329,9 @@ export function rollDiagnostics(results: { name: string; rows: BalanceRow[] }[])
   const best = intended.reduce((a, b) => (b.advance > a.advance ? b : a));
   const worst = intended.reduce((a, b) => (b.advance < a.advance ? b : a));
   const bestBad = bad.reduce((a, b) => (b.advance > a.advance ? b : a));
-  return { spread: best.advance - worst.advance, best, worst, planBeatsRoster: bestBad.advance < worst.advance, bestBad };
+  const leads = results
+    .filter(({ rows }) => rows.some((row) => row.kind === "alternative"))
+    .map(({ name, rows }) => ({ name, lead: advance(rows, "intended") - advance(rows, "alternative"), advance: advance(rows, "alternative") }));
+  const alternative = leads.length > 0 ? leads.reduce((a, b) => (b.lead < a.lead ? b : a)) : null;
+  return { spread: best.advance - worst.advance, best, worst, planBeatsRoster: bestBad.advance < worst.advance, bestBad, alternative };
 }

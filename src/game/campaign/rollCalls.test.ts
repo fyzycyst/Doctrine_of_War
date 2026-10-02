@@ -7,7 +7,8 @@ import { startCampaign } from "./campaign";
 import { cinderRoad } from "./cinderRoad";
 import { ashAndBanner } from "./definition";
 import { recommendedForce } from "./roll";
-import { MissingCallError, pickForce, greedyScore, rollCallMatrix, templatePlan } from "./rollCalls";
+import { balancePlans, guardrailFailures, type BalanceRow } from "../engine/balance";
+import { MissingCallError, pickForce, greedyScore, rollCallMatrix, rollDiagnostics, templatePlan } from "./rollCalls";
 import { balanceVariantsIn, introCarrySource } from "./rosters";
 
 const campaigns = registry.packs.flatMap((pack) => pack.campaigns);
@@ -69,5 +70,30 @@ describe("the call census (P7 finding 3)", () => {
     broken.battles[0].slots.outriders = "coldwater_shields";
     expect(() => rollCallMatrix(broken, scenarios, 0)).toThrow(MissingCallError);
     expect(() => rollCallMatrix(broken, scenarios, 0)).toThrow(/"curated" call cannot be built/);
+  });
+});
+
+describe("the strongest-alternative diagnostic (P7 finding 4)", () => {
+  const row = (kind: BalanceRow["kind"], winRate: number): BalanceRow => ({
+    name: kind, kind, orders: {}, games: 100, wins: winRate * 100, winRate, stalemates: 0, stalemateRate: 0, meanObjective: null,
+  });
+
+  it("is a named plan on every Cinder Road call, played as authored, and never gated", () => {
+    for (const variant of balanceVariantsIn(campaigns, scenarios, cinderRoad1, carryFrom)) {
+      const plans = balancePlans(variant.scenario);
+      expect(plans.filter((plan) => plan.kind === "alternative").map((plan) => plan.orders), variant.name).toEqual([cinderRoad1.referencePlans!.alternative]);
+    }
+    // An alternative that beats the intended plan is reported, not failed.
+    expect(guardrailFailures([row("intended", 0.8), row("bad", 0.1), row("alternative", 0.95)])).toEqual([]);
+  });
+
+  it("reports the intended plan's smallest lead over it across the calls", () => {
+    const d = rollDiagnostics([
+      { name: "a", rows: [row("intended", 0.9), row("bad", 0), row("alternative", 0.7)] },
+      { name: "b", rows: [row("intended", 0.85), row("bad", 0), row("alternative", 0.8)] },
+    ]);
+    expect(d.alternative?.name).toBe("b");
+    expect(d.alternative?.lead).toBeCloseTo(0.05);
+    expect(rollDiagnostics([{ name: "a", rows: [row("intended", 0.9), row("bad", 0)] }]).alternative).toBeNull();
   });
 });

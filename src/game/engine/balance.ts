@@ -14,7 +14,8 @@ export const GUARDRAILS = {
   monoMax: 0.6,
 };
 
-export type PlanKind = "intended" | "bad" | "mono";
+/** "alternative": the scenario's strongest known alternative plan, a diagnostic row (never gated). */
+export type PlanKind = "intended" | "bad" | "mono" | "alternative";
 
 export interface BalancePlan {
   name: string;
@@ -56,6 +57,7 @@ export function balancePlans(scenario: EngineScenario): BalancePlan[] {
   const plans: BalancePlan[] = [
     { name: "intended", kind: "intended", orders: scenario.referencePlans.intended },
     { name: "bad", kind: "bad", orders: scenario.referencePlans.bad },
+    ...(scenario.referencePlans.alternative ? [{ name: "strongest alternative", kind: "alternative" as const, orders: scenario.referencePlans.alternative }] : []),
   ];
   for (const doctrineId of scenario.playerDoctrineIds) {
     plans.push({
@@ -93,7 +95,7 @@ export function runBalance(
   seeds: number,
   fortune: FortuneMode = "on",
   muster: MusterPolicy = "heuristic",
-  kinds: PlanKind[] = ["intended", "bad", "mono"],
+  kinds: PlanKind[] = ["intended", "bad", "mono", "alternative"],
   firstSeed: number = GATE_SEEDS.first,
 ): BalanceRow[] {
   if (!Number.isInteger(seeds) || seeds < 1) {
