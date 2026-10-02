@@ -87,6 +87,22 @@ describe("the pack schema keeps up with the engine", () => {
   });
 });
 
+describe("prototype-safe ids and maps (review)", () => {
+  it("refuses __proto__, constructor and prototype as ids and as map keys, and builds maps without a prototype", () => {
+    for (const reserved of ["__proto__", "constructor", "prototype"]) {
+      const asId = clone();
+      asId.campaigns[0].companies[0].id = reserved;
+      expect(reason(JSON.parse(JSON.stringify(asId)))).toMatch(new RegExp(`may not be "${reserved}"`));
+      const asKey = JSON.parse(JSON.stringify(clone()));
+      asKey.campaigns[0].battles[0].slots = JSON.parse(`{"${reserved}": "greyford_shields"}`);
+      expect(reason(asKey)).toMatch(new RegExp(`may not be "${reserved}"`));
+    }
+    const parsed = parsePackManifest(JSON.parse(JSON.stringify(firstCall)));
+    expect(Object.getPrototypeOf(parsed.campaigns[0].battles[0].slots)).toBeNull();
+    expect((parsed.campaigns[0].battles[0].slots as Record<string, unknown>).constructor).toBeUndefined();
+  });
+});
+
 describe("lintPacks (cross-pack ids and references)", () => {
   it("passes the shipped packs", () => {
     expect(lintPacks(shippedPacks, doctrineLibrary)).toEqual([]);

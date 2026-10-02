@@ -8,6 +8,7 @@
 // rules revision, or simply unreadable) is reported, preserved and never overwritten:
 // saveCampaignRun refuses to replace it until the player explicitly sets it aside, which
 // keeps a copy. Each v2 write keeps the previous good save as a backup.
+import { isSafeId } from "../ids";
 import { RULES_REVISION, type PackRegistry, type SaveProvenance } from "../packs/types";
 import { byteLength, CampaignSaveError, loadCampaign, loadRollCampaignState, MAX_SAVE_BYTES, saveCampaign } from "./save";
 import type { CampaignState } from "./types";
@@ -98,13 +99,12 @@ const isObject = (value: unknown): value is Json => typeof value === "object" &&
 const isRevision = (value: unknown) => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 10_000;
 
 function readProvenance(value: unknown): SaveProvenance {
-  const id = /^[a-z0-9_]{1,64}$/;
   if (!isObject(value)) throw new CampaignSaveError("save.provenance must be an object");
   const unknown = Object.keys(value).filter((key) => !["packId", "packRevision", "campaignId", "contentRevision", "rulesRevision"].includes(key));
   if (unknown.length > 0) throw new CampaignSaveError(`save.provenance has unknown fields: ${unknown.join(", ").slice(0, 120)}`);
   const { packId, packRevision, campaignId, contentRevision, rulesRevision } = value;
-  if (typeof packId !== "string" || !id.test(packId)) throw new CampaignSaveError("save.provenance.packId must be a lowercase id");
-  if (typeof campaignId !== "string" || !id.test(campaignId)) throw new CampaignSaveError("save.provenance.campaignId must be a lowercase id");
+  if (!isSafeId(packId)) throw new CampaignSaveError("save.provenance.packId must be a lowercase id");
+  if (!isSafeId(campaignId)) throw new CampaignSaveError("save.provenance.campaignId must be a lowercase id");
   if (!isRevision(packRevision) || !isRevision(contentRevision) || !isRevision(rulesRevision)) {
     throw new CampaignSaveError("save.provenance revisions (pack, content, rules) must be integers in 1..10000");
   }

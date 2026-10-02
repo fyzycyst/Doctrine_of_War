@@ -145,6 +145,11 @@ describe("v2 runs", () => {
     expect(read(JSON.stringify({ ...envelope, version: 1 }))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/version must be 2/) });
     expect(read(JSON.stringify({ ...envelope, provenance: { ...envelope.provenance, campaignId: "ash_and_banner" } }))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/belongs to campaign ash_and_banner/) });
     expect(read("{")).toMatchObject({ kind: "unreadable" });
+    // Prototype-named ids and keys are refused (review).
+    expect(read(JSON.stringify({ ...envelope, provenance: { ...envelope.provenance, packId: "constructor" } }))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/packId must be a lowercase id/) });
+    const protoKey = json.replace('"assignment":{', '"assignment":{"__proto__":"r_shields",');
+    expect(protoKey).not.toBe(json);
+    expect(read(protoKey)).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/may not be "__proto__"/) });
     const { packRevision: _dropped, ...noPack } = envelope.provenance;
     expect(read(JSON.stringify({ ...envelope, provenance: noPack }))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/revisions \(pack, content, rules\)/) });
     expect(read(JSON.stringify({ ...envelope, provenance: { ...envelope.provenance, extra: 1 } }))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/unknown fields: extra/) });

@@ -4,6 +4,7 @@
 // field from validated values, so unknown keys (and __proto__ tricks) are dropped.
 import type { EngineScenario, SquadRole, SquadStatus } from "../engine/types";
 import { rosterFor, settleCompany } from "./campaign";
+import { RESERVED_IDS } from "../ids";
 import { possibleRenownTitles } from "./titles";
 import { CARRY_OVER_MAX, CARRY_RESOLVE, fieldedProfile, LEVY_PROFILE, PROFILE_BANDS, rollRoster, settleRollBattle, validateAssignment } from "./roll";
 import {
@@ -81,6 +82,7 @@ function text(value: unknown, path: string, max = 64): string {
 function id(value: unknown, path: string): string {
   const result = text(value, path);
   if (!ID_PATTERN.test(result)) fail(path, "must be a lowercase id");
+  if (RESERVED_IDS.has(result)) fail(path, `may not be "${result}"`);
   return result;
 }
 
@@ -185,7 +187,10 @@ function assignment(value: unknown, path: string): Assignment {
   const raw = object(value, path);
   const entries = Object.entries(raw);
   if (entries.length > MAX_COMPANIES) fail(path, `has more than ${MAX_COMPANIES} entries`);
-  return Object.fromEntries(entries.map(([slotId, companyId]) => [id(slotId, `${path} key`), id(companyId, `${path}.${slotId}`)]));
+  // A null-prototype map, built from checked keys only.
+  const result = Object.create(null) as Assignment;
+  for (const [slotId, companyId] of entries) result[id(slotId, `${path} key`)] = id(companyId, `${path}.${slotId}`);
+  return result;
 }
 
 function record(value: unknown, path: string, roll = false): BattleRecord {
