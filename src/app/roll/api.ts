@@ -1,11 +1,13 @@
-// The UI's one door to the Roll and to per-campaign saves (M1, P6). It defaults to the
-// engine (src/game/campaign: roll.ts, saveFiles.ts) and the shipped pack registry.
-// Tests, and the dev-only `?mockRoll=1` boot, swap in a stand-in (src/app/roll/fake.ts)
-// while the engine's implementations land; nothing else in the UI changes when they do.
+// The UI's one door to the Roll and to per-campaign saves (M1, P6): the engine
+// (src/game/campaign: roll.ts, saveFiles.ts), the shipped pack registry and the default
+// save store. Tests, and the dev-only `?mockRoll=…` boot, swap in a registry with the
+// preview pack and the engine's own store over in-memory storage.
 import {
   assembleBattle,
   battleThreat,
   carryOverCandidates,
+  defaultCampaignStore,
+  loadCampaignBackup,
   loadCampaignRun,
   recommendedForce,
   recordBattle,
@@ -32,10 +34,14 @@ export interface RollApi {
   snapshotCarryOver: typeof snapshotCarryOver;
 }
 
-/** Per-campaign runs: read (never writes) and save (refuses to overwrite a preserved run). */
+/** Per-campaign runs (P3). Reads never write; a save refuses to replace a run that must be preserved. */
 export interface RunStore {
   load(campaignId: string): Promise<CampaignSaveRead>;
+  /** The run in the backup slot (the save before the current one). */
+  loadBackup(campaignId: string): Promise<CampaignSaveRead>;
   save(state: CampaignState): Promise<void>;
+  /** Moves the current save aside (kept, never deleted) so a fresh run can start. */
+  setAside(campaignId: string): Promise<void>;
 }
 
 const engineRoll: RollApi = {
@@ -50,29 +56,27 @@ const engineRoll: RollApi = {
   snapshotCarryOver,
 };
 
-/** Runs over the engine's per-campaign save store (P3), once the build provides one. */
-export function engineRuns(store: CampaignSaveStore | null, registry: PackRegistry): RunStore {
+/** Runs over the engine's per-campaign save store. Reads fail closed: anything that throws is reported unreadable. */
+export function engineRuns(store: CampaignSaveStore, registry: PackRegistry): RunStore {
+  const safely = async (read: () => Promise<CampaignSaveRead>): Promise<CampaignSaveRead> => {
+    try {
+      return await read();
+    } catch (error) {
+      return { kind: "unreadable", reason: error instanceof Error ? error.message : "The saved run could not be read." };
+    }
+  };
   return {
-    async load(campaignId) {
-      if (!store) return { kind: "unreadable", reason: "Saved runs are not available in this build yet." };
-      try {
-        return await loadCampaignRun(store, registry, campaignId);
-      } catch (error) {
-        // Fail closed: a run this build cannot read is reported, never touched.
-        return { kind: "unreadable", reason: error instanceof Error ? error.message : "The saved run could not be read." };
-      }
-    },
-    save: (state) => {
-      if (!store) return Promise.reject(new Error("Saved runs are not available in this build yet."));
-      return saveCampaignRun(store, registry, state);
-    },
+    load: (campaignId) => safely(() => loadCampaignRun(store, registry, campaignId)),
+    loadBackup: (campaignId) => safely(() => loadCampaignBackup(store, registry, campaignId)),
+    save: (state) => saveCampaignRun(store, registry, state),
+    setAside: (campaignId) => store.setAside(campaignId),
   };
 }
 
 let current: { roll: RollApi; registry: PackRegistry; runs: RunStore } = {
   roll: engineRoll,
   registry: shippedRegistry,
-  runs: engineRuns(null, shippedRegistry),
+  runs: engineRuns(defaultCampaignStore(), shippedRegistry),
 };
 
 /** The Roll's functions (engine, or the installed stand-in). */

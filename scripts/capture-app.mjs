@@ -30,6 +30,7 @@ const STAGES = [
   { name: "m1-choose-campaign", query: "screen=campaigns&mockRoll=1", settleMs: 2500 },
   { name: "m1-call-banners", query: "screen=roll&mockRoll=1", settleMs: 1500 },
   { name: "m1-call-banners-worn", query: "screen=roll&mockRoll=worn", settleMs: 1500 },
+  { name: "m1-choose-stale", query: "screen=campaigns&mockRoll=stale", settleMs: 2500, sizes: [[1600, 1000]] },
   {
     name: "m1-carry-over",
     query: "screen=campaigns&mockRoll=carry",

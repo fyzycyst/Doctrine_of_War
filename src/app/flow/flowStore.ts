@@ -51,8 +51,14 @@ export interface FlowState {
   definition: CampaignDefinition;
   /** Every non-intro campaign's saved run, as last read (M1). The intro keeps `save`/`saved`. */
   runReads: Record<string, CampaignSaveRead>;
-  /** Reads every campaign's run (never writes). */
+  /** For runs that cannot be continued: what their backup slot holds (Restore is offered when it is ok). */
+  backupReads: Record<string, CampaignSaveRead>;
+  /** Reads every campaign's run and, where it cannot be continued, its backup (never writes). */
   checkRuns: () => Promise<void>;
+  /** Moves a run this build cannot continue aside (kept, never deleted) and starts the campaign afresh. */
+  setAsideRun: (campaignId: string) => Promise<void>;
+  /** Sets the current run aside and continues from the backup. */
+  restoreRun: (campaignId: string) => Promise<void>;
   /** From "Choose a campaign": continue its run, or start one (asking about carry-over first). */
   chooseCampaign: (campaignId: string) => Promise<void>;
   /** Open while starting a Roll campaign that may take companies from a completed one. */
@@ -139,6 +145,7 @@ export const useFlow = create<FlowState>((set, get) => ({
   screen: "title",
   definition: ashAndBanner,
   runReads: {},
+  backupReads: {},
   carryOver: null,
   campaign: null,
   save: "checking",
@@ -158,13 +165,42 @@ export const useFlow = create<FlowState>((set, get) => ({
 
   checkRuns: async () => {
     const reads: Record<string, CampaignSaveRead> = {};
+    const backups: Record<string, CampaignSaveRead> = {};
     for (const pack of packs().packs) {
       for (const def of pack.campaigns) {
         if (def.id === ashAndBanner.id) continue; // the intro keeps its own v1 save (checkSave)
         reads[def.id] = await runs().load(def.id);
+        if (reads[def.id].kind === "unavailable" || reads[def.id].kind === "unreadable") backups[def.id] = await runs().loadBackup(def.id);
       }
     }
-    set({ runReads: reads });
+    set({ runReads: reads, backupReads: backups });
+  },
+
+  setAsideRun: async (campaignId) => {
+    try {
+      await runs().setAside(campaignId);
+    } catch (error) {
+      set({ notice: `The run could not be set aside (${error instanceof Error ? error.message : "unknown error"}).` });
+      return;
+    }
+    await get().checkRuns();
+    await get().chooseCampaign(campaignId);
+  },
+
+  restoreRun: async (campaignId) => {
+    const found = packs().campaign(campaignId);
+    const backup = await runs().loadBackup(campaignId);
+    if (!found || backup.kind !== "ok") return;
+    try {
+      await runs().setAside(campaignId);
+      set({ definition: found.campaign });
+      await runs().save(backup.state);
+    } catch (error) {
+      set({ notice: `The backup could not be restored (${error instanceof Error ? error.message : "unknown error"}).` });
+      return;
+    }
+    await get().checkRuns();
+    await get().chooseCampaign(campaignId);
   },
 
   chooseCampaign: async (campaignId) => {

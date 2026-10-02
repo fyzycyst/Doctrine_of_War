@@ -17,6 +17,8 @@ import { useFlow, type CarrySource } from "./flowStore";
 /** What the player can do with a campaign now, and how its card says it. */
 export interface CampaignStatus {
   kind: "checking" | "new" | "inProgress" | "complete" | "unavailable" | "unbuilt";
+  /** A preserved run (not the intro's): it may be set aside, or restored from a good backup. */
+  preserved?: { restorable: boolean };
   /** The card's status line. */
   line: string;
   action: string | null;
@@ -31,7 +33,10 @@ function progress(def: CampaignDefinition, state: CampaignState): CampaignStatus
 }
 
 /** A campaign's status from its run (or, for the intro, its v1 save). */
-export function campaignStatus(def: CampaignDefinition, flow: Pick<ReturnType<typeof useFlow.getState>, "save" | "saved" | "runReads">): CampaignStatus {
+export function campaignStatus(
+  def: CampaignDefinition,
+  flow: Pick<ReturnType<typeof useFlow.getState>, "save" | "saved" | "runReads" | "backupReads">,
+): CampaignStatus {
   const built = def.battles.some((battle) => scenarioFor(battle));
   if (def.id === ashAndBanner.id) {
     if (flow.save === "checking") return { kind: "checking", line: "Looking for your run…", action: null };
@@ -42,7 +47,8 @@ export function campaignStatus(def: CampaignDefinition, flow: Pick<ReturnType<ty
   const read = flow.runReads[def.id];
   if (!read) return { kind: "checking", line: "Looking for your run…", action: null };
   if (read.kind === "unavailable" || read.kind === "unreadable") {
-    return { kind: "unavailable", line: `${read.reason} Your run is kept as it is.`, action: null };
+    const reason = /[.!?]$/.test(read.reason) ? read.reason : `${read.reason}.`;
+    return { kind: "unavailable", line: `${reason} Your run is kept as it is.`, action: null, preserved: { restorable: flow.backupReads[def.id]?.kind === "ok" } };
   }
   if (read.kind === "ok") return progress(def, read.state);
   if (!built) return { kind: "unbuilt", line: "Still being forged: it opens in a later build.", action: null };
@@ -54,6 +60,7 @@ export function CampaignChoice({ onSettings }: { onSettings?: () => void }) {
   const first = useRef<HTMLButtonElement>(null);
   const list = packs().packs;
   const [highlighted, setHighlighted] = useState<string | null>(null);
+  const [settingAside, setSettingAside] = useState<CampaignDefinition | null>(null);
   // One chain of islands per campaign: the boards of its first built battles.
   const chains: CampaignSelectChain[] = list.flatMap((pack) =>
     pack.campaigns.map((def) => ({ id: def.id, boards: def.battles.map((battle) => scenarioFor(battle)?.board).filter((board) => board !== undefined).slice(0, 3) })),
@@ -99,7 +106,18 @@ export function CampaignChoice({ onSettings }: { onSettings?: () => void }) {
                           {status.kind === "unavailable" && <Lock size={13} aria-hidden="true" />} {status.line}
                         </p>
                       </div>
-                      {status.action ? (
+                      {status.preserved ? (
+                        <div className="choice-recover">
+                          {status.preserved.restorable && (
+                            <button type="button" className="btn-quiet" onClick={() => void flow.restoreRun(def.id)} aria-label={`Restore from backup: ${def.title}`}>
+                              Restore from backup
+                            </button>
+                          )}
+                          <button type="button" className="btn-quiet" onClick={() => setSettingAside(def)} aria-label={`Set aside and start again: ${def.title}`}>
+                            Set aside and start again
+                          </button>
+                        </div>
+                      ) : status.action ? (
                         <button
                           ref={index === 0 && pack === list[0] ? first : undefined}
                           type="button"
@@ -132,6 +150,22 @@ export function CampaignChoice({ onSettings }: { onSettings?: () => void }) {
           </div>
         </section>
       </CampaignSelectBackdrop>
+      {flow.notice && (
+        <p className="choice-notice" role="alert">
+          {flow.notice}
+        </p>
+      )}
+      {settingAside && (
+        <ConfirmSetAside
+          def={settingAside}
+          onConfirm={() => {
+            const id = settingAside.id;
+            setSettingAside(null);
+            void flow.setAsideRun(id);
+          }}
+          onCancel={() => setSettingAside(null)}
+        />
+      )}
       {flow.carryOver && <CarryOverPicker campaignId={flow.carryOver.campaignId} sources={flow.carryOver.sources} />}
     </div>
   );
@@ -219,11 +253,32 @@ export function CarryOverPicker({ campaignId, sources }: { campaignId: string; s
         </p>
       )}
       <div className="modal-actions">
-        <button ref={begin} type="button" className="btn-command" onClick={() => void start(true)} disabled={picked.length === 0}>
+        <button type="button" className="btn-command" onClick={() => void start(true)} disabled={picked.length === 0}>
           Begin with {picked.length === 1 ? "this company" : "these companies"}
         </button>
-        <button type="button" className="btn-quiet" onClick={() => void start(false)}>
+        <button ref={begin} type="button" className="btn-quiet" onClick={() => void start(false)}>
           Begin with {target?.title}&apos;s own army only
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function ConfirmSetAside({ def, onConfirm, onCancel }: { def: CampaignDefinition; onConfirm: () => void; onCancel: () => void }) {
+  const keep = useRef<HTMLButtonElement>(null);
+  return (
+    <Modal className="modal" role="alertdialog" labelledBy="aside-title" describedBy="aside-body" initialFocus={keep} onCancel={onCancel}>
+      <h2 id="aside-title">Set this run aside?</h2>
+      <p id="aside-body">
+        This version cannot continue your run of {def.title}. Setting it aside keeps it, untouched, and starts the campaign again. Nothing is
+        deleted.
+      </p>
+      <div className="modal-actions">
+        <button ref={keep} type="button" className="btn-command" onClick={onCancel}>
+          Keep it where it is
+        </button>
+        <button type="button" className="btn-quiet" onClick={onConfirm}>
+          Set aside and start again
         </button>
       </div>
     </Modal>

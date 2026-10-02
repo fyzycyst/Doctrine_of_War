@@ -4343,3 +4343,20 @@ html.reduce-motion .ticker-text.static {
   align-items: center;
   font-size: 13px;
 }
+
+.choice-recover {
+  display: grid;
+  gap: 6px;
+}
+
+.choice-notice {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: rgba(40, 18, 10, 0.9);
+  color: var(--rust-text);
+}

@@ -2,13 +2,19 @@
 // battle lands (M1 P5). Dev (`?mockRoll=1`) and tests only: never in the shipped registry.
 // Its first battle stands on the Saltmarsh board; names are placeholders, not canon.
 import type { CampaignDefinition } from "../../game/campaign";
-import { saltmarshColumn, type EngineScenario } from "../../game/engine";
+import { emberFord, saltmarshColumn, type EngineScenario } from "../../game/engine";
 import { firstCall, type PackManifest } from "../../game/packs";
 
-export const PREVIEW_CAMPAIGN_ID = "cinder_road_preview";
+/**
+ * The preview takes Cinder Road's id: it is pre-allowlisted for saves (P3). When the real
+ * campaign lands (P5) this fixture gives way to it.
+ */
+export const PREVIEW_CAMPAIGN_ID = "cinder_road";
 
 /** The Saltmarsh board under its own id (scenario ids are unique across packs). */
 export const crossingPreview: EngineScenario = { ...saltmarshColumn, id: "cr_crossing_preview", title: "Secure a Crossing (preview)" };
+/** The Ember Ford board under its own id: a second built battle, so conditions carry into a real call. */
+export const ashFieldsPreview: EngineScenario = { ...emberFord, id: "cr_ash_fields_preview", title: "The Ash Fields (preview)" };
 
 export const cinderRoadPreview: CampaignDefinition = {
   id: PREVIEW_CAMPAIGN_ID,
@@ -42,23 +48,28 @@ export const cinderRoadPreview: CampaignDefinition = {
         flex: { kestrel_lancers: { roles: ["cavalry", "frontline"], doctrines: { cavalry: "fighting_withdrawal", frontline: "shield_the_line" } } },
       },
     },
-    ...["The Ash Fields", "The Glass Road", "The Cold Kilns", "Saltgate Reclaimed", "Break the Strongpoint"].map((title, index) => ({
-      id: `cr_${index + 2}`,
+    {
+      id: "cr_ash_fields",
+      title: "The Ash Fields",
+      scenarioId: ashFieldsPreview.id,
+      slots: {
+        tollbridge_pikes: "cr_ashgate_shields",
+        ashfen_bowmen: "cr_fenmere_bowmen",
+        lanternbearers: "cr_covenant_standard",
+        harrow_riders: "cr_causeway_riders",
+        kestrel_lancers: "cr_dawnward_lances",
+        mill_lane_guard: "cr_saltgate_pikes",
+        reedmarsh_levy: "cr_heron_stair_guard",
+      },
+    },
+    ...["The Glass Road", "The Cold Kilns", "Saltgate Reclaimed", "Break the Strongpoint"].map((title, index) => ({
+      id: `cr_${index + 3}`,
       title,
-      scenarioId: `cr_unbuilt_${index + 2}`,
+      scenarioId: `cr_unbuilt_${index + 3}`,
       slots: {},
       placeholder: true,
     })),
   ],
-};
-
-/** A second preview campaign whose saved run this build cannot continue (for the honest-status path). */
-export const causewayPreview: CampaignDefinition = {
-  id: "causeway_war_preview",
-  title: "The Causeway War (preview)",
-  mode: "roll",
-  companies: [{ id: "cw_causeway_guard", name: "Causeway Guard", role: "frontline", profile: { strength: 76, cohesion: 70 } }],
-  battles: [{ id: "cw_1", title: "The Causeway", scenarioId: "cw_unbuilt_1", slots: {}, placeholder: true }],
 };
 
 export const previewPack: PackManifest = {
@@ -66,8 +77,8 @@ export const previewPack: PackManifest = {
   title: "The First Call (preview)",
   revision: { pack: 1, content: 1, rules: 1 },
   readsContent: [1],
-  campaigns: [cinderRoadPreview, causewayPreview],
-  scenarios: [crossingPreview],
+  campaigns: [cinderRoadPreview],
+  scenarios: [crossingPreview, ashFieldsPreview],
   doctrines: [],
   skirmishes: [],
 };
