@@ -1,10 +1,12 @@
 // The pack registry (M1, P1).
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ashAndBanner } from "../campaign/definition";
 import { doctrineLibrary } from "../engine/doctrines";
 import { scenarios } from "../engine/scenarios";
 import { lintPacks } from "./lint";
-import { parsePackManifest } from "./manifest";
+import { parsePackManifest, readDoctrine, readScenario, SCHEMA_KINDS } from "./manifest";
 import { createRegistry, firstCall, registry, shippedPacks } from "./registry";
 import { PackError, RULES_REVISION, type PackManifest } from "./types";
 
@@ -54,6 +56,34 @@ describe("parsePackManifest (untrusted data)", () => {
     expect(reason("not a pack")).toMatch(/pack must be an object/);
     expect(reason(JSON.parse('{"__proto__": {"polluted": true}}'))).toMatch(/pack/);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+});
+
+describe("the pack schema keeps up with the engine", () => {
+  it("has a case for every member of every engine union (read from engine/types.ts)", () => {
+    const source = readFileSync(path.join(__dirname, "..", "engine", "types.ts"), "utf8");
+    for (const [union, kinds] of Object.entries(SCHEMA_KINDS)) {
+      const start = source.indexOf(`export type ${union} =`);
+      expect(start, union).toBeGreaterThanOrEqual(0);
+      const end = source.indexOf("\nexport ", start + 1);
+      const body = source.slice(start, end < 0 ? undefined : end);
+      const engineKinds = [...body.matchAll(/kind: "(\w+)"/g)].map((match) => match[1]);
+      const inherited = /^\s*\| EnemySelector$/m.test(body) ? SCHEMA_KINDS.EnemySelector : [];
+      expect([...new Set(kinds)].sort(), union).toEqual([...new Set([...engineKinds, ...inherited])].sort());
+    }
+  });
+
+  it("round-trips every core doctrine and the offensive kinds (aheadOfLine, breakObjective)", () => {
+    for (const doctrine of Object.values(doctrineLibrary)) {
+      expect(readDoctrine(JSON.parse(JSON.stringify(doctrine)), "doctrine"), doctrine.id).toEqual(doctrine);
+    }
+    expect(Object.values(doctrineLibrary).some((doctrine) => doctrine.rules.some((rule) => rule.when.kind === "aheadOfLine"))).toBe(true);
+    const offensive = { ...structuredClone(scenarios[0]), id: "offensive", winCondition: { kind: "breakObjective", objectiveId: scenarios[0].objectives[0].id } };
+    expect(readScenario(JSON.parse(JSON.stringify(offensive)), "scenario")).toEqual(offensive);
+    expect(() => readScenario({ ...offensive, winCondition: { kind: "breakObjective" } }, "scenario")).toThrow(/objectiveId is required/);
+    const ahead = { kind: "aheadOfLine", by: 99 };
+    const doctrine = { ...structuredClone(doctrineLibrary.shield_the_line), rules: [{ id: "x", label: "If ahead → hold", when: ahead, then: { kind: "hold" } }] };
+    expect(() => readDoctrine(doctrine, "doctrine")).toThrow(/by must be an integer in 1\.\.8/);
   });
 });
 

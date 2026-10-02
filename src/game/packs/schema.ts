@@ -81,7 +81,7 @@ export interface Field<T> {
 export const req = <T>(read: Reader<T>): Field<T> => ({ read, optional: false });
 export const opt = <T>(read: Reader<T>): Field<T> => ({ read, optional: true });
 
-type Shape = Record<string, Field<unknown>>;
+export type Shape = Record<string, Field<unknown>>;
 type FromShape<S extends Shape> = { [K in keyof S as S[K]["optional"] extends true ? never : K]: S[K] extends Field<infer T> ? T : never } & {
   [K in keyof S as S[K]["optional"] extends true ? K : never]?: S[K] extends Field<infer T> ? T : never;
 };
