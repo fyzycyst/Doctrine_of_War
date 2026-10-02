@@ -13,6 +13,7 @@ import { lintPacks } from "./lint";
 import { parsePackManifest } from "./manifest";
 import {
   PackError,
+  SUPPORTED_PACK_FORMATS,
   SUPPORTED_RULES,
   type Compatibility,
   type PackManifest,
@@ -83,6 +84,9 @@ export function createRegistry(packs: readonly unknown[], core: DoctrineLibrary 
 function compatibility(packs: readonly PackManifest[], provenance: SaveProvenance): Compatibility {
   const pack = packs.find((item) => item.id === provenance.packId);
   if (!pack) return { ok: false, reason: `This run belongs to a pack this build does not have (${provenance.packId}).` };
+  if (!SUPPORTED_PACK_FORMATS.includes(provenance.packRevision) || provenance.packRevision > pack.revision.pack) {
+    return { ok: false, reason: `This run was saved by a pack format this build does not read (pack ${provenance.packRevision}).` };
+  }
   if (!pack.campaigns.some((item) => item.id === provenance.campaignId)) {
     return { ok: false, reason: `This build's ${pack.title} has no campaign ${provenance.campaignId}.` };
   }

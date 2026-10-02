@@ -69,7 +69,7 @@ describe("the v1 save corpus (written by v1.0-intro)", () => {
       expect(read.kind, name).toBe("ok");
       if (read.kind !== "ok") continue;
       expect(read.state).toEqual(loadCampaign(payload, ashAndBanner));
-      expect(read.provenance).toEqual({ packId: "first_call", campaignId: INTRO_CAMPAIGN_ID, contentRevision: 1, rulesRevision: RULES_REVISION });
+      expect(read.provenance).toEqual({ packId: "first_call", packRevision: 1, campaignId: INTRO_CAMPAIGN_ID, contentRevision: 1, rulesRevision: RULES_REVISION });
       expect(serializeCampaignSave(registry, read.state), name).toBe(payload);
     }
     expect(localStorageKeyFor(INTRO_CAMPAIGN_ID)).toBe(LOCAL_STORAGE_KEY);
@@ -94,7 +94,7 @@ describe("v2 runs", () => {
     const state = rollRun();
     expect(state.companies.find((company) => company.id === "dawnwatch_archers")).toMatchObject({ condition: "worn", carriedFrom: { campaignId: "ash_and_banner" } });
     const json = serializeCampaignSave(testRegistry, state);
-    expect(JSON.parse(json)).toMatchObject({ version: 2, provenance: { packId: "first_call", campaignId: "cinder_road", contentRevision: 1, rulesRevision: RULES_REVISION } });
+    expect(JSON.parse(json)).toMatchObject({ version: 2, provenance: { packId: "first_call", packRevision: 1, campaignId: "cinder_road", contentRevision: 1, rulesRevision: RULES_REVISION } });
     const read = readCampaignSave(testRegistry, "cinder_road", json);
     expect(read).toMatchObject({ kind: "ok" });
     expect(read.kind === "ok" && read.state).toEqual(state);
@@ -125,6 +125,9 @@ describe("v2 runs", () => {
     expect(read(JSON.stringify({ ...envelope, version: 1 }))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/version must be 2/) });
     expect(read(JSON.stringify({ ...envelope, provenance: { ...envelope.provenance, campaignId: "ash_and_banner" } }))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/belongs to campaign ash_and_banner/) });
     expect(read("{")).toMatchObject({ kind: "unreadable" });
+    const { packRevision: _dropped, ...noPack } = envelope.provenance;
+    expect(read(JSON.stringify({ ...envelope, provenance: noPack }))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/revisions \(pack, content, rules\)/) });
+    expect(read(JSON.stringify({ ...envelope, provenance: { ...envelope.provenance, extra: 1 } }))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/unknown fields: extra/) });
     expect(read("x".repeat(MAX_RUN_BYTES + 1))).toMatchObject({ kind: "unreadable", reason: expect.stringMatching(/larger than/) });
     // Isolation: a v2 run is never taken for the intro, nor an intro save for a v2 run.
     expect(read(json, INTRO_CAMPAIGN_ID)).toMatchObject({ kind: "unreadable" });
@@ -139,6 +142,7 @@ describe("v2 runs", () => {
       content: { ...envelope, provenance: { ...envelope.provenance, contentRevision: 9 } },
       rules: { ...envelope, provenance: { ...envelope.provenance, rulesRevision: 9 } },
       pack: { ...envelope, provenance: { ...envelope.provenance, packId: "shoal_towns" } },
+      packFormat: { ...envelope, provenance: { ...envelope.provenance, packRevision: 2 } },
     };
     for (const [name, saved] of Object.entries(variants)) {
       const payload = JSON.stringify(saved);

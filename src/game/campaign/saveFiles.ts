@@ -74,7 +74,13 @@ export type CampaignSaveRead =
 function provenanceOf(registry: PackRegistry, campaignId: string): SaveProvenance {
   const entry = registry.campaign(campaignId);
   if (!entry) throw new CampaignSaveError(`campaign ${campaignId} is not in this build`);
-  return { packId: entry.pack.id, campaignId, contentRevision: entry.pack.revision.content, rulesRevision: RULES_REVISION };
+  return {
+    packId: entry.pack.id,
+    packRevision: entry.pack.revision.pack,
+    campaignId,
+    contentRevision: entry.pack.revision.content,
+    rulesRevision: RULES_REVISION,
+  };
 }
 
 /** Serializes a campaign's state for its own file (v1 for the intro, v2 otherwise). Throws past the size budget. */
@@ -94,11 +100,15 @@ const isRevision = (value: unknown) => typeof value === "number" && Number.isInt
 function readProvenance(value: unknown): SaveProvenance {
   const id = /^[a-z0-9_]{1,64}$/;
   if (!isObject(value)) throw new CampaignSaveError("save.provenance must be an object");
-  const { packId, campaignId, contentRevision, rulesRevision } = value;
+  const unknown = Object.keys(value).filter((key) => !["packId", "packRevision", "campaignId", "contentRevision", "rulesRevision"].includes(key));
+  if (unknown.length > 0) throw new CampaignSaveError(`save.provenance has unknown fields: ${unknown.join(", ").slice(0, 120)}`);
+  const { packId, packRevision, campaignId, contentRevision, rulesRevision } = value;
   if (typeof packId !== "string" || !id.test(packId)) throw new CampaignSaveError("save.provenance.packId must be a lowercase id");
   if (typeof campaignId !== "string" || !id.test(campaignId)) throw new CampaignSaveError("save.provenance.campaignId must be a lowercase id");
-  if (!isRevision(contentRevision) || !isRevision(rulesRevision)) throw new CampaignSaveError("save.provenance revisions must be integers in 1..10000");
-  return { packId, campaignId, contentRevision: contentRevision as number, rulesRevision: rulesRevision as number };
+  if (!isRevision(packRevision) || !isRevision(contentRevision) || !isRevision(rulesRevision)) {
+    throw new CampaignSaveError("save.provenance revisions (pack, content, rules) must be integers in 1..10000");
+  }
+  return { packId, packRevision: packRevision as number, campaignId, contentRevision: contentRevision as number, rulesRevision: rulesRevision as number };
 }
 
 const message = (error: unknown) => (error instanceof Error ? error.message : "unknown error");
