@@ -165,6 +165,48 @@ export const doctrines: Doctrine[] = [
     ],
   },
 
+  {
+    // The Advance (Cinder Road): an offensive covenant. It marches on the objective,
+    // which both sides can see on the map, so it needs no sight of the enemy to act.
+    id: "bring_the_water",
+    faction: "free_banners",
+    name: "Bring the Water",
+    flavor: "The Long Flooding was dug a stretch at a time, by realms that kept step. March on what feeds the fire, and let no company reach it alone.",
+    passives: { defense: 1, cohesion: 2, counter: 1 },
+    rules: [
+      {
+        id: "btw_steady",
+        label: "If cohesion < 30 → fall back 1 hex",
+        when: { kind: "selfCohesionBelow", value: 30 },
+        then: { kind: "fallBack", hexes: 1 },
+      },
+      {
+        id: "btw_break",
+        label: "If at the objective → batter it",
+        when: { kind: "atObjective" },
+        then: { kind: "attack", target: { kind: "objective", side: "enemy" } },
+      },
+      {
+        id: "btw_clear",
+        label: "If an enemy bars the way → strike it",
+        when: { kind: "enemyAdjacent" },
+        then: { kind: "attack", target: { kind: "nearestEnemy" } },
+      },
+      {
+        id: "btw_step",
+        label: "If 2 hexes ahead of the line → wait for it",
+        when: { kind: "aheadOfLine", by: 2 },
+        then: { kind: "hold" },
+      },
+      {
+        id: "btw_march",
+        label: "Otherwise → march on the objective",
+        when: { kind: "always" },
+        then: { kind: "attack", target: { kind: "objective", side: "enemy" } },
+      },
+    ],
+  },
+
   // ---------------------------------------------------------------- Ashen Host
   {
     id: "iron_tide",
