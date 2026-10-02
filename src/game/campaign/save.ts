@@ -9,6 +9,7 @@ import { possibleRenownTitles } from "./titles";
 import { CARRY_OVER_MAX, CARRY_RESOLVE, fieldedProfile, LEVY_PROFILE, PROFILE_BANDS, rollRoster, settleRollBattle, validateAssignment } from "./roll";
 import {
   LEVY_ID,
+  REALM_IDS,
   RESOLVE_MAX,
   RESOLVE_MIN,
   type Assignment,
@@ -127,6 +128,7 @@ function carriedCompany(value: unknown, path: string): CarriedCompany {
     id: id(raw.id, `${path}.id`),
     name: text(raw.name, `${path}.name`),
     role,
+    ...(raw.realm === undefined ? {} : { realm: oneOf(raw.realm, `${path}.realm`, REALM_IDS) }),
     profile: profile(raw.profile, `${path}.profile`, role),
     resolve: int(raw.resolve, `${path}.resolve`, CARRY_RESOLVE.min, CARRY_RESOLVE.max),
     renown: renown === null ? null : { title: text(renown.title, `${path}.renown.title`) },
@@ -135,11 +137,12 @@ function carriedCompany(value: unknown, path: string): CarriedCompany {
 }
 
 /** The Roll fields of a saved company (v2 saves only). */
-function rollCompanyFields(raw: Json, path: string, role: SquadRole): Pick<CampaignCompany, "condition" | "profile" | "carriedFrom"> {
+function rollCompanyFields(raw: Json, path: string, role: SquadRole): Pick<CampaignCompany, "condition" | "profile" | "carriedFrom" | "realm"> {
   return {
     condition: oneOf(raw.condition, `${path}.condition`, CONDITIONS),
     profile: profile(raw.profile, `${path}.profile`, role),
     ...(raw.carriedFrom === undefined ? {} : { carriedFrom: origin(raw.carriedFrom, `${path}.carriedFrom`) }),
+    ...(raw.realm === undefined ? {} : { realm: oneOf(raw.realm, `${path}.realm`, REALM_IDS) }),
   };
 }
 
@@ -298,6 +301,7 @@ function checkCarried(carried: CarriedCompany[], sourceOf: (origin: CarryOrigin)
     const known = source.companies.find((company) => company.id === item.id);
     if (!known) fail(`${path}.id`, `${item.id} is not a company of ${source.id}`);
     if (known.name !== item.name || known.role !== item.role) fail(path, `must be ${known.name} (${known.role}) as ${source.id} defines it`);
+    if ((known.realm ?? null) !== (item.realm ?? null)) fail(`${path}.realm`, `must be ${known.realm ?? "absent"} as ${source.id} defines it`);
     if (!known.profile || known.profile.strength !== item.profile.strength || known.profile.cohesion !== item.profile.cohesion) {
       fail(`${path}.profile`, `must be ${item.id}'s profile in ${source.id}`);
     }
@@ -309,6 +313,7 @@ const sameProfile = (a?: CompanyProfile, b?: CompanyProfile) => a?.strength === 
 
 const sameCompany = (a: CampaignCompany, b: CampaignCompany) =>
   (a.condition ?? null) === (b.condition ?? null) &&
+  (a.realm ?? null) === (b.realm ?? null) &&
   sameProfile(a.profile, b.profile) &&
   (a.carriedFrom?.packId ?? null) === (b.carriedFrom?.packId ?? null) &&
   (a.carriedFrom?.campaignId ?? null) === (b.carriedFrom?.campaignId ?? null) &&

@@ -78,6 +78,10 @@ intro stays `"fixed"` and is untouched.
   names, never a company's). `RollSlot.label` is that name, else the hex's board label,
   else "<Terrain> · <role>" ("Ridge · skirmishers"), never the scenario squad's name;
   `RollSlot.hex` says where the post stands.
+- **Realms.** A company may name its home realm (`realm`: `greyford_march`,
+  `fenwardens`, `dawnwatch_holds`; `REALM_IDS` grows with later packs). It is frozen on
+  release like the name, travels in carried snapshots, and is checked against the origin
+  campaign's definition on load.
 - **Companies own their profile** (`strength`, `cohesion`), linted against a per-role
   band (`PROFILE_BANDS`), and **arrive** at an authored battle (`joins`).
 - **Assignment** (`slot id -> company id`) is checked by `validateAssignment` (plain
@@ -115,6 +119,16 @@ into the new run (`state.carried`: id, name, role, profile, Resolve clamped to �
 renown kept, origin); replay starts from the snapshot and never re-reads the earlier
 save. Carried companies join the Roll at the start, beside the authored army, and count
 toward the Host's threat like any other. Company ids are unique across campaigns (lint).
+**At most 2 veterans take the field.** A run may carry up to 5 companies in, but at most
+`maxCarriedFielded` of them (default 2, `DEFAULT_MAX_CARRIED_FIELDED`; a campaign may set
+0–5) take the field in any one battle; the rest wait in reserve. `validateAssignment`
+refuses a third ("At most 2 veterans from earlier campaigns may take the field; <Company>
+must stay in reserve, not hold <post>."), `carriedFielded(def, state, assignment)` gives
+the UI its "Veterans n/2", and a levy is legal where only a benched veteran could hold a
+post. `recommendedForce` fills the posts from the campaign's own army by readiness, then
+places at most the limit of veterans, each where it gains the most readiness over the
+post's holder (a levy-held post first); the Host's fixed threat reads that force, so it
+counts at most two veterans' fame. The harness's picks (`rollCalls`) respect the limit.
 Loading a run checks each carried snapshot against this build's registry: the origin pack
 and campaign exist, the company is in that campaign's definition with the same id, name
 and role, its profile is the frozen definition profile, Resolve is inside the clamp, and

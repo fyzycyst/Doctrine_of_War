@@ -2,6 +2,14 @@
 // is what gets saved. No functions, Dates or class instances.
 import type { BattleOutcome, SquadRole, SquadStatus } from "../engine/types";
 
+/**
+ * A company's home realm (setting bible v2): what it is for. The Greyford March holds;
+ * the Fenwardens withdraw and rescue; the Dawnwatch Holds wait, then strike. Extensible:
+ * a later pack adds its realm here (and nothing else needs to change).
+ */
+export const REALM_IDS = ["greyford_march", "fenwardens", "dawnwatch_holds"] as const;
+export type RealmId = (typeof REALM_IDS)[number];
+
 export const RESOLVE_MIN = -3;
 export const RESOLVE_MAX = 3;
 
@@ -15,6 +23,8 @@ export interface CompanyDefinition {
   role: SquadRole;
   /** Resolve when the company first joins. Default 0 ("fresh"). */
   startingResolve?: number;
+  /** Its home realm (frozen on release, like the name). */
+  realm?: RealmId;
   /**
    * Roll campaigns (M1): the company's own strength and cohesion, which it takes into
    * every slot it fills. Must sit inside PROFILE_BANDS for its role. Ignored by fixed
@@ -84,6 +94,12 @@ export interface CampaignDefinition {
    * role-typed slots; companies own their profiles; Worn, reserves and carry-over apply.
    */
   mode?: "fixed" | "roll";
+  /**
+   * Roll campaigns: at most this many carried veterans take the field in one battle
+   * (0..CARRY_OVER_MAX; default DEFAULT_MAX_CARRIED_FIELDED, 2). Up to CARRY_OVER_MAX
+   * may still be carried in; the rest wait in reserve.
+   */
+  maxCarriedFielded?: number;
   companies: CompanyDefinition[];
   battles: CampaignBattle[];
 }
@@ -117,6 +133,8 @@ export interface CarriedCompany {
   id: string;
   name: string;
   role: SquadRole;
+  /** Its home realm, as its own campaign defines it (absent when it has none). */
+  realm?: RealmId;
   profile: CompanyProfile;
   resolve: number;
   renown: { title: string } | null;
@@ -141,6 +159,8 @@ export interface CampaignCompany {
   profile?: CompanyProfile;
   /** Roll campaigns only: present when the company was carried over. */
   carriedFrom?: CarryOrigin;
+  /** Roll campaigns only: its home realm, when it has one. */
+  realm?: RealmId;
 }
 
 export interface CompanyResult {
