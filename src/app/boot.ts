@@ -15,6 +15,8 @@ import { campaignAfter } from "./flow/devCampaign";
 import { useFlow } from "./flow/flowStore";
 import { COACH_STEPS, useGuide, type CoachStep } from "./guide/guideStore";
 import { useGame, type Stage } from "./game/gameStore";
+import { bootMockRoll } from "./roll/devBoot";
+import { cinderRoad } from "../game/campaign";
 import { useSettings } from "./settingsStore";
 import { useAppStore } from "./store";
 
@@ -33,6 +35,14 @@ const ORDER: Stage[] = ["briefing", "deploy", "command", "resolving", "report", 
 
 export function bootFromUrl(search: string): BootOptions {
   const params = new URLSearchParams(search);
+  // `&mockRoll=1|carry|veterans|stale` (`&rollBattle=1`): Cinder Road on in-memory saves (see roll/devBoot.ts).
+  const mockRoll = params.get("mockRoll");
+  if (mockRoll) bootMockRoll(mockRoll, params.get("rollBattle") === "1");
+
+  // `&skirmish=<id>`: that skirmish's briefing (a `seed` pins its fortune for captures).
+  const skirmish = params.get("skirmish");
+  if (skirmish) useFlow.getState().playSkirmish(skirmish);
+
   const scenario = findScenario(params.get("scenario"));
   const fortune = params.get("fortune");
   const seed = Number(params.get("seed"));
@@ -104,7 +114,19 @@ export function bootFromUrl(search: string): BootOptions {
   }
 
   const screen = params.get("screen");
-  if (screen === "title" || screen === "campaign" || screen === "ending") {
+  if (screen === "campaigns" || screen === "skirmish") {
+    useFlow.getState().go(screen);
+  } else if (screen === "roll" && mockRoll) {
+    // Straight to Call the Banners on Cinder Road's current battle.
+    void (async () => {
+      const flow = useFlow.getState();
+      await flow.chooseCampaign(cinderRoad.id);
+      if (useFlow.getState().carryOver) await useFlow.getState().startRun(cinderRoad.id, null);
+      const now = useFlow.getState();
+      const battle = now.campaign && now.definition.battles[now.campaign.battleIndex];
+      if (battle) now.openBattle(battle.id);
+    })();
+  } else if (screen === "title" || screen === "campaign" || screen === "ending") {
     // `&campaignAt=N`: a real campaign after N battles (fortune on, curated seeds), not saved.
     const flow = useFlow.getState();
     const played = Number(params.get("campaignAt")) || 0;

@@ -28,7 +28,7 @@ import {
   type MusterMove,
 } from "../../game/engine";
 import { isRelief, musterProblems, musterTargets, withoutPlan, withPlan } from "./muster";
-import { ashAndBanner, applyCampaign, startCampaign, type CampaignDefinition, type CampaignState } from "../../game/campaign";
+import { ashAndBanner, applyCampaign, startCampaign, type Assignment, type CampaignDefinition, type CampaignState } from "../../game/campaign";
 import { admitCallout } from "../playback/callouts";
 import type { CalloutSpec } from "../playback/director";
 import { useGuide } from "../guide/guideStore";
@@ -50,6 +50,11 @@ export interface BattleSetup {
 export interface CampaignContext {
   def: CampaignDefinition;
   state: CampaignState;
+  /**
+   * Roll campaigns (M1): who fills each post. The battle's scenario is then already
+   * assembled (assembleBattle) and is played as given; `recordBattle` needs this.
+   */
+  assignment?: Assignment;
 }
 
 /** One resolved phase as the player experienced it. */
@@ -167,7 +172,7 @@ function battleFor(scenario: EngineScenario, deployment: Deployment, setup: Batt
 
 function freshBattle(baseScenario: EngineScenario, setup: BattleSetup, stage: Stage, campaign: CampaignContext | null) {
   // Every battle's setup goes through the campaign, so its companies carry their Resolve and renown in.
-  const scenario = campaign ? applyCampaign(campaign.def, campaign.state, baseScenario) : baseScenario;
+  const scenario = campaign && !campaign.assignment ? applyCampaign(campaign.def, campaign.state, baseScenario) : baseScenario;
   const deployment = initialDeployment(scenario);
   return {
     scenario,

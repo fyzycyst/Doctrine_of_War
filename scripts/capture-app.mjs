@@ -26,6 +26,20 @@ const STAGES = [
     sizes: [[1100, 760]],
     eval: `[...document.querySelectorAll(".title-menu button")].find((b) => b.textContent === "Settings")?.click()`,
   },
+  // M1 (P6), on the stand-in Roll and preview packs until the engine lands.
+  { name: "m1-choose-campaign", query: "screen=campaigns&mockRoll=1", settleMs: 2500 },
+  { name: "m1-call-banners", query: "screen=roll&mockRoll=1", settleMs: 1500 },
+  { name: "m1-call-banners-veterans", query: "screen=roll&mockRoll=veterans", settleMs: 1500 },
+  { name: "m1-roll-outcome", query: "mockRoll=1&rollBattle=1&stage=outcome&plan=intended", settleMs: 2500 },
+  { name: "m1-choose-stale", query: "screen=campaigns&mockRoll=stale", settleMs: 2500, sizes: [[1600, 1000]] },
+  {
+    name: "m1-carry-over",
+    query: "screen=campaigns&mockRoll=carry",
+    settleMs: 1500,
+    eval: `[...document.querySelectorAll(".choice-card button")].find((b) => /Cinder Road/.test(b.getAttribute("aria-label") ?? ""))?.click()`,
+  },
+  { name: "m1-skirmish", query: "screen=skirmish", settleMs: 2500 },
+  { name: "m1-skirmish-outcome", query: "skirmish=skirmish_ember_ford&seed=7&stage=outcome&plan=intended", settleMs: 2500 },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
   { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },
@@ -89,6 +103,8 @@ const STAGES = [
     // T22: the weather ticker mid-crossing, and held still under reduced motion.
     ["t22-weather-ticker", "scenario=holdForDawn&stage=resolving&phase=3&plan=intended&pauseAt=weather&motion=full"],
     ["t22-weather-ticker-reduced", "scenario=holdForDawn&stage=resolving&phase=3&plan=intended&pauseAt=weather&motion=reduce"],
+    // M1: Cinder Road battle 1, fielded from Call the Banners (the recommended force), mid-playback.
+    ["m1-roll-play", "mockRoll=1&rollBattle=1&stage=resolving&plan=intended&pauseAt=rule-mine"],
     ["qa-sm-play2", "scenario=saltmarshColumn&stage=resolving&phase=2&plan=intended&pauseAt=rule-mine"],
     ["qa-hfd-dawn", "scenario=holdForDawn&stage=resolving&phase=4&plan=intended&speed=25&pauseAt=stage"],
     ["qa-capture-play", "scenario=emberFord&stage=resolving&plan=intended&pauseAt=rule-mine&capture=1"],

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { currentBattle, type CampaignCompany } from "../../game/campaign";
 import { CampaignMap } from "../../render/showcase/CampaignMap";
 import { resolveRank } from "../game/view";
+import { ConditionBadge } from "../roll/CallTheBanners";
 import { ExperimentalBadge } from "../ui/DoctrineCard";
 import { FrameProbe } from "../ui/FrameProbe";
 import { RoleGlyph, ROLE_NAME } from "../ui/glyphs";
@@ -151,6 +152,12 @@ export function LedgerRow({ company }: { company: CampaignCompany }) {
             {company.resolve}
           </span>
           {company.renown && <span className="renown"> “{company.renown.title}”</span>}
+          {company.condition && company.condition !== "fresh" && (
+            <>
+              {" "}
+              <ConditionBadge condition={company.condition} />
+            </>
+          )}
           <span className="ledger-stats">
             {" · "}
             {company.battlesFought} {company.battlesFought === 1 ? "battle" : "battles"}

@@ -8,14 +8,15 @@ import {
   type CampaignDefinition,
   type CampaignState,
 } from "../../game/campaign";
-import { scenarios, type EngineScenario } from "../../game/engine";
+import type { EngineScenario } from "../../game/engine";
+import { packs, roll } from "../roll/api";
 import { lightingFor } from "../../render/fromEngine";
 import type { CampaignIslandStatus, CampaignMapBattle } from "../../render/showcase/CampaignMap";
 import type { PlaceholderKind } from "../../render/showcase/placeholderBoards";
 
-/** The engine scenario a campaign battle is fought on, once it has been built. */
+/** The engine scenario a campaign battle is fought on, once it has been built (from any pack). */
 export function scenarioFor(battle: CampaignBattle): EngineScenario | undefined {
-  return battle.placeholder ? undefined : scenarios.find((scenario) => scenario.id === battle.scenarioId);
+  return battle.placeholder ? undefined : packs().scenario(battle.scenarioId);
 }
 
 /** A battle the player can fight now: it is the current one and its scenario exists. */
@@ -65,6 +66,8 @@ export function mapBattles(def: CampaignDefinition, state: CampaignState): Campa
  * the companies the next battle will muster, so a new campaign is never empty.
  */
 export function ledger(def: CampaignDefinition, state: CampaignState): { companies: CampaignCompany[]; mustering: boolean } {
+  // A Roll campaign's ledger is the whole Roll (arrivals and carried companies), with conditions.
+  if (def.mode === "roll") return { companies: roll().rollFor(def, state).map((entry) => entry.company), mustering: false };
   const battle = currentBattle(def, state);
   if (!battle || battle.placeholder) {
     return { companies: state.companies, mustering: false };

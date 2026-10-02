@@ -4,6 +4,7 @@ import { scenarios } from "../../game/engine";
 import { currentBattle } from "../../game/campaign";
 import type { VisibleSquad } from "../../game/engine";
 import { useFlow } from "../flow/flowStore";
+import { ConditionBadge } from "../roll/CallTheBanners";
 import { useGame } from "../game/gameStore";
 import { resolveRank } from "../game/view";
 import { Modal, rosterFocus } from "./Modal";
@@ -31,7 +32,11 @@ export function Outcome() {
   const saveError = useFlow((s) => s.saveError);
   const retryBattle = useFlow((s) => s.retryBattle);
   const leaveBattle = useFlow((s) => s.leaveBattle);
+  const skirmish = useFlow((s) => s.skirmish);
+  const go = useFlow((s) => s.go);
   const inCampaign = Boolean(gameCampaign && campaign);
+  // A skirmish is never a campaign battle: nothing was recorded or saved.
+  const inSkirmish = Boolean(skirmish && !gameCampaign);
   const campaignOver = Boolean(campaign && !currentBattle(definition, campaign));
 
   const status = String(view.status);
@@ -78,8 +83,18 @@ export function Outcome() {
           </>
         )}
         {inCampaign && (saveError ? <span className="save-error"> · {saveError}</span> : " · campaign saved")}
+        {inSkirmish && " · a skirmish: nothing is saved"}
       </p>
-      {inCampaign ? (
+      {inSkirmish ? (
+        <div className="outcome-actions">
+          <button ref={first} type="button" className="btn-command" onClick={() => retry("new")}>
+            Play again
+          </button>
+          <button type="button" className="btn-quiet" onClick={() => go("skirmish")}>
+            Back to the skirmishes
+          </button>
+        </div>
+      ) : inCampaign ? (
         <div className="outcome-actions">
           {won ? (
             <button ref={first} type="button" className="btn-command" onClick={leaveBattle}>
@@ -121,15 +136,41 @@ export function Outcome() {
 function ResolveChanges() {
   const record = useFlow((s) => s.lastRecord);
   const campaign = useFlow((s) => s.campaign);
+  // Roll campaigns: conditions before the battle (the state it was fought from) and after.
+  const before = useGame((s) => s.campaign?.state);
   if (!record || !campaign) return null;
+  const conditionOf = (state: typeof campaign | undefined, id: string) => state?.companies.find((item) => item.id === id)?.condition ?? "fresh";
+  const roll = Boolean(record.assignment);
+  const rested = roll
+    ? campaign.companies.filter((company) => !record.companies.some((result) => result.companyId === company.id) && conditionOf(before, company.id) !== "fresh" && company.condition === "fresh")
+    : [];
   return (
+    <>
     <ul className="resolve-changes" aria-label="Resolve after the battle">
       {record.companies.map((result) => {
         const company = campaign.companies.find((item) => item.id === result.companyId);
         const delta = result.resolveAfter - result.resolveBefore;
+        const was = conditionOf(before, result.companyId);
+        const now = company?.condition;
+        if (result.levy) {
+          return (
+            <li key={result.squadId}>
+              <span className="rc-name">Levy</span>
+              <span className="rc-rank">no ready company: raised for this battle, then disbanded</span>
+            </li>
+          );
+        }
         return (
           <li key={result.companyId}>
-            <span className="rc-name">{company?.name ?? result.companyId}</span>
+            <span className="rc-name">
+              {company?.name ?? result.companyId}
+              {roll && now && now !== was && (
+                <span className="rc-condition">
+                  {" "}
+                  <ConditionBadge condition={now} />
+                </span>
+              )}
+            </span>
             <span className="rc-rank">
               {resolveRank(result.resolveBefore)}
               {delta !== 0 && <> → {resolveRank(result.resolveAfter)}</>}
@@ -142,6 +183,12 @@ function ResolveChanges() {
         );
       })}
     </ul>
+    {rested.length > 0 && (
+      <p className="rc-rested">
+        Rested in reserve, fresh again: {rested.map((company) => company.name).join(", ")}.
+      </p>
+    )}
+    </>
   );
 }
 

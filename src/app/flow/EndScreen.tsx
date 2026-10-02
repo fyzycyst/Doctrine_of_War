@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { currentBattle } from "../../game/campaign";
+import { ashAndBanner, currentBattle } from "../../game/campaign";
 import { TitleScene } from "../../render/showcase/TitleScene";
 import { FrameProbe } from "../ui/FrameProbe";
 import { battleTitle, OUTCOME_WORD } from "./campaignView";
@@ -23,12 +23,16 @@ export function EndScreen() {
   if (!campaign) return null;
   const next = currentBattle(definition, campaign);
   const complete = !next;
+  // The epilogue and "Begin a new campaign" are the intro's own; other campaigns (M1) close
+  // on their own name and send the player back to Choose a campaign, never into the intro.
+  const intro = definition.id === ashAndBanner.id;
+  const fought = campaign.history.length;
   const renowned = campaign.companies.filter((company) => company.renown);
 
   return (
     <div className="screen end-screen">
       <TitleScene
-        title={complete ? "THE DAWN HOLDS" : "THE WAR GOES ON"}
+        title={complete ? (intro ? "THE DAWN HOLDS" : "THE FIELD IS WON") : "THE WAR GOES ON"}
         subtitle={definition.title}
         inCanvas={<FrameProbe />}
       />
@@ -36,9 +40,11 @@ export function EndScreen() {
       <section className="panel epilogue" aria-labelledby="epilogue-title">
         <h2 id="epilogue-title">{complete ? "Epilogue" : "The chronicle so far"}</h2>
         <p className="epilogue-text">
-          {complete
+          {complete && intro
             ? "Dawn came grey over the last wall. The Ashen Host broke against standing orders it could never read, and every banner that held was one you sealed."
-            : `${next.title} waits beyond the fog; that road is still being made. Your companies rest, carry their Resolve forward, and sharpen their orders for what comes next.`}
+            : complete
+              ? `${definition.title} is won: ${fought} ${fought === 1 ? "battle" : "battles"} fought, and every company called to it is remembered below.`
+              : `${next.title} waits beyond the fog; that road is still being made. Your companies rest, carry their Resolve forward, and sharpen their orders for what comes next.`}
         </p>
         {renowned.length > 0 && (
           <p className="epilogue-renown">
@@ -79,9 +85,13 @@ export function EndScreen() {
               Return to the campaign map
             </button>
           )}
-          {complete ? (
+          {complete && intro ? (
             <button type="button" className="btn-quiet" onClick={() => void begin()}>
               Begin a new campaign
+            </button>
+          ) : complete ? (
+            <button type="button" className="btn-quiet" onClick={() => go("campaigns")}>
+              Choose a campaign
             </button>
           ) : (
             <button type="button" className="btn-quiet" onClick={() => go("title")}>
