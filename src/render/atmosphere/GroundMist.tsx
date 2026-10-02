@@ -153,6 +153,13 @@ const LAYERS_LOW = 4;
 const FOG_TOP = 0.85;
 /** Fires that light the mist (nearest-first by kind: bridges, braziers, campfires, torches). */
 const MAX_FIRES = 6;
+/** Brightest the fog-of-war body may be (linear luminance) before the key light. */
+const FOG_MAX_LUMA = 0.16;
+function capLuminance(c: THREE.Color, max: number) {
+  const l = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  if (l > max) c.multiplyScalar(max / l);
+}
+
 /** Base fog-of-war opacity per slice; presets scale it (`mist.fogOfWar`). */
 const FOG_ALPHA = 1.05;
 const FIRE_ORDER: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 0, brazier: 1, campfire: 2, torch: 3 };
@@ -361,8 +368,11 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
     // Fog of war is a dimmer, cooler body than the ground mist (unknown, not
     // weather), toned by the sky so it sits in each time of day.
     u.uFogColor.value.copy(tmp.fog.set(preset.fog.color).lerp(tmp.sky.set(preset.hemisphere.sky), 0.45).lerp(tmp.base.set(preset.mist.color), 0.25).multiplyScalar(0.6));
+    // Unknown ground stays a dim body in every light: cap its brightness so a
+    // bright hour (sunrise) can't turn it into a sunlit cloud bank (playtest 2).
+    capLuminance(u.uFogColor.value, FOG_MAX_LUMA);
     // The key light tints the fog's tops: warm sun at dusk, silver moon at night.
-    u.uFogLit.value.set(preset.sun.color).multiplyScalar(0.34 * Math.min(1, preset.sun.intensity / 3.5));
+    u.uFogLit.value.set(preset.sun.color).multiplyScalar(0.34 * Math.min(1, preset.sun.intensity / 3.5) * (preset.mist.fogLit ?? 1));
     u.uFireColor.value.set(preset.fires.color).multiplyScalar(0.5);
     const fireOn = Math.min(1, preset.fires.intensity / 5);
     const t = u.uTime.value;

@@ -56,6 +56,7 @@ export function blendPresets(a: LightingPreset, b: LightingPreset, t: number): L
       height: n(a.mist.height, b.mist.height),
       speed: n(a.mist.speed, b.mist.speed),
       fogOfWar: n(a.mist.fogOfWar ?? 1, b.mist.fogOfWar ?? 1),
+      fogLit: n(a.mist.fogLit ?? 1, b.mist.fogLit ?? 1),
     },
     particles: late ? { ...b.particles, rate: b.particles.rate * (u - 0.5) * 2 + 0.001 } : { ...a.particles, rate: a.particles.rate * (1 - u * 2) + 0.001 },
     fires: { color: c(a.fires.color, b.fires.color), intensity: n(a.fires.intensity, b.fires.intensity) },
