@@ -73,6 +73,13 @@ const STAGES = [
     ["qa-capture-play", "scenario=emberFord&stage=resolving&plan=intended&pauseAt=rule-mine&capture=1"],
     ["qa-reduced-play", "scenario=firstBreach&stage=resolving&plan=intended&pauseAt=rule-mine&motion=reduce"],
   ].map(([name, query]) => ({ name, query, probe: "__playbackFrozen", settleMs: name === "qa-hfd-dawn" ? 4000 : 700 })),
+  // T23b: fog of war in the real game at each hour (Fortune on), 1600 only.
+  ...[
+    ["fow-dusk", "scenario=firstBreach&stage=command"],
+    ["fow-night", "scenario=emberFord&stage=command"],
+    ["fow-predawn", "scenario=holdForDawn&stage=command"],
+    ["fow-sunrise", "scenario=holdForDawn&stage=command&phase=5&plan=intended"],
+  ].map(([name, query]) => ({ name, query, sizes: [[1600, 1000]] })),
   { name: "qa-sm-command", query: "scenario=saltmarshColumn&stage=command&select=saltmarsh_column" },
   { name: "qa-sm-deploy", query: "scenario=saltmarshColumn&stage=deploy&select=greyford_shields" },
   { name: "qa-hfd-command", query: "scenario=holdForDawn&stage=command&select=greyford_shields" },

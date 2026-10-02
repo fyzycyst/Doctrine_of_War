@@ -151,6 +151,11 @@ const LAYERS_HIGH = 7;
 const LAYERS_LOW = 4;
 /** Height of the fog-of-war wall above the ground. */
 const FOG_TOP = 0.85;
+/**
+ * Height of the fog-of-war haze (playtest 2: a low ground haze you can read the
+ * terrain through, not a wall; the terrain's desaturation carries "unknown").
+ */
+const FOG_HEIGHT = 0.42;
 /** Fires that light the mist (nearest-first by kind: bridges, braziers, campfires, torches). */
 const MAX_FIRES = 6;
 /** Brightest the fog-of-war body may be (linear luminance) before the key light. */
@@ -161,7 +166,7 @@ function capLuminance(c: THREE.Color, max: number) {
 }
 
 /** Base fog-of-war opacity per slice; presets scale it (`mist.fogOfWar`). */
-const FOG_ALPHA = 1.05;
+const FOG_ALPHA = 0.85;
 const FIRE_ORDER: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 0, brazier: 1, campfire: 2, torch: 3 };
 const FIRE_WEIGHT: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 1, brazier: 0.4, campfire: 0.4, torch: 0.2 };
 
@@ -288,7 +293,7 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
             if (fog > 0.004) {
               vec2 drift = vec2(uTime * 0.04, -uTime * 0.015);
               float bank = fbm(sxz * vec2(0.24, 0.55) + drift * 0.6);
-              float fogTop = ${FOG_TOP.toFixed(2)} * (0.2 + 0.95 * bank) * (0.5 + 0.5 * fog);
+              float fogTop = ${FOG_HEIGHT.toFixed(2)} * (0.35 + 0.8 * bank) * (0.5 + 0.5 * fog);
               float hRel = above / max(fogTop, 0.05);
               float vert = smoothstep(0.0, 0.06, above) * (1.0 - smoothstep(0.2, 1.0, hRel));
               vec2 q = sxz * vec2(0.9, 2.2) + drift * vec2(1.0, 2.0) + vec2(above * 1.8, -above * 1.1);
@@ -298,7 +303,7 @@ export function GroundMist({ island, densityByHex }: { island: IslandBuild; dens
               float churn = vnoise(q) * 0.65 + vnoise(q * 2.1 + 3.3) * 0.35;
               float dens = smoothstep(0.1, 0.75, bank * 1.2 - 0.15 + (churn - 0.5) * 0.7 + (fog - 1.0) * 0.4);
               // A low veil under the banks, so unseen ground always reads as unseen.
-              dens = max(dens, (0.35 + 0.2 * churn) * (1.0 - smoothstep(0.08, 0.3, above)));
+              dens = max(dens, (0.22 + 0.15 * churn) * (1.0 - smoothstep(0.06, 0.2, above)));
               float tear = smoothstep(1.0 - fog, 1.3 - fog, churn * 0.6 + bank * 0.6);
               fa = fog * tear * dens * vert * uFogAlpha * uLayerNorm;
               // Crests and thin edges catch the key light (warm at dusk, silver

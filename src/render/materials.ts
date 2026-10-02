@@ -59,7 +59,7 @@ export function createIslandMaterial(style: MaterialStyle): THREE.Material & { u
 if (uFogStrength > 0.0) {
   float fogv = texture2D(uFogGrid, vWorldXZ / (uFogExtent * 2.0) + 0.5).b;
   vec3 grey = vec3(dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722)));
-  outgoingLight = mix(outgoingLight, grey * 0.72, fogv * 0.6);
+  outgoingLight = mix(outgoingLight, grey * 0.6, fogv * 0.82);
 }
 {
   float lum = dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722));
