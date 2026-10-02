@@ -6,16 +6,18 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startCampaign } from "../src/game/campaign/campaign";
 import { fightRoll, testRegistry, testRoad } from "../src/game/campaign/rollTestKit";
-import { CAMPAIGN_SAVE_FILES, readCampaignSave, serializeCampaignSave } from "../src/game/campaign/saveFiles";
+import { CAMPAIGN_SAVE_FILES, MAX_ASIDES as RENDERER_MAX_ASIDES, readCampaignSave, serializeCampaignSave } from "../src/game/campaign/saveFiles";
 import {
   campaignSaveFileName,
   exportSaveFile,
   MAIN_SAVE_FILES,
+  MAX_ASIDES,
   readCampaignBackup,
   readCampaignFile,
   readSaveFile,
   SAVE_FILE_NAME,
   setAsideCampaignFile,
+  TOO_MANY_ASIDES,
   writeCampaignFile,
   writeSaveFile,
 } from "./saveFile";
@@ -47,6 +49,7 @@ describe("Electron per-campaign saves", () => {
 
   it("keeps its own fixed allowlist, matching the renderer's, and refuses every other id", () => {
     expect(MAIN_SAVE_FILES).toEqual(CAMPAIGN_SAVE_FILES);
+    expect(MAX_ASIDES).toBe(RENDERER_MAX_ASIDES);
     expect(Object.isFrozen(MAIN_SAVE_FILES)).toBe(true);
     expect(campaignSaveFileName(undefined)).toBe(SAVE_FILE_NAME);
     expect(campaignSaveFileName("ash_and_banner")).toBe(SAVE_FILE_NAME);
@@ -125,10 +128,38 @@ describe("Electron per-campaign saves", () => {
 
     await setAsideCampaignFile(dir, ROAD, () => 1700000000000, () => "abcdef1234");
     expect(await readCampaignFile(dir, ROAD)).toBeNull();
-    const aside = path.join(dir, `${MAIN_SAVE_FILES[ROAD]}.aside-1700000000000-abcdef12`);
+    const aside = path.join(dir, `${MAIN_SAVE_FILES[ROAD]}.aside-1700000000000-abcdef1234`);
     expect(await fs.readFile(aside, "utf8")).toBe(unavailable);
     await write(dir, run(0));
     expect(await readCampaignFile(dir, ROAD)).toBe(run(0));
+  });
+
+  it("never replaces an earlier set-aside run: a name clash retries, and past the limit it refuses", async () => {
+    // Plant a file (and a link) at the first names it will try.
+    const victim = path.join(dir, "victim.txt");
+    await fs.writeFile(victim, "keep me");
+    await fs.writeFile(`${roadFile(dir)}.aside-5-clash`, "earlier run");
+    await fs.symlink(victim, `${roadFile(dir)}.aside-5-link`);
+    const ids = ["clash", "link", "fresh"];
+    await fs.writeFile(roadFile(dir), "damaged run");
+    await setAsideCampaignFile(dir, ROAD, () => 5, () => ids.shift()!);
+    expect(await fs.readFile(`${roadFile(dir)}.aside-5-clash`, "utf8")).toBe("earlier run");
+    expect(await fs.readFile(victim, "utf8")).toBe("keep me");
+    expect(await fs.readFile(`${roadFile(dir)}.aside-5-fresh`, "utf8")).toBe("damaged run");
+    expect(await readCampaignFile(dir, ROAD)).toBeNull();
+
+    // Repeated cycles keep every run, up to the limit; then it refuses and keeps the save.
+    let n = 0;
+    while ((await fs.readdir(dir)).filter((entry) => entry.includes(".aside-")).length < MAX_ASIDES) {
+      await fs.writeFile(roadFile(dir), `run ${n}`);
+      await setAsideCampaignFile(dir, ROAD, () => 6, () => `cycle${n++}`);
+    }
+    await fs.writeFile(roadFile(dir), "one too many");
+    await expect(setAsideCampaignFile(dir, ROAD)).rejects.toThrow(TOO_MANY_ASIDES);
+    expect(await fs.readFile(roadFile(dir), "utf8")).toBe("one too many");
+    const kept = (await fs.readdir(dir)).filter((entry) => entry.includes(".aside-"));
+    expect(kept).toHaveLength(MAX_ASIDES);
+    expect(await fs.readFile(`${roadFile(dir)}.aside-5-clash`, "utf8")).toBe("earlier run");
   });
 
   it("recovers from a damaged save through its backup", async () => {
