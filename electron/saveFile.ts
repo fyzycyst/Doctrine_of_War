@@ -369,9 +369,16 @@ export function writeCampaignFile(
   });
 }
 
+/** At most this many set-aside runs are kept per campaign (mirrors the renderer's MAX_ASIDES). */
+export const MAX_ASIDES = 8;
+export const TOO_MANY_ASIDES = `This campaign already has ${MAX_ASIDES} set-aside saves, which are kept. Export or remove one before setting another aside.`;
+
 /**
- * Moves a v2 campaign's save aside (renamed to `<file>.aside-<time>-<id>`, never deleted)
- * so a fresh run can start. The intro has no set-aside: its behaviour is unchanged.
+ * Moves a v2 campaign's save aside so a fresh run can start. The copy goes to a new,
+ * exclusively created `<file>.aside-<time>-<id>` (O_EXCL: an existing file, or a link, is
+ * never replaced; on a name clash it retries with a new id), is flushed and verified, and
+ * only then is the save removed. Set-aside runs are never deleted: past MAX_ASIDES it
+ * refuses instead. The intro has no set-aside: its behaviour is unchanged.
  */
 export function setAsideCampaignFile(userDataDir: string, campaignId: unknown, now: () => number = Date.now, tempId: () => string = randomUUID): Promise<void> {
   let id: string;
@@ -382,9 +389,33 @@ export function setAsideCampaignFile(userDataDir: string, campaignId: unknown, n
     return Promise.reject(error);
   }
   return serialized(async () => {
-    const file = path.join(userDataDir, MAIN_SAVE_FILES[id]);
+    const name = MAIN_SAVE_FILES[id];
+    const file = path.join(userDataDir, name);
     await checkDirectory(userDataDir);
-    if (!(await checkNotLink(file))) return;
-    await fs.rename(file, `${file}.aside-${now()}-${tempId().slice(0, 8)}`);
+    const current = await readFixedFileNow(userDataDir, { name, maxBytes: MAX_RUN_BYTES, check: (data) => String(data) });
+    if (current === null) return;
+    const kept = (await fs.readdir(userDataDir)).filter((entry) => entry.startsWith(`${name}.aside-`));
+    if (kept.length >= MAX_ASIDES) throw new Error(TOO_MANY_ASIDES);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const target = `${file}.aside-${now()}-${tempId().replace(/[^a-z0-9]/gi, "").slice(0, 12)}`;
+      let handle: fs.FileHandle;
+      try {
+        handle = await fs.open(target, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | NOFOLLOW, 0o600);
+      } catch (error) {
+        if (code(error) === "EEXIST") continue;
+        throw error;
+      }
+      try {
+        await handle.writeFile(current, "utf8");
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      if ((await fs.readFile(target, "utf8")) !== current) throw new Error("the set-aside copy could not be verified");
+      await checkNotLink(file);
+      await fs.rm(file);
+      return;
+    }
+    throw new Error("could not find a free name to set the save aside");
   });
 }

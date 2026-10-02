@@ -12,6 +12,8 @@ import type { Doctrine, EngineScenario } from "../engine/types";
  */
 export const RULES_REVISION = 1;
 export const SUPPORTED_RULES: readonly number[] = [1];
+/** Manifest formats (PackRevision.pack) this build reads, and whose saves it continues. */
+export const SUPPORTED_PACK_FORMATS: readonly number[] = [1];
 
 export interface PackRevision {
   /** The manifest format (1). */
@@ -48,6 +50,8 @@ export interface PackManifest {
 /** What a save records about the content it was played on (P3). */
 export interface SaveProvenance {
   packId: string;
+  /** The pack's manifest format (PackRevision.pack) when the run was saved. */
+  packRevision: number;
   campaignId: string;
   contentRevision: number;
   rulesRevision: number;

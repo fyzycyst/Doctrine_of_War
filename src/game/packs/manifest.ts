@@ -1,8 +1,8 @@
 // parsePackManifest: a pack read as untrusted data (P1). Structure only; references
 // and cross-pack uniqueness are lintPacks()'s job.
 import type { CampaignDefinition } from "../campaign/types";
-import type { Action, Condition, DefeatCondition, Doctrine, EngineScenario, TargetSelector, WinCondition } from "../engine/types";
-import { bool, fail, id, int, list, num, object, oneOf, opt, prose, record, req, text, union, type Reader } from "./schema";
+import type { Action, Condition, DefeatCondition, Doctrine, EnemySelector, EngineScenario, TargetSelector, WinCondition } from "../engine/types";
+import { bool, fail, id, int, list, num, object, oneOf, opt, prose, record, req, text, union, type Reader, type Shape } from "./schema";
 import type { PackManifest } from "./types";
 
 const MAX_BOARD = 16;
@@ -23,23 +23,27 @@ const hex = object({ q: req(int(0, MAX_BOARD - 1)), r: req(int(0, MAX_BOARD - 1)
 const range = int(1, 8);
 const percent = int(0, 100);
 
+// Every engine union member needs a case here: each table `satisfies` the engine's own
+// kind union (a compile error when one is missing or extra), and packs.test.ts checks the
+// tables against src/game/engine/types.ts at test time too.
 const enemySelectors = {
   nearestEnemy: {},
   weakestEnemy: { stat: req(STAT), range: opt(range) },
   overextendedEnemy: { range: opt(range) },
   fightingEnemy: {},
   objective: { side: req(oneOf("enemy")), objectiveId: opt(id) },
-};
-const enemySelector = union<TargetSelector>(enemySelectors);
-const targetSelector = union<TargetSelector>({
+} satisfies Record<EnemySelector["kind"], Shape>;
+const targetSelectors = {
   ...enemySelectors,
   weakestAlly: { stat: req(STAT) },
   ward: {},
   objective: { side: req(oneOf("own", "enemy")), objectiveId: opt(id) },
   exitEdge: {},
-});
+} satisfies Record<TargetSelector["kind"], Shape>;
+const enemySelector = union<TargetSelector>(enemySelectors);
+const targetSelector = union<TargetSelector>(targetSelectors);
 
-const condition = union<Condition>({
+const conditions = {
   always: {},
   selfCohesionBelow: { value: req(percent) },
   selfStrengthBelow: { value: req(percent) },
@@ -54,9 +58,11 @@ const condition = union<Condition>({
   atObjective: { objectiveId: opt(id) },
   retreatOpen: {},
   wardNear: { range: req(range), minRange: opt(range) },
-});
+  aheadOfLine: { by: req(int(1, 8)), objectiveId: opt(id) },
+} satisfies Record<Condition["kind"], Shape>;
+const condition = union<Condition>(conditions);
 
-const action = union<Action>({
+const actions = {
   hold: {},
   advance: { toward: req(targetSelector) },
   attack: { target: req(enemySelector), power: opt(int(-10, 10)) },
@@ -64,7 +70,8 @@ const action = union<Action>({
   fallBack: { hexes: req(oneOf(1, 2)) },
   rally: {},
   counterCharge: { target: req(enemySelector) },
-});
+} satisfies Record<Action["kind"], Shape>;
+const action = union<Action>(actions);
 
 export const readDoctrine: Reader<Doctrine> = object({
   id: req(id),
@@ -75,17 +82,30 @@ export const readDoctrine: Reader<Doctrine> = object({
   passives: req(object({ defense: req(int(-10, 10)), cohesion: req(int(-20, 20)), counter: req(int(-10, 10)) })),
 }) as Reader<Doctrine>;
 
-const winCondition = union<WinCondition>({
+const winConditions = {
   holdObjective: { objectiveId: req(id) },
   escapeEdge: { edgeHexes: req(list(hex, 64, 1)), count: req(int(1, 30)), mustEscape: opt(list(id, 30)) },
   destroySquads: { squadIds: req(list(id, 30, 1)), count: opt(int(1, 30)) },
   holdThenBreak: { objectiveId: req(id), dawnPhase: req(int(1, 20)), squadIds: req(list(id, 30, 1)), count: opt(int(1, 30)) },
-});
+  breakObjective: { objectiveId: req(id) },
+} satisfies Record<WinCondition["kind"], Shape>;
+const winCondition = union<WinCondition>(winConditions);
 
-const defeatCondition = union<DefeatCondition>({
+const defeatConditions = {
   enemyEscape: { edgeHexes: req(list(hex, 64, 1)), count: req(int(1, 30)) },
   squadsLost: { count: req(int(1, 30)) },
-});
+} satisfies Record<DefeatCondition["kind"], Shape>;
+const defeatCondition = union<DefeatCondition>(defeatConditions);
+
+/** The kinds the pack schema accepts, per engine union (checked against the engine's types in tests). */
+export const SCHEMA_KINDS = {
+  Condition: Object.keys(conditions),
+  EnemySelector: Object.keys(enemySelectors),
+  TargetSelector: Object.keys(targetSelectors),
+  Action: Object.keys(actions),
+  WinCondition: Object.keys(winConditions),
+  DefeatCondition: Object.keys(defeatConditions),
+};
 
 const orders = record(id, id, 30);
 

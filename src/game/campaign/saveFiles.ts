@@ -8,6 +8,7 @@
 // rules revision, or simply unreadable) is reported, preserved and never overwritten:
 // saveCampaignRun refuses to replace it until the player explicitly sets it aside, which
 // keeps a copy. Each v2 write keeps the previous good save as a backup.
+import { isSafeId } from "../ids";
 import { RULES_REVISION, type PackRegistry, type SaveProvenance } from "../packs/types";
 import { byteLength, CampaignSaveError, loadCampaign, loadRollCampaignState, MAX_SAVE_BYTES, saveCampaign } from "./save";
 import type { CampaignState } from "./types";
@@ -74,7 +75,13 @@ export type CampaignSaveRead =
 function provenanceOf(registry: PackRegistry, campaignId: string): SaveProvenance {
   const entry = registry.campaign(campaignId);
   if (!entry) throw new CampaignSaveError(`campaign ${campaignId} is not in this build`);
-  return { packId: entry.pack.id, campaignId, contentRevision: entry.pack.revision.content, rulesRevision: RULES_REVISION };
+  return {
+    packId: entry.pack.id,
+    packRevision: entry.pack.revision.pack,
+    campaignId,
+    contentRevision: entry.pack.revision.content,
+    rulesRevision: RULES_REVISION,
+  };
 }
 
 /** Serializes a campaign's state for its own file (v1 for the intro, v2 otherwise). Throws past the size budget. */
@@ -92,13 +99,16 @@ const isObject = (value: unknown): value is Json => typeof value === "object" &&
 const isRevision = (value: unknown) => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 10_000;
 
 function readProvenance(value: unknown): SaveProvenance {
-  const id = /^[a-z0-9_]{1,64}$/;
   if (!isObject(value)) throw new CampaignSaveError("save.provenance must be an object");
-  const { packId, campaignId, contentRevision, rulesRevision } = value;
-  if (typeof packId !== "string" || !id.test(packId)) throw new CampaignSaveError("save.provenance.packId must be a lowercase id");
-  if (typeof campaignId !== "string" || !id.test(campaignId)) throw new CampaignSaveError("save.provenance.campaignId must be a lowercase id");
-  if (!isRevision(contentRevision) || !isRevision(rulesRevision)) throw new CampaignSaveError("save.provenance revisions must be integers in 1..10000");
-  return { packId, campaignId, contentRevision: contentRevision as number, rulesRevision: rulesRevision as number };
+  const unknown = Object.keys(value).filter((key) => !["packId", "packRevision", "campaignId", "contentRevision", "rulesRevision"].includes(key));
+  if (unknown.length > 0) throw new CampaignSaveError(`save.provenance has unknown fields: ${unknown.join(", ").slice(0, 120)}`);
+  const { packId, packRevision, campaignId, contentRevision, rulesRevision } = value;
+  if (!isSafeId(packId)) throw new CampaignSaveError("save.provenance.packId must be a lowercase id");
+  if (!isSafeId(campaignId)) throw new CampaignSaveError("save.provenance.campaignId must be a lowercase id");
+  if (!isRevision(packRevision) || !isRevision(contentRevision) || !isRevision(rulesRevision)) {
+    throw new CampaignSaveError("save.provenance revisions (pack, content, rules) must be integers in 1..10000");
+  }
+  return { packId, packRevision: packRevision as number, campaignId, contentRevision: contentRevision as number, rulesRevision: rulesRevision as number };
 }
 
 const message = (error: unknown) => (error instanceof Error ? error.message : "unknown error");
@@ -131,7 +141,11 @@ export function readCampaignSave(registry: PackRegistry, campaignId: string, pay
     const compatible = registry.compatibility(provenance);
     if (!compatible.ok) return { kind: "unavailable", reason: compatible.reason, provenance };
     const entry = registry.campaign(campaignId)!;
-    const state = loadRollCampaignState(parsed.campaign, entry.campaign, entry.pack.scenarios);
+    const sourceOf = (origin: { packId: string; campaignId: string }) => {
+      const source = registry.campaign(origin.campaignId);
+      return source && source.pack.id === origin.packId ? source.campaign : undefined;
+    };
+    const state = loadRollCampaignState(parsed.campaign, entry.campaign, entry.pack.scenarios, sourceOf);
     return { kind: "ok", state, provenance };
   } catch (error) {
     return { kind: "unreadable", reason: message(error) };
@@ -145,7 +159,10 @@ export interface CampaignSaveStore {
   write(campaignId: string, data: string): Promise<void>;
   /** The save before the current one, or null. */
   readBackup(campaignId: string): Promise<string | null>;
-  /** Moves the current save aside (kept, never deleted) so a fresh run can start. */
+  /**
+   * Moves the current save aside (kept, never deleted or replaced) so a fresh run can
+   * start. Refused for the intro, and once MAX_ASIDES set-aside runs are kept.
+   */
   setAside(campaignId: string): Promise<void>;
 }
 
@@ -177,6 +194,17 @@ export async function saveCampaignRun(store: CampaignSaveStore, registry: PackRe
 }
 
 type KeyValueStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+/**
+ * At most this many set-aside runs are kept per campaign. Set-aside runs are never
+ * deleted or replaced: past the limit, setting another aside is refused instead.
+ * Mirrored in electron/saveFile.ts.
+ */
+export const MAX_ASIDES = 8;
+export const TOO_MANY_ASIDES = `This campaign already has ${MAX_ASIDES} set-aside saves, which are kept. Export or remove one before setting another aside.`;
+export const INTRO_NOT_SET_ASIDE = "The intro's save is never set aside.";
+/** The browser key of set-aside slot `slot` (1..MAX_ASIDES). */
+export const asideKey = (key: string, slot: number) => `${key}:aside:${slot}`;
 
 /** localStorage, one key per campaign (plus `:backup` and `:aside` for v2 campaigns). */
 export function localStorageCampaignStore(storage: KeyValueStorage | null): CampaignSaveStore {
@@ -213,12 +241,18 @@ export function localStorageCampaignStore(storage: KeyValueStorage | null): Camp
       return guarded("read", () => need().getItem(`${key}:backup`));
     },
     async setAside(campaignId) {
+      if (campaignId === INTRO_CAMPAIGN_ID) throw new CampaignSaveError(INTRO_NOT_SET_ASIDE);
       const key = localStorageKeyFor(campaignId);
       guarded("written", () => {
         const store = need();
         const current = store.getItem(key);
         if (current === null) return;
-        store.setItem(`${key}:aside`, current);
+        // A fresh slot every time: an earlier set-aside run is never replaced or deleted.
+        let slot = 1;
+        while (slot <= MAX_ASIDES && store.getItem(asideKey(key, slot)) !== null) slot += 1;
+        if (slot > MAX_ASIDES) throw new CampaignSaveError(TOO_MANY_ASIDES);
+        store.setItem(asideKey(key, slot), current);
+        if (store.getItem(asideKey(key, slot)) !== current) throw new CampaignSaveError("the set-aside copy could not be verified");
         store.removeItem(key);
       });
     },
