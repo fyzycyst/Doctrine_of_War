@@ -16,15 +16,18 @@
 // Resolve is clamped to -3..+3. Reaching +3 without a title earns a renown title,
 // which is kept until the company is destroyed.
 import type { EngineScenario, EngineState } from "../engine/types";
+import { recordRollBattle } from "./roll";
 import { renownTitle } from "./titles";
 import {
   RESOLVE_MAX,
   RESOLVE_MIN,
+  type Assignment,
   type BattleRecord,
   type CampaignBattle,
   type CampaignCompany,
   type CampaignDefinition,
   type CampaignState,
+  type CarriedCompany,
   type CompanyResult,
 } from "./types";
 
@@ -63,7 +66,7 @@ export function fameOf(entries: { resolve: number; renown?: { title: string } | 
 }
 
 /** How much the Host hardens (or eases) against these companies, relative to the authored roster. */
-export function hostEscalation(companies: CampaignCompany[], authoredFame: number): HostEscalation {
+export function hostEscalation(companies: { resolve: number; renown?: { title: string } | null }[], authoredFame: number): HostEscalation {
   const fame = fameOf(companies) - authoredFame;
   const sign = Math.sign(fame);
   const size = Math.abs(fame);
@@ -79,10 +82,21 @@ export function hostEscalation(companies: CampaignCompany[], authoredFame: numbe
 
 export const STALEMATE_ROUT_PENALTY = 1;
 
-const clampResolve = (value: number) => Math.max(RESOLVE_MIN, Math.min(RESOLVE_MAX, value));
+export const clampResolve = (value: number) => Math.max(RESOLVE_MIN, Math.min(RESOLVE_MAX, value));
 
-export function startCampaign(def: CampaignDefinition): CampaignState {
-  return { campaignId: def.id, battleIndex: 0, status: "inProgress", companies: [], history: [] };
+/**
+ * A new run. `carryOver` (Roll campaigns only) is the validated snapshot from
+ * snapshotCarryOver(); it is stored in the new run and replay starts from it.
+ */
+export function startCampaign(def: CampaignDefinition, options: { carryOver?: CarriedCompany[] } = {}): CampaignState {
+  const state: CampaignState = { campaignId: def.id, battleIndex: 0, status: "inProgress", companies: [], history: [] };
+  if (options.carryOver && options.carryOver.length > 0) {
+    if (def.mode !== "roll") {
+      throw new Error(`Campaign ${def.id} does not take carried companies`);
+    }
+    return { ...state, carried: structuredClone(options.carryOver) };
+  }
+  return state;
 }
 
 /** The battle to play next, or null when the campaign is complete. */
@@ -115,7 +129,7 @@ export function rosterFor(def: CampaignDefinition, state: CampaignState, battle:
   return roster;
 }
 
-function playableBattle(def: CampaignDefinition, state: CampaignState, scenarioId: string): CampaignBattle {
+export function playableBattle(def: CampaignDefinition, state: CampaignState, scenarioId: string): CampaignBattle {
   const battle = currentBattle(def, state);
   if (!battle) {
     throw new Error(`Campaign ${def.id} is complete`);
@@ -213,8 +227,15 @@ export function recordBattle(
   def: CampaignDefinition,
   state: CampaignState,
   final: EngineState,
-  options: { customOrders?: boolean } = {},
+  /** `assignment`: required for Roll campaigns (who filled each slot); ignored by fixed ones. */
+  options: { customOrders?: boolean; assignment?: Assignment } = {},
 ): CampaignState {
+  if (def.mode === "roll") {
+    if (!options.assignment) {
+      throw new Error(`Campaign ${def.id} is fought from the Roll: recordBattle needs the assignment`);
+    }
+    return recordRollBattle(def, state, final, options.assignment, options);
+  }
   const battle = playableBattle(def, state, final.scenarioId);
   if (final.status === "command") {
     throw new Error(`Battle ${battle.id} is not over yet`);

@@ -18,6 +18,7 @@ import type { TimeOfDay } from "../skins/types";
 import { buildIsland, type IslandBuild } from "../terrain/buildIsland";
 import { Reeds } from "../terrain/Reeds";
 import { Water } from "../terrain/Water";
+import { archipelagoBounds, ISLAND_RADIUS, islandPlacement, overviewFrame } from "./archipelagoLayout";
 import { placeholderBoard, type PlaceholderKind } from "./placeholderBoards";
 import { useDisposable } from "../dispose";
 
@@ -77,17 +78,8 @@ const TIME_LABEL: Record<TimeOfDay, string> = {
   sunrise: "Sunrise",
 };
 
-/** Target on-screen radius of every miniature, whatever its board size. */
-const ISLAND_RADIUS = 2.7;
-
-/** World placement of island i: a rising S-curve from front-left to back-right. */
-export function islandPlacement(i: number, n: number): THREE.Vector3 {
-  const t = n <= 1 ? 0.5 : i / (n - 1);
-  const x = (t - 0.5) * 6.6 * Math.max(1, n - 1);
-  const z = Math.sin(t * Math.PI * 1.6) * 2.2 - t * 2.5;
-  const y = Math.sin(t * Math.PI) * 0.8 + t * 0.6;
-  return new THREE.Vector3(x, y, z);
-}
+// Layout (M1: up to 11 islands) lives in archipelagoLayout.ts; re-exported for callers.
+export { islandPlacement } from "./archipelagoLayout";
 
 export function CampaignMap({
   battles,
@@ -109,6 +101,14 @@ export function CampaignMap({
     [focusedId, onFocusChange],
   );
   const dpr = useCanvasDpr();
+  // Shadows and drifting embers cover the whole archipelago, however many islands.
+  const { extent, fogOffset } = useMemo(() => {
+    const b = archipelagoBounds(battles.map((_, i) => islandPlacement(i, battles.length)));
+    // The scene fog is tuned for a ~20-unit overview; push it back for bigger maps
+    // (camera further out, back rows deeper) so the far islands don't wash out.
+    const far = overviewFrame(b, 32, 16 / 10).dist + b.depth / 2;
+    return { extent: Math.max(b.width, b.depth) / 2 + ISLAND_RADIUS * 2, fogOffset: Math.max(0, far - 26) };
+  }, [battles]);
   const captureMode = useCaptureStore((s) => s.captureMode);
   const [hovered, setHovered] = useState<string | null>(null);
   // 3D label anchors (written by the islands) and their DOM labels (positioned per frame).
@@ -135,7 +135,7 @@ export function CampaignMap({
         <LookProvider skin={emberDusk} timeOfDay="dusk">
           <AtmosphereTicker />
           <SkyDome />
-          <LightRig shadowRadius={22} />
+          <LightRig shadowRadius={Math.max(22, extent)} fogOffset={fogOffset} />
           <Archipelago
             battles={battles}
             onSelect={(id) => {
@@ -148,8 +148,9 @@ export function CampaignMap({
             anchors={anchors.current}
           />
           <LabelProjector anchors={anchors.current} labels={labelEls.current} />
-          <Particles extent={18} />
-          <PostFX focusY={0.5} />
+          <Particles extent={Math.max(18, extent)} />
+          {/* Several rows: a gentler miniature blur, so the far rows still read. */}
+          <PostFX focusY={0.5} dof={battles.length > 5 ? "subtle" : undefined} />
           {inCanvas}
         </LookProvider>
       </Canvas>
@@ -307,8 +308,9 @@ function MapCamera({
 }) {
   const camera = useThree((s) => s.camera);
   const aspect = useThree((s) => s.size.width / Math.max(1, s.size.height));
-  const center = useMemo(() => points.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / points.length), [points]);
-  const span = useMemo(() => Math.max(8, ...points.map((p) => p.distanceTo(center) * 2)), [points, center]);
+  const bounds = useMemo(() => archipelagoBounds(points), [points]);
+  const center = bounds.center;
+  const span = Math.max(8, bounds.width);
   // Scratch vectors (no per-frame allocation); the eased pose persists between frames.
   const s = useMemo(
     () => ({ target: new THREE.Vector3(), pos: new THREE.Vector3(), look: new THREE.Vector3(), curPos: new THREE.Vector3(), curLook: new THREE.Vector3(), bias: new THREE.Vector3(), init: false }),
@@ -325,13 +327,11 @@ function MapCamera({
       const pan = reduced ? 0 : Math.sin(clock.elapsedTime * 0.07) * span * 0.06;
       s.target.copy(center).add(s.bias);
       s.target.x += pan;
-      // Fit the span (plus an island on each end) horizontally for this aspect.
-      const fov = THREE.MathUtils.degToRad((camera as THREE.PerspectiveCamera).fov);
-      const width = span + ISLAND_RADIUS * 3;
-      const dist = width / 2 / Math.tan(fov / 2) / Math.min(aspect, 2);
-      s.pos.set(s.target.x + dist * 0.06, s.target.y + dist * 0.55, s.target.z + dist * 0.84);
+      // Fit the whole layout (width, and for several rows the depth) for this aspect.
+      const { dist, up, back, lookLift } = overviewFrame(bounds, (camera as THREE.PerspectiveCamera).fov, aspect);
+      s.pos.set(s.target.x + dist * 0.06, s.target.y + dist * up, s.target.z + dist * back);
       // Aim above the islands so they sit in the middle band, not the top.
-      s.look.set(s.target.x, s.target.y + dist * 0.08, s.target.z);
+      s.look.set(s.target.x, s.target.y + dist * lookLift, s.target.z);
     }
     // Gentle dolly between poses (a cut under reduced motion).
     const k = !s.init || reduced ? 1 : 1 - Math.exp(-dt * 2.2);
