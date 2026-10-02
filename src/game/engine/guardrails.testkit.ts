@@ -27,7 +27,7 @@ export function describeGuardrails(scenarioId: string) {
     for (const variant of variants) {
       const name = variant.name ?? variant.kind;
       it(`[${variant.name ?? `${variant.kind} roster`}] meets its guardrails over 60 seeds with fortune on`, () => {
-        // Judged with the player-realistic heuristic muster...
+        // Judged on the held-out gate seeds (GATE_SEEDS, the default), with the player-realistic heuristic muster...
         const rows = runBalance(variant.scenario, 60, "on", "heuristic");
         played.push({ name, rows });
         // ...and still winnable by a player who never musters.

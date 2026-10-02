@@ -68,8 +68,25 @@ export function balancePlans(scenario: EngineScenario): BalancePlan[] {
 }
 
 /**
+ * Seed ranges (P7): balance is tuned on one range and gated on another, held out.
+ * - TUNING_SEEDS: what authors iterate on (scratch sweeps, ablation and scenario tests,
+ *   curated seeds). Anything goes.
+ * - GATE_SEEDS: only the balance gate reads these (`npm run balance`, the per-battle
+ *   guardrail tests). Never tune on them; curated seeds must stay out (pack lint).
+ * Every plan in a run plays the same seeds, so comparisons between plans stay paired.
+ */
+export const TUNING_SEEDS = { first: 1, size: 1000 } as const;
+export const GATE_SEEDS = { first: 100_001, size: 500 } as const;
+
+/** Whether `seed` is one of the held-out gate seeds. */
+export function isGateSeed(seed: number): boolean {
+  return seed >= GATE_SEEDS.first && seed < GATE_SEEDS.first + GATE_SEEDS.size;
+}
+
+/**
  * The guardrails are judged with the player-realistic "heuristic" muster; "none" (the
  * player never musters) is checked as a winnability floor. `kinds` limits the plans.
+ * Plays `seeds` seeds from `firstSeed` (default: the held-out gate range).
  */
 export function runBalance(
   scenario: EngineScenario,
@@ -77,15 +94,22 @@ export function runBalance(
   fortune: FortuneMode = "on",
   muster: MusterPolicy = "heuristic",
   kinds: PlanKind[] = ["intended", "bad", "mono"],
+  firstSeed: number = GATE_SEEDS.first,
 ): BalanceRow[] {
   if (!Number.isInteger(seeds) || seeds < 1) {
     throw new Error(`Seed count must be a positive integer, got ${seeds}`);
+  }
+  if (!Number.isInteger(firstSeed) || firstSeed < 1) {
+    throw new Error(`First seed must be a positive integer, got ${firstSeed}`);
+  }
+  if (firstSeed === GATE_SEEDS.first && seeds > GATE_SEEDS.size) {
+    throw new Error(`The gate range holds ${GATE_SEEDS.size} seeds, not ${seeds}`);
   }
   return balancePlans(scenario).filter((plan) => kinds.includes(plan.kind)).map((plan) => {
     let wins = 0;
     let stalemates = 0;
     let objectiveSum = 0;
-    for (let seed = 1; seed <= seeds; seed += 1) {
+    for (let seed = firstSeed; seed < firstSeed + seeds; seed += 1) {
       const final = playBattle(scenario, plan.orders, seed, fortune, muster);
       wins += final.status === "victory" ? 1 : 0;
       stalemates += final.status === "stalemate" ? 1 : 0;
