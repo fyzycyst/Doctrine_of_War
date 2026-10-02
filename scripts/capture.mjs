@@ -98,6 +98,11 @@ jobs.push(
   { name: "campaign-a", query: "view=campaign&campaignMock=a" },
   { name: "campaign-b", query: "view=campaign&campaignMock=b" },
   { name: "campaign-focus", query: "view=campaign&campaignMock=a&focus=battle_1" },
+  // M1: the map for 4, 6, 8 and 11 battles, plus a zoom on the 11-battle map.
+  ...[4, 6, 8, 11].map((n) => ({ name: `campaign-n${n}`, query: `view=campaign&campaignMock=n${n}` })),
+  { name: "campaign-n11-focus", query: "view=campaign&campaignMock=n11&focus=battle_7" },
+  { name: "campaign-select", query: "view=campaignSelect" },
+  { name: "campaign-select-highlight", query: "view=campaignSelect&highlight=cinder-road" },
   { name: "path-craneInGate", query: "preset=dusk&figures=a&path=craneInGate&seq=1", sequence: { frames: 3, fps: 0.35 } },
   // The dawn turn as the stage plays it (2 s cross-fade), wide.
   {
