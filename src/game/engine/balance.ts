@@ -14,6 +14,27 @@ export const GUARDRAILS = {
   monoMax: 0.6,
 };
 
+export type Guardrails = typeof GUARDRAILS;
+
+/** How many binomial standard errors the smoke suite gives each threshold. */
+export const SMOKE_STANDARD_ERRORS = 2;
+
+/**
+ * The thresholds a small-N SMOKE run is judged by: each gated threshold moved toward
+ * leniency by SMOKE_STANDARD_ERRORS binomial standard errors at `seeds` games,
+ * sqrt(p(1-p)/n) at p = the threshold. At 60 seeds: intended 75% -> ~63.8%, bad 35% ->
+ * ~47.3%, mono 60% -> ~72.6%. The sign-off is the 500-seed gate run at GUARDRAILS
+ * exactly; the smoke suite only catches gross regressions without flaking on a window.
+ */
+export function smokeGuardrails(seeds: number): Guardrails {
+  const se = (p: number) => Math.sqrt((p * (1 - p)) / seeds);
+  return {
+    intendedMin: GUARDRAILS.intendedMin - SMOKE_STANDARD_ERRORS * se(GUARDRAILS.intendedMin),
+    badMax: GUARDRAILS.badMax + SMOKE_STANDARD_ERRORS * se(GUARDRAILS.badMax),
+    monoMax: GUARDRAILS.monoMax + SMOKE_STANDARD_ERRORS * se(GUARDRAILS.monoMax),
+  };
+}
+
 /** "alternative": the scenario's strongest known alternative plan, a diagnostic row (never gated). */
 export type PlanKind = "intended" | "bad" | "mono" | "alternative";
 
@@ -138,7 +159,7 @@ export function runBalance(
 export type GuardrailPolicy = "full" | "floor";
 
 /** Human-readable guardrail failures; empty only when the scenario is provably in balance (fails closed). */
-export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = "full"): string[] {
+export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = "full", limits: Guardrails = GUARDRAILS): string[] {
   const pct = (value: number) => `${Math.round(value * 100)}%`;
   const missing = (["intended", "bad"] as const)
     .filter((kind) => !rows.some((row) => row.kind === kind))
@@ -149,22 +170,22 @@ export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = 
     }
     if (policy === "floor") {
       const advance = row.winRate + row.stalemateRate;
-      if (row.kind === "intended" && advance < GUARDRAILS.intendedMin) {
-        return [`intended plan advances ${pct(advance)} (< ${pct(GUARDRAILS.intendedMin)})`];
+      if (row.kind === "intended" && advance < limits.intendedMin) {
+        return [`intended plan advances ${pct(advance)} (< ${pct(limits.intendedMin)})`];
       }
-      if (row.kind === "bad" && advance > GUARDRAILS.badMax) {
-        return [`bad plan advances ${pct(advance)} (> ${pct(GUARDRAILS.badMax)})`];
+      if (row.kind === "bad" && advance > limits.badMax) {
+        return [`bad plan advances ${pct(advance)} (> ${pct(limits.badMax)})`];
       }
       return [];
     }
-    if (row.kind === "intended" && row.winRate < GUARDRAILS.intendedMin) {
-      return [`intended plan wins ${pct(row.winRate)} (< ${pct(GUARDRAILS.intendedMin)})`];
+    if (row.kind === "intended" && row.winRate < limits.intendedMin) {
+      return [`intended plan wins ${pct(row.winRate)} (< ${pct(limits.intendedMin)})`];
     }
-    if (row.kind === "bad" && row.winRate > GUARDRAILS.badMax) {
-      return [`bad plan wins ${pct(row.winRate)} (> ${pct(GUARDRAILS.badMax)})`];
+    if (row.kind === "bad" && row.winRate > limits.badMax) {
+      return [`bad plan wins ${pct(row.winRate)} (> ${pct(limits.badMax)})`];
     }
-    if (row.kind === "mono" && row.winRate + row.stalemateRate >= GUARDRAILS.monoMax) {
-      return [`${row.name} advances ${pct(row.winRate + row.stalemateRate)} (>= ${pct(GUARDRAILS.monoMax)})`];
+    if (row.kind === "mono" && row.winRate + row.stalemateRate >= limits.monoMax) {
+      return [`${row.name} advances ${pct(row.winRate + row.stalemateRate)} (>= ${pct(limits.monoMax)})`];
     }
     return [];
   }));
