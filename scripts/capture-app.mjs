@@ -57,6 +57,24 @@ const STAGES = [
       await new Promise((r) => setTimeout(r, 2500));
       editor.querySelector(".field-test")?.scrollIntoView({ block: "end" });
     })()`,
+  },  {
+    name: "t22-field-test-repeat",
+    query: "screen=title",
+    settleMs: 4000,
+    sizes: [[1600, 1000], [1280, 800]],
+    eval: `(async () => {
+      const click = (re, root = document) => [...root.querySelectorAll("button")].find((b) => re.test(b.textContent) || re.test(b.getAttribute("aria-label") ?? ""))?.click();
+      click(/Doctrine editor/);
+      await new Promise((r) => setTimeout(r, 400));
+      const editor = document.querySelector("dialog.editor");
+      click(/^Move order 2 up$/, editor);
+      await new Promise((r) => setTimeout(r, 200));
+      click(/^Run the test$/, editor);
+      await new Promise((r) => setTimeout(r, 2500));
+      click(/^Run again$/, editor);
+      await new Promise((r) => setTimeout(r, 300));
+      editor.querySelector(".field-test")?.scrollIntoView({ block: "end" });
+    })()`,
   },
   // T18 QA: every battle mid-playback, the new battles' command windows, dawn, maps, ending.
   ...[

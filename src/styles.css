@@ -3818,3 +3818,27 @@ html.reduce-motion *::after {
 .howto-panel.wide {
   grid-column: 1 / -1;
 }
+
+/* Test in the field: a repeat of the last test is answered, not silently re-run (T22). */
+.field-test-repeat {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--gold);
+  background: rgba(212, 166, 74, 0.08);
+  font-size: 13.5px;
+}
+
+.modal .field-test-repeat p {
+  margin: 0;
+  color: var(--bone);
+}
+
+.modal .field-test-repeat .field-test-repeat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+}

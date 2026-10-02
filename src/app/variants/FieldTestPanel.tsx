@@ -101,6 +101,14 @@ function planOutside(scenario: EngineScenario, baseId: string, variant: Doctrine
   };
 }
 
+/** "Run again with new fortunes": each new block of seeds starts this far past the last. */
+export const SEED_BLOCK = 10_000;
+
+/** What a test was run on: the same key means the same battle, company, orders and cut (so the same result). */
+function testKey(input: FieldTestInput, rules: string): string {
+  return JSON.stringify({ battle: input.scenario.id, squads: input.squadIds, orders: input.orders, base: input.baseId, rules, seed: input.firstSeed });
+}
+
 const list = (names: string[]) => (names.length <= 2 ? names.join(" and ") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
 
 export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: string; variant: Doctrine; squadId?: string; edited: boolean }) {
@@ -125,7 +133,10 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
   const title = inBattle ? battleTitle : (outside?.battle.title ?? "");
   const scenario = inBattle ? battleScenario : (outside?.scenario ?? battleScenario);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [outcome, setOutcome] = useState<{ result: FieldTestResult; rules: string; name: string } | null>(null);
+  /** `key`: what it was run on; `block`: which set of fortunes (0 = this battle's own seeds onward). */
+  const [outcome, setOutcome] = useState<{ result: FieldTestResult; rules: string; name: string; key: string; block: number } | null>(null);
+  /** Set when "Run again" would only repeat the last test: say so instead of re-running it. */
+  const [repeat, setRepeat] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = useRef<FieldTestRun | null>(null);
   const base = doctrineLibrary[baseId];
@@ -135,6 +146,8 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
       ? planOutside(outside.scenario, baseId, variant, outsideCompany)
       : { ok: false, reason: `No battle in the campaign offers ${base.name}.` };
   const rules = JSON.stringify(variant.rules);
+  const key = plan.ok ? testKey(plan.input, rules) : null;
+  const sameAsLast = Boolean(outcome && key && outcome.key === key);
 
   // Closing the editor stops a test in flight.
   useEffect(() => () => run.current?.cancel(), []);
@@ -143,19 +156,21 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
    * Runs the test. With `from`, runs longer: the same seed sequence continues from where
    * that result stopped, and the earlier result stays on screen until the new one lands.
    */
-  const start = (from?: FieldTestResult) => {
-    if (!plan.ok) return;
+  const start = (from?: FieldTestResult, block = 0) => {
+    if (!plan.ok || !key) return;
     if (!from) setOutcome(null);
     setError(null);
+    setRepeat(false);
     setProgress({ done: from?.runs ?? 0, total: (from?.runs ?? 0) + FIELD_TEST_MAX });
-    const current = startFieldTest({ ...plan.input, ...(from ? { from } : {}) }, (done, total) => setProgress({ done, total }));
+    const input = { ...plan.input, firstSeed: plan.input.firstSeed + block * SEED_BLOCK, ...(from ? { from } : {}) };
+    const current = startFieldTest(input, (done, total) => setProgress({ done, total }));
     run.current = current;
     current.result.then(
       (result) => {
         if (run.current !== current) return;
         run.current = null;
         setProgress(null);
-        setOutcome({ result, rules, name: variant.name });
+        setOutcome({ result, rules, name: variant.name, key, block });
       },
       (reason: unknown) => {
         if (run.current !== current) return;
@@ -174,6 +189,7 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
   };
 
   const said = outcome ? verdict(outcome.result, scenario) : null;
+  const canRunLonger = Boolean(outcome && said && !outcome.result.extended && outcome.rules === rules && (said.tone === "slightly-better" || said.tone === "slightly-worse"));
 
   return (
     <section className="field-test" aria-labelledby="field-test-title">
@@ -192,7 +208,7 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
             </button>
           </div>
         ) : (
-          <button type="button" className="btn-quiet" disabled={!plan.ok || !edited} onClick={() => start()}>
+          <button type="button" className="btn-quiet" disabled={!plan.ok || !edited} onClick={() => (sameAsLast ? setRepeat(true) : start())}>
             {outcome ? "Run again" : "Run the test"}
           </button>
         )}
@@ -249,6 +265,25 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
         {!plan.ok && plan.reason}
         {plan.ok && !edited && " Change an order or a threshold first."}
       </p>
+      {repeat && sameAsLast && outcome && !progress && (
+        <div className="field-test-repeat" role="status">
+          <p>
+            Same orders as your last test. The result stands ({outcome.result.runs} battles): over the same fortunes it would play out
+            exactly the same.
+          </p>
+          <p className="field-test-repeat-actions">
+            {canRunLonger && (
+              <button type="button" className="btn-quiet" onClick={() => start(outcome.result, outcome.block)}>
+                Run longer
+              </button>
+            )}
+            <button type="button" className="btn-quiet" onClick={() => start(undefined, outcome.block + 1)}>
+              Run again with new fortunes
+            </button>
+            <span>New fortunes: a fresh set of battles, a separate test of the same orders.</span>
+          </p>
+        </div>
+      )}
       {error && (
         <p className="field-test-error" role="alert">
           {error}
@@ -266,13 +301,14 @@ export function FieldTestPanel({ baseId, variant, squadId, edited }: { baseId: s
             {[said.pairs, outcome.result.stoppedBy === "clear" ? "Stopped early: the difference was plain." : null, "Advanced: won or held to a stalemate, so the campaign moves on."]
               .filter(Boolean)
               .join(" ")}
+            {outcome.block > 0 && ` New fortunes (set ${outcome.block + 1}).`}
             {outcome.rules !== rules && <strong> These results are for your previous cut.</strong>}
           </p>
           {/* A big battle may run out of budget before the difference is settled: allow one more. */}
           {/* One extra budget per result: its final look is held to a stricter bar (fieldTest.ts). */}
-          {!progress && !outcome.result.extended && outcome.rules === rules && (said.tone === "slightly-better" || said.tone === "slightly-worse") && (
+          {!progress && !repeat && canRunLonger && (
             <p className="field-test-longer">
-              <button type="button" className="btn-quiet" onClick={() => start(outcome.result)}>
+              <button type="button" className="btn-quiet" onClick={() => start(outcome.result, outcome.block)}>
                 Run longer
               </button>
               <span>Up to {FIELD_TEST_MAX} more battles, continuing the same fortunes.</span>
