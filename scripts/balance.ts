@@ -76,7 +76,7 @@ for (const scenario of selected) {
     const matrix = balanceMatrixIn(campaigns, scenarios, scenario, carryFrom);
     for (const missing of matrix.notApplicable) console.log(`${scenario.title} [${missing.name}]: NOT APPLICABLE (${missing.reason})\n`);
     for (const variant of matrix.variants.filter((item) => roster === "all" || item.kind === roster)) {
-      const rows = runBalance(variant.scenario, seeds, fortune as FortuneMode, "heuristic", ["intended", "bad", "mono"], firstSeed);
+      const rows = runBalance(variant.scenario, seeds, fortune as FortuneMode, "heuristic", ["intended", "bad", "mono", "alternative"], firstSeed);
       const name = variant.name ?? `${variant.kind} roster`;
       played.push({ name, rows });
       const policy = variant.policy === "floor" ? ", floor only" : variant.policy === "diagnostic" ? ", diagnostic" : "";
