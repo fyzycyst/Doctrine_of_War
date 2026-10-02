@@ -222,7 +222,8 @@ async function checkExportTarget(target: string): Promise<void> {
  * Settings → Support → "Export save file…": copies the campaign save to a file the user
  * picks, for a bug report. The renderer supplies neither the data nor the path: main reads
  * its own save (with every check readSaveFile makes), validates it, and asks the user where
- * to put it (`choosePath`: the native save dialog; null when cancelled).
+ * to put it (`choosePath`: the native save dialog, offered a default file name for the
+ * campaign; null when cancelled).
  *
  * The write follows no links: a link at the chosen path is refused, and the copy goes to
  * a fresh, exclusively created temp file beside it, renamed over the destination (a rename
@@ -230,7 +231,7 @@ async function checkExportTarget(target: string): Promise<void> {
  */
 export async function exportSaveFile(
   userDataDir: string,
-  choosePath: () => Promise<string | null>,
+  choosePath: (defaultName: string) => Promise<string | null>,
   tempId: () => string = randomUUID,
   /** M1: which campaign's save (allowlisted; default the intro). */
   campaignId?: unknown,
@@ -245,7 +246,7 @@ export async function exportSaveFile(
     // A run this build cannot continue is still worth a bug report; a damaged file is not a save.
     throw new Error("save file is not readable");
   }
-  const target = await choosePath();
+  const target = await choosePath(exportFileNameFor(id === INTRO ? undefined : id));
   if (!target) return { exported: false, reason: "cancelled" };
   await checkExportTarget(target);
   const temp = path.join(path.dirname(target), `.${path.basename(target)}.${tempId()}.tmp`);
@@ -295,6 +296,19 @@ export function campaignSaveFileName(campaignId: unknown): string {
 function campaignIdOf(campaignId: unknown): string {
   campaignSaveFileName(campaignId);
   return campaignId === undefined ? INTRO : (campaignId as string);
+}
+
+/**
+ * The export dialog's default file name for a campaign: the intro keeps the original name;
+ * any other is "doctrine-of-war-<id>-save.json", where <id> is main's own allowlist key (the
+ * renderer's string only selects it, and anything outside MAIN_SAVE_FILES is refused).
+ */
+export function exportFileNameFor(campaignId: unknown): string {
+  const id = campaignIdOf(campaignId);
+  if (id === INTRO) return "doctrine-of-war-save.json";
+  const key = Object.keys(MAIN_SAVE_FILES).find((item) => item === id);
+  if (!key) throw new Error("unknown campaign save");
+  return `doctrine-of-war-${key}-save.json`;
 }
 
 /** A v2 payload main will write: a run this build reads as "ok" for exactly this campaign. */

@@ -5,10 +5,13 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startCampaign } from "../src/game/campaign/campaign";
+import { ashAndBanner } from "../src/game/campaign/definition";
+import { saveCampaign } from "../src/game/campaign/save";
 import { fightRoll, testRegistry, testRoad } from "../src/game/campaign/rollTestKit";
 import { CAMPAIGN_SAVE_FILES, MAX_ASIDES as RENDERER_MAX_ASIDES, readCampaignSave, serializeCampaignSave } from "../src/game/campaign/saveFiles";
 import {
   campaignSaveFileName,
+  exportFileNameFor,
   exportSaveFile,
   MAIN_SAVE_FILES,
   MAX_ASIDES,
@@ -200,5 +203,21 @@ describe("Electron per-campaign saves", () => {
     await fs.writeFile(roadFile(dir), "garbage");
     await expect(exportSaveFile(dir, async () => picked, undefined, ROAD, testRegistry)).rejects.toThrow(/not readable/);
     await expect(exportSaveFile(dir, async () => picked, undefined, "../x")).rejects.toThrow("unknown campaign save");
+  });
+
+  it("offers a default export name per campaign, made from main's own allowlist key", async () => {
+    await fs.writeFile(roadFile(dir), run(1));
+    await writeSaveFile(dir, saveCampaign(startCampaign(ashAndBanner)));
+    const offered: string[] = [];
+    const choose = async (defaultName: string) => (offered.push(defaultName), null);
+    await exportSaveFile(dir, choose, undefined, ROAD, testRegistry);
+    await exportSaveFile(dir, choose);
+    expect(offered).toEqual(["doctrine-of-war-cinder_road-save.json", "doctrine-of-war-save.json"]);
+    for (const id of Object.keys(MAIN_SAVE_FILES)) expect(exportFileNameFor(id)).toMatch(/^doctrine-of-war-([a-z_]+-)?save\.json$/);
+    // An id outside the allowlist never becomes a name.
+    expect(() => exportFileNameFor("../../x")).toThrow("unknown campaign save");
+    expect(() => exportFileNameFor("toString")).toThrow("unknown campaign save");
+    await expect(exportSaveFile(dir, choose, undefined, "cinder_road/../x")).rejects.toThrow("unknown campaign save");
+    expect(offered).toHaveLength(2);
   });
 });
