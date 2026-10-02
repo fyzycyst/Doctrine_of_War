@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { playBattle } from "./balance";
 import { doctrineLibrary } from "./doctrines";
-import { scenarios } from "./scenarios";
+import { registry } from "../packs/registry";
 
 describe("every scenario", () => {
-  for (const scenario of scenarios) {
+  // Every pack scenario: the intro's four, then Cinder Road's.
+  for (const scenario of registry.scenarios()) {
     describe(scenario.title, () => {
       it("survives a JSON round trip and only offers its own side's doctrines", () => {
         expect(JSON.parse(JSON.stringify(scenario))).toEqual(scenario);

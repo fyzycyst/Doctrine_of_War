@@ -1,5 +1,6 @@
 export * from "./types";
 export { ashAndBanner } from "./definition";
+export { cinderRoad } from "./cinderRoad";
 export {
   applyCampaign,
   currentBattle,

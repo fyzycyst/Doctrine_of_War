@@ -184,7 +184,8 @@ describe("v2 runs", () => {
       expect((await loadCampaignRun(store, testRegistry, "cinder_road")).kind).toBe("ok");
     }
     // A build without the run's campaign keeps it unavailable too.
-    expect(readCampaignSave(createRegistry([firstCall]), "cinder_road", serializeCampaignSave(testRegistry, state))).toMatchObject({ kind: "unavailable" });
+    const withoutRoad = { ...firstCall, campaigns: firstCall.campaigns.filter((item) => item.id !== "cinder_road") };
+    expect(readCampaignSave(createRegistry([withoutRoad]), "cinder_road", serializeCampaignSave(testRegistry, state))).toMatchObject({ kind: "unavailable" });
   });
 });
 
@@ -192,7 +193,7 @@ describe("levy results on replay (review)", () => {
   it("compares a levy's whole saved result with the generated one", () => {
     // A two-battle road without a second support company: the banner is destroyed, then a levy holds its post.
     const thin = { ...testRoad, companies: testRoad.companies.filter((company) => !["r_lamps"].includes(company.id)), battles: [testRoad.battles[0], { ...testRoad.battles[0], id: "road_2" }] };
-    const reg = createRegistry([{ ...firstCall, campaigns: [...firstCall.campaigns, thin] }]);
+    const reg = createRegistry([{ ...firstCall, campaigns: [...firstCall.campaigns.filter((item) => item.id !== thin.id), thin] }]);
     let state = fightRoll(thin, startCampaign(thin), "victory", { mercy_standard: { status: "destroyed" } });
     state = fightRoll(thin, state, "victory");
     const line = state.history[1].companies.find((item) => item.squadId === "mercy_standard")!;
@@ -292,7 +293,7 @@ describe("routing, isolation, backup and recovery (browser)", () => {
 describe("size budget", () => {
   it("fits a full 11-battle Roll campaign with five carried companies and 120 retried attempts", () => {
     const long = longRoad(11);
-    const reg = createRegistry([{ ...firstCall, campaigns: [...firstCall.campaigns, long] }]);
+    const reg = createRegistry([{ ...firstCall, campaigns: [...firstCall.campaigns.filter((item) => item.id !== long.id), long] }]);
     const intro = loadCampaign(corpus.find((item) => item.name === "complete.json")!.payload, ashAndBanner);
     const carried = snapshotCarryOver({ def: ashAndBanner, state: intro, packId: "first_call" }, long, intro.companies.slice(0, 5).map((company) => company.id));
     let state = startCampaign(long, { carryOver: carried });
