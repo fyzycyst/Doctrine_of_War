@@ -85,12 +85,20 @@ const STAGES = [
     // T19: a busy moment of the largest battle (declutter, anchored camera, emphasis ring).
     ["t19-hfd-busy", "scenario=holdForDawn&stage=resolving&phase=1&plan=intended&pauseAt=busy"],
     // T19: a weather shift as a chyron in the top bar (Ember Ford turns to rain in phase 3).
-    ["t19-weather-chyron", "scenario=emberFord&stage=resolving&phase=3&plan=intended&pauseAt=weather"],
+    ["t19-weather-chyron", "scenario=holdForDawn&stage=resolving&phase=3&plan=intended&pauseAt=weather"],
+    // T22: the weather ticker mid-crossing, and held still under reduced motion.
+    ["t22-weather-ticker", "scenario=holdForDawn&stage=resolving&phase=3&plan=intended&pauseAt=weather&motion=full"],
+    ["t22-weather-ticker-reduced", "scenario=holdForDawn&stage=resolving&phase=3&plan=intended&pauseAt=weather&motion=reduce"],
     ["qa-sm-play2", "scenario=saltmarshColumn&stage=resolving&phase=2&plan=intended&pauseAt=rule-mine"],
     ["qa-hfd-dawn", "scenario=holdForDawn&stage=resolving&phase=4&plan=intended&speed=25&pauseAt=stage"],
     ["qa-capture-play", "scenario=emberFord&stage=resolving&plan=intended&pauseAt=rule-mine&capture=1"],
     ["qa-reduced-play", "scenario=firstBreach&stage=resolving&plan=intended&pauseAt=rule-mine&motion=reduce"],
-  ].map(([name, query]) => ({ name, query, probe: "__playbackFrozen", settleMs: name === "qa-hfd-dawn" ? 4000 : 700 })),
+  ].map(([name, query]) => ({
+    name,
+    query,
+    probe: "__playbackFrozen",
+    settleMs: name === "qa-hfd-dawn" ? 4000 : name === "t22-weather-ticker" ? 2600 : name === "t22-weather-ticker-reduced" ? 1500 : 700,
+  })),
   { name: "qa-sm-command", query: "scenario=saltmarshColumn&stage=command&select=saltmarsh_column" },
   { name: "qa-sm-deploy", query: "scenario=saltmarshColumn&stage=deploy&select=greyford_shields" },
   { name: "qa-hfd-command", query: "scenario=holdForDawn&stage=command&select=greyford_shields" },
