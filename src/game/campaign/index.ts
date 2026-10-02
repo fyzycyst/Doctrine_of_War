@@ -38,8 +38,14 @@ export {
 } from "./roll";
 export {
   CAMPAIGN_SAVE_FILES,
+  electronCampaignStore,
   INTRO_CAMPAIGN_ID,
+  isSaveCampaignId,
+  loadCampaignBackup,
   loadCampaignRun,
+  localStorageCampaignStore,
+  MAX_RUN_BYTES,
+  PRESERVED_RUN,
   localStorageKeyFor,
   readCampaignSave,
   SAVE_VERSION_V2,
@@ -48,9 +54,11 @@ export {
   type CampaignSaveEnvelope,
   type CampaignSaveRead,
   type CampaignSaveStore,
+  type CampaignSavesBridge,
 } from "./saveFiles";
-export { CampaignSaveError, loadCampaign, MAX_SAVE_BYTES, SAVE_VERSION, saveCampaign } from "./save";
+export { CampaignSaveError, loadCampaign, loadRollCampaignState, MAX_SAVE_BYTES, SAVE_VERSION, saveCampaign } from "./save";
 export {
+  defaultCampaignStore,
   defaultStore,
   electronStore,
   loadCampaignFrom,

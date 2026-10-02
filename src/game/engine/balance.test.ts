@@ -1,25 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { balancePlans, formatTable, guardrailFailures, runBalance, type BalanceRow } from "./balance";
-import { ashAndBanner } from "../campaign/definition";
-import { balanceVariantsFor } from "../campaign/rosters";
-import { prototypeScenarios } from "./fixtures/wagonPark";
+import { readFileSync } from "node:fs";
+import { balancePlans, guardrailFailures, runBalance, type BalanceRow } from "./balance";
+import { GUARDRAIL_SCENARIO_IDS } from "./guardrails.testkit";
 import { scenarios } from "./scenarios";
 
 describe("balance guardrails (small-N version of npm run balance)", () => {
-  // Engine prototypes (P4's Wagon Park) are held to the same guardrails as shipped battles.
-  for (const scenario of [...scenarios, ...prototypeScenarios]) {
-    // Campaign battles are checked on every reference roster (see docs/CAMPAIGN.md).
-    for (const variant of balanceVariantsFor(ashAndBanner, scenarios, scenario)) {
-      it(`${scenario.title} [${variant.kind} roster] meets its guardrails over 60 seeds with fortune on`, () => {
-        // Judged with the player-realistic heuristic muster...
-        const rows = runBalance(variant.scenario, 60, "on", "heuristic");
-        expect(guardrailFailures(rows, variant.policy), formatTable(variant.scenario, rows)).toEqual([]);
-        // ...and still winnable by a player who never musters.
-        const still = runBalance(variant.scenario, 60, "on", "none", ["intended", "bad"]);
-        expect(guardrailFailures(still, "floor"), formatTable(variant.scenario, still)).toEqual([]);
-      }, 90_000); // hundreds of simulated battles; the 5 s default times out under full-suite load
-    }
-  }
+  // The per-battle guardrail suites live in balance.<battle>.test.ts (see guardrails.testkit.ts).
+  it("every battle has its own guardrail test file", () => {
+    const files = Object.keys(import.meta.glob("./balance.*.test.ts"));
+    const covered = files.map((file) => readFileSync(new URL(file, import.meta.url), "utf8").match(/describeGuardrails\("([^"]+)"\)/)?.[1]);
+    expect([...covered].sort()).toEqual([...GUARDRAIL_SCENARIO_IDS].sort());
+  });
 
   it("builds intended, bad and one mono plan per player doctrine", () => {
     const plans = balancePlans(scenarios[0]);
