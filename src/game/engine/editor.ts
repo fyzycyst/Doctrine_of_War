@@ -28,6 +28,7 @@ export const EDIT_BOUNDS: Partial<Record<Condition["kind"], Record<string, Param
   allyBelow: { value: { min: 10, max: 90, step: 5 } },
   enemyOverextended: { range: { min: 1, max: 4, step: 1 } },
   wardNear: { range: { min: 2, max: 5, step: 1 }, minRange: { min: 1, max: 3, step: 1 } },
+  aheadOfLine: { by: { min: 1, max: 3, step: 1 } },
 };
 
 export const VARIANT_NAME_MAX = 60;

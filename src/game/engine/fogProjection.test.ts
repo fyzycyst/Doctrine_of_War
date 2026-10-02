@@ -6,11 +6,15 @@
 // id, that the projected stream did not legitimately mention in that phase.
 import { describe, expect, it } from "vitest";
 import type { HexCoord } from "../board";
+import { doctrineLibrary } from "./doctrines";
 import { eventsFor, factionSees } from "./fog";
+import { prototypeScenarios } from "./fixtures/wagonPark";
+import { chooseRule, evaluateCondition, resolveTarget, type ResolvedTarget } from "./rules";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { createRng } from "./rng";
 import { scenarios } from "./scenarios";
-import type { EngineEvent, EngineScenario, EngineState, Orders } from "./types";
+import type { Action, EngineEvent, EngineScenario, EngineState, Orders } from "./types";
+import { isActive } from "./world";
 
 const VIEWER = "free_banners" as const;
 
@@ -133,17 +137,24 @@ function checkBattle(scenario: EngineScenario, orders: Orders, seed: number): { 
   return { checked, prose, leaks, introduced };
 }
 
+/** Reference plans, plus everyone on Clean Counterstroke and (where offered) everyone on Bring the Water. */
+function propertyPlans(scenario: EngineScenario): Record<string, Orders> {
+  const playerSquads = scenario.squads.filter((squad) => squad.faction === scenario.playerFaction && !squad.noncombatant);
+  const all = (doctrineId: string) => Object.fromEntries(playerSquads.map((squad) => [squad.id, doctrineId]));
+  return {
+    intended: scenario.referencePlans!.intended,
+    bad: scenario.referencePlans!.bad,
+    counterstroke: all("clean_counterstroke"),
+    ...(scenario.playerDoctrineIds.includes("bring_the_water") ? { advance: all("bring_the_water") } : {}),
+  };
+}
+
 describe("fog projection property", () => {
   const pick = createRng(20260928);
   const seeds = Array.from({ length: 10 }, () => 1 + Math.floor(pick.next() * 100000));
 
-  for (const scenario of scenarios) {
-    const playerSquads = scenario.squads.filter((squad) => squad.faction === scenario.playerFaction && !squad.noncombatant);
-    const plans: Record<string, Orders> = {
-      intended: scenario.referencePlans!.intended,
-      bad: scenario.referencePlans!.bad,
-      counterstroke: Object.fromEntries(playerSquads.map((squad) => [squad.id, "clean_counterstroke"])),
-    };
+  for (const scenario of [...scenarios, ...prototypeScenarios]) {
+    const plans = propertyPlans(scenario);
     for (const [planName, orders] of Object.entries(plans)) {
       it(`${scenario.title} (${planName}): the Banners' projected stream only mentions what they could see`, () => {
         let checked = 0;
@@ -163,6 +174,97 @@ describe("fog projection property", () => {
         void introduced;
         expect(leaks).toEqual([]);
       });
+    }
+  }
+});
+
+// Decision side of fog (P4): what a Banner company decides must not depend on enemies its
+// side cannot see. At every event, for every active Banner company, the rule chosen, the
+// target its action resolves to, and the offensive conditions (aheadOfLine, atObjective)
+// must be identical on the true state and on copies where every unseen enemy is erased
+// or moved elsewhere. This is what makes an objective-anchored advance safe under fog.
+function targetKey(target: ResolvedTarget | null): string {
+  if (!target) return "none";
+  if (target.kind === "squad") return `squad:${target.squad.id}`;
+  if (target.kind === "objective") return `objective:${target.objective.id}`;
+  return `hexes:${target.hexes.map((hex) => `${hex.q},${hex.r}`).join(" ")}`;
+}
+
+function selectorOf(action: Action) {
+  return action.kind === "advance" ? action.toward : action.kind === "attack" || action.kind === "counterCharge" ? action.target : null;
+}
+
+function decisions(state: EngineState, scenario: EngineScenario): string[] {
+  const ctx = { state, scenario };
+  return state.squads.filter((squad) => squad.faction === VIEWER && isActive(squad) && !squad.noncombatant).map((squad) => {
+    const active = squad as Parameters<typeof chooseRule>[1];
+    const rule = chooseRule(ctx, active, doctrineLibrary[squad.doctrineId]);
+    const selector = rule ? selectorOf(rule.then) : null;
+    const offensive = [1, 2, 3].map((by) => evaluateCondition(ctx, active, { kind: "aheadOfLine", by }));
+    return [
+      squad.id,
+      rule?.id ?? "none",
+      selector ? targetKey(resolveTarget(ctx, active, selector)) : "-",
+      targetKey(resolveTarget(ctx, active, { kind: "objective", side: "enemy" })),
+      evaluateCondition(ctx, active, { kind: "atObjective" }),
+      ...offensive,
+    ].join("/");
+  });
+}
+
+/** Copies of `state` with the viewer's unseen enemies erased, and moved to other free hexes. */
+function withoutUnseen(state: EngineState, scenario: EngineScenario, pick: () => number): EngineState[] {
+  const intel = state.intel[VIEWER] ?? {};
+  const unseen = (id: string, faction: string) => faction !== VIEWER && !intel[id]?.visible;
+  const erased = structuredClone(state);
+  for (const squad of erased.squads) {
+    if (squad.status === "active" && unseen(squad.id, squad.faction)) {
+      squad.status = "routed";
+      squad.hex = null;
+    }
+  }
+  const moved = structuredClone(state);
+  const taken = new Set(moved.squads.filter(isActive).map((squad) => `${squad.hex.q},${squad.hex.r}`));
+  moved.objectives.forEach((objective) => taken.add(`${objective.hex.q},${objective.hex.r}`));
+  const free = scenario.board.hexes.filter((hex) => hex.terrain !== "wall" && hex.terrain !== "river" && !taken.has(`${hex.coord.q},${hex.coord.r}`));
+  for (const squad of moved.squads) {
+    if (isActive(squad) && unseen(squad.id, squad.faction) && free.length > 0) {
+      const [hex] = free.splice(Math.floor(pick() * free.length), 1);
+      squad.hex = { ...hex.coord };
+    }
+  }
+  return [erased, moved];
+}
+
+describe("fog decision property (P4)", () => {
+  const pick = createRng(20261002);
+  const seeds = Array.from({ length: 6 }, () => 1 + Math.floor(pick.next() * 100000));
+
+  for (const scenario of [...scenarios, ...prototypeScenarios]) {
+    for (const [planName, orders] of Object.entries(propertyPlans(scenario))) {
+      it(`${scenario.title} (${planName}): Banner decisions never depend on unseen enemies`, () => {
+        const leaks: string[] = [];
+        let checked = 0;
+        for (const seed of seeds) {
+          let state = createInitialState(scenario, { seed, fortune: "on" });
+          const onEmit = (event: EngineEvent, live: EngineState) => {
+            if (event.kind !== "ruleFired" && event.kind !== "move") return;
+            const truth = decisions(live, scenario);
+            for (const blind of withoutUnseen(live, scenario, () => pick.next())) {
+              checked += 1;
+              const view = decisions(blind, scenario);
+              if (JSON.stringify(view) !== JSON.stringify(truth)) {
+                leaks.push(`${scenario.id}#${seed} phase ${event.phase} beat ${event.beat}: ${truth.filter((line, i) => line !== view[i]).join(", ")} vs ${view.filter((line, i) => line !== truth[i]).join(", ")}`);
+              }
+            }
+          };
+          while (state.status === "command") {
+            state = resolvePhase(state, orders, scenario, { onEmit }).state;
+          }
+        }
+        expect(checked).toBeGreaterThan(50);
+        expect(leaks.slice(0, 5)).toEqual([]);
+      }, 60_000);
     }
   }
 });

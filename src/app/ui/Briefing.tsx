@@ -39,6 +39,10 @@ export function conditionsInWords(scenario: EngineScenario): { win: string; lose
       winText = `Rout or destroy ${win.squadIds.length === 1 ? "the marked enemy company" : `all ${win.squadIds.length} marked enemy companies`} within ${phases}.`;
       lose.push("Time runs out with a marked company still in the field.");
       break;
+    case "breakObjective":
+      winText = `Batter ${inline(objective(win.objectiveId))} down within ${phases}.`;
+      lose.push(`Time runs out with ${inline(objective(win.objectiveId))} still standing.`);
+      break;
   }
   for (const condition of scenario.defeatConditions ?? []) {
     lose.push(

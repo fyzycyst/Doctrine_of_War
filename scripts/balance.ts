@@ -3,6 +3,7 @@
 // missing reference plans or any guardrail failure all exit non-zero.
 import { formatTable, GUARDRAILS, guardrailFailures, runBalance } from "../src/game/engine/balance";
 import { scenarios } from "../src/game/engine/scenarios";
+import { prototypeScenarios } from "../src/game/engine/fixtures/wagonPark";
 import { ashAndBanner } from "../src/game/campaign/definition";
 import { balanceVariantsFor } from "../src/game/campaign/rosters";
 import type { FortuneMode } from "../src/game/engine/types";
@@ -32,9 +33,10 @@ if (!Number.isInteger(seeds) || seeds < 1) {
 if (fortune !== "on" && fortune !== "off") {
   fail(`--fortune must be "on" or "off" (got "${fortune}")`);
 }
-const selected = scenarios.filter((item) => !only || item.id === only);
+// Engine prototypes (test fixtures, not shipped) run only when named: --scenario proto_wagon_park.
+const selected = only ? [...scenarios, ...prototypeScenarios].filter((item) => item.id === only) : scenarios;
 if (selected.length === 0) {
-  fail(`unknown scenario "${only}" (known: ${scenarios.map((item) => item.id).join(", ")})`);
+  fail(`unknown scenario "${only}" (known: ${[...scenarios, ...prototypeScenarios].map((item) => item.id).join(", ")})`);
 }
 
 console.log(
