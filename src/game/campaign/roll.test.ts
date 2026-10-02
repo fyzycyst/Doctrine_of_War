@@ -64,12 +64,14 @@ const march: CampaignDefinition = {
         reedmarsh_levy: "t_levy",
         harrow_riders: "t_riders",
       },
-      call: { locked: { lanternbearers: "t_lamps" } },
+      call: { locked: { lanternbearers: "t_lamps" }, labels: { lanternbearers: "The Lantern Line" } },
     },
   ],
 };
 
 const scenarios = [firstBreach, emberFord];
+const slotSquadHexes = (scenario: typeof firstBreach) =>
+  scenario.squads.filter((squad) => squad.faction === scenario.playerFaction && !squad.noncombatant).map((squad) => squad.hex);
 
 /** A finished engine state from `scenario` with each slot ending as given. */
 function ended(scenario: ReturnType<typeof assembleBattle>, status: EngineState["status"], endings: Record<string, { status?: "active" | "routed" | "destroyed" | "escaped"; strength?: number }> = {}): EngineState {
@@ -109,7 +111,23 @@ describe("the Roll", () => {
     const slots = rollSlots(march, startCampaign(march), firstBreach);
     expect(slots.map((slot) => slot.slotId)).toEqual(["greyford_shields", "dawnwatch_archers", "mercy_standard", "stoneford_riders"]);
     expect(slots[3]).toMatchObject({ flex: true, roles: ["cavalry", "frontline"], locked: null, doctrines: { frontline: "shield_the_line" } });
-    expect(slots[0]).toMatchObject({ flex: false, roles: ["frontline"], label: "Greyford Shields" });
+    expect(slots[0]).toMatchObject({ flex: false, roles: ["frontline"], label: "Siege Approach", hex: { q: 3, r: 2 } });
+  });
+
+  it("names each post by where it stands, never by the scenario's squad", () => {
+    const first = rollSlots(march, startCampaign(march), firstBreach);
+    // The hex's board label, else "<terrain> · <role>".
+    expect(first.map((slot) => slot.label)).toEqual(["Siege Approach", "Upper Gate Road", "Road · standard", "Road · horse"]);
+    expect(first.map((slot) => slot.hex)).toEqual(slotSquadHexes(firstBreach));
+    const squadNames = new Set(firstBreach.squads.map((squad) => squad.name));
+    expect(first.some((slot) => squadNames.has(slot.label))).toBe(false);
+    // An authored label wins.
+    let state = startCampaign(march);
+    state = { ...state, battleIndex: 1 };
+    const second = rollSlots(march, state, emberFord);
+    expect(second.find((slot) => slot.slotId === "lanternbearers")?.label).toBe("The Lantern Line");
+    expect(second.find((slot) => slot.slotId === "ashfen_bowmen")?.label).toBe("Watcher's Rise");
+    expect(second.find((slot) => slot.slotId === "kestrel_lancers")?.label).toBe("Field · horse");
   });
 
   it("recommends a legal force and explains every illegal one", () => {
@@ -123,7 +141,7 @@ describe("the Roll", () => {
     expect(bad({ mercy_standard: LEVY_ID })).toMatchObject({ mercy_standard: expect.stringMatching(/a levy is only raised when no company can/) });
     expect(bad({ nowhere: "t_spears" })).toMatchObject({ assignment: "No such post: nowhere." });
     const { stoneford_riders: _gone, ...missing } = recommended;
-    expect(validateAssignment(march, state, firstBreach, missing)).toMatchObject({ stoneford_riders: "Stoneford Riders has no company." });
+    expect(validateAssignment(march, state, firstBreach, missing)).toMatchObject({ stoneford_riders: "Road · horse has no company." });
     // The flex slot takes a frontline company.
     expect(bad({ stoneford_riders: "t_spears" })).toEqual({});
   });
@@ -219,7 +237,7 @@ describe("Worn, reserves and reform (B2)", () => {
     const next = recommendedForce(march, state, emberFord);
     expect(Object.values(next)).not.toContain("t_banner");
     expect(validateAssignment(march, state, emberFord, next)).toEqual({});
-    expect(validateAssignment(march, state, emberFord, { ...next, lanternbearers: "t_banner" })).toMatchObject({ lanternbearers: "Test Lamps must hold Lanternbearers." });
+    expect(validateAssignment(march, state, emberFord, { ...next, lanternbearers: "t_banner" })).toMatchObject({ lanternbearers: "Test Lamps must hold The Lantern Line." });
     const worn = { ...next, mill_lane_guard: shields };
     const field = assembleBattle(march, state, emberFord, worn).squads.find((squad) => squad.id === "mill_lane_guard")!;
     expect([field.strength, field.cohesion]).toEqual([84 - WORN_PENALTY.strength, 74 - WORN_PENALTY.cohesion]);
@@ -331,6 +349,23 @@ describe("lintRollCampaign", () => {
         "first: flex slot stoneford_riders must list its own role (cavalry) first",
         "first: flex slot stoneford_riders: iron_tide is not a player doctrine here",
         "first: locked company t_pikes has not joined the Roll by this battle",
+      ]),
+    );
+  });
+
+  it("checks authored post labels: real slots, short plain names, never a company's name", () => {
+    const labelled: CampaignDefinition = structuredClone(march);
+    labelled.battles[0].call = {
+      ...labelled.battles[0].call,
+      labels: { ghost_post: "Nowhere", greyford_shields: " The Gate", dawnwatch_archers: "x".repeat(41), mercy_standard: "Test Banner", stoneford_riders: "<b>Riders</b>" },
+    };
+    expect(lintRollCampaign(labelled, scenarios)).toEqual(
+      expect.arrayContaining([
+        "first: label for ghost_post, which is not a player squad",
+        "first: label for greyford_shields must be a plain name of 1..40 characters",
+        "first: label for dawnwatch_archers must be a plain name of 1..40 characters",
+        'first: label for mercy_standard is a company\'s name ("Test Banner")',
+        "first: label for stoneford_riders must be a plain name of 1..40 characters",
       ]),
     );
   });

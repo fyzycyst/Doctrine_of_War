@@ -26,6 +26,7 @@
 //   Legal force: a slot no ready company can fill takes a nameless levy (LEVY_ID; profile
 //   LEVY_PROFILE for its role, Resolve -1, no renown, never settled); a levy is legal only
 //   where it is forced.
+import { getHex, type HexCoord } from "../board";
 import type { EngineScenario, EngineState, SquadRole, SquadSetup } from "../engine/types";
 import { clampResolve, fameOf, hostEscalation, playableBattle, settleCompany, type HostEscalation } from "./campaign";
 import {
@@ -81,8 +82,13 @@ export type HostThreat = HostEscalation;
 export interface RollSlot {
   /** Stable slot id: the scenario player-squad id. Slots come in activation order. */
   slotId: string;
-  /** The scenario's label for the post (its squad name). */
+  /**
+   * The post's position name: the battle's authored label, else the board label of its
+   * hex, else "<terrain> · <role>" ("Ridge · skirmishers"). Never the scenario squad's name.
+   */
   label: string;
+  /** Where the post stands on the board (the slot squad's start hex). */
+  hex: HexCoord;
   /** Roles that may fill it; more than one only on a flex slot. */
   roles: SquadRole[];
   flex: boolean;
@@ -205,12 +211,32 @@ function battleFor(def: CampaignDefinition, state: CampaignState, scenario: Engi
   return playableBattle(def, state, scenario.id);
 }
 
+/** Max length of an authored position label. */
+export const SLOT_LABEL_MAX = 40;
+
+const ROLE_PLURAL: Record<SquadRole, string> = {
+  frontline: "line",
+  skirmish: "skirmishers",
+  support: "standard",
+  cavalry: "horse",
+  siege: "engine",
+};
+
+/** A post's derived name: its hex's board label, else "<Terrain> · <role>". */
+function positionName(scenario: EngineScenario, squad: SquadSetup): string {
+  const cell = getHex(scenario.board, squad.hex);
+  if (cell?.label) return cell.label;
+  const terrain = cell ? cell.terrain[0].toUpperCase() + cell.terrain.slice(1) : "Field";
+  return `${terrain} · ${ROLE_PLURAL[squad.role]}`;
+}
+
 function slotsOf(battle: CampaignBattle, scenario: EngineScenario): RollSlot[] {
   return slotSquads(scenario).map((squad) => {
     const flex = battle.call?.flex?.[squad.id];
     return {
       slotId: squad.id,
-      label: squad.name,
+      label: battle.call?.labels?.[squad.id] ?? positionName(scenario, squad),
+      hex: { ...squad.hex },
       roles: flex ? [...flex.roles] : [squad.role],
       flex: Boolean(flex),
       locked: battle.call?.locked?.[squad.id] ?? null,
@@ -650,6 +676,14 @@ export function lintRollCampaign(def: CampaignDefinition, scenarios: EngineScena
       if (!slot) at(`locked slot ${slotId} is not a player squad`);
       else if (!company) at(`locked company ${companyId} has not joined the Roll by this battle`);
       else if (!slot.roles.includes(company.role)) at(`locked company ${companyId} (${company.role}) cannot fill ${slotId}`);
+    }
+    const names = new Set(def.companies.map((company) => company.name.toLowerCase()));
+    for (const [slotId, label] of Object.entries(battle.call?.labels ?? {})) {
+      if (!slots.some((slot) => slot.slotId === slotId)) at(`label for ${slotId}, which is not a player squad`);
+      if (label.trim() !== label || label.length === 0 || label.length > SLOT_LABEL_MAX || /[\u0000-\u001f<>]/.test(label)) {
+        at(`label for ${slotId} must be a plain name of 1..${SLOT_LABEL_MAX} characters`);
+      }
+      if (names.has(label.toLowerCase())) at(`label for ${slotId} is a company's name ("${label}")`);
     }
     const lockedIds = Object.values(battle.call?.locked ?? {});
     if (new Set(lockedIds).size !== lockedIds.length) at("locks one company into two slots");
