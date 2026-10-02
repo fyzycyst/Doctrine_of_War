@@ -88,4 +88,16 @@ describe("reduced motion in CSS", () => {
     expect(document.documentElement).toHaveClass("reduce-motion");
     expect(inMotion()).toEqual([]);
   });
+
+  it("keeps only the weather ticker's fade (a fade is not motion); full motion scrolls it", () => {
+    act(() => useSettings.getState().set({ motion: "reduce" }));
+    render(<Root />);
+    act(() => useGame.getState().sealOrders());
+    act(() => void useGame.getState().pushCallout({ kind: "weather", hex: null, faction: null, title: "The weather turns", text: "Rain", repeat: false, linger: 2200 }));
+    const ticker = document.querySelector<HTMLElement>(".ticker-text")!;
+    expect(getComputedStyle(ticker).animation).toMatch(/ticker-fade/);
+    expect(inMotion().filter((name) => !name.includes("ticker-text"))).toEqual([]);
+    act(() => useSettings.getState().set({ motion: "full" }));
+    expect(getComputedStyle(document.querySelector<HTMLElement>(".ticker-text")!).animation).toMatch(/ticker-scroll/);
+  });
 });

@@ -8,6 +8,9 @@ import type { Weather } from "../../game/engine";
 import { useGame, useShownView, type Stage } from "../game/gameStore";
 import { WEATHER_EFFECT, WEATHER_NAME } from "../game/view";
 import { useShowSeed } from "../settingsStore";
+import { useEffect, useState } from "react";
+import { useReducedMotion } from "../../render/motion";
+import type { Callout } from "../game/gameStore";
 
 const WEATHER_ICON: Record<Weather, typeof Sun> = { clear: Sun, rain: CloudRain, mist: CloudFog, ashWind: Wind };
 
@@ -33,11 +36,6 @@ export function CommandBar() {
   const setPace = useGame((s) => s.setPace);
   const log = useGame((s) => s.log);
   const WeatherIcon = WEATHER_ICON[view.weather];
-  // A weather shift plays as a chyron in this bar (T19), not as a banner over the board.
-  const shift = useGame((s) => s.callouts.find((callout) => callout.kind === "weather"));
-  // The new weather, from the callout: the board only takes it once the step lands.
-  const turning = shift ? ((Object.keys(WEATHER_NAME) as Weather[]).find((key) => WEATHER_NAME[key] === shift.text) ?? view.weather) : view.weather;
-  const TurningIcon = WEATHER_ICON[turning];
   // In the chronicle and aftermath, show the phase just fought, not the one to come.
   const reporting = stage === "resolving" || stage === "report" || stage === "outcome";
   const phase = reporting && log.length > 0 ? log[log.length - 1].phase : Math.min(view.phase, view.maxPhases);
@@ -50,6 +48,7 @@ export function CommandBar() {
         <span className="bar-stage">{STAGE_NAME[stage]}</span>
         <h1>{scenario.title}</h1>
       </div>
+      <WeatherTicker />
       <div className="bar-phase" role="img" aria-label={`Phase ${phase} of ${view.maxPhases}`}>
         <span className="bar-phase-label" aria-hidden="true">
           Phase {phase}/{view.maxPhases}
@@ -71,23 +70,13 @@ export function CommandBar() {
           )}
         </div>
       )}
-      {shift ? (
-        <div key={shift.id} className="chip weather-chip chyron" role="status">
-          <TurningIcon size={15} aria-hidden="true" />
-          <span className="chyron-text">
-            <span className="chyron-title">{shift.title}:</span> <strong>{shift.text}</strong>
-            <span className="chyron-effect"> · {WEATHER_EFFECT[turning]}</span>
-          </span>
-        </div>
-      ) : (
-        <div className="chip weather-chip" title={WEATHER_EFFECT[view.weather]}>
-          <WeatherIcon size={15} aria-hidden="true" />
-          <span>
-            {WEATHER_NAME[view.weather]}
-            <span className="sr-only">. {WEATHER_EFFECT[view.weather]}</span>
-          </span>
-        </div>
-      )}
+      <div className="chip weather-chip" title={WEATHER_EFFECT[view.weather]}>
+        <WeatherIcon size={15} aria-hidden="true" />
+        <span>
+          {WEATHER_NAME[view.weather]}
+          <span className="sr-only">. {WEATHER_EFFECT[view.weather]}</span>
+        </span>
+      </div>
       <div className="chip fortune-chip" aria-label={showSeed ? `Fortune ${view.fortune}, seed ${view.seed}` : `Fortune ${view.fortune}`}>
         <span className={`fortune-dot ${view.fortune}`} aria-hidden="true" />
         <span aria-hidden="true">
@@ -127,4 +116,48 @@ export function CommandBar() {
 function GoalIconView({ icon }: { icon: GoalIcon }) {
   const Icon = GOAL_ICON[icon];
   return <Icon size={15} aria-hidden="true" />;
+}
+
+/** How long the weather ticker runs (Readable; tests and capture speed scale it). */
+export const TICKER_MS = 7000;
+
+/**
+ * The weather chyron (T22): a news ticker in the open space between the battle's title and
+ * the phase. It runs for TICKER_MS from the weather callout, longer than the callout itself
+ * (a ticker needs time to cross), and stops when playback does. Under reduced motion the
+ * message sits still, centred, and fades out.
+ */
+function WeatherTicker() {
+  const shift = useGame((s) => s.callouts.find((callout) => callout.kind === "weather"));
+  const resolving = useGame((s) => s.stage === "resolving");
+  const reduced = useReducedMotion();
+  const [ticker, setTicker] = useState<Callout | null>(null);
+
+  useEffect(() => {
+    if (shift) setTicker((current) => (current?.id === shift.id ? current : shift));
+  }, [shift]);
+  useEffect(() => {
+    if (!ticker) return undefined;
+    if (!resolving) {
+      setTicker(null);
+      return undefined;
+    }
+    const timer = setTimeout(() => setTicker(null), TICKER_MS / Math.max(0.001, useGame.getState().playbackSpeed));
+    return () => clearTimeout(timer);
+  }, [ticker, resolving]);
+
+  // The new weather, from the callout: the board only takes it once the step lands.
+  const turning = ticker ? (Object.keys(WEATHER_NAME) as Weather[]).find((key) => WEATHER_NAME[key] === ticker.text) : undefined;
+  const Icon = turning ? WEATHER_ICON[turning] : null;
+  return (
+    <div className="bar-ticker" aria-live="polite">
+      {ticker && (
+        <p key={ticker.id} className={`ticker-text ${reduced ? "static" : "scroll"}`} role="status">
+          {Icon && <Icon size={18} aria-hidden="true" />}
+          <span className="ticker-title">{ticker.title}:</span> <strong>{ticker.text}</strong>
+          {turning && <span className="ticker-effect"> · {WEATHER_EFFECT[turning]}</span>}
+        </p>
+      )}
+    </div>
+  );
 }

@@ -57,6 +57,24 @@ const STAGES = [
       await new Promise((r) => setTimeout(r, 2500));
       editor.querySelector(".field-test")?.scrollIntoView({ block: "end" });
     })()`,
+  },  {
+    name: "t22-field-test-repeat",
+    query: "screen=title",
+    settleMs: 4000,
+    sizes: [[1600, 1000], [1280, 800]],
+    eval: `(async () => {
+      const click = (re, root = document) => [...root.querySelectorAll("button")].find((b) => re.test(b.textContent) || re.test(b.getAttribute("aria-label") ?? ""))?.click();
+      click(/Doctrine editor/);
+      await new Promise((r) => setTimeout(r, 400));
+      const editor = document.querySelector("dialog.editor");
+      click(/^Move order 2 up$/, editor);
+      await new Promise((r) => setTimeout(r, 200));
+      click(/^Run the test$/, editor);
+      await new Promise((r) => setTimeout(r, 2500));
+      click(/^Run again$/, editor);
+      await new Promise((r) => setTimeout(r, 300));
+      editor.querySelector(".field-test")?.scrollIntoView({ block: "end" });
+    })()`,
   },
   // T18 QA: every battle mid-playback, the new battles' command windows, dawn, maps, ending.
   ...[
@@ -67,12 +85,20 @@ const STAGES = [
     // T19: a busy moment of the largest battle (declutter, anchored camera, emphasis ring).
     ["t19-hfd-busy", "scenario=holdForDawn&stage=resolving&phase=1&plan=intended&pauseAt=busy"],
     // T19: a weather shift as a chyron in the top bar (Ember Ford turns to rain in phase 3).
-    ["t19-weather-chyron", "scenario=emberFord&stage=resolving&phase=3&plan=intended&pauseAt=weather"],
+    ["t19-weather-chyron", "scenario=holdForDawn&stage=resolving&phase=3&plan=intended&pauseAt=weather"],
+    // T22: the weather ticker mid-crossing, and held still under reduced motion.
+    ["t22-weather-ticker", "scenario=holdForDawn&stage=resolving&phase=3&plan=intended&pauseAt=weather&motion=full"],
+    ["t22-weather-ticker-reduced", "scenario=holdForDawn&stage=resolving&phase=3&plan=intended&pauseAt=weather&motion=reduce"],
     ["qa-sm-play2", "scenario=saltmarshColumn&stage=resolving&phase=2&plan=intended&pauseAt=rule-mine"],
     ["qa-hfd-dawn", "scenario=holdForDawn&stage=resolving&phase=4&plan=intended&speed=25&pauseAt=stage"],
     ["qa-capture-play", "scenario=emberFord&stage=resolving&plan=intended&pauseAt=rule-mine&capture=1"],
     ["qa-reduced-play", "scenario=firstBreach&stage=resolving&plan=intended&pauseAt=rule-mine&motion=reduce"],
-  ].map(([name, query]) => ({ name, query, probe: "__playbackFrozen", settleMs: name === "qa-hfd-dawn" ? 4000 : 700 })),
+  ].map(([name, query]) => ({
+    name,
+    query,
+    probe: "__playbackFrozen",
+    settleMs: name === "qa-hfd-dawn" ? 4000 : name === "t22-weather-ticker" ? 2600 : name === "t22-weather-ticker-reduced" ? 1500 : 700,
+  })),
   // T23b: fog of war in the real game at each hour (Fortune on), 1600 only.
   ...[
     ["fow-dusk", "scenario=firstBreach&stage=command"],

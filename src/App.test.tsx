@@ -352,20 +352,43 @@ describe("phase playback", () => {
     }
   });
 
-  it("announces a weather shift as a chyron in the top bar, not a banner over the board", async () => {
+  it("runs a weather shift as a ticker between the title and the phase; the chip keeps the current weather", async () => {
     const user = userEvent.setup();
     render(<App />);
     await sealPhase(user);
-    act(() => void game().pushCallout({ kind: "weather", hex: null, faction: null, title: "The weather turns", text: "Rain", repeat: false, linger: 2200 }));
     const bar = screen.getByRole("banner");
-    const chyron = bar.querySelector(".weather-chip.chyron");
-    expect(chyron).toHaveAttribute("role", "status");
+    const chip = bar.querySelector(".weather-chip")!;
+    const before = chip.textContent;
+    act(() => void game().pushCallout({ kind: "weather", hex: null, faction: null, title: "The weather turns", text: "Rain", repeat: false, linger: 2200 }));
+    const ticker = bar.querySelector(".bar-ticker")!;
+    // Between the title and the phase indicator.
+    expect(ticker.previousElementSibling).toHaveClass("bar-title");
+    expect(ticker.nextElementSibling).toHaveClass("bar-phase");
+    const text = within(ticker as HTMLElement).getByRole("status");
+    expect(text).toHaveClass("ticker-text", "scroll");
     // The new weather's effect, even before the board shows the rain.
-    expect(chyron).toHaveTextContent("The weather turns: Rain · Fords end a move; counter-charges hit softer.");
+    expect(text).toHaveTextContent("The weather turns: Rain · Fords end a move; counter-charges hit softer.");
+    expect(chip.textContent).toBe(before);
     expect(document.querySelector(".callout-weather")).toBeNull();
-    // When it has played, the chip is the plain weather chip again.
+    // It outlives the short callout (a ticker needs time to cross)…
     act(() => game().dropCallout(game().callouts.find((callout) => callout.kind === "weather")!.id));
+    expect(within(bar).getByText(/The weather turns/)).toBeInTheDocument();
+    // …and stops with playback.
+    act(() => game().finishPlayback());
     expect(within(bar).queryByText(/The weather turns/)).not.toBeInTheDocument();
+  });
+
+  it("holds the ticker still and centred under reduced motion", async () => {
+    const user = userEvent.setup();
+    act(() => useAppStore.getState().setDisplay({ motion: "reduce" }));
+    try {
+      render(<App />);
+      await sealPhase(user);
+      act(() => void game().pushCallout({ kind: "weather", hex: null, faction: null, title: "The weather turns", text: "Mist", repeat: false, linger: 2200 }));
+      expect(screen.getByRole("banner").querySelector(".ticker-text")).toHaveClass("static");
+    } finally {
+      act(() => useAppStore.getState().setDisplay({ motion: "system" }));
+    }
   });
 
   it("moves the depth-of-field focus to the acting company, never the camera, and clears it after", async () => {

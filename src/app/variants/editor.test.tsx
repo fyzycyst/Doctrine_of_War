@@ -11,6 +11,7 @@ import { useAppStore } from "../store";
 import { DoctrineHand } from "../ui/DoctrineHand";
 import { DoctrineEditor } from "./DoctrineEditor";
 import type { FieldTestInput, FieldTestResult } from "./fieldTest";
+import { SEED_BLOCK } from "./FieldTestPanel";
 import { useVariants } from "./variantStore";
 
 // jsdom has no Web Workers: the field test's worker client is replaced with a controllable fake.
@@ -225,6 +226,52 @@ describe("test in the field", () => {
     );
     expect(within(panel).getByText("Slightly better, not certain")).toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: "Run longer" })).not.toBeInTheDocument();
+  });
+
+  it("answers a repeat run instead of silently re-running it, and offers new fortunes or Run longer", async () => {
+    const user = userEvent.setup();
+    render(<DoctrineEditor target={{ baseId: "shield_the_line", squadId: "greyford_shields" }} onClose={() => {}} />);
+    const panel = screen.getByRole("region", { name: "Test in the field" });
+    await user.click(screen.getByRole("button", { name: "Move order 3 up" }));
+    await user.click(within(panel).getByRole("button", { name: "Run the test" }));
+    const leaning = {
+      runs: 83,
+      base: { victories: 40, stalemates: 0, defeats: 43 },
+      variant: { victories: 47, stalemates: 0, defeats: 36 },
+      ahead: 14,
+      behind: 7,
+      stoppedBy: "time" as const,
+      extended: false,
+    };
+    await act(async () => fieldTests[0].finish(leaning));
+
+    // Same battle, company and cut: no new run, an answer.
+    await user.click(within(panel).getByRole("button", { name: "Run again" }));
+    expect(fieldTests).toHaveLength(1);
+    expect(panel).toHaveTextContent("Same orders as your last test. The result stands (83 battles)");
+    expect(within(panel).getAllByRole("button", { name: "Run longer" }).length).toBeGreaterThan(0);
+
+    // New fortunes: a fresh block of seeds, said so in the result.
+    await user.click(within(panel).getByRole("button", { name: "Run again with new fortunes" }));
+    expect(fieldTests).toHaveLength(2);
+    expect(fieldTests[1].input.firstSeed).toBe(fieldTests[0].input.firstSeed + SEED_BLOCK);
+    expect(fieldTests[1].input.from).toBeUndefined();
+    expect(panel).not.toHaveTextContent("Same orders as your last test");
+    await act(async () => fieldTests[1].finish({ ...leaning, ahead: 7, behind: 7 }));
+    expect(panel).toHaveTextContent("New fortunes (set 2).");
+
+    // Run longer on that result continues its own fortunes.
+    await user.click(within(panel).getByRole("button", { name: "Run again" }));
+    expect(within(panel).queryByRole("button", { name: "Run longer" })).not.toBeInTheDocument(); // no lean: not eligible
+    await user.click(within(panel).getByRole("button", { name: "Run again with new fortunes" }));
+    expect(fieldTests[2].input.firstSeed).toBe(fieldTests[0].input.firstSeed + 2 * SEED_BLOCK);
+
+    // A changed cut is a new test: Run again runs it.
+    await act(async () => fieldTests[2].finish(leaning));
+    await user.click(screen.getByRole("button", { name: "Move order 1 down" }));
+    await user.click(within(panel).getByRole("button", { name: "Run again" }));
+    expect(fieldTests).toHaveLength(4);
+    expect(fieldTests[3].input.firstSeed).toBe(fieldTests[0].input.firstSeed);
   });
 
   it("does not offer Run longer for a clear verdict", async () => {

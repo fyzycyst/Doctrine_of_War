@@ -47,14 +47,15 @@ describe("the field test on the real engine", () => {
     expect(verdict(result, firstBreach).headline).toBe("No real difference");
   });
 
-  it("keeps to its time budget on the biggest battle", () => {
+  it("stops by its time budget on the biggest battle (a fake clock: no wall time, so no load sensitivity)", () => {
     const squad = shieldsIn(holdForDawn)[0];
-    const started = performance.now();
-    const result = runFieldTest(inputFor(holdForDawn, shieldCut, [squad]));
-    const seconds = (performance.now() - started) / 1000;
-    console.info(`field test, Hold for Dawn: ${result.runs} paired battles in ${seconds.toFixed(2)} s (${result.stoppedBy})`);
+    // The clock advances 40 ms per paired battle, as it reports progress: the 3 s budget ends at seed 75.
+    let clock = 0;
+    const result = runFieldTest(inputFor(holdForDawn, shieldCut, [squad]), (done) => (clock = done * 40), () => clock);
     expect(result.runs).toBeGreaterThanOrEqual(60);
-    expect(seconds).toBeLessThan(8);
+    if (result.stoppedBy === "time") expect(result.runs).toBe(75);
+    else expect(result).toMatchObject({ stoppedBy: "clear", runs: 60 }); // an unmistakable difference stops at the first checkpoint
+    for (const arm of [result.base, result.variant]) expect(arm.victories + arm.stalemates + arm.defeats).toBe(result.runs);
   }, 30_000);
 });
 

@@ -140,7 +140,6 @@ h3 {
 
 .bar-title {
   display: grid;
-  margin-right: auto;
 }
 
 .bar-stage {
@@ -3545,48 +3544,6 @@ html.reduce-motion *::after {
 }
 
 
-/* Weather shifts as a chyron in the top bar (T19): the chip widens and the news slides in. */
-.weather-chip.chyron {
-  max-width: min(560px, 44vw);
-  border-color: var(--gold);
-  background: linear-gradient(90deg, rgba(212, 166, 74, 0.28), rgba(18, 15, 22, 0.88) 70%);
-  color: var(--bone);
-  overflow: hidden;
-  animation: chyron-in 0.35s var(--ease) both;
-}
-
-.chyron-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  animation: chyron-slide 0.6s var(--ease) both;
-}
-
-.chyron-title {
-  color: var(--gold-hi);
-}
-
-.chyron-text strong {
-  font-family: var(--display);
-  letter-spacing: 0.04em;
-}
-
-.chyron-effect {
-  color: var(--muted);
-}
-
-@keyframes chyron-in {
-  from {
-    background-position: -200px 0;
-    border-color: rgba(212, 166, 74, 0.2);
-  }
-}
-
-@keyframes chyron-slide {
-  from {
-    transform: translateX(40%);
-    opacity: 0;
-  }
-}
 
 
 /* The terrain chip beside the hovered hex (T19): tinted by better or worse ground. */
@@ -3817,4 +3774,133 @@ html.reduce-motion *::after {
 /* A panel across the whole How to play grid (Muster & relief: short text, full width). */
 .howto-panel.wide {
   grid-column: 1 / -1;
+}
+
+/* Test in the field: a repeat of the last test is answered, not silently re-run (T22). */
+.field-test-repeat {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--gold);
+  background: rgba(212, 166, 74, 0.08);
+  font-size: 13.5px;
+}
+
+.modal .field-test-repeat p {
+  margin: 0;
+  color: var(--bone);
+}
+
+.modal .field-test-repeat .field-test-repeat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* The weather ticker (T22): it fills the open space between the title and the phase, and a
+   shift crosses it like a news ticker. Under reduced motion it sits centred and fades. */
+.bar-ticker {
+  container: ticker / inline-size;
+  position: relative;
+  flex: 1 1 0;
+  min-width: 120px;
+  height: 30px;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+.ticker-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  line-height: 30px;
+  white-space: nowrap;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--bone);
+}
+
+.ticker-text svg {
+  margin-right: 8px;
+  vertical-align: -3px;
+}
+
+.ticker-title {
+  color: var(--gold-hi);
+}
+
+.ticker-text strong {
+  color: var(--gold-hi);
+  text-transform: uppercase;
+}
+
+.ticker-effect {
+  font-family: var(--body);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--bone);
+}
+
+/* The classic marquee: the line starts a full ticker-width to the right (padding-left
+   resolves against the ticker) and slides its whole length to the left. */
+.ticker-text.scroll {
+  display: inline-block;
+  padding-left: 100%;
+  animation: ticker-scroll 7s linear both;
+}
+
+.ticker-text.static {
+  right: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  animation: ticker-fade 7s ease both;
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes ticker-fade {
+  0% {
+    opacity: 0;
+  }
+  6%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Held still where the ticker is narrow (1280 wide): the new weather alone, the rest
+   kept for screen readers. */
+@container ticker (max-width: 420px) {
+  .ticker-text.static .ticker-title,
+  .ticker-text.static .ticker-effect {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* A fade is not motion: the reduced ticker keeps it (the global reset would cut it). */
+html.reduce-motion .ticker-text.static {
+  animation: ticker-fade 7s ease both !important;
 }
