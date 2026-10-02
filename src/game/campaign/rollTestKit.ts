@@ -62,7 +62,8 @@ export function longRoad(battles: number): CampaignDefinition {
   };
 }
 
-export const testPack = { ...firstCall, campaigns: [...firstCall.campaigns, testRoad] };
+/** The First Call with the test road in place of the real Cinder Road (same allowlisted id). */
+export const testPack = { ...firstCall, campaigns: [...firstCall.campaigns.filter((item) => item.id !== testRoad.id), testRoad] };
 export const testRegistry = createRegistry([testPack]);
 
 type Ending = { status?: "active" | "routed" | "destroyed" | "escaped"; strength?: number };

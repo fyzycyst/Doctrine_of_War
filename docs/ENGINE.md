@@ -351,8 +351,9 @@ if a guardrail fails:
 - the bad plan wins ≤ 35%;
 - no mono plan **advances** (wins plus stalemates) ≥ 60%.
 
-`balance.test.ts` runs the same check with 60 seeds on every `npm test`. Every
-scenario in `scenarios/index.ts` must pass, and so must the engine prototypes in
+The same check runs with 60 seeds on every `npm test`, one file per battle
+(`balance.<battle>.test.ts` via `guardrails.testkit.ts`; Roll battles one test per named
+call). Every pack scenario (`registry.scenarios()`) must pass, and so must the engine prototypes in
 `fixtures/` (test fixtures, never offered to the player; run one by name with
 `npm run balance -- --scenario proto_wagon_park`). The scenarios so far:
 Each battle has a **star doctrine** even when it uses a mix:
@@ -373,6 +374,17 @@ Each battle has a **star doctrine** even when it uses a mix:
   dark; at sunrise the Host falls back and the counterstroke companies break the exposed
   ram. Losing three companies breaks the line.
 
+- *The Saltmarsh, Northbound* (*Cinder Road* battle 1, `scenarios/cinderRoad1.ts`, in the
+  First Call pack, not the intro's `scenarios` list): the star is **Bring the Water**.
+  Banner initiative under fog, `breakObjective` on the Saltgate Barricade. The assault
+  cannot see the reed hunters, but it can see the barricade on the map, so it marches on
+  it; the Wickmere Standard keeps it standing when the Drowned Hounds (Resolve 3) rise.
+  500 seeds, fortune on, recommended call: intended 86.2% (91.0% with no muster), bad 0%,
+  all Bring the Water 48.0%, every other mono 0%. Ablations (no muster): the standard on
+  Bring the Water 48.8%, on Clean Counterstroke 35.2%; the march on Clean Counterstroke
+  0%. **Keep step is inert here:** the Sunward Lances (cavalry) never get 2 hexes ahead of
+  every other company (they move after the infantry, and lead by at most 1), so Bring the
+  Water without `btw_step` scores the same. Every named call is in docs/CAMPAIGN.md.
 - *The Wagon Park* (prototype, `fixtures/wagonPark.ts`, P4): the first battle with
   **Banner initiative**, `breakObjective` and fog. The Banners cannot see the park's guard
   from their start, so the assault is anchored to the objective: Bring the Water marches

@@ -59,7 +59,8 @@ packs (packs, campaigns, **companies**, scenarios, doctrines, skirmishes), every
 reference, each scenario's internal consistency, and each campaign against its
 scenarios. Nothing is exposed from a set that fails. `registry.compatibility(provenance)`
 says whether a saved run (pack, campaign, content and rules revision) can continue.
-The shipped pack is `first_call` (The First Call), holding the intro.
+The shipped pack is `first_call` (The First Call), holding the intro and *Cinder Road*
+(in development: battle 1 only until its length is frozen; see below).
 
 Adding an engine condition, action, selector, win or defeat kind means adding it to
 `packs/manifest.ts` too; the shipped-pack round-trip test fails until you do.
@@ -160,6 +161,73 @@ doctrine families in meaningful roles, and swapping out any one family costs at 
 - Veterans draw the Host's hardest companies; a battered army faces a Host that holds
   its best back. It is deliberately small: it keeps strong-roster battles tense rather
   than rebalancing them.
+
+### Roll battles: the named calls (`rollCalls.ts`, P5)
+
+A Roll battle is not one roster but a choice, so it is balanced on the **Tier A named
+calls** (synthesis §6): deterministic assignments from deterministic campaign states.
+`balanceVariantsIn(campaigns, scenarios, scenario)` dispatches: a Roll campaign's calls,
+a fixed campaign's rosters, or the baseline.
+
+| Call | Campaign state | Assignment | Guardrails |
+| --- | --- | --- | --- |
+| recommended | the curated path (earlier battles won by their recommended force, intended plan, curated seed) | `recommendedForce` | full |
+| curated | the curated path | the battle's authored call (`battle.slots`) | full |
+| rough | the curated Roll battered: the most famous company Reforming (−2, renown lost), the next two Worn at −1 (a hypothetical before battle 1) | `recommendedForce`: the **recovery force** | floor |
+| greedy | the curated path | highest fame per post (veteran-heavy, ignores Worn) | floor |
+| weakest legal | the curated path | lowest fame per post, Worn first, levies only where forced | **diagnostic**: its recovery force is the recommended call on the same state, gated in full |
+| role: … | the curated path | one per combination of flex-post roles (the most famous company of that role), when it can be filled legally | floor |
+| carried: recommended / greedy | battle 1 only, with the intro's 5 most famous companies carried in (`strongCarryOver`) | recommended / greedy | floor |
+
+Plans follow the call: on a flex post the reference plans use the call's doctrine for the
+role that fills it (`templatePlan`), so a frontline company riding the lances' post is
+judged on the lances' template, never on a cavalry plan. Every gated call is also played
+with no muster (the floor).
+
+**Diagnostics, not gates** (decided on pilot evidence at the Oct 8 gate), printed by `npm
+run balance` with and without muster (`rollDiagnostics`):
+- **selection spread**: intended-plan advance on the best call minus the worst (proposed
+  ≤ 25 points, ≥ 5 informational);
+- **plan beats roster**: the bad plan on the call where it does best still advances less
+  than the intended plan on the worst call.
+
+**Coverage matrix** (roster × plan × muster × seeds, and where it runs):
+
+| Where | Calls | Plans | Muster | Seeds |
+| --- | --- | --- | --- | --- |
+| `balance.<battle>.test.ts` (every `npm test`, one test per call) | every named call | intended, bad, every mono | heuristic; intended and bad also with none | 60, fortune on |
+| `npm run balance` (every content merge) | every named call | intended, bad, every mono | heuristic and none, plus the diagnostics | 500 (default), fortune on |
+| `campaign/cinderRoad.test.ts` | the authored call | intended and its ablations | none | 60 |
+| `fogProjection.test.ts` | the authored call | intended, bad, all Counterstroke, all Bring the Water | none | 10 (projection), 6 (decisions) |
+
+Sampling limits: 60 seeds at a true 75% has a standard error near 5.6 points, 500 seeds
+near 1.9. The calls sample reachable states; they do not prove every state.
+
+**Known limit: carry-over outruns the Host's cap.** Five carried intro veterans (+2,
+renowned) bring +20 fame against a threat capped at +12 strength / +1 Resolve, so on
+*Cinder Road* battle 1 every plan that marches wins (all Bring the Water 96% at 500
+seeds). The carried calls are therefore floors, like rough: dominance is policed on the
+authored army. Whether the cap should rise for carried fame is a design question.
+
+## Cinder Road (`cinderRoad.ts`, M1 pilot)
+
+The counter-offensive, fought from the Roll. Its own army of nine companies (ids never
+reuse the intro's; intro companies arrive only by carry-over), with homes from the
+setting bible: the Greyford March (Coldwater Shields, Ferrymoot Pikes, Thornwick Spears),
+the Fenwardens (Sedgewick Levy, Wickmere Standard, Heronwick Bows), the Dawnwatch Holds
+(Sunward Lances, Brightcrag Riders, Morningwall Slingers). Battle 1 calls six posts, each
+with an authored label; two are flex (the lances' post may take a frontline company, the
+bows' post a frontline company), and every role there marches on the barricade.
+
+**Battle 1, *The Saltmarsh, Northbound*** (`engine/scenarios/cinderRoad1.ts`): the intro's
+Saltmarsh in reverse, by daylight, with Banner initiative and fog. Goal: `breakObjective`
+on the Saltgate Barricade (integrity 36) at the causeway head, within 7 phases; losing 3
+companies is a defeat. The Host: two barricade guards on No Step Back, Mire Stalkers on
+Terror Push in the central reeds, and the Drowned Hounds (renowned, Resolve 3) and Weirfen
+Hunters loosed from the flank reeds in phase 2. Intended plan: Bring the Water on every
+company but the standard, Rescue Standard on the Wickmere Standard. Curated seed 23: won
+in phase 5 with no company lost, the Hounds and three more Host companies broken. Numbers
+are in docs/ENGINE.md.
 
 ## Saves
 

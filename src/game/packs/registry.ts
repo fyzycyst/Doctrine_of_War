@@ -2,12 +2,14 @@
 // Every manifest goes through parsePackManifest() (untrusted-data validation) and the
 // whole set through lintPacks() (cross-pack id uniqueness and references) before the
 // registry exposes anything playable.
+import { cinderRoad } from "../campaign/cinderRoad";
 import { ashAndBanner } from "../campaign/definition";
 import { doctrineLibrary } from "../engine/doctrines";
 import { firstBreach } from "../engine/scenarios/firstBreach";
 import { emberFord } from "../engine/scenarios/emberFord";
 import { saltmarshColumn } from "../engine/scenarios/saltmarshColumn";
 import { holdForDawn } from "../engine/scenarios/holdForDawn";
+import { cinderRoad1 } from "../engine/scenarios/cinderRoad1";
 import type { DoctrineLibrary } from "../engine/types";
 import { lintPacks } from "./lint";
 import { parsePackManifest } from "./manifest";
@@ -27,8 +29,9 @@ export const firstCall: PackManifest = {
   title: "The First Call",
   revision: { pack: 1, content: 1, rules: 1 },
   readsContent: [1],
-  campaigns: [ashAndBanner],
-  scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn],
+  // Cinder Road (Roll) is in development: battle 1 only until its length is frozen.
+  campaigns: [ashAndBanner, cinderRoad],
+  scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn, cinderRoad1],
   doctrines: [],
   skirmishes: [
     { id: "skirmish_first_breach", title: "The First Breach", scenarioId: "first_breach" },
