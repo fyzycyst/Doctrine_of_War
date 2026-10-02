@@ -9,7 +9,7 @@ export const REALMS: Record<RealmId, { name: string; temperament: string }> = {
   dawnwatch: { name: "The Dawnwatch Holds", temperament: "Waits, then strikes" },
 };
 
-/** Company id -> home realm (lore v2's proposed homes for the shipped companies, plus the preview Roll). */
+/** Company id -> home realm (lore v2's homes for the shipped companies). */
 export const COMPANY_REALM: Record<string, RealmId> = {
   greyford_shields: "greyford",
   stoneford_riders: "greyford",
@@ -19,15 +19,16 @@ export const COMPANY_REALM: Record<string, RealmId> = {
   gatewarden_spears: "dawnwatch",
   hillfort_slingers: "dawnwatch",
   dawnrider_lances: "dawnwatch",
-  // The preview Roll (src/app/roll/fixtures.ts).
-  cr_ashgate_shields: "greyford",
-  cr_causeway_riders: "greyford",
-  cr_covenant_standard: "greyford",
-  cr_saltgate_pikes: "fenwardens",
-  cr_heron_stair_guard: "fenwardens",
-  cr_fenmere_bowmen: "fenwardens",
-  cr_highwatch_slingers: "dawnwatch",
-  cr_dawnward_lances: "dawnwatch",
+  // Cinder Road (src/game/campaign/cinderRoad.ts, homes per lore v2).
+  coldwater_shields: "greyford",
+  ferrymoot_pikes: "greyford",
+  thornwick_spears: "greyford",
+  sedgewick_levy: "fenwardens",
+  wickmere_standard: "fenwardens",
+  heronwick_bows: "fenwardens",
+  sunward_lances: "dawnwatch",
+  brightcrag_riders: "dawnwatch",
+  morningwall_slingers: "dawnwatch",
 };
 
 export function realmOf(companyId: string): { id: RealmId; name: string; temperament: string } | null {

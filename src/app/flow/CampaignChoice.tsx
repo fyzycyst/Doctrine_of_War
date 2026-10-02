@@ -28,7 +28,7 @@ const signed = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 
 function progress(def: CampaignDefinition, state: CampaignState): CampaignStatus {
   const next = currentBattle(def, state);
-  if (!next) return { kind: "complete", line: `Completed · ${state.history.length} battles fought`, action: "Read the chronicle" };
+  if (!next) return { kind: "complete", line: `Completed · ${state.history.length} ${state.history.length === 1 ? "battle" : "battles"} fought`, action: "Read the chronicle" };
   return { kind: "inProgress", line: `In progress · next: ${next.title}`, action: "Continue" };
 }
 
@@ -100,7 +100,7 @@ export function CampaignChoice({ onSettings }: { onSettings?: () => void }) {
                         <h3>{def.title}</h3>
                         <p className="choice-kind">
                           {def.mode === "roll" ? "Call the Banners: choose your companies for each battle" : "The defence: a fixed army"} ·{" "}
-                          {def.battles.length} battles
+                          {def.battles.length} {def.battles.length === 1 ? "battle" : "battles"}
                         </p>
                         <p className="choice-status" role="status">
                           {status.kind === "unavailable" && <Lock size={13} aria-hidden="true" />} {status.line}

@@ -1,75 +1,66 @@
-// Dev and captures only (`?mockRoll=…`): the preview pack (src/app/roll/fixtures.ts) and
-// the engine's own save store over in-memory storage, so the Roll screens can be seen
-// before real Roll content lands.
-//   mockRoll=1      the preview campaign with no saved run
-//   mockRoll=worn   battle 1 played for real (a carried veteran along), so battle 2's Roll shows the conditions it left
-//   mockRoll=carry  the intro completed, so starting the preview offers carry-over
-//   mockRoll=stale  a run from another content edition (kept), with a good backup to restore
+// Dev and captures only (`?mockRoll=…`): the shipped packs (the real Cinder Road) over the
+// engine's own save store on in-memory storage, so the Roll screens can be seen and
+// captured without touching the browser's real saves.
+//   mockRoll=1         no saved Cinder Road run
+//   mockRoll=carry     the intro completed, so starting Cinder Road offers carry-over
+//   mockRoll=veterans  a Cinder Road run begun with veterans carried from the completed intro
+//   mockRoll=stale     a run from another content edition (kept), with a good backup to restore
+//   &rollBattle=1      straight into battle 1's briefing with the recommended force (then &stage=… as usual)
 import {
   ashAndBanner,
-  assembleBattle,
+  carryOverCandidates,
+  cinderRoad,
   localStorageCampaignStore,
-  recommendedForce,
-  recordBattle,
   localStorageKeyFor,
+  recommendedForce,
   saveCampaign,
   serializeCampaignSave,
   snapshotCarryOver,
   startCampaign,
   type CampaignState,
 } from "../../game/campaign";
-import { createRegistry, firstCall } from "../../game/packs";
+import { firstCall, registry } from "../../game/packs";
 import { campaignAfter } from "../flow/devCampaign";
-import { memoryStore } from "../flow/testKit";
 import { useFlow } from "../flow/flowStore";
+import { memoryStore } from "../flow/testKit";
 import { engineRuns, installRollApi } from "./api";
-import { playBattle } from "../../game/engine/balance";
-import { cinderRoadPreview, crossingPreview, previewPacks, PREVIEW_CAMPAIGN_ID } from "./fixtures";
 import { memoryStorage } from "./memoryStorage";
 
-/**
- * A preview run with a lived-in Roll: a veteran carried from the intro, then battle 1 played
- * for real with the recommended force, on the first seed that leaves a company Worn.
- */
-export function wornRun(): CampaignState {
-  return wornBattle().after;
+/** How many veterans `mockRoll=veterans` brings. */
+const DEV_VETERANS = 3;
+
+const completedIntro = () => campaignAfter(ashAndBanner, ashAndBanner.battles.length, { fortune: "on" });
+
+/** Cinder Road begun with the first few veterans the completed intro can lend. */
+function veteranRun(): CampaignState {
+  const intro = completedIntro();
+  const ids = carryOverCandidates(ashAndBanner, intro, firstCall.id)
+    .slice(0, DEV_VETERANS)
+    .map((company) => company.id);
+  return startCampaign(cinderRoad, { carryOver: snapshotCarryOver({ def: ashAndBanner, state: intro, packId: firstCall.id }, cinderRoad, ids) });
 }
 
-/** The same, with the state battle 1 was fought from (for the outcome's before/after). */
-export function wornBattle(): { before: CampaignState; after: CampaignState } {
-  // The veteran as the engine snapshots it from a completed intro (a hand-made one is refused on load).
-  const intro = campaignAfter(ashAndBanner, ashAndBanner.battles.length, { fortune: "on" });
-  const carryOver = snapshotCarryOver({ def: ashAndBanner, state: intro, packId: firstCall.id }, cinderRoadPreview, ["greyford_shields"]);
-  const start = startCampaign(cinderRoadPreview, { carryOver });
-  let fallback: CampaignState | null = null;
-  for (let seed = 1; seed <= 60; seed += 1) {
-    const assignment = recommendedForce(cinderRoadPreview, start, crossingPreview);
-    const scenario = assembleBattle(cinderRoadPreview, start, crossingPreview, assignment);
-    const final = playBattle(scenario, scenario.referencePlans?.intended ?? {}, seed, "on");
-    if (final.status === "defeat") continue;
-    const after = recordBattle(cinderRoadPreview, start, final, { assignment });
-    fallback ??= after;
-    if (after.companies.some((company) => company.condition === "worn" || company.condition === "reforming")) return { before: start, after };
-  }
-  return { before: start, after: fallback ?? start };
-}
-
-export function bootMockRoll(mode: string) {
-  const registry = createRegistry(previewPacks);
+export function bootMockRoll(mode: string, rollBattle = false) {
   const storage = memoryStorage();
-  const key = localStorageKeyFor(PREVIEW_CAMPAIGN_ID);
-  if (mode === "worn") storage.setItem(key, serializeCampaignSave(registry, wornRun()));
+  const key = localStorageKeyFor(cinderRoad.id);
+  let run: CampaignState | null = null;
+  if (mode === "veterans") run = veteranRun();
+  else if (rollBattle) run = startCampaign(cinderRoad);
+  if (run) storage.setItem(key, serializeCampaignSave(registry, run));
   if (mode === "stale") {
-    const good = serializeCampaignSave(registry, startCampaign(cinderRoadPreview));
+    const good = serializeCampaignSave(registry, startCampaign(cinderRoad));
     const stale = JSON.parse(good);
     stale.provenance.contentRevision = 2;
     storage.setItem(key, JSON.stringify(stale));
     storage.setItem(`${key}:backup`, good);
   }
   installRollApi({ registry, runs: engineRuns(localStorageCampaignStore(storage), registry) });
-  if (mode === "carry") {
-    // The intro's own (v1) save holds a completed run, where "Choose a campaign" reads it.
-    const done = campaignAfter(ashAndBanner, ashAndBanner.battles.length, { fortune: "on" });
-    useFlow.setState({ store: memoryStore(saveCampaign(done)) });
+  // The intro's own (v1) save: a completed run where carry-over reads it, else none.
+  useFlow.setState({ store: memoryStore(mode === "carry" ? saveCampaign(completedIntro()) : null) });
+  if (rollBattle && run) {
+    // Synchronously, so the URL's stage and plan can play the battle on.
+    const scenario = registry.scenario(cinderRoad.battles[0].scenarioId)!;
+    useFlow.setState({ definition: cinderRoad, campaign: run });
+    useFlow.getState().fieldBanners(recommendedForce(cinderRoad, run, scenario));
   }
 }

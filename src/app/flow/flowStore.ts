@@ -21,6 +21,7 @@ import {
   type CarriedCompany,
   type SaveStore,
 } from "../../game/campaign";
+import { TOO_MANY_ASIDES } from "../../game/campaign/saveFiles";
 import type { SkirmishEntry } from "../../game/packs";
 import { packs, roll, runs } from "../roll/api";
 
@@ -140,6 +141,16 @@ async function carrySources(target: string, introSaved: CampaignState | null): P
   return sources;
 }
 
+/**
+ * A save failure in plain words. The engine's own sentence when it is one the player can act
+ * on (too many set-aside runs); Electron wraps errors from main, so it is found by content.
+ */
+function plainly(error: unknown, what: string): string {
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes(TOO_MANY_ASIDES)) return TOO_MANY_ASIDES;
+  return `${what} (${message || "unknown error"}).`;
+}
+
 const freshSeed = () => 1 + Math.floor(Math.random() * 99_999);
 
 /** First attempt: the scenario's curated seed. A retry draws a fresh one. */
@@ -188,7 +199,7 @@ export const useFlow = create<FlowState>((set, get) => ({
     try {
       await runs().setAside(campaignId);
     } catch (error) {
-      set({ notice: `The run could not be set aside (${error instanceof Error ? error.message : "unknown error"}).` });
+      set({ notice: plainly(error, "The run could not be set aside") });
       return;
     }
     await get().checkRuns();
@@ -204,7 +215,7 @@ export const useFlow = create<FlowState>((set, get) => ({
       set({ definition: found.campaign });
       await runs().save(backup.state);
     } catch (error) {
-      set({ notice: `The backup could not be restored (${error instanceof Error ? error.message : "unknown error"}).` });
+      set({ notice: plainly(error, "The backup could not be restored") });
       return;
     }
     await get().checkRuns();

@@ -1,6 +1,7 @@
 // M1 (P6): choosing a campaign, carry-over, Call the Banners and a Roll battle end to end,
 // on the engine's real Roll and per-campaign saves (over in-memory storage) with the
-// preview pack. WebGL scenes are stood in for.
+// two-battle preview campaign (rollPreview.testkit.ts) in place of Cinder Road. The real
+// Cinder Road is covered by cinderRoad.ui.test.tsx. WebGL scenes are stood in for.
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,8 +22,7 @@ import { useGame } from "../game/gameStore";
 import { Root } from "../Root";
 import { Outcome } from "../ui/Outcome";
 import { engineRuns, installRollApi, runs } from "./api";
-import { wornBattle, wornRun } from "./devBoot";
-import { cinderRoadPreview, previewPacks, PREVIEW_CAMPAIGN_ID } from "./fixtures";
+import { cinderRoadPreview, previewPacks, PREVIEW_CAMPAIGN_ID, wornBattle, wornRun } from "./rollPreview.testkit";
 import { memoryStorage } from "./memoryStorage";
 
 vi.mock("../../render/showcase/TitleScene", async () => ({ TitleScene: (await import("../flow/testKit")).FakeTitleScene }));

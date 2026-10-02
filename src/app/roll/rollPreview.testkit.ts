@@ -1,14 +1,22 @@
-// A preview Roll campaign for building and testing the Roll UI before Cinder Road's first
-// battle lands (M1 P5). Dev (`?mockRoll=1`) and tests only: never in the shipped registry.
-// Its first battle stands on the Saltmarsh board; names are placeholders, not canon.
-import type { CampaignDefinition } from "../../game/campaign";
+// Tests only (never imported by the game or the dev boot): a two-battle Roll campaign, so
+// the UI tests can see conditions carried from one battle's call into the next. The real
+// Cinder Road has one battle so far. Names are placeholders, not canon.
+import {
+  ashAndBanner,
+  assembleBattle,
+  recommendedForce,
+  recordBattle,
+  snapshotCarryOver,
+  startCampaign,
+  type CampaignDefinition,
+  type CampaignState,
+} from "../../game/campaign";
 import { emberFord, saltmarshColumn, type EngineScenario } from "../../game/engine";
+import { playBattle } from "../../game/engine/balance";
 import { firstCall, type PackManifest } from "../../game/packs";
+import { campaignAfter } from "../flow/devCampaign";
 
-/**
- * The preview takes Cinder Road's id: it is pre-allowlisted for saves (P3). When the real
- * campaign lands (P5) this fixture gives way to it.
- */
+/** The preview stands in for Cinder Road under its allowlisted save id. */
 export const PREVIEW_CAMPAIGN_ID = "cinder_road";
 
 /** The Saltmarsh board under its own id (scenario ids are unique across packs). */
@@ -72,16 +80,35 @@ export const cinderRoadPreview: CampaignDefinition = {
   ],
 };
 
+/** The shipped pack with the preview in place of the real Cinder Road. */
 export const previewPack: PackManifest = {
-  id: "first_call_preview",
-  title: "The First Call (preview)",
-  revision: { pack: 1, content: 1, rules: 1 },
-  readsContent: [1],
-  campaigns: [cinderRoadPreview],
-  scenarios: [crossingPreview, ashFieldsPreview],
-  doctrines: [],
-  skirmishes: [],
+  ...firstCall,
+  campaigns: [...firstCall.campaigns.filter((item) => item.id !== PREVIEW_CAMPAIGN_ID), cinderRoadPreview],
+  scenarios: [...firstCall.scenarios, crossingPreview, ashFieldsPreview],
 };
 
-/** The shipped pack and the preview pack, as a test/dev registry sees them. */
-export const previewPacks: PackManifest[] = [firstCall, previewPack];
+export const previewPacks: PackManifest[] = [previewPack];
+
+/**
+ * A lived-in preview run: a veteran carried from the completed intro (as the engine
+ * snapshots it), then battle 1 played for real with the recommended force, on the first
+ * seed that leaves a company Worn. `before` is the state battle 1 was fought from.
+ */
+export function wornBattle(): { before: CampaignState; after: CampaignState } {
+  const intro = campaignAfter(ashAndBanner, ashAndBanner.battles.length, { fortune: "on" });
+  const carryOver = snapshotCarryOver({ def: ashAndBanner, state: intro, packId: firstCall.id }, cinderRoadPreview, ["greyford_shields"]);
+  const start = startCampaign(cinderRoadPreview, { carryOver });
+  let fallback: CampaignState | null = null;
+  for (let seed = 1; seed <= 60; seed += 1) {
+    const assignment = recommendedForce(cinderRoadPreview, start, crossingPreview);
+    const scenario = assembleBattle(cinderRoadPreview, start, crossingPreview, assignment);
+    const final = playBattle(scenario, scenario.referencePlans?.intended ?? {}, seed, "on");
+    if (final.status === "defeat") continue;
+    const after = recordBattle(cinderRoadPreview, start, final, { assignment });
+    fallback ??= after;
+    if (after.companies.some((company) => company.condition === "worn" || company.condition === "reforming")) return { before: start, after };
+  }
+  return { before: start, after: fallback ?? start };
+}
+
+export const wornRun = (): CampaignState => wornBattle().after;

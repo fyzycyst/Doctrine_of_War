@@ -23,7 +23,7 @@ let restore: () => void = () => {};
 function launch(screenName: "title" | "skirmish" = "skirmish") {
   cleanup();
   const store = memoryStore();
-  runs = { load: vi.fn(), loadBackup: vi.fn(), save: vi.fn(), setAside: vi.fn() };
+  runs = { load: vi.fn(), loadBackup: vi.fn(), save: vi.fn(), setAside: vi.fn(), payload: vi.fn() };
   restore = installRollApi({ runs });
   useFlow.setState({ screen: screenName, definition: ashAndBanner, campaign: null, save: "checking", saved: null, store, saveError: null, skirmish: null, lastRecord: null });
   render(<Root />);

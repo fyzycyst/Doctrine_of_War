@@ -10,6 +10,7 @@ import {
   loadCampaignBackup,
   loadCampaignRun,
   recommendedForce,
+  readCampaignSave,
   recordBattle,
   rollFor,
   rollSlots,
@@ -42,6 +43,11 @@ export interface RunStore {
   save(state: CampaignState): Promise<void>;
   /** Moves the current save aside (kept, never deleted) so a fresh run can start. */
   setAside(campaignId: string): Promise<void>;
+  /**
+   * The saved run's text as stored, for Support → Export (null: no run). A run this build
+   * cannot continue is still exported; a damaged file is refused (as Electron's main does).
+   */
+  payload(campaignId: string): Promise<string | null>;
 }
 
 const engineRoll: RollApi = {
@@ -70,6 +76,11 @@ export function engineRuns(store: CampaignSaveStore, registry: PackRegistry): Ru
     loadBackup: (campaignId) => safely(() => loadCampaignBackup(store, registry, campaignId)),
     save: (state) => saveCampaignRun(store, registry, state),
     setAside: (campaignId) => store.setAside(campaignId),
+    payload: async (campaignId) => {
+      const data = await store.read(campaignId);
+      if (data !== null && readCampaignSave(registry, campaignId, data).kind === "unreadable") throw new Error("save file is not readable");
+      return data;
+    },
   };
 }
 

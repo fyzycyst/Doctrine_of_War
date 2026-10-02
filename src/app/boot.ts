@@ -16,7 +16,7 @@ import { useFlow } from "./flow/flowStore";
 import { COACH_STEPS, useGuide, type CoachStep } from "./guide/guideStore";
 import { useGame, type Stage } from "./game/gameStore";
 import { bootMockRoll } from "./roll/devBoot";
-import { PREVIEW_CAMPAIGN_ID } from "./roll/fixtures";
+import { cinderRoad } from "../game/campaign";
 import { useSettings } from "./settingsStore";
 import { useAppStore } from "./store";
 
@@ -35,9 +35,9 @@ const ORDER: Stage[] = ["briefing", "deploy", "command", "resolving", "report", 
 
 export function bootFromUrl(search: string): BootOptions {
   const params = new URLSearchParams(search);
-  // `&mockRoll=1|worn|carry`: the stand-in Roll and preview packs (M1 UI, before the engine lands).
+  // `&mockRoll=1|carry|veterans|stale` (`&rollBattle=1`): Cinder Road on in-memory saves (see roll/devBoot.ts).
   const mockRoll = params.get("mockRoll");
-  if (mockRoll) bootMockRoll(mockRoll);
+  if (mockRoll) bootMockRoll(mockRoll, params.get("rollBattle") === "1");
 
   // `&skirmish=<id>`: that skirmish's briefing (a `seed` pins its fortune for captures).
   const skirmish = params.get("skirmish");
@@ -117,11 +117,11 @@ export function bootFromUrl(search: string): BootOptions {
   if (screen === "campaigns" || screen === "skirmish") {
     useFlow.getState().go(screen);
   } else if (screen === "roll" && mockRoll) {
-    // Straight to Call the Banners on the preview campaign's current battle.
+    // Straight to Call the Banners on Cinder Road's current battle.
     void (async () => {
       const flow = useFlow.getState();
-      await flow.chooseCampaign(PREVIEW_CAMPAIGN_ID);
-      if (useFlow.getState().carryOver) await useFlow.getState().startRun(PREVIEW_CAMPAIGN_ID, null);
+      await flow.chooseCampaign(cinderRoad.id);
+      if (useFlow.getState().carryOver) await useFlow.getState().startRun(cinderRoad.id, null);
       const now = useFlow.getState();
       const battle = now.campaign && now.definition.battles[now.campaign.battleIndex];
       if (battle) now.openBattle(battle.id);

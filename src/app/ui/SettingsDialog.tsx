@@ -5,6 +5,7 @@ import { useSettings, type QualitySetting } from "../settingsStore";
 import type { DofMode, MotionPreference } from "../store";
 import { useFlow } from "../flow/flowStore";
 import { useGuide } from "../guide/guideStore";
+import { packs } from "../roll/api";
 import { exportSave } from "../support";
 import { Modal } from "./Modal";
 
@@ -73,11 +74,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setHowToOpen = useFlow((s) => s.setHowToOpen);
   const setEditor = useFlow((s) => s.setEditor);
   const saveStore = useFlow((s) => s.store);
+  const activeCampaign = useFlow((s) => s.definition.id);
+  // Every campaign this build offers; the export starts on the one being played.
+  const exportable = packs().packs.flatMap((pack) => pack.campaigns);
+  const [exportId, setExportId] = useState(() => (exportable.some((def) => def.id === activeCampaign) ? activeCampaign : (exportable[0]?.id ?? activeCampaign)));
   const [exportNote, setExportNote] = useState<string | null>(null);
   const exportCopy = async () => {
     setExportNote(null);
     try {
-      const outcome = await exportSave(saveStore);
+      const outcome = await exportSave(saveStore, exportId);
       setExportNote(outcome === "exported" ? "Save file exported." : outcome === "no-save" ? "There is no saved campaign yet." : null);
     } catch (error) {
       setExportNote(`The save file could not be exported (${error instanceof Error ? error.message : "unknown error"}).`);
@@ -215,6 +220,22 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           </Row>
           <Row title="Export save file" help="Saves a copy of your campaign to send with a bug report.">
             <div className="settings-audio">
+              {exportable.length > 1 && (
+                <select
+                  aria-label="Campaign to export"
+                  value={exportId}
+                  onChange={(event) => {
+                    setExportId(event.target.value);
+                    setExportNote(null);
+                  }}
+                >
+                  {exportable.map((def) => (
+                    <option key={def.id} value={def.id}>
+                      {def.title}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button type="button" className="btn-quiet" onClick={exportCopy}>
                 Export save file…
               </button>
