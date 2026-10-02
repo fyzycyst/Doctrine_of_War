@@ -1,2 +1,4 @@
 export * from "./types";
-export { createRegistry, firstCall, lintPacks, parsePackManifest, registry, shippedPacks } from "./registry";
+export { createRegistry, firstCall, registry, shippedPacks } from "./registry";
+export { parsePackManifest } from "./manifest";
+export { lintPacks, lintScenario } from "./lint";

@@ -9,6 +9,8 @@ import { emberFord } from "../engine/scenarios/emberFord";
 import { saltmarshColumn } from "../engine/scenarios/saltmarshColumn";
 import { holdForDawn } from "../engine/scenarios/holdForDawn";
 import type { DoctrineLibrary } from "../engine/types";
+import { lintPacks } from "./lint";
+import { parsePackManifest } from "./manifest";
 import {
   PackError,
   SUPPORTED_RULES,
@@ -39,35 +41,17 @@ export const firstCall: PackManifest = {
 export const shippedPacks: readonly PackManifest[] = [firstCall];
 
 /**
- * Validates an untrusted manifest and returns a clean copy rebuilt field by field (unknown
- * keys dropped, every id, number, list and reference bounded). Throws a PackError naming
- * the first problem. Runs the same checks on compiled-in packs as an import would.
+ * Builds the registry: every manifest is parsed as untrusted data (parsePackManifest) and
+ * the parsed copies are linted together (lintPacks). Throws a PackError naming the
+ * problems; nothing is exposed from a set that fails. The registry serves the parsed copies.
  */
-export function parsePackManifest(raw: unknown): PackManifest {
-  void raw;
-  throw new PackError("parsePackManifest: not implemented yet (M1 P1)");
-}
-
-/**
- * Cross-pack lint, against the core doctrine library: ids unique across all packs (packs,
- * campaigns, battles within a campaign, companies, scenarios, doctrines, skirmishes);
- * every scenario a campaign or skirmish names exists; every doctrine a scenario or flex
- * slot names exists; each campaign valid against its scenarios (fixed or Roll rules).
- * Returns a list of problems, empty when the set is clean.
- */
-export function lintPacks(packs: readonly PackManifest[], core: DoctrineLibrary = doctrineLibrary): string[] {
-  void packs;
-  void core;
-  return [];
-}
-
-/** Builds the registry over linted packs. Throws a PackError listing the lint problems, if any. */
-export function createRegistry(packs: readonly PackManifest[], core: DoctrineLibrary = doctrineLibrary): PackRegistry {
-  const problems = lintPacks(packs, core);
+export function createRegistry(packs: readonly unknown[], core: DoctrineLibrary = doctrineLibrary): PackRegistry {
+  const parsed = packs.map((pack) => parsePackManifest(pack));
+  const problems = lintPacks(parsed, core);
   if (problems.length > 0) {
     throw new PackError(problems.join("; "));
   }
-  const frozen = [...packs];
+  const frozen = parsed;
   return {
     packs: frozen,
     campaign(id) {
