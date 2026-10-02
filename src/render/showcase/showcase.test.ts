@@ -12,6 +12,22 @@ describe("showcase", () => {
     }
   });
 
+  it("lays out 6, 8 and 11 battles as a winding road in rows, no overlaps, in reach of the camera", async () => {
+    const { archipelagoBounds, islandsPerRow, overviewFrame } = await import("./archipelagoLayout");
+    for (const n of [6, 8, 11]) {
+      const pts = Array.from({ length: n }, (_, i) => islandPlacement(i, n));
+      // No two islands closer than two island radii (5.4).
+      for (let i = 0; i < n; i += 1) for (let j = i + 1; j < n; j += 1) expect(pts[i].distanceTo(pts[j]), `${n}: ${i}-${j}`).toBeGreaterThan(5.4);
+      // Consecutive battles are neighbours (the road never jumps across the map).
+      for (let i = 1; i < n; i += 1) expect(pts[i].distanceTo(pts[i - 1]), `${n}: step ${i}`).toBeLessThan(11); // a row step (8.2) plus the wave
+      const b = archipelagoBounds(pts);
+      expect(b.rows).toBe(Math.ceil(n / islandsPerRow(n)));
+      expect(b.rows).toBeGreaterThan(1);
+      expect(overviewFrame(b, 32, 1.6).dist).toBeLessThan(80);
+    }
+    expect([6, 8, 11].map(islandsPerRow)).toEqual([3, 4, 4]);
+  });
+
   it("builds placeholder boards for unbuilt battles", () => {
     const marsh = placeholderBoard("saltmarsh");
     expect(marsh.hexes.some((h) => h.terrain === "ford")).toBe(true);

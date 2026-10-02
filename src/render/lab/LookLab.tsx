@@ -11,6 +11,7 @@ import { saltmarshColumn } from "../../game/engine/scenarios/saltmarshColumn";
 import { cinematicPaths, type CinematicPathId } from "../camera/cameraPath";
 import { CinematicCamera } from "../camera/CinematicCamera";
 import { CampaignMap, type CampaignMapBattle } from "../showcase/CampaignMap";
+import { CampaignSelectBackdrop } from "../showcase/CampaignSelectBackdrop";
 import { TitleScene } from "../showcase/TitleScene";
 import { playSfx, SFX_NAMES, useAmbience } from "../../audio";
 import { hexDistance, hexKey } from "../../game/board";
@@ -105,8 +106,8 @@ function readParams() {
     dpr: num("dpr"),
     hover: p.get("hover"),
     revealAt: num("revealAt") ?? 2,
-    view: (p.get("view") ?? "diorama") as "diorama" | "title" | "campaign" | "audioDemo",
-    campaignMock: p.get("campaignMock") === "b" ? "b" : "a",
+    view: (p.get("view") ?? "diorama") as "diorama" | "title" | "campaign" | "audioDemo" | "campaignSelect",
+    campaignMock: (["a", "b", "n4", "n6", "n8", "n11"].includes(p.get("campaignMock") ?? "") ? p.get("campaignMock") : "a") as CampaignMockId,
     path: p.get("path") as CinematicPathId | null,
     seq: p.get("seq") === "1",
     fadeTo: isTimeOfDay(p.get("fadeTo")) ? (p.get("fadeTo") as TimeOfDay) : null,
@@ -120,8 +121,9 @@ function readParams() {
 export function LookLab() {
   const initial = useMemo(readParams, []);
   if (initial.view === "audioDemo") return <AudioDemoLab />;
+  if (initial.view === "campaignSelect") return <CampaignSelectLab seq={initial.seq} />;
   if (initial.view === "title") return <TitleLab seq={initial.seq} />;
-  if (initial.view === "campaign") return <CampaignLab seq={initial.seq} mock={initial.campaignMock as "a" | "b"} />;
+  if (initial.view === "campaign") return <CampaignLab seq={initial.seq} mock={initial.campaignMock} />;
   return <DioramaLab initial={initial} />;
 }
 
@@ -173,8 +175,29 @@ const menuButton: CSSProperties = {
   borderRadius: 3,
 };
 
+type CampaignMockId = "a" | "b" | "n4" | "n6" | "n8" | "n11";
+
+/** M1: an n-battle campaign (boards cycle through the four real ones), a third won and one current. */
+function campaignOfSize(n: number): CampaignMapBattle[] {
+  const boards = [firstBreach, emberFord, saltmarshColumn, holdForDawn];
+  const hours: CampaignMapBattle["timeOfDay"][] = ["dusk", "nightFires", "rainGrey", "predawn", "sunrise"];
+  const titles = ["The First Breach", "Ember Ford", "The Saltmarsh Column", "Hold for Dawn", "Secure a Crossing", "The Wagon Park", "Open the Road", "Watcher's Rise", "Gate Road", "Greyford Gate", "Clinkerwick"];
+  const current = Math.max(1, Math.floor(n / 3));
+  return Array.from({ length: n }, (_, i) => ({
+    id: `battle_${i}`,
+    title: titles[i % titles.length],
+    timeOfDay: hours[i % hours.length],
+    status: i < current ? (i === 1 ? "stalemate" : "won") : i === current ? "current" : "locked",
+    board: boards[i % boards.length].board,
+  }));
+}
+
 /** Mock campaign states so every island status can be captured. */
-const CAMPAIGN_MOCKS: Record<"a" | "b", CampaignMapBattle[]> = {
+const CAMPAIGN_MOCKS: Record<CampaignMockId, CampaignMapBattle[]> = {
+  n4: campaignOfSize(4),
+  n6: campaignOfSize(6),
+  n8: campaignOfSize(8),
+  n11: campaignOfSize(11),
   a: [
     { id: "tutorial", title: "The First Breach", timeOfDay: "dusk", status: "won", board: firstBreach.board },
     { id: "battle_1", title: "Ember Ford", timeOfDay: "nightFires", status: "current", board: emberFord.board },
@@ -189,7 +212,7 @@ const CAMPAIGN_MOCKS: Record<"a" | "b", CampaignMapBattle[]> = {
   ],
 };
 
-function CampaignLab({ seq, mock }: { seq: boolean; mock: "a" | "b" }) {
+function CampaignLab({ seq, mock }: { seq: boolean; mock: CampaignMockId }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [focus, setFocus] = useState<string | null>(() => new URLSearchParams(window.location.search).get("focus"));
   return (
@@ -679,5 +702,20 @@ function AudioDemoLab() {
     });
   }, []);
   return <pre style={{ color: "#ddd", padding: 24 }}>{status}</pre>;
+}
+
+/** view=campaignSelect (M1): the "choose a campaign" backdrop, three chains; &highlight=<id>. */
+function CampaignSelectLab({ seq }: { seq: boolean }) {
+  const highlight = new URLSearchParams(window.location.search).get("highlight");
+  const chains = [
+    { id: "ash-and-banner", boards: [firstBreach.board, emberFord.board, holdForDawn.board] },
+    { id: "cinder-road", boards: [saltmarshColumn.board, emberFord.board, firstBreach.board] },
+    { id: "causeway-war", boards: [saltmarshColumn.board, holdForDawn.board] },
+  ];
+  return (
+    <div style={{ position: "fixed", inset: 0 }}>
+      <CampaignSelectBackdrop chains={chains} highlightedId={highlight} frameloop={seq ? "never" : "always"} inCanvas={<LabProbes ready seq={seq} />} />
+    </div>
+  );
 }
 

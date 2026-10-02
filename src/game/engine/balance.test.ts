@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { balancePlans, formatTable, guardrailFailures, runBalance, type BalanceRow } from "./balance";
 import { ashAndBanner } from "../campaign/definition";
 import { balanceVariantsFor } from "../campaign/rosters";
+import { prototypeScenarios } from "./fixtures/wagonPark";
 import { scenarios } from "./scenarios";
 
 describe("balance guardrails (small-N version of npm run balance)", () => {
-  for (const scenario of scenarios) {
+  // Engine prototypes (P4's Wagon Park) are held to the same guardrails as shipped battles.
+  for (const scenario of [...scenarios, ...prototypeScenarios]) {
     // Campaign battles are checked on every reference roster (see docs/CAMPAIGN.md).
     for (const variant of balanceVariantsFor(ashAndBanner, scenarios, scenario)) {
       it(`${scenario.title} [${variant.kind} roster] meets its guardrails over 60 seeds with fortune on`, () => {
