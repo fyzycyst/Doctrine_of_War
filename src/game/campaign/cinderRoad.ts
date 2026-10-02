@@ -49,11 +49,12 @@ export const cinderRoad: CampaignDefinition = {
           standard: "Heron Stair",
           bows: "Wickmere Landing",
         },
-        // Two flex posts: a frontline company may ride the lances' post or take the bows'.
-        // Every role marches on the barricade there (the intended plan's template).
+        // Two flex posts: a frontline company may ride the lances' post (and march on the
+        // barricade) or take the bows' (and carry a banner with the assault). These are
+        // the intended plan's templates for each role.
         flex: {
           outriders: { roles: ["cavalry", "frontline"], doctrines: { cavalry: "bring_the_water", frontline: "bring_the_water" } },
-          bows: { roles: ["skirmish", "frontline"], doctrines: { skirmish: "bring_the_water", frontline: "bring_the_water" } },
+          bows: { roles: ["skirmish", "frontline"], doctrines: { skirmish: "rescue_standard", frontline: "rescue_standard" } },
         },
       },
     },

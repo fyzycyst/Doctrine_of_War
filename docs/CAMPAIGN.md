@@ -191,7 +191,7 @@ a fixed campaign's rosters, or the baseline.
 | greedy | the curated path | highest fame per post (veteran-heavy, ignores Worn) | floor |
 | weakest legal | the curated path | lowest fame per post, Worn first, levies only where forced | **diagnostic**: its recovery force is the recommended call on the same state, gated in full |
 | role: … | the curated path | one per combination of flex-post roles (the most famous company of that role), when it can be filled legally | floor |
-| carried: recommended / greedy | battle 1 only, with the intro's 5 most famous companies carried in (`strongCarryOver`) | recommended / greedy | floor |
+| carried: recommended / greedy | battle 1 only, with the intro's 5 most famous companies carried in (`strongCarryOver`; at most `maxCarriedFielded` of them fielded) | recommended / greedy | full |
 
 Plans follow the call: on a flex post the reference plans use the call's doctrine for the
 role that fills it (`templatePlan`), so a frontline company riding the lances' post is
@@ -217,11 +217,12 @@ run balance` with and without muster (`rollDiagnostics`):
 Sampling limits: 60 seeds at a true 75% has a standard error near 5.6 points, 500 seeds
 near 1.9. The calls sample reachable states; they do not prove every state.
 
-**Known limit: carry-over outruns the Host's cap.** Five carried intro veterans (+2,
-renowned) bring +20 fame against a threat capped at +12 strength / +1 Resolve, so on
-*Cinder Road* battle 1 every plan that marches wins (all Bring the Water 96% at 500
-seeds). The carried calls are therefore floors, like rough: dominance is policed on the
-authored army. Whether the cap should rise for carried fame is a design question.
+**Carry-over and doctrine dominance.** Veterans make blunt plans stronger, and no
+threat adjustment fixes that without also wrecking the intended plan (with two carried
+veterans fielded, all Bring the Water still advanced about 78% on the first version of
+*Cinder Road* battle 1). The fix is in content: each battle must **punish the blunt plan
+whatever the force** (battle 1's outriders burn the boats behind a pure march). With
+that, the carried calls face the full guardrails like the authored army.
 
 ## Cinder Road (`cinderRoad.ts`, M1 pilot)
 
@@ -230,18 +231,24 @@ reuse the intro's; intro companies arrive only by carry-over), with homes from t
 setting bible: the Greyford March (Coldwater Shields, Ferrymoot Pikes, Thornwick Spears),
 the Fenwardens (Sedgewick Levy, Wickmere Standard, Heronwick Bows), the Dawnwatch Holds
 (Sunward Lances, Brightcrag Riders, Morningwall Slingers). Battle 1 calls six posts, each
-with an authored label; two are flex (the lances' post may take a frontline company, the
-bows' post a frontline company), and every role there marches on the barricade.
+with an authored label; two are flex (the lances' post may take a frontline company, which
+marches on the barricade; the bows' post may take a frontline company, which carries a
+banner with the assault).
 
 **Battle 1, *The Saltmarsh, Northbound*** (`engine/scenarios/cinderRoad1.ts`): the intro's
 Saltmarsh in reverse, by daylight, with Banner initiative and fog. Goal: `breakObjective`
-on the Saltgate Barricade (integrity 36) at the causeway head, within 7 phases; losing 3
-companies is a defeat. The Host: two barricade guards on No Step Back, Mire Stalkers on
-Terror Push in the central reeds, and the Drowned Hounds (renowned, Resolve 3) and Weirfen
-Hunters loosed from the flank reeds in phase 2. Intended plan: Bring the Water on every
-company but the standard, Rescue Standard on the Wickmere Standard. Curated seed 23: won
-in phase 5 with no company lost, the Hounds and three more Host companies broken. Numbers
-are in docs/ENGINE.md.
+on the Saltgate Barricade (integrity 30) at the causeway head, within 7 phases. Defeats:
+one Host outrider reaching the Heron Stair, where the Banners' boats wait (`enemyEscape`,
+count 1: "they burn the crossing behind us"), or 3 companies lost. The Host: two barricade
+guards on No Step Back, Mire Stalkers on Terror Push in the central reeds, the Weirfen
+Hunters loosed on Cull the Weak in phase 2, and two outriders that never fight but run for
+the boats from phase 2 (the Drowned Hounds, renowned, Resolve 3, and the Ash Harriers).
+Intended plan: Bring the Water on the three vanguard posts and the lances; the Wickmere
+Standard holds the Heron Stair (Shield the Line: it never leaves, so the outriders cannot
+pass); the bows carry a banner with the assault (Rescue Standard). The bad plan is the
+pure march (everyone on Bring the Water): the stair is left empty, and it loses whatever
+the force. Curated seed 91: won in phase 5 with no company lost, the Hounds held at the
+stair. Numbers are in docs/ENGINE.md.
 
 ## Saves
 
