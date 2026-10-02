@@ -28,6 +28,17 @@ describe("showcase", () => {
     expect([6, 8, 11].map(islandsPerRow)).toEqual([3, 4, 4]);
   });
 
+  it("gives the highlighted campaign the focal (nearest, largest) slot and keeps the rest in order", async () => {
+    const { clusterSlots, CLUSTER_SLOTS } = await import("./CampaignSelectBackdrop");
+    expect(clusterSlots(["a", "b", "c"], null)).toEqual([0, 1, 2]);
+    expect(clusterSlots(["a", "b", "c"], "c")).toEqual([1, 2, 0]);
+    expect(clusterSlots(["a", "b"], "missing")).toEqual([0, 1]);
+    // The focal slot is nearest (largest z) and largest; all slots sit right of centre-left.
+    expect(CLUSTER_SLOTS[0][2]).toBe(Math.max(...CLUSTER_SLOTS.map((s) => s[2])));
+    expect(CLUSTER_SLOTS[0][3]).toBe(Math.max(...CLUSTER_SLOTS.map((s) => s[3])));
+    expect(Math.min(...CLUSTER_SLOTS.map((s) => s[0]))).toBeGreaterThan(0);
+  });
+
   it("builds placeholder boards for unbuilt battles", () => {
     const marsh = placeholderBoard("saltmarsh");
     expect(marsh.hexes.some((h) => h.terrain === "ford")).toBe(true);
