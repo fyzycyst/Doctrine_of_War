@@ -38,6 +38,11 @@ export function bootFromUrl(search: string): BootOptions {
   // `&mockRoll=1|worn|carry`: the stand-in Roll and preview packs (M1 UI, before the engine lands).
   const mockRoll = params.get("mockRoll");
   if (mockRoll) bootMockRoll(mockRoll);
+
+  // `&skirmish=<id>`: that skirmish's briefing (a `seed` pins its fortune for captures).
+  const skirmish = params.get("skirmish");
+  if (skirmish) useFlow.getState().playSkirmish(skirmish);
+
   const scenario = findScenario(params.get("scenario"));
   const fortune = params.get("fortune");
   const seed = Number(params.get("seed"));
@@ -109,8 +114,8 @@ export function bootFromUrl(search: string): BootOptions {
   }
 
   const screen = params.get("screen");
-  if (screen === "campaigns") {
-    useFlow.getState().go("campaigns");
+  if (screen === "campaigns" || screen === "skirmish") {
+    useFlow.getState().go(screen);
   } else if (screen === "roll" && mockRoll) {
     // Straight to Call the Banners on the preview campaign's current battle.
     void (async () => {

@@ -5,6 +5,7 @@ import { CampaignChoice } from "./flow/CampaignChoice";
 import { CampaignScreen } from "./flow/CampaignScreen";
 import { CallTheBanners } from "./roll/CallTheBanners";
 import { EndScreen } from "./flow/EndScreen";
+import { SkirmishList } from "./flow/SkirmishList";
 import { startAudioCues } from "./audioCues";
 import { useMotionClass } from "./motionClass";
 import { useFlow } from "./flow/flowStore";
@@ -53,6 +54,7 @@ export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: st
       {screen === "campaigns" && <CampaignChoice onSettings={openSettings} />}
       {screen === "campaign" && <CampaignScreen onSettings={openSettings} />}
       {screen === "roll" && <CallTheBanners />}
+      {screen === "skirmish" && <SkirmishList onSettings={openSettings} />}
       {screen === "battle" && <App still={still} pauseAt={pauseAt} />}
       {screen === "ending" && <EndScreen />}
       {settingsOpen && !captureMode && <SettingsDialog onClose={() => setSettingsOpen(false)} />}

@@ -3990,6 +3990,14 @@ html.reduce-motion .ticker-text.static {
   color: var(--gold-hi);
 }
 
+.choice-lede {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .choice-actions {
   display: flex;
   gap: 8px;

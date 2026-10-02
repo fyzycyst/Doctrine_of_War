@@ -21,9 +21,10 @@ import {
   type CarriedCompany,
   type SaveStore,
 } from "../../game/campaign";
+import type { SkirmishEntry } from "../../game/packs";
 import { packs, roll, runs } from "../roll/api";
 
-/** "campaigns": choose a campaign (M1); "roll": Call the Banners before a Roll battle; "skirmish": replay a battle. */
+/** "campaigns": choose a campaign (M1); "roll": Call the Banners before a Roll battle; "skirmish": the skirmish list. */
 export type Screen = "title" | "campaigns" | "campaign" | "roll" | "battle" | "ending" | "skirmish";
 
 /** A completed campaign whose companies may carry into a new one (M1 carry-over). */
@@ -66,6 +67,10 @@ export interface FlowState {
   /** Starts a Roll campaign's run with these carried companies (none to start with its own army only). */
   startRun: (campaignId: string, carried: { source: CarrySource; ids: string[] } | null) => Promise<void>;
   closeCarryOver: () => void;
+  /** The skirmish being fought, if any: an authored battle on a fresh seed, nothing saved, no Resolve carried. */
+  skirmish: SkirmishEntry | null;
+  /** Opens a skirmish's briefing (from the skirmish list). */
+  playSkirmish: (skirmishId: string) => void;
   /** Call the Banners: the chosen force takes the field (the battle's briefing opens). */
   fieldBanners: (assignment: Assignment) => void;
   /** The campaign in progress; null before one is begun or continued. */
@@ -135,10 +140,12 @@ async function carrySources(target: string, introSaved: CampaignState | null): P
   return sources;
 }
 
+const freshSeed = () => 1 + Math.floor(Math.random() * 99_999);
+
 /** First attempt: the scenario's curated seed. A retry draws a fresh one. */
 function seedFor(state: CampaignState, battleId: string, curated: number | undefined): number {
   const attempts = state.history.filter((record) => record.battleId === battleId).length;
-  return attempts === 0 && curated ? curated : 1 + Math.floor(Math.random() * 99_999);
+  return attempts === 0 && curated ? curated : freshSeed();
 }
 
 export const useFlow = create<FlowState>((set, get) => ({
@@ -147,6 +154,7 @@ export const useFlow = create<FlowState>((set, get) => ({
   runReads: {},
   backupReads: {},
   carryOver: null,
+  skirmish: null,
   campaign: null,
   save: "checking",
   saved: null,
@@ -243,6 +251,20 @@ export const useFlow = create<FlowState>((set, get) => ({
 
   closeCarryOver: () => set({ carryOver: null }),
 
+  playSkirmish: (skirmishId) => {
+    const found = packs()
+      .skirmishes()
+      .find((item) => item.skirmish.id === skirmishId);
+    const scenario = found && packs().scenario(found.skirmish.scenarioId);
+    if (!found || !scenario) return;
+    const { doctrineOnly, defaultPace } = useSettings.getState();
+    const game = useGame.getState();
+    // No campaign: the authored companies at their authored strength, and nothing is recorded.
+    game.loadBattle(scenario, { seed: freshSeed(), fortune: doctrineOnly ? "off" : "on" }, "briefing", null);
+    game.setPace(defaultPace);
+    set({ skirmish: found.skirmish, screen: "battle", notice: null });
+  },
+
   fieldBanners: (assignment) => {
     const { definition, campaign } = get();
     const battle = campaign ? currentBattle(definition, campaign) : null;
@@ -257,7 +279,7 @@ export const useFlow = create<FlowState>((set, get) => ({
       assignment: { ...assignment },
     });
     game.setPace(defaultPace);
-    set({ screen: "battle", notice: null });
+    set({ skirmish: null, screen: "battle", notice: null });
   },
   clearNotice: () => set({ notice: null }),
 
@@ -288,7 +310,7 @@ export const useFlow = create<FlowState>((set, get) => ({
       state: campaign,
     });
     game.setPace(defaultPace);
-    set({ screen: "battle", notice: null });
+    set({ skirmish: null, screen: "battle", notice: null });
   },
 
   checkSave: async () => {

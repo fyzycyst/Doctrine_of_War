@@ -50,6 +50,9 @@ export function TitleScreen({ onSettings, onHowTo, onEditor }: { onSettings?: ()
           <button type="button" className="btn-quiet" onClick={() => go("campaigns")}>
             Choose a campaign
           </button>
+          <button type="button" className="btn-quiet" onClick={() => go("skirmish")}>
+            Skirmish
+          </button>
           {onHowTo && (
             <button type="button" className="btn-quiet" onClick={onHowTo}>
               How to play

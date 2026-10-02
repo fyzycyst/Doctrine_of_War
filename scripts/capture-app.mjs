@@ -37,6 +37,8 @@ const STAGES = [
     settleMs: 1500,
     eval: `[...document.querySelectorAll(".choice-card button")].find((b) => /Cinder Road/.test(b.getAttribute("aria-label") ?? ""))?.click()`,
   },
+  { name: "m1-skirmish", query: "screen=skirmish", settleMs: 2500 },
+  { name: "m1-skirmish-outcome", query: "skirmish=skirmish_ember_ford&seed=7&stage=outcome&plan=intended", settleMs: 2500 },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
   { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },

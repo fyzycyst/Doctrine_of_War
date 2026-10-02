@@ -32,7 +32,11 @@ export function Outcome() {
   const saveError = useFlow((s) => s.saveError);
   const retryBattle = useFlow((s) => s.retryBattle);
   const leaveBattle = useFlow((s) => s.leaveBattle);
+  const skirmish = useFlow((s) => s.skirmish);
+  const go = useFlow((s) => s.go);
   const inCampaign = Boolean(gameCampaign && campaign);
+  // A skirmish is never a campaign battle: nothing was recorded or saved.
+  const inSkirmish = Boolean(skirmish && !gameCampaign);
   const campaignOver = Boolean(campaign && !currentBattle(definition, campaign));
 
   const status = String(view.status);
@@ -79,8 +83,18 @@ export function Outcome() {
           </>
         )}
         {inCampaign && (saveError ? <span className="save-error"> · {saveError}</span> : " · campaign saved")}
+        {inSkirmish && " · a skirmish: nothing is saved"}
       </p>
-      {inCampaign ? (
+      {inSkirmish ? (
+        <div className="outcome-actions">
+          <button ref={first} type="button" className="btn-command" onClick={() => retry("new")}>
+            Play again
+          </button>
+          <button type="button" className="btn-quiet" onClick={() => go("skirmish")}>
+            Back to the skirmishes
+          </button>
+        </div>
+      ) : inCampaign ? (
         <div className="outcome-actions">
           {won ? (
             <button ref={first} type="button" className="btn-command" onClick={leaveBattle}>
