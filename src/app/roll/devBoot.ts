@@ -14,10 +14,11 @@ import {
   localStorageKeyFor,
   saveCampaign,
   serializeCampaignSave,
+  snapshotCarryOver,
   startCampaign,
   type CampaignState,
 } from "../../game/campaign";
-import { createRegistry } from "../../game/packs";
+import { createRegistry, firstCall } from "../../game/packs";
 import { campaignAfter } from "../flow/devCampaign";
 import { memoryStore } from "../flow/testKit";
 import { useFlow } from "../flow/flowStore";
@@ -36,19 +37,10 @@ export function wornRun(): CampaignState {
 
 /** The same, with the state battle 1 was fought from (for the outcome's before/after). */
 export function wornBattle(): { before: CampaignState; after: CampaignState } {
-  const start = startCampaign(cinderRoadPreview, {
-    carryOver: [
-      {
-        id: "greyford_shields",
-        name: "Greyford Shields",
-        role: "frontline",
-        profile: { strength: 84, cohesion: 74 },
-        resolve: 2,
-        renown: { title: "The Iron Hinge" },
-        from: { packId: "first_call", campaignId: "ash_and_banner" },
-      },
-    ],
-  });
+  // The veteran as the engine snapshots it from a completed intro (a hand-made one is refused on load).
+  const intro = campaignAfter(ashAndBanner, ashAndBanner.battles.length, { fortune: "on" });
+  const carryOver = snapshotCarryOver({ def: ashAndBanner, state: intro, packId: firstCall.id }, cinderRoadPreview, ["greyford_shields"]);
+  const start = startCampaign(cinderRoadPreview, { carryOver });
   let fallback: CampaignState | null = null;
   for (let seed = 1; seed <= 60; seed += 1) {
     const assignment = recommendedForce(cinderRoadPreview, start, crossingPreview);

@@ -402,7 +402,13 @@ export const useFlow = create<FlowState>((set, get) => ({
 /** What a Roll run records about its content (for the in-memory status after a save). */
 function provenanceOf(campaignId: string) {
   const found = packs().campaign(campaignId);
-  return { packId: found?.pack.id ?? "", campaignId, contentRevision: found?.pack.revision.content ?? 0, rulesRevision: found?.pack.revision.rules ?? 0 };
+  return {
+    packId: found?.pack.id ?? "",
+    packRevision: found?.pack.revision.pack ?? 0,
+    campaignId,
+    contentRevision: found?.pack.revision.content ?? 0,
+    rulesRevision: found?.pack.revision.rules ?? 0,
+  };
 }
 
 // A battle that reaches its outcome is settled into the campaign at once, so the

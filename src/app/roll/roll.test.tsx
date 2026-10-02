@@ -223,7 +223,9 @@ describe("Call the Banners", () => {
     expect(screen.getAllByRole("button", { name: /^Company for .*: levy$/ })).toHaveLength(1);
     expect(document.querySelector(".post.levy")).toHaveTextContent("Levy (no ready company)");
     // The carried veteran answers the call with its renown.
-    expect(within(roll).getByRole("button", { name: /^Greyford Shields/ })).toHaveTextContent("The Iron Hinge");
+    const veteran = state.companies.find((company) => company.id === "greyford_shields")!;
+    expect(veteran.renown?.title).toBeTruthy();
+    expect(within(roll).getByRole("button", { name: /^Greyford Shields/ })).toHaveTextContent(veteran.renown!.title);
     expect(screen.getByRole("button", { name: "Take the field" })).toBeEnabled();
   });
 
