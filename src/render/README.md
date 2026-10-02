@@ -100,6 +100,16 @@ imported (see `fromEngine.ts`); engine logic may not.
       `showBackButton={false}` to use your own. The overview fits the whole archipelago and pans
       gently.
     - The march route is a dotted ink trail with small glowing pips only up to the current battle.
+  - **Campaign map for up to 11 battles (M1):** `islandPlacement(i, n)` (`showcase/archipelagoLayout.ts`,
+    pure and tested) keeps the four-battle S-curve for up to 5; from 6 it lays a winding road in
+    rows that recede into the distance (6 = 3+3, 8 = 4+4, 11 = 4+4+3), turning at each row's end.
+    The overview camera fits width and depth (`overviewFrame`, steeper for several rows), and the
+    scene fog, shadows and embers scale with the layout.
+  - `<CampaignSelectBackdrop chains={[{ id, boards }]} highlightedId?>{overlay}</CampaignSelectBackdrop>`:
+    a calm "choose a campaign" establishing shot. One chain of up to three miniature islands per
+    campaign at dusk, Cinderreach low on the horizon (ash ridges, kiln-town glows, ember haze), a
+    slow drift (still under reduced motion); `highlightedId` lifts that chain and dims the others.
+    Lab: `?lab=1&view=campaignSelect&highlight=<id>`.
   - **Capture mode:** `useCaptureStore` (`src/app/captureStore.ts`), on with `?capture=1`.
   - **Cinematic paths:** `camera/cameraPath.ts` has keyframed `CameraPath`s with a pure
     `sampleCameraPath`, and `cinematicPaths(board)` returns `craneInGate`, `bannerDolly`,
