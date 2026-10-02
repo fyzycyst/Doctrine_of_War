@@ -5,6 +5,7 @@
 import {
   assembleBattle,
   battleThreat,
+  carriedFielded,
   carryOverCandidates,
   defaultCampaignStore,
   loadCampaignBackup,
@@ -33,6 +34,7 @@ export interface RollApi {
   recordBattle: typeof recordBattle;
   carryOverCandidates: typeof carryOverCandidates;
   snapshotCarryOver: typeof snapshotCarryOver;
+  carriedFielded: typeof carriedFielded;
 }
 
 /** Per-campaign runs (P3). Reads never write; a save refuses to replace a run that must be preserved. */
@@ -60,6 +62,7 @@ const engineRoll: RollApi = {
   recordBattle,
   carryOverCandidates,
   snapshotCarryOver,
+  carriedFielded,
 };
 
 /** Runs over the engine's per-campaign save store. Reads fail closed: anything that throws is reported unreadable. */

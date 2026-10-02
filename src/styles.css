@@ -4167,6 +4167,32 @@ html.reduce-motion .ticker-text.static {
   scrollbar-width: thin;
 }
 
+.roll-roster-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.veteran-count {
+  margin: 0 4px 8px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.veteran-count.full {
+  color: var(--gold-hi);
+}
+
+.veteran-count.over {
+  color: var(--rust-text);
+}
+
+.roll-company.capped .roll-at {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .roll-posts h2,
 .roll-roster h2 {
   margin: 0 0 8px;

@@ -221,7 +221,7 @@ export function CarryOverPicker({ campaignId, sources }: { campaignId: string; s
           const was = source.state.companies.find((item) => item.id === company.id)?.resolve;
           const clamped = was !== undefined && was !== company.resolve;
           const on = picked.includes(company.id);
-          const realm = realmOf(company.id);
+          const realm = realmOf(company);
           return (
             <li key={company.id}>
               <label className={`carry-row ${on ? "on" : ""}`}>

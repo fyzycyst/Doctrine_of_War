@@ -29,6 +29,8 @@ import { realmOf } from "./realms";
 
 const signed = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const roleWords = (slot: RollSlot) => slot.roles.map((role) => ROLE_NAME[role]).join(" or ");
+/** A carried veteran the per-battle cap keeps out (it stays available: the engine says why on the post). */
+const VETERAN_CAP_NOTE = "In reserve: veteran cap reached";
 
 /** A company's readiness, as a badge. */
 export function ConditionBadge({ condition }: { condition: RollEntry["condition"] }) {
@@ -111,6 +113,11 @@ export function CallTheBanners() {
   const { def, state, scenario, slots, names, entries, threat, recommended } = called;
 
   const problems = roll().validateAssignment(def, state, scenario, assignment);
+  // Carried veterans: at most `limit` take the field in one battle; the rest wait in reserve.
+  const veterans = roll().carriedFielded(def, state, assignment);
+  const hasVeterans = entries.some((entry) => entry.company.carriedFrom);
+  const capReached = veterans.fielded >= veterans.limit;
+  const benched = (entry: RollEntry) => Boolean(entry.company.carriedFrom && entry.available && capReached && !slotOf(entry.company.id));
   const entryOf = (id: string | undefined) => entries.find((entry) => entry.company.id === id);
   const slotOf = (companyId: string) => slots.find((slot) => assignment[slot.slotId] === companyId);
   const fits = (slot: RollSlot, entry: RollEntry) => slot.roles.includes(entry.company.role) && (entry.available || slot.locked === entry.company.id);
@@ -235,6 +242,10 @@ export function CallTheBanners() {
                     slot={slot}
                     options={entries.filter((item) => fits(slot, item))}
                     current={id}
+                    benched={(companyId) => {
+                      const option = entryOf(companyId);
+                      return Boolean(option && benched(option));
+                    }}
                     calledTo={(companyId) => {
                       const at = slotOf(companyId);
                       return at && at.slotId !== slot.slotId ? names[at.slotId] : null;
@@ -255,16 +266,24 @@ export function CallTheBanners() {
       </section>
 
       <section className="roll-roster" aria-labelledby="roster-title">
-        <h2 id="roster-title">The Roll</h2>
+        <div className="roll-roster-head">
+          <h2 id="roster-title">The Roll</h2>
+          {hasVeterans && (
+            <p className={`veteran-count ${veterans.fielded > veterans.limit ? "over" : capReached ? "full" : ""}`} role="status">
+              Veterans fielded: {veterans.fielded} / {veterans.limit}
+            </p>
+          )}
+        </div>
         <ul>
           {entries.map((entry) => {
             const at = slotOf(entry.company.id);
-            const realm = realmOf(entry.company.id);
+            const realm = realmOf(entry.company);
+            const reserved = benched(entry);
             return (
               <li key={entry.company.id}>
                 <button
                   type="button"
-                  className={`roll-company ${at ? "called" : ""} ${entry.available ? "" : "out"}`}
+                  className={`roll-company ${at ? "called" : ""} ${entry.available ? "" : "out"} ${reserved ? "capped" : ""}`}
                   draggable={entry.available}
                   onDragStart={(event) => event.dataTransfer.setData("text/plain", entry.company.id)}
                   onClick={() => onCompany(entry)}
@@ -272,7 +291,7 @@ export function CallTheBanners() {
                   onPointerLeave={() => setHovered(null)}
                   disabled={!entry.available}
                   title={`${entry.fielded.strength} strength · ${entry.fielded.cohesion} cohesion`}
-                  aria-label={`${entry.company.name}, ${ROLE_NAME[entry.company.role]}, ${entry.condition}${at ? `, called to ${names[at.slotId]}` : ""}`}
+                  aria-label={`${entry.company.name}, ${ROLE_NAME[entry.company.role]}, ${entry.condition}${at ? `, called to ${names[at.slotId]}` : reserved ? `, ${VETERAN_CAP_NOTE}` : ""}`}
                 >
                   <RoleGlyph role={entry.company.role} />
                   <span className="roll-name">
@@ -285,7 +304,7 @@ export function CallTheBanners() {
                     </span>
                   </span>
                   <ConditionBadge condition={entry.condition} />
-                  <span className="roll-at">{at ? `→ ${names[at.slotId]}` : (entry.unavailableReason ?? "In reserve")}</span>
+                  <span className="roll-at">{at ? `→ ${names[at.slotId]}` : reserved ? VETERAN_CAP_NOTE : (entry.unavailableReason ?? "In reserve")}</span>
                 </button>
               </li>
             );
@@ -339,6 +358,7 @@ function CompanyChoices({
   options,
   current,
   calledTo,
+  benched,
   onPick,
   onClose,
 }: {
@@ -347,6 +367,8 @@ function CompanyChoices({
   options: RollEntry[];
   current: string | undefined;
   calledTo: (companyId: string) => string | null;
+  /** A veteran the cap keeps in reserve (it may still be picked; the post then says why not). */
+  benched: (companyId: string) => boolean;
   onPick: (companyId: string) => void;
   onClose: () => void;
 }) {
@@ -381,6 +403,7 @@ function CompanyChoices({
                   <span>{entry.company.name}</span>
                   <ConditionBadge condition={entry.condition} />
                   {elsewhere && <span className="choice-elsewhere">now at {elsewhere}</span>}
+                  {!elsewhere && benched(id) && <span className="choice-elsewhere">veteran cap reached</span>}
                 </>
               ) : (
                 <span className="post-levy">Levy (no ready company) · {ROLE_NAME[slot.roles[0]]}</span>

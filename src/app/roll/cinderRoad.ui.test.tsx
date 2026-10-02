@@ -149,6 +149,43 @@ describe("Cinder Road, end to end", () => {
     expect(introStore.data).toBe(intro);
   });
 
+  it("fields at most two carried veterans: the counter, the one held in reserve, and the engine's refusal of a third", async () => {
+    const user = userEvent.setup();
+    const done = campaignAfter(ashAndBanner, ashAndBanner.battles.length, { fortune: "on" });
+    launch({ intro: saveCampaign(done) });
+    await user.click(await screen.findByRole("button", { name: "Begin: Cinder Road" }));
+    const picker = await screen.findByRole("dialog", { name: "Bring veterans to Cinder Road?" });
+    for (const box of within(picker).getAllByRole("checkbox").slice(0, 3)) await user.click(box);
+    await user.click(within(picker).getByRole("button", { name: "Begin with these companies" }));
+    await waitFor(() => expect(useFlow.getState().screen).toBe("campaign"));
+    await user.click(screen.getByRole("button", { name: /Take the field: The Saltmarsh, Northbound/ }));
+
+    // The recommended force fields two; the third veteran waits, still available.
+    expect(screen.getByText("Veterans fielded: 2 / 2")).toBeInTheDocument();
+    const roll = screen.getByRole("region", { name: "The Roll" });
+    const waiting = within(roll).getAllByRole("button", { name: /In reserve: veteran cap reached$/ });
+    expect(waiting).toHaveLength(1);
+    expect(waiting[0]).toBeEnabled();
+    const veteran = waiting[0].getAttribute("aria-label")!.split(",")[0];
+    expect(screen.getByRole("button", { name: "Take the field" })).toBeEnabled();
+
+    // Call it anyway, to the first post whose list offers it: the engine refuses on that post.
+    for (const post of screen.getAllByRole("button", { name: /^Company for / })) {
+      await user.click(post);
+      const option = within(screen.getByRole("listbox")).queryByRole("option", { name: new RegExp(`^${veteran}`) });
+      if (option && /veteran cap reached/.test(option.textContent ?? "")) {
+        await user.click(option);
+        break;
+      }
+      await user.keyboard("{Escape}");
+    }
+    expect(screen.getByText("Veterans fielded: 3 / 2")).toBeInTheDocument();
+    expect(screen.getAllByRole("alert").some((alert) => /At most 2 veterans from earlier campaigns may take the field/.test(alert.textContent ?? ""))).toBe(true);
+    expect(screen.getByRole("button", { name: "Take the field" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Recommended force" }));
+    expect(screen.getByText("Veterans fielded: 2 / 2")).toBeInTheDocument();
+  });
+
   it("brings veterans from the completed intro onto Cinder Road's Roll", async () => {
     const user = userEvent.setup();
     const done = campaignAfter(ashAndBanner, ashAndBanner.battles.length, { fortune: "on" });
@@ -164,6 +201,9 @@ describe("Cinder Road, end to end", () => {
     expect(carried).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: /Take the field: The Saltmarsh, Northbound/ }));
     const roll = screen.getByRole("region", { name: "The Roll" });
+    // Realms are the engine's: Cinder Road's own companies and the carried ones alike.
+    expect(within(roll).getByRole("button", { name: /^Coldwater Shields/ })).toHaveTextContent("The Greyford March");
+    expect(screen.getByText("Veterans fielded: 2 / 2")).toBeInTheDocument();
     for (const veteran of carried) expect(within(roll).getByRole("button", { name: new RegExp(`^${veteran.name}`) })).toBeInTheDocument();
   });
 });
