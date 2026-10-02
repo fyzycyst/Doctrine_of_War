@@ -43,6 +43,7 @@ import {
   type CompanyCondition,
   type CompanyProfile,
   type CompanyResult,
+  type RealmId,
 } from "./types";
 
 /** At most this many role-variable slots per battle. */
@@ -55,6 +56,27 @@ export const WORN_BELOW = 0.5;
 export const CARRY_OVER_MAX = 5;
 /** Carried Resolve is clamped to this range. */
 export const CARRY_RESOLVE = { min: -1, max: 2 } as const;
+/**
+ * Carried veterans per battle: a run may carry CARRY_OVER_MAX companies in, but at most
+ * this many of them take the field in any one battle (default; a campaign may set
+ * `maxCarriedFielded` 0..CARRY_OVER_MAX). The rest of each force is the campaign's own army.
+ */
+export const DEFAULT_MAX_CARRIED_FIELDED = 2;
+
+/** How many carried veterans `def` lets take the field in one battle. */
+export function carriedFieldedLimit(def: CampaignDefinition): number {
+  return def.maxCarriedFielded ?? DEFAULT_MAX_CARRIED_FIELDED;
+}
+
+const isCarried = (company: CampaignCompany) => company.carriedFrom !== undefined;
+
+/** How many carried veterans an assignment fields, against the campaign's limit (for "Veterans 1/2"). */
+export function carriedFielded(def: CampaignDefinition, state: CampaignState, assignment: Assignment): { fielded: number; limit: number } {
+  const roster = rollRoster(def, state);
+  const fielded = Object.values(assignment).filter((companyId) => roster.some((company) => company.id === companyId && isCarried(company))).length;
+  return { fielded, limit: carriedFieldedLimit(def) };
+}
+
 /** Resolve of a nameless levy. */
 export const LEVY_RESOLVE = -1;
 
@@ -142,7 +164,10 @@ function battleIndexOf(def: CampaignDefinition, battleId: string | undefined): n
   return index < 0 ? Number.POSITIVE_INFINITY : index;
 }
 
-function freshCompany(company: { id: string; name: string; role: SquadRole; resolve: number; renown: { title: string } | null; profile: CompanyProfile }, carriedFrom?: CarriedCompany["from"]): CampaignCompany {
+function freshCompany(
+  company: { id: string; name: string; role: SquadRole; realm?: RealmId; resolve: number; renown: { title: string } | null; profile: CompanyProfile },
+  carriedFrom?: CarriedCompany["from"],
+): CampaignCompany {
   return {
     id: company.id,
     name: company.name,
@@ -155,6 +180,7 @@ function freshCompany(company: { id: string; name: string; role: SquadRole; reso
     condition: "fresh",
     profile: { ...company.profile },
     ...(carriedFrom ? { carriedFrom: { ...carriedFrom } } : {}),
+    ...(company.realm ? { realm: company.realm } : {}),
   };
 }
 
@@ -262,9 +288,11 @@ function eligible(company: CampaignCompany, slot: RollSlot): boolean {
 
 /**
  * The one-action default, always legal: story locks first; then each single-role slot,
- * then each flex slot, takes the readiest unused company it allows (fresh before Worn,
- * then Resolve and renown; ties go to the slot's authored company, then Roll order);
- * a slot nobody can fill takes a levy. Carried companies are recommended like any other.
+ * then each flex slot, takes the readiest unused company of the campaign's own army it
+ * allows (fresh before Worn, then Resolve and renown; ties go to the slot's authored
+ * company, then Roll order). Then carried veterans take at most carriedFieldedLimit()
+ * posts, each where it improves on the post's holder the most (a levy-held post first);
+ * a displaced company stays in reserve. A post nobody can hold takes a levy.
  */
 export function recommendedForce(def: CampaignDefinition, state: CampaignState, scenario: EngineScenario): Assignment {
   const battle = battleFor(def, state, scenario);
@@ -278,31 +306,62 @@ export function recommendedForce(def: CampaignDefinition, state: CampaignState, 
       used.add(slot.locked);
     }
   }
+  const locked = new Set(Object.keys(assignment));
   const order = [...slots.filter((slot) => !slot.flex), ...slots.filter((slot) => slot.flex)];
-  for (const slot of order) {
-    if (assignment[slot.slotId]) continue;
-    const authored = battle.slots[slot.slotId];
-    const best = roster
-      .map((company, index) => ({ company, index }))
+  const ranked = (pool: CampaignCompany[], slot: RollSlot) =>
+    pool
+      .map((company) => ({ company, index: roster.indexOf(company) }))
       .filter(({ company }) => !used.has(company.id) && eligible(company, slot))
       .sort(
         (a, b) =>
           readiness(b.company) - readiness(a.company) ||
-          Number(b.company.id === authored) - Number(a.company.id === authored) ||
+          Number(b.company.id === battle.slots[slot.slotId]) - Number(a.company.id === battle.slots[slot.slotId]) ||
           a.index - b.index,
-      )[0];
-    assignment[slot.slotId] = best ? best.company.id : LEVY_ID;
-    if (best) used.add(best.company.id);
+      );
+  const own = roster.filter((company) => !isCarried(company));
+  const fill = () => {
+    for (const slot of order) {
+      if (assignment[slot.slotId] && assignment[slot.slotId] !== LEVY_ID) continue;
+      const best = ranked(own, slot)[0];
+      assignment[slot.slotId] = best ? best.company.id : LEVY_ID;
+      if (best) used.add(best.company.id);
+    }
+  };
+  fill();
+  // Veterans: at most the limit, each to the post where it gains the most readiness.
+  let room = carriedFieldedLimit(def) - Object.values(assignment).filter((companyId) => roster.some((company) => company.id === companyId && isCarried(company))).length;
+  const holderReadiness = (slot: RollSlot) => {
+    const holder = roster.find((company) => company.id === assignment[slot.slotId]);
+    return holder ? readiness(holder) : Number.NEGATIVE_INFINITY;
+  };
+  while (room > 0) {
+    let best: { slot: RollSlot; company: CampaignCompany; gain: number } | null = null;
+    for (const slot of order) {
+      if (locked.has(slot.slotId)) continue;
+      const veteran = ranked(roster.filter(isCarried), slot)[0]?.company;
+      if (!veteran) continue;
+      const gain = readiness(veteran) - holderReadiness(slot);
+      if (gain > 0 && (!best || gain > best.gain)) best = { slot, company: veteran, gain };
+    }
+    if (!best) break;
+    const displaced = assignment[best.slot.slotId];
+    if (displaced && displaced !== LEVY_ID) used.delete(displaced);
+    assignment[best.slot.slotId] = best.company.id;
+    used.add(best.company.id);
+    room -= 1;
+    fill(); // a displaced company may hold a post a levy was holding
   }
   return Object.fromEntries(slots.map((slot) => [slot.slotId, assignment[slot.slotId]]));
 }
 
-function problemsFor(battle: CampaignBattle, scenario: EngineScenario, roster: CampaignCompany[], assignment: Assignment): AssignmentProblems {
+function problemsFor(battle: CampaignBattle, scenario: EngineScenario, roster: CampaignCompany[], assignment: Assignment, carriedLimit: number): AssignmentProblems {
   const problems: AssignmentProblems = {};
   const slots = slotsOf(battle, scenario);
   const extra = Object.keys(assignment).filter((slotId) => !slots.some((slot) => slot.slotId === slotId));
-  if (extra.length > 0) problems.assignment = `No such post: ${extra.join(", ")}.`;
+  // Problem texts name posts only by their position label, never by slot (squad) id or squad name.
+  if (extra.length > 0) problems.assignment = `${extra.length === 1 ? "One post is" : `${extra.length} posts are`} not part of this battle.`;
   const seen = new Map<string, string>();
+  let carriedSoFar = 0;
   for (const slot of slots) {
     const companyId = assignment[slot.slotId];
     const refuse = (reason: string) => (problems[slot.slotId] ??= reason);
@@ -323,7 +382,7 @@ function problemsFor(battle: CampaignBattle, scenario: EngineScenario, roster: C
     }
     const first = seen.get(companyId);
     if (first) {
-      refuse(`${company.name} already holds another post.`);
+      refuse(`${company.name} already holds ${slots.find((other) => other.slotId === first)?.label ?? "another post"}.`);
       continue;
     }
     seen.set(companyId, slot.slotId);
@@ -333,12 +392,23 @@ function problemsFor(battle: CampaignBattle, scenario: EngineScenario, roster: C
     }
     if (conditionOf(company) === "reforming" && slot.locked !== company.id) {
       refuse(`${company.name} is reforming and sits out this battle.`);
+      continue;
+    }
+    if (isCarried(company)) {
+      carriedSoFar += 1;
+      if (carriedSoFar > carriedLimit) {
+        refuse(
+          `At most ${carriedLimit} ${carriedLimit === 1 ? "veteran" : "veterans"} from earlier campaigns may take the field; ${company.name} must stay in reserve, not hold ${slot.label}.`,
+        );
+      }
     }
   }
+  const carriedFull = carriedSoFar >= carriedLimit;
   // A levy only where it is forced: no ready company left unplaced could hold that post.
   for (const slot of slots) {
     if (assignment[slot.slotId] !== LEVY_ID || problems[slot.slotId]) continue;
-    const spare = roster.find((company) => !seen.has(company.id) && eligible(company, slot));
+    // With the veterans' places all taken, an unplaced veteran cannot hold it either.
+    const spare = roster.find((company) => !seen.has(company.id) && eligible(company, slot) && !(carriedFull && isCarried(company)));
     if (spare) problems[slot.slotId] = `${spare.name} could hold ${slot.label}; a levy is only raised when no company can.`;
   }
   return problems;
@@ -346,7 +416,7 @@ function problemsFor(battle: CampaignBattle, scenario: EngineScenario, roster: C
 
 /** Plain-language problems with a proposed assignment; empty when it is legal. */
 export function validateAssignment(def: CampaignDefinition, state: CampaignState, scenario: EngineScenario, assignment: Assignment): AssignmentProblems {
-  return problemsFor(battleFor(def, state, scenario), scenario, rollRoster(def, state), assignment);
+  return problemsFor(battleFor(def, state, scenario), scenario, rollRoster(def, state), assignment, carriedFieldedLimit(def));
 }
 
 /** Fame of an assignment's companies (levies count at LEVY_RESOLVE). */
@@ -378,7 +448,7 @@ export function battleThreat(def: CampaignDefinition, state: CampaignState, scen
 export function assembleBattle(def: CampaignDefinition, state: CampaignState, scenario: EngineScenario, assignment: Assignment): EngineScenario {
   const battle = battleFor(def, state, scenario);
   const roster = rollRoster(def, state);
-  const problems = problemsFor(battle, scenario, roster, assignment);
+  const problems = problemsFor(battle, scenario, roster, assignment, carriedFieldedLimit(def));
   const first = Object.entries(problems)[0];
   if (first) throw new Error(`Invalid assignment for ${first[0]}: ${first[1]}`);
   const threat = battleThreat(def, state, scenario);
@@ -550,6 +620,11 @@ export function recordRollBattle(
  * roster that has a profile (its own, or its definition's), snapshotted with Resolve
  * clamped to CARRY_RESOLVE and renown kept. Empty when `state` is not complete.
  */
+/** A roster company's realm: its own, or its definition's (fixed campaigns keep realms in the definition). */
+function realmOf(company: CampaignCompany, def: CampaignDefinition): RealmId | undefined {
+  return company.realm ?? def.companies.find((item) => item.id === company.id)?.realm;
+}
+
 export function carryOverCandidates(def: CampaignDefinition, state: CampaignState, packId: string): CarriedCompany[] {
   if (state.status !== "complete" || state.campaignId !== def.id) return [];
   return state.companies.flatMap((company) => {
@@ -560,6 +635,7 @@ export function carryOverCandidates(def: CampaignDefinition, state: CampaignStat
         id: company.id,
         name: company.name,
         role: company.role,
+        ...(realmOf(company, def) ? { realm: realmOf(company, def) } : {}),
         profile: { ...profile },
         resolve: Math.max(CARRY_RESOLVE.min, Math.min(CARRY_RESOLVE.max, company.resolve)),
         renown: company.renown ? { title: company.renown.title } : null,
@@ -608,6 +684,10 @@ export function snapshotCarryOver(
  */
 export function lintRollCampaign(def: CampaignDefinition, scenarios: EngineScenario[]): string[] {
   const problems: string[] = [];
+  const cap = def.maxCarriedFielded;
+  if (cap !== undefined && (!Number.isInteger(cap) || cap < 0 || cap > CARRY_OVER_MAX)) {
+    problems.push(`maxCarriedFielded must be an integer in 0..${CARRY_OVER_MAX}`);
+  }
   for (const company of def.companies) {
     if (!company.profile) {
       problems.push(`company ${company.id} has no profile`);
