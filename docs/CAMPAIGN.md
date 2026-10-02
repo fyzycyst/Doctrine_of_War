@@ -219,7 +219,7 @@ run balance` with and without muster (`rollDiagnostics`):
 
 | Where | Calls | Plans | Muster | Seeds |
 | --- | --- | --- | --- | --- |
-| `balance.<battle>.test.ts` (every `npm test`, one test per call) | every named call | heuristic: intended, bad, alternative, every mono; none: intended, bad, alternative | as listed | gate seeds 100001–100060, fortune on |
+| `balance.<battle>.test.ts` (every `npm test`, one test per call: a **smoke test**) | every named call | heuristic: intended, bad, alternative, every mono; none: intended, bad, alternative | as listed | gate seeds 100001–100060, fortune on; thresholds relaxed by 2 binomial SE (`smokeGuardrails`) |
 | `npm run balance` (the gate; every content merge) | every named call, plus the census | the same | as listed, plus the diagnostics | gate seeds 100001–100500 (`--range gate`, default), fortune on |
 | `campaign/cinderRoad.test.ts` | the authored call | intended and its ablations | none (the banner ablation: heuristic) | tuning seeds 1–60 |
 | `fogProjection.test.ts` | the authored call | intended, bad, all Counterstroke, all Bring the Water | none | 10 (projection), 6 (decisions), random |
@@ -230,8 +230,32 @@ sweeps, ablation tests, curated seeds) and gated on the held-out `GATE_SEEDS`
 refuses a curated seed inside it. All plans in a run play the same seeds (paired).
 
 Sampling limits: 60 seeds at a true 75% has a standard error near 5.6 points, 500 seeds
-near 1.9. The 60-seed suites are smoke evidence; the 500-seed gate run is the sign-off.
-The calls sample reachable states; they do not prove every state.
+near 1.9. The calls sample reachable states; they do not prove every state.
+
+**The 60-seed smoke suite** judges each gated threshold relaxed by two binomial standard
+errors at n = 60, computed in code (`smokeGuardrails`, `SMOKE_STANDARD_ERRORS`): intended
+≥ 63.8%, bad ≤ 47.3%, mono < 72.6%. Each test prints the tolerance it used. It catches
+gross regressions without flaking on a 60-seed window; it is not the sign-off.
+
+**Balance merge checklist** (required before any content merge: a new or changed battle,
+doctrine, campaign, roster profile or Host schedule):
+1. `npm test` passes, including every `balance.<battle>.test.ts` smoke suite.
+2. **`npm run balance -- --seeds 500` (the gate range, the default) exits 0: the sign-off.**
+   Every gated call meets GUARDRAILS exactly on the held-out seeds 100001–100500.
+3. The census shows every documented call, and any *not applicable* entry has a reason.
+4. The diagnostics (selection spread, plan beats roster, strongest alternative) are read
+   and any change is noted in the merge description; they are not gates.
+5. Tuning happened on `--range tuning` (never on the gate range), and curated seeds stay
+   outside the gate range (pack lint).
+
+**Decision (2026-10-02, P7): roster- and muster-dependent best plans are accepted.**
+On *Cinder Road* battle 1, the strongest alternative (the stair held, everyone else
+marching, no banner) beats the intended plan with **no muster** on two calls (the
+frontline-bows role pattern by about 10 points, rough by about 5; about a tie on the
+recommended force). The banner with the assault is worth about +32 points when the player
+musters (relief and rallies) and about 0 when nobody does, while "keep the boats" and
+"march" are essential either way. That is a feature of the Roll, not a defect: the
+alternative stays a tracked diagnostic, and the briefing hints at the banner's role.
 
 **Carry-over and doctrine dominance.** Veterans make blunt plans stronger, and no
 threat adjustment fixes that without also wrecking the intended plan (with two carried

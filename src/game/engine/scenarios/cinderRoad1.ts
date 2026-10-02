@@ -66,7 +66,8 @@ export const cinderRoad1: EngineScenario = {
     "The Host has barred the Saltgate Causeway with timber and fire-pots, and its hunters still lie somewhere in the reeds. " +
     "We cannot see them, but we know where the barricade stands: march on it together, and let no company reach it alone. " +
     "Our boats wait at the Heron Stair behind us, and outriders do not fight: they run for what is left unguarded. " +
-    "Keep the stair held, keep a banner with the assault, and break the barricade before the day is out.",
+    "Keep the stair held, keep a banner with the assault, and break the barricade before the day is out. " +
+    "A banner with the assault keeps worn companies in the fight, if you relieve and rally them.",
   playerFaction: "free_banners",
   initiativeSide: "free_banners",
   maxPhases: 7,
