@@ -176,7 +176,7 @@ function conditionOf(company: CampaignCompany): CompanyCondition {
 }
 
 /** The profile a company fields at: its own, minus WORN_PENALTY when Worn (or Reforming and locked in). */
-function fieldedProfile(company: CampaignCompany): CompanyProfile {
+export function fieldedProfile(company: CampaignCompany): CompanyProfile {
   const profile = company.profile ?? { strength: 50, cohesion: 50 };
   const weak = conditionOf(company) !== "fresh";
   return weak

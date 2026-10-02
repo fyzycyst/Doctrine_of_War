@@ -10,6 +10,9 @@ import { constants, promises as fs } from "node:fs";
 import path from "node:path";
 import { ashAndBanner } from "../src/game/campaign/definition";
 import { loadCampaign, MAX_SAVE_BYTES } from "../src/game/campaign/save";
+import { MAX_RUN_BYTES, readCampaignSave } from "../src/game/campaign/saveFiles";
+import { registry as shippedRegistry } from "../src/game/packs/registry";
+import type { PackRegistry } from "../src/game/packs/types";
 import { checkVariantsPayload, MAX_VARIANTS_BYTES } from "../src/game/engine/editor";
 
 export { MAX_SAVE_BYTES };
@@ -96,8 +99,13 @@ export function readVariantsFile(userDataDir: string): Promise<string | null> {
 }
 
 function readFixedFile(userDataDir: string, spec: FixedFile): Promise<string | null> {
+  return serialized(() => readFixedFileNow(userDataDir, spec));
+}
+
+/** The read itself; callers hold the queue (serialized). */
+function readFixedFileNow(userDataDir: string, spec: FixedFile): Promise<string | null> {
   const { maxBytes } = spec;
-  return serialized(async () => {
+  return (async () => {
     const file = path.join(userDataDir, spec.name);
     try {
       await checkDirectory(userDataDir);
@@ -137,7 +145,7 @@ function readFixedFile(userDataDir: string, spec: FixedFile): Promise<string | n
     } finally {
       await handle.close();
     }
-  });
+  })();
 }
 
 /**
@@ -162,7 +170,12 @@ function writeFixedFile(userDataDir: string, spec: FixedFile, data: unknown, tem
   } catch (error) {
     return Promise.reject(error);
   }
-  return serialized(async () => {
+  return serialized(() => writeFixedFileNow(userDataDir, spec, payload, tempId));
+}
+
+/** The atomic write itself (payload already checked); callers hold the queue. */
+async function writeFixedFileNow(userDataDir: string, spec: FixedFile, payload: string, tempId: () => string): Promise<void> {
+  {
     const file = path.join(userDataDir, spec.name);
     const temp = `${file}.${tempId()}.tmp`;
     await fs.mkdir(userDataDir, { recursive: true });
@@ -185,7 +198,7 @@ function writeFixedFile(userDataDir: string, spec: FixedFile, data: unknown, tem
       await fs.rm(temp, { force: true });
       throw error;
     }
-  });
+  }
 }
 
 export type ExportResult = { exported: true } | { exported: false; reason: "no-save" | "cancelled" };
@@ -219,10 +232,19 @@ export async function exportSaveFile(
   userDataDir: string,
   choosePath: () => Promise<string | null>,
   tempId: () => string = randomUUID,
+  /** M1: which campaign's save (allowlisted; default the intro). */
+  campaignId?: unknown,
+  registry: PackRegistry = shippedRegistry,
 ): Promise<ExportResult> {
-  const data = await readSaveFile(userDataDir);
+  const id = campaignIdOf(campaignId);
+  const data = await readCampaignFile(userDataDir, id);
   if (data === null) return { exported: false, reason: "no-save" };
-  checkSavePayload(data);
+  if (id === INTRO) {
+    checkSavePayload(data);
+  } else if (readCampaignSave(registry, id, data).kind === "unreadable") {
+    // A run this build cannot continue is still worth a bug report; a damaged file is not a save.
+    throw new Error("save file is not readable");
+  }
   const target = await choosePath();
   if (!target) return { exported: false, reason: "cancelled" };
   await checkExportTarget(target);
@@ -242,4 +264,127 @@ export async function exportSaveFile(
     throw error;
   }
   return { exported: true };
+}
+
+// ---------------------------------------------------------------------------
+// Per-campaign saves (M1, P3)
+// ---------------------------------------------------------------------------
+
+/**
+ * The main process's own, literal allowlist: campaign id -> save file in userData. A
+ * campaign id from the renderer is only ever a key into this map (a test checks it
+ * matches the renderer's CAMPAIGN_SAVE_FILES); no path or file name crosses the bridge.
+ * The intro keeps the original file and its original read/write path, unchanged.
+ */
+export const MAIN_SAVE_FILES: Readonly<Record<string, string>> = Object.freeze({
+  ash_and_banner: SAVE_FILE_NAME,
+  cinder_road: "campaign-cinder_road.json",
+});
+
+const INTRO = "ash_and_banner";
+
+/** The allowlisted file for a campaign id; refuses anything else (including a missing id other than the intro's default). */
+export function campaignSaveFileName(campaignId: unknown): string {
+  if (campaignId === undefined) return SAVE_FILE_NAME;
+  if (typeof campaignId !== "string" || !Object.hasOwn(MAIN_SAVE_FILES, campaignId)) {
+    throw new Error("unknown campaign save");
+  }
+  return MAIN_SAVE_FILES[campaignId];
+}
+
+function campaignIdOf(campaignId: unknown): string {
+  campaignSaveFileName(campaignId);
+  return campaignId === undefined ? INTRO : (campaignId as string);
+}
+
+/** A v2 payload main will write: a run this build reads as "ok" for exactly this campaign. */
+function checkRunPayload(campaignId: string, registry: PackRegistry) {
+  return (data: unknown): string => {
+    if (typeof data !== "string") throw new Error("save payload must be a string");
+    if (Buffer.byteLength(data, "utf8") > MAX_RUN_BYTES) throw new Error(`save payload exceeds ${MAX_RUN_BYTES} bytes`);
+    const read = readCampaignSave(registry, campaignId, data);
+    if (read.kind !== "ok") throw new Error(read.kind === "unavailable" ? read.reason : `save payload refused: ${read.kind === "unreadable" ? read.reason : read.kind}`);
+    return data;
+  };
+}
+
+function runFile(campaignId: string, suffix = "", registry: PackRegistry = shippedRegistry): FixedFile {
+  return { name: `${MAIN_SAVE_FILES[campaignId]}${suffix}`, maxBytes: MAX_RUN_BYTES, check: checkRunPayload(campaignId, registry) };
+}
+
+/** A campaign's save (null when there is none). The intro goes through readSaveFile, unchanged. */
+export function readCampaignFile(userDataDir: string, campaignId: unknown): Promise<string | null> {
+  let id: string;
+  try {
+    id = campaignIdOf(campaignId);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  return id === INTRO ? readSaveFile(userDataDir) : readFixedFile(userDataDir, runFile(id));
+}
+
+/** A campaign's backup (the save before the current one), or null. The intro has none. */
+export function readCampaignBackup(userDataDir: string, campaignId: unknown): Promise<string | null> {
+  let id: string;
+  try {
+    id = campaignIdOf(campaignId);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  return id === INTRO ? Promise.resolve(null) : readFixedFile(userDataDir, runFile(id, ".bak"));
+}
+
+/**
+ * Writes a campaign's save. The intro goes through writeSaveFile, unchanged. A v2 save is
+ * validated in main (it must read "ok" for this campaign); the current file must itself be
+ * empty or a run this build can continue (preserved runs are never overwritten), and it is
+ * kept as `<file>.bak` before the new one is renamed into place.
+ */
+export function writeCampaignFile(
+  userDataDir: string,
+  campaignId: unknown,
+  data: unknown,
+  tempId: () => string = randomUUID,
+  /** The packs this build ships (tests pass their own). */
+  registry: PackRegistry = shippedRegistry,
+): Promise<void> {
+  let id: string;
+  let payload: string;
+  try {
+    id = campaignIdOf(campaignId);
+    if (id === INTRO) return writeSaveFile(userDataDir, data, tempId);
+    payload = checkRunPayload(id, registry)(data);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  const spec = runFile(id, "", registry);
+  return serialized(async () => {
+    const current = await readFixedFileNow(userDataDir, spec);
+    if (current !== null) {
+      const read = readCampaignSave(registry, id, current);
+      if (read.kind !== "ok") throw new Error("the current save is kept: set it aside first");
+      await writeFixedFileNow(userDataDir, runFile(id, ".bak", registry), current, tempId);
+    }
+    await writeFixedFileNow(userDataDir, spec, payload, tempId);
+  });
+}
+
+/**
+ * Moves a v2 campaign's save aside (renamed to `<file>.aside-<time>-<id>`, never deleted)
+ * so a fresh run can start. The intro has no set-aside: its behaviour is unchanged.
+ */
+export function setAsideCampaignFile(userDataDir: string, campaignId: unknown, now: () => number = Date.now, tempId: () => string = randomUUID): Promise<void> {
+  let id: string;
+  try {
+    id = campaignIdOf(campaignId);
+    if (id === INTRO) throw new Error("the intro save cannot be set aside");
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  return serialized(async () => {
+    const file = path.join(userDataDir, MAIN_SAVE_FILES[id]);
+    await checkDirectory(userDataDir);
+    if (!(await checkNotLink(file))) return;
+    await fs.rename(file, `${file}.aside-${now()}-${tempId().slice(0, 8)}`);
+  });
 }

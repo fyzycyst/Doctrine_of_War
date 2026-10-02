@@ -185,6 +185,35 @@ doctrine families in meaningful roles, and swapping out any one family costs at 
     path, so a process that swaps the userData folder for a symlink in between can
     redirect a read; exploiting that needs write access to the user's own Library
     folder, which already grants control of the app's data, so it is out of scope.
+- **Per-campaign saves** (M1, `saveFiles.ts`): one save per campaign, keyed by an
+  **allowlisted** campaign id (`CAMPAIGN_SAVE_FILES`). The intro (`ash_and_banner`)
+  keeps its v1 file and localStorage key and is read and written exactly as before (no
+  migration, no backup file; a v1 fixture corpus written by the `v1.0-intro` build,
+  `fixtures/v1/`, must load and re-save byte for byte). Every other campaign writes a
+  **v2 envelope** `{"version": 2, "provenance": {packId, campaignId, contentRevision,
+  rulesRevision}, "campaign": …}` (at most `MAX_RUN_BYTES`, 512 KiB per campaign; a full
+  11-battle run with 120 attempts and five carried companies uses well under half).
+  - `readCampaignSave(registry, id, payload)` never throws: `empty`, `ok`, `unavailable`
+    (a well-formed run this build cannot continue: other pack, campaign, content or
+    rules revision) or `unreadable`. v2 loading rebuilds every field and replays the
+    history from the carried snapshot with the Roll rules (`loadRollCampaignState`):
+    each assignment must be legal in the replayed state, start strengths as fielded, end
+    strengths no higher and 0 exactly when destroyed, and conditions, Resolve, renown and
+    the Roll must match.
+  - **Preserved runs:** `saveCampaignRun` refuses to replace an `unavailable` or
+    `unreadable` v2 save; the player sets it aside first (`store.setAside`, which keeps
+    it under `:aside` / `<file>.aside-<time>-<id>`). Each v2 write keeps the previous
+    save as a backup (`:backup` / `<file>.bak`); `loadCampaignBackup` reads it for
+    recovery.
+  - **Electron:** the save channels take an optional campaign id (none means the
+    intro). Main checks it against **its own literal allowlist** (`MAIN_SAVE_FILES`,
+    tested equal to the renderer's) and accepts nothing else; no path crosses the
+    bridge. Before a v2 write, main itself requires the payload to read `ok` for exactly
+    that campaign against the shipped registry, refuses to overwrite a preserved run,
+    and writes the backup and the save atomically with the same no-symlink rules. Two
+    channels, `saves:backup` and `saves:set-aside`, take a campaign id only. Export
+    takes an optional campaign id and will copy out a run this build cannot continue
+    (useful in a bug report), but not an unreadable file.
 - **Seeds and support** (T19): every battle's seed stays in the save (each history
   record) and in the phase log, but the UI shows it only with Settings → Support →
   "Show battle details" (off by default). "Export save file…" copies the campaign save

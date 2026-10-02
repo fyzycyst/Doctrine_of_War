@@ -1,8 +1,24 @@
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from "electron";
-import { SAVE_EXPORT_CHANNEL, SAVE_READ_CHANNEL, SAVE_WRITE_CHANNEL, VARIANTS_READ_CHANNEL, VARIANTS_WRITE_CHANNEL } from "./saveChannels";
-import { exportSaveFile, readSaveFile, readVariantsFile, writeSaveFile, writeVariantsFile } from "./saveFile";
+import {
+  SAVE_BACKUP_CHANNEL,
+  SAVE_EXPORT_CHANNEL,
+  SAVE_READ_CHANNEL,
+  SAVE_SET_ASIDE_CHANNEL,
+  SAVE_WRITE_CHANNEL,
+  VARIANTS_READ_CHANNEL,
+  VARIANTS_WRITE_CHANNEL,
+} from "./saveChannels";
+import {
+  exportSaveFile,
+  readCampaignBackup,
+  readCampaignFile,
+  readVariantsFile,
+  setAsideCampaignFile,
+  writeCampaignFile,
+  writeVariantsFile,
+} from "./saveFile";
 import { isAppUrl, isTrustedSender, type AppLocation } from "./security";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -62,18 +78,30 @@ function trusted(event: IpcMainInvokeEvent, channel: string): void {
   }
 }
 
-/** Campaign saves: one fixed file in userData. The renderer never supplies a path. */
+/**
+ * Campaign saves: one fixed userData file per campaign. The renderer supplies at most a
+ * campaign id, which saveFile.ts checks against main's own allowlist (MAIN_SAVE_FILES);
+ * with no id it is the intro's original file. The renderer never supplies a path.
+ */
 function registerSaveHandlers() {
-  ipcMain.handle(SAVE_READ_CHANNEL, (event) => {
+  ipcMain.handle(SAVE_READ_CHANNEL, (event, campaignId: unknown) => {
     trusted(event, SAVE_READ_CHANNEL);
-    return readSaveFile(app.getPath("userData"));
+    return readCampaignFile(app.getPath("userData"), campaignId);
   });
-  ipcMain.handle(SAVE_WRITE_CHANNEL, (event, data: unknown) => {
+  ipcMain.handle(SAVE_WRITE_CHANNEL, (event, data: unknown, campaignId: unknown) => {
     trusted(event, SAVE_WRITE_CHANNEL);
-    return writeSaveFile(app.getPath("userData"), data);
+    return writeCampaignFile(app.getPath("userData"), campaignId, data);
+  });
+  ipcMain.handle(SAVE_BACKUP_CHANNEL, (event, campaignId: unknown) => {
+    trusted(event, SAVE_BACKUP_CHANNEL);
+    return readCampaignBackup(app.getPath("userData"), campaignId);
+  });
+  ipcMain.handle(SAVE_SET_ASIDE_CHANNEL, (event, campaignId: unknown) => {
+    trusted(event, SAVE_SET_ASIDE_CHANNEL);
+    return setAsideCampaignFile(app.getPath("userData"), campaignId);
   });
   // Support (T19): a copy of the save to a path the user picks in the native dialog.
-  ipcMain.handle(SAVE_EXPORT_CHANNEL, (event) => {
+  ipcMain.handle(SAVE_EXPORT_CHANNEL, (event, campaignId: unknown) => {
     trusted(event, SAVE_EXPORT_CHANNEL);
     const owner = BrowserWindow.fromWebContents(event.sender);
     return exportSaveFile(app.getPath("userData"), async () => {
@@ -84,7 +112,7 @@ function registerSaveHandlers() {
       };
       const { canceled, filePath } = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options);
       return canceled || !filePath ? null : filePath;
-    });
+    }, undefined, campaignId);
   });
   // Doctrine variants (T16): a second fixed file, same checks.
   ipcMain.handle(VARIANTS_READ_CHANNEL, (event) => {
