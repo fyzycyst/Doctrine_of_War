@@ -2,6 +2,7 @@
 // (through the preload bridge, window.doctrineOfWar.saves). Both store the string
 // produced by saveCampaign(); loading always goes through loadCampaign() validation.
 import { loadCampaign, saveCampaign, CampaignSaveError } from "./save";
+import { electronCampaignStore, localStorageCampaignStore, type CampaignSaveStore, type CampaignSavesBridge } from "./saveFiles";
 import type { CampaignDefinition, CampaignState } from "./types";
 
 export interface SaveStore {
@@ -77,3 +78,17 @@ export async function loadCampaignFrom(store: SaveStore, definition: CampaignDef
   const data = await store.read();
   return data === null ? null : loadCampaign(data, definition);
 }
+
+/** Electron's files when the preload bridge is present, else localStorage. */
+export function defaultCampaignStore(): CampaignSaveStore {
+  const bridge = typeof window === "undefined" ? undefined : (window.doctrineOfWar?.saves as CampaignSavesBridge | undefined);
+  if (bridge) return electronCampaignStore(bridge);
+  let storage: Storage | null = null;
+  try {
+    storage = globalThis.localStorage ?? null;
+  } catch {
+    storage = null;
+  }
+  return localStorageCampaignStore(storage);
+}
+
