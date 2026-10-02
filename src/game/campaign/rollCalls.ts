@@ -11,8 +11,8 @@
 //   role:<pattern> one per combination of flex-post roles (the readiest company of     floor
 //                  that role), when it can be filled legally; the plan follows the
 //                  call's per-role doctrine template
-//   carried:*      the same, at campaign start with CARRY_OVER_MAX intro veterans      floor
-//                  carried in (Q3): recommended, greedy
+//   carried:*      the same, at campaign start with CARRY_OVER_MAX intro veterans      full guardrails
+//                  carried in (Q3; at most carriedFieldedLimit() fielded): recommended, greedy
 //
 // "Plan beats roster" and the selection spread are reported as diagnostics (rollDiagnostics).
 import { playBattle, type BalanceRow, type GuardrailPolicy } from "../engine/balance";
@@ -230,13 +230,12 @@ export function rollCalls(
     if (assignment) calls.push(call("role", name, "floor", def, curated, scenario, assignment));
   }
   if (carryFrom && index === 0) {
-    // Floors. Even with at most carriedFieldedLimit() veterans fielded, two carried veterans
-    // at +2 lift "all Bring the Water" to about 78% advance (500 seeds), past the 60% mono
-    // cap, so doctrine dominance is still policed on the authored army (recommended, curated).
+    // Full guardrails: with at most carriedFieldedLimit() veterans fielded, a strong force
+    // must still not win with one doctrine (the battle punishes a pure march in content).
     const carried = curatedRollState(def, scenarios, 0, strongCarryOver(carryFrom));
-    calls.push(call("carried-recommended", "carried: recommended", "floor", def, carried, scenario, recommendedForce(def, carried, scenario)));
+    calls.push(call("carried-recommended", "carried: recommended", "full", def, carried, scenario, recommendedForce(def, carried, scenario)));
     const greedyCarried = pickForce(def, carried, scenario, greedyScore);
-    if (greedyCarried) calls.push(call("carried-greedy", "carried: greedy", "floor", def, carried, scenario, greedyCarried));
+    if (greedyCarried) calls.push(call("carried-greedy", "carried: greedy", "full", def, carried, scenario, greedyCarried));
   }
   return calls;
 }

@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { playBattle } from "../engine/balance";
 import { scenarios as introScenarios } from "../engine/scenarios";
-import { cinderRoad1 } from "../engine/scenarios/cinderRoad1";
+import { hexDistance } from "../board";
+import { cinderRoad1, HERON_STAIR } from "../engine/scenarios/cinderRoad1";
 import { advanceRate } from "../engine/testKit";
 import { registry } from "../packs/registry";
 import { HOST_RESOLVE_CAP, HOST_STRENGTH_CAP, recordBattle, startCampaign } from "./campaign";
@@ -58,11 +59,15 @@ describe("Cinder Road: the campaign", () => {
     expect(assembled.squads).toEqual(cinderRoad1.squads);
   });
 
-  it("a frontline company on a flex post marches on the barricade like the post's own role", () => {
-    const pattern = pickForce(cinderRoad, start, cinderRoad1, greedyScore, { outriders: "frontline" })!;
-    const outrider = cinderRoad.companies.find((company) => company.id === pattern.outriders)!;
-    expect(outrider.role).toBe("frontline");
-    expect(templatePlan(intended, cinderRoad, start, cinderRoad1, pattern).outriders).toBe("bring_the_water");
+  it("a frontline company on a flex post takes the post's template (march on the lances' post, banner on the bows')", () => {
+    const lances = pickForce(cinderRoad, start, cinderRoad1, greedyScore, { outriders: "frontline", bows: "skirmish" })!;
+    expect(cinderRoad.companies.find((company) => company.id === lances.outriders)?.role).toBe("frontline");
+    expect(templatePlan(intended, cinderRoad, start, cinderRoad1, lances).outriders).toBe("bring_the_water");
+    const bows = pickForce(cinderRoad, start, cinderRoad1, greedyScore, { outriders: "cavalry", bows: "frontline" })!;
+    expect(cinderRoad.companies.find((company) => company.id === bows.bows)?.role).toBe("frontline");
+    expect(templatePlan(intended, cinderRoad, start, cinderRoad1, bows).bows).toBe("rescue_standard");
+    // Both flex posts on frontline would need five frontline companies: not a legal call.
+    expect(pickForce(cinderRoad, start, cinderRoad1, greedyScore, { outriders: "frontline", bows: "frontline" })).toBeNull();
     const weakest = pickForce(cinderRoad, start, cinderRoad1, weakestScore)!;
     expect(weakest.outriders).toBe("brightcrag_riders");
     expect(weakest.bows).toBe("morningwall_slingers");
@@ -73,20 +78,33 @@ describe("The Saltmarsh, Northbound", () => {
   it("each doctrine family earns its place in the intended plan (ablation >= 15 points, no muster)", () => {
     const base = advanceRate(cinderRoad1, intended);
     expect(base).toBeGreaterThanOrEqual(0.75);
-    // A storm without a standard: the Drowned Hounds' dread breaks it in the marsh.
+    // The pure march: a standard that leaves the Heron Stair (to march, or to rally) lets
+    // the outriders burn the boats, however strong the army is.
     expect(base - advanceRate(cinderRoad1, { ...intended, standard: "bring_the_water" })).toBeGreaterThanOrEqual(0.15);
-    expect(base - advanceRate(cinderRoad1, { ...intended, standard: "clean_counterstroke" })).toBeGreaterThanOrEqual(0.15);
+    expect(base - advanceRate(cinderRoad1, { ...intended, standard: "rescue_standard" })).toBeGreaterThanOrEqual(0.15);
+    expect(advanceRate(cinderRoad1, cinderRoad1.referencePlans!.bad)).toBeLessThanOrEqual(0.1);
     // Without the march, nothing reaches the barricade (the intro's habits wait for an enemy that never comes).
     const noMarch = Object.fromEntries(Object.entries(intended).map(([id, doctrineId]) => [id, doctrineId === "bring_the_water" ? "clean_counterstroke" : doctrineId]));
     expect(base - advanceRate(cinderRoad1, noMarch)).toBeGreaterThanOrEqual(0.15);
   }, 60_000);
 
-  it("the curated seed is a clean, cinematic win: no company lost, the Drowned Hounds broken, the standard at work", () => {
+  it("the bows' banner earns its place with the player-realistic muster (ablation >= 15 points)", () => {
+    // With no muster at all a sixth marcher does nearly as well (a few points); with the
+    // heuristic muster, idle marchers are drawn toward the hunters they glimpse, and only
+    // a banner with the assault keeps it standing. It matters most to a weak force.
+    const wins = (orders: Record<string, string>) =>
+      Array.from({ length: 60 }, (_, index) => playBattle(cinderRoad1, orders, index + 1, "on", "heuristic")).filter((final) => final.status === "victory").length / 60;
+    expect(wins(intended) - wins({ ...intended, bows: "bring_the_water" })).toBeGreaterThanOrEqual(0.15);
+  }, 60_000);
+
+  it("the curated seed is a clean, cinematic win: no company lost, the Hounds held at the Heron Stair", () => {
     const final = playBattle(cinderRoad1, intended, cinderRoad1.curatedSeed!, "on");
     expect(final.status).toBe("victory");
     expect(final.phase).toBeLessThanOrEqual(5);
     expect(final.squads.filter((squad) => squad.faction === "free_banners" && squad.status !== "active")).toEqual([]);
-    expect(final.squads.find((squad) => squad.id === "gallowmere_pack")?.status).toMatch(/routed|destroyed/);
+    const hounds = final.squads.find((squad) => squad.id === "gallowmere_pack")!;
+    expect(hounds.status === "active" && hounds.hex && hexDistance(hounds.hex, HERON_STAIR) <= 1).toBe(true);
+    expect(final.squads.find((squad) => squad.id === "standard")?.hex).toEqual(HERON_STAIR);
   });
 
   it("records the curated win on the Roll: the one-battle pilot completes and settles conditions", () => {
@@ -128,11 +146,11 @@ describe("Cinder Road with carried intro veterans (Q3)", () => {
     }
   });
 
-  it("is a named call of the battle: carried recommended and greedy are floored like rough", () => {
+  it("is a named call of the battle: carried recommended and greedy face the full guardrails", () => {
     const calls = rollCalls(cinderRoad, scenarios, 0, source).filter((item) => item.kind.startsWith("carried"));
     expect(calls.map((item) => [item.name, item.policy])).toEqual([
-      ["carried: recommended", "floor"],
-      ["carried: greedy", "floor"],
+      ["carried: recommended", "full"],
+      ["carried: greedy", "full"],
     ]);
     expect(calls[0].roster).toMatch(/carried/);
   });
