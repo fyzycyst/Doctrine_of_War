@@ -141,7 +141,11 @@ export function readCampaignSave(registry: PackRegistry, campaignId: string, pay
     const compatible = registry.compatibility(provenance);
     if (!compatible.ok) return { kind: "unavailable", reason: compatible.reason, provenance };
     const entry = registry.campaign(campaignId)!;
-    const state = loadRollCampaignState(parsed.campaign, entry.campaign, entry.pack.scenarios);
+    const sourceOf = (origin: { packId: string; campaignId: string }) => {
+      const source = registry.campaign(origin.campaignId);
+      return source && source.pack.id === origin.packId ? source.campaign : undefined;
+    };
+    const state = loadRollCampaignState(parsed.campaign, entry.campaign, entry.pack.scenarios, sourceOf);
     return { kind: "ok", state, provenance };
   } catch (error) {
     return { kind: "unreadable", reason: message(error) };

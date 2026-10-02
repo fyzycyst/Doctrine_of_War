@@ -110,6 +110,14 @@ into the new run (`state.carried`: id, name, role, profile, Resolve clamped to â
 renown kept, origin); replay starts from the snapshot and never re-reads the earlier
 save. Carried companies join the Roll at the start, beside the authored army, and count
 toward the Host's threat like any other. Company ids are unique across campaigns (lint).
+Loading a run checks each carried snapshot against this build's registry: the origin pack
+and campaign exist, the company is in that campaign's definition with the same id, name
+and role, its profile is the frozen definition profile, Resolve is inside the clamp, and
+renown is none or a title the generator can give that company. **Trust decision:** the
+snapshot does not prove that the source run was completed, or that the company really
+earned that Resolve or renown there. The game is single-player and the snapshot stands
+alone by design (the earlier save is never re-read), so editing a local save only changes
+the player's own campaign.
 The intro's companies carry their Hold for Dawn numbers as their profile.
 
 ## Balancing campaign battles

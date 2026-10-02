@@ -117,8 +117,24 @@ describe("v2 runs", () => {
     expect(tamper((draft) => (draft.history[1].companies[0].startStrength = 99))).toMatch(/startStrength must be/);
     expect(tamper((draft) => (draft.history[1].assignment!.greyford_shields = "r_riders"))).toMatch(/assignment is not legal here/);
     expect(tamper((draft) => (draft.carried![0].resolve = 3))).toMatch(/carried\[0\]\.resolve must be an integer in -1\.\.2/);
-    expect(tamper((draft) => (draft.carried![0].id = "r_shields"))).toMatch(/one of this campaign's own companies/);
+    expect(tamper((draft) => (draft.carried![0].id = "r_shields"))).toMatch(/r_shields is not a company of ash_and_banner/);
     expect(tamper((draft) => (draft.companies[0].profile = { strength: 99, cohesion: 70 }))).toMatch(/profile.strength must be an integer/);
+    // Carried snapshots must be ones this build could have made (review: a forged "phantom").
+    const phantom = {
+      id: "phantom",
+      name: "Phantom",
+      role: "frontline" as const,
+      profile: { strength: 90, cohesion: 80 },
+      resolve: 2,
+      renown: { title: "The Unbowed" },
+      from: { packId: "missing_pack", campaignId: "missing_campaign" },
+    };
+    expect(tamper((draft) => draft.carried!.push(phantom))).toMatch(/names a campaign this build does not have/);
+    expect(tamper((draft) => draft.carried!.push({ ...phantom, from: { packId: "first_call", campaignId: "ash_and_banner" } }))).toMatch(/phantom is not a company of ash_and_banner/);
+    expect(tamper((draft) => (draft.carried![0].name = "Dawnwatch Heroes"))).toMatch(/must be Dawnwatch Archers \(skirmish\)/);
+    expect(tamper((draft) => (draft.carried![0].profile = { strength: 72, cohesion: 74 }))).toMatch(/must be dawnwatch_archers's profile/);
+    expect(tamper((draft) => (draft.carried![0].renown = { title: "The Pyre-Breaker" }))).toMatch(/is not a title dawnwatch_archers can earn/);
+    expect(tamper((draft) => (draft.carried![0].from = { packId: "other_pack", campaignId: "ash_and_banner" }))).toMatch(/names a campaign this build does not have/);
     expect(tamper((draft) => draft.history.push(structuredClone(draft.history[1])))).toMatch(/must be road_2|no playable battle|attempt/);
   });
 

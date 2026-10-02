@@ -4,6 +4,7 @@
 // field from validated values, so unknown keys (and __proto__ tricks) are dropped.
 import type { EngineScenario, SquadRole, SquadStatus } from "../engine/types";
 import { rosterFor, settleCompany } from "./campaign";
+import { possibleRenownTitles } from "./titles";
 import { CARRY_OVER_MAX, CARRY_RESOLVE, fieldedProfile, LEVY_PROFILE, PROFILE_BANDS, rollRoster, settleRollBattle, validateAssignment } from "./roll";
 import {
   LEVY_ID,
@@ -259,11 +260,44 @@ function parseState(value: unknown, maxIndex: number, roll: boolean): CampaignSt
  * rules (assignments legal in the replayed state, start strengths as fielded, conditions,
  * Resolve and renown re-derived). Throws a CampaignSaveError naming the first problem.
  */
-export function loadRollCampaignState(value: unknown, def: CampaignDefinition, scenarios: EngineScenario[]): CampaignState {
+export function loadRollCampaignState(
+  value: unknown,
+  def: CampaignDefinition,
+  scenarios: EngineScenario[],
+  /** The definition of a carried company's origin campaign, from the registry (undefined when this build has none). */
+  sourceOf: (origin: CarryOrigin) => CampaignDefinition | undefined,
+): CampaignState {
   if (def.mode !== "roll") fail("campaign", `${def.id} is not a Roll campaign`);
   const state = parseState(value, def.battles.length, true);
+  checkCarried(state.carried ?? [], sourceOf);
   checkRollHistory(state, def, scenarios);
   return state;
+}
+
+/**
+ * A carried snapshot must be one this build could have made: its origin pack and campaign
+ * exist, the company is in that campaign's definition with the same id, name and role,
+ * its profile is the frozen definition profile, Resolve is inside the clamp (parse), and
+ * its renown is none or a title the generator can give that company.
+ *
+ * Trust decision: the snapshot does NOT prove that the source run was completed, or that
+ * the company really reached that Resolve or renown there. The game is single-player and
+ * the snapshot deliberately stands alone (the earlier save is never re-read), so an edited
+ * local save can only change the player's own campaign. Documented in docs/CAMPAIGN.md.
+ */
+function checkCarried(carried: CarriedCompany[], sourceOf: (origin: CarryOrigin) => CampaignDefinition | undefined): void {
+  carried.forEach((item, index) => {
+    const path = `campaign.carried[${index}]`;
+    const source = sourceOf(item.from);
+    if (!source) fail(`${path}.from`, `names a campaign this build does not have (${item.from.packId}/${item.from.campaignId})`);
+    const known = source.companies.find((company) => company.id === item.id);
+    if (!known) fail(`${path}.id`, `${item.id} is not a company of ${source.id}`);
+    if (known.name !== item.name || known.role !== item.role) fail(path, `must be ${known.name} (${known.role}) as ${source.id} defines it`);
+    if (!known.profile || known.profile.strength !== item.profile.strength || known.profile.cohesion !== item.profile.cohesion) {
+      fail(`${path}.profile`, `must be ${item.id}'s profile in ${source.id}`);
+    }
+    if (item.renown && !possibleRenownTitles(item.id).has(item.renown.title)) fail(`${path}.renown`, `is not a title ${item.id} can earn`);
+  });
 }
 
 const sameProfile = (a?: CompanyProfile, b?: CompanyProfile) => a?.strength === b?.strength && a?.cohesion === b?.cohesion;
