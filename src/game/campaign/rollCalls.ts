@@ -9,8 +9,8 @@
 //   weakest        lowest-fame legal pick per post (levies only where forced)         diagnostic; its
 //                  recovery force is the recommended call on the same state, which is gated in full
 //   role:<pattern> one per combination of flex-post roles (the readiest company of     floor
-//                  that role), when it can be filled legally; the plan follows the
-//                  call's per-role doctrine template
+//                  that role), when it can be filled legally; reference plans are played
+//                  exactly as authored (the role template only fills unset flex posts)
 //   carried:*      the same, at campaign start with CARRY_OVER_MAX intro veterans      full guardrails
 //                  carried in (Q3; at most carriedFieldedLimit() fielded): recommended, greedy
 //
@@ -143,20 +143,21 @@ export const greedyScore = (company: CampaignCompany) => fame(company) * 1000 + 
 export const weakestScore = (company: CampaignCompany) => -(fame(company) * 1000 + strength(company)) + (company.condition === "worn" ? 500 : 0);
 
 /**
- * The reference plan for an assignment: each flex post takes the call's doctrine for the
- * role that fills it (the "role/slot-to-plan template"); other posts keep the plan's.
+ * The plan an assignment plays. A reference plan is played EXACTLY as authored: every
+ * order it sets stands, whoever fills the post (doctrines are not tied to roles). The
+ * call's role template (`flex.doctrines`) only fills a flex post the plan leaves unset.
  */
 export function templatePlan(plan: Orders, def: CampaignDefinition, state: CampaignState, scenario: EngineScenario, assignment: Assignment): Orders {
   const roster = rollRoster(def, state);
-  const slots = rollSlots(def, state, scenario);
-  return Object.fromEntries(
-    Object.entries(plan).map(([slotId, doctrineId]) => {
-      const slot = slots.find((item) => item.slotId === slotId);
-      const companyId = assignment[slotId];
-      const role = companyId === LEVY_ID ? slot?.roles[0] : roster.find((company) => company.id === companyId)?.role;
-      return [slotId, slot?.flex && role ? (slot.doctrines[role] ?? doctrineId) : doctrineId];
-    }),
-  );
+  const filled: Orders = { ...plan };
+  for (const slot of rollSlots(def, state, scenario)) {
+    if (Object.hasOwn(plan, slot.slotId) || !slot.flex) continue;
+    const companyId = assignment[slot.slotId];
+    const role = companyId === LEVY_ID ? slot.roles[0] : roster.find((company) => company.id === companyId)?.role;
+    const doctrineId = role ? slot.doctrines[role] : undefined;
+    if (doctrineId) filled[slot.slotId] = doctrineId;
+  }
+  return filled;
 }
 
 function describe(def: CampaignDefinition, state: CampaignState, assignment: Assignment): string {
