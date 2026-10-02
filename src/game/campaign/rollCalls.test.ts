@@ -7,7 +7,7 @@ import { startCampaign } from "./campaign";
 import { cinderRoad } from "./cinderRoad";
 import { ashAndBanner } from "./definition";
 import { recommendedForce } from "./roll";
-import { pickForce, greedyScore, templatePlan } from "./rollCalls";
+import { MissingCallError, pickForce, greedyScore, rollCallMatrix, templatePlan } from "./rollCalls";
 import { balanceVariantsIn, introCarrySource } from "./rosters";
 
 const campaigns = registry.packs.flatMap((pack) => pack.campaigns);
@@ -41,5 +41,33 @@ describe("reference plans on the named calls (P7 finding 1)", () => {
     // A single-role post the plan leaves unset stays unset (the squad keeps its scenario doctrine).
     const { van_west: _west, ...noWest } = cinderRoad1.referencePlans!.bad;
     expect(templatePlan(noWest, cinderRoad, start, cinderRoad1, recommendedForce(cinderRoad, start, cinderRoad1))).not.toHaveProperty("van_west");
+  });
+});
+
+describe("the call census (P7 finding 3)", () => {
+  it("Cinder Road battle 1 builds every documented call; only the illegal role pattern is not applicable, with its reason", () => {
+    const matrix = rollCallMatrix(cinderRoad, scenarios, 0, carryFrom());
+    expect(matrix.calls.map((item) => item.name)).toEqual([
+      "recommended",
+      "curated",
+      "rough (recovery force)",
+      "greedy",
+      "weakest legal",
+      "role: outriders=cavalry, bows=frontline",
+      "role: outriders=frontline, bows=skirmish",
+      "carried: recommended",
+      "carried: greedy",
+    ]);
+    expect(matrix.notApplicable).toEqual([
+      { name: "role: outriders=frontline, bows=frontline", reason: "not legal: it needs 5 frontline companies and the Roll has 4 ready" },
+    ]);
+  });
+
+  it("fails closed when a mandatory call cannot be built (here: an authored call that is not legal)", () => {
+    const broken = structuredClone(cinderRoad);
+    broken.battles[0].slots.van_west = "sunward_lances"; // a cavalry company on a frontline post
+    broken.battles[0].slots.outriders = "coldwater_shields";
+    expect(() => rollCallMatrix(broken, scenarios, 0)).toThrow(MissingCallError);
+    expect(() => rollCallMatrix(broken, scenarios, 0)).toThrow(/"curated" call cannot be built/);
   });
 });

@@ -9,7 +9,7 @@ import { formatTable, GATE_SEEDS, GUARDRAILS, guardrailFailures, runBalance, TUN
 import { scenarios as introScenarios } from "../src/game/engine/scenarios";
 import { prototypeScenarios } from "../src/game/engine/fixtures/wagonPark";
 import { ashAndBanner } from "../src/game/campaign/definition";
-import { balanceVariantsIn, introCarrySource } from "../src/game/campaign/rosters";
+import { balanceMatrixIn, introCarrySource } from "../src/game/campaign/rosters";
 import { rollDiagnostics } from "../src/game/campaign/rollCalls";
 import { registry } from "../src/game/packs/registry";
 import type { FortuneMode } from "../src/game/engine/types";
@@ -73,7 +73,9 @@ for (const scenario of selected) {
     const carryFrom = () => introCarrySource(ashAndBanner, introScenarios, "first_call");
     const played: { name: string; rows: BalanceRow[] }[] = [];
     const playedNone: { name: string; rows: BalanceRow[] }[] = [];
-    for (const variant of balanceVariantsIn(campaigns, scenarios, scenario, carryFrom).filter((item) => roster === "all" || item.kind === roster)) {
+    const matrix = balanceMatrixIn(campaigns, scenarios, scenario, carryFrom);
+    for (const missing of matrix.notApplicable) console.log(`${scenario.title} [${missing.name}]: NOT APPLICABLE (${missing.reason})\n`);
+    for (const variant of matrix.variants.filter((item) => roster === "all" || item.kind === roster)) {
       const rows = runBalance(variant.scenario, seeds, fortune as FortuneMode, "heuristic", ["intended", "bad", "mono"], firstSeed);
       const name = variant.name ?? `${variant.kind} roster`;
       played.push({ name, rows });

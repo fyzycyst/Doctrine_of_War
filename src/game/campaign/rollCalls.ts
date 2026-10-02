@@ -200,45 +200,99 @@ function rolePatterns(slots: RollSlot[]): Record<string, SquadRole>[] {
   return patterns.filter((pattern) => flex.some((slot) => pattern[slot.slotId] !== slot.roles[0]));
 }
 
+/** A documented call that cannot exist for this battle, and why (only flex-role patterns). */
+export interface NotApplicableCall {
+  name: string;
+  reason: string;
+}
+
+export interface RollCallMatrix {
+  calls: RollCall[];
+  notApplicable: NotApplicableCall[];
+}
+
+/** Thrown when a mandatory named call cannot be built: the matrix never silently shrinks. */
+export class MissingCallError extends Error {
+  constructor(battleId: string, name: string, reason: string) {
+    super(`Battle ${battleId}: the "${name}" call cannot be built (${reason})`);
+    this.name = "MissingCallError";
+  }
+}
+
+/** Why a flex-role pattern has no legal force, or null when the Roll's numbers allow it. */
+function patternShortfall(def: CampaignDefinition, state: CampaignState, slots: RollSlot[], pattern: Record<string, SquadRole>): string | null {
+  const need = new Map<SquadRole, number>();
+  for (const slot of slots) {
+    const role = pattern[slot.slotId] ?? slot.roles[0];
+    need.set(role, (need.get(role) ?? 0) + 1);
+  }
+  const ready = rollRoster(def, state).filter((company) => company.condition !== "reforming");
+  for (const [role, count] of need) {
+    const have = ready.filter((company) => company.role === role).length;
+    if (have < count) return `it needs ${count} ${role} companies and the Roll has ${have} ready`;
+  }
+  return null;
+}
+
 /**
- * The named calls for Roll battle `index`. `carryFrom` (optional) is a completed campaign
- * whose most famous companies a strong player carries in; its calls are added at the
- * first battle only (carry-over happens at campaign start).
+ * The named calls for Roll battle `index`, as a census. Every documented call is built or
+ * the matrix FAILS (MissingCallError): recommended, curated, rough, greedy, weakest legal,
+ * every flex-role pattern, and (at the first battle, given `carryFrom`, a completed
+ * campaign whose most famous companies a strong player carries in) carried recommended and
+ * carried greedy. The only exception is a role pattern the Roll cannot legally field (too
+ * few companies of a role), which is listed in `notApplicable` with its reason.
  */
-export function rollCalls(
+export function rollCallMatrix(
   def: CampaignDefinition,
   scenarios: EngineScenario[],
   index: number,
   carryFrom?: { def: CampaignDefinition; state: CampaignState; packId: string },
-): RollCall[] {
+): RollCallMatrix {
   const battle = def.battles[index];
   const scenario = scenarioFor(scenarios, battle.scenarioId);
   const curated = curatedRollState(def, scenarios, index);
+  const required = (name: string, assignment: Assignment | null, reason: string): Assignment => {
+    if (!assignment) throw new MissingCallError(battle.id, name, reason);
+    return assignment;
+  };
   const calls: RollCall[] = [call("recommended", "recommended", "full", def, curated, scenario, recommendedForce(def, curated, scenario))];
   const authored = Object.fromEntries(rollSlots(def, curated, scenario).map((slot) => [slot.slotId, battle.slots[slot.slotId]]));
-  if (Object.keys(validateAssignment(def, curated, scenario, authored)).length === 0) {
-    calls.push(call("curated", "curated", "full", def, curated, scenario, authored));
-  }
+  const authoredProblems = Object.values(validateAssignment(def, curated, scenario, authored));
+  calls.push(call("curated", "curated", "full", def, curated, scenario, required("curated", authoredProblems.length === 0 ? authored : null, `the authored call is not legal: ${authoredProblems.join(" ")}`)));
   const rough = roughRollState(def, curated);
   calls.push(call("rough", "rough (recovery force)", "floor", def, rough, scenario, recommendedForce(def, rough, scenario)));
-  const greedy = pickForce(def, curated, scenario, greedyScore);
-  if (greedy) calls.push(call("greedy", "greedy", "floor", def, curated, scenario, greedy));
-  const weakest = pickForce(def, curated, scenario, weakestScore);
-  if (weakest) calls.push(call("weakest", "weakest legal", "diagnostic", def, curated, scenario, weakest));
-  for (const pattern of rolePatterns(rollSlots(def, curated, scenario))) {
-    const assignment = pickForce(def, curated, scenario, greedyScore, pattern);
+  calls.push(call("greedy", "greedy", "floor", def, curated, scenario, required("greedy", pickForce(def, curated, scenario, greedyScore), "no legal highest-fame force")));
+  calls.push(call("weakest", "weakest legal", "diagnostic", def, curated, scenario, required("weakest legal", pickForce(def, curated, scenario, weakestScore), "no legal lowest-fame force")));
+  const notApplicable: NotApplicableCall[] = [];
+  const slots = rollSlots(def, curated, scenario);
+  for (const pattern of rolePatterns(slots)) {
     const name = `role: ${Object.entries(pattern).map(([slotId, role]) => `${slotId}=${role}`).join(", ")}`;
-    if (assignment) calls.push(call("role", name, "floor", def, curated, scenario, assignment));
+    const assignment = pickForce(def, curated, scenario, greedyScore, pattern);
+    const shortfall = assignment ? null : patternShortfall(def, curated, slots, pattern);
+    if (shortfall) {
+      notApplicable.push({ name, reason: `not legal: ${shortfall}` });
+      continue;
+    }
+    calls.push(call("role", name, "floor", def, curated, scenario, required(name, assignment, "no legal force although the Roll has the companies")));
   }
   if (carryFrom && index === 0) {
     // Full guardrails: with at most carriedFieldedLimit() veterans fielded, a strong force
     // must still not win with one doctrine (the battle punishes a pure march in content).
     const carried = curatedRollState(def, scenarios, 0, strongCarryOver(carryFrom));
     calls.push(call("carried-recommended", "carried: recommended", "full", def, carried, scenario, recommendedForce(def, carried, scenario)));
-    const greedyCarried = pickForce(def, carried, scenario, greedyScore);
-    if (greedyCarried) calls.push(call("carried-greedy", "carried: greedy", "full", def, carried, scenario, greedyCarried));
+    calls.push(call("carried-greedy", "carried: greedy", "full", def, carried, scenario, required("carried: greedy", pickForce(def, carried, scenario, greedyScore), "no legal highest-fame force with veterans")));
   }
-  return calls;
+  return { calls, notApplicable };
+}
+
+/** The named calls for Roll battle `index` (rollCallMatrix's calls; it fails closed). */
+export function rollCalls(
+  def: CampaignDefinition,
+  scenarios: EngineScenario[],
+  index: number,
+  carryFrom?: { def: CampaignDefinition; state: CampaignState; packId: string },
+): RollCall[] {
+  return rollCallMatrix(def, scenarios, index, carryFrom).calls;
 }
 
 /** The Host's fixed threat for a call's state, for reports. */
