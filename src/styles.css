@@ -3904,3 +3904,442 @@ html.reduce-motion *::after {
 html.reduce-motion .ticker-text.static {
   animation: ticker-fade 7s ease both !important;
 }
+
+/* ------------------------------------------------- M1: campaigns and the Roll */
+
+.choice-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(760px, calc(100vw - 48px));
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  padding: 22px 26px 18px;
+  border: 1px solid var(--gold-line);
+  border-radius: 8px;
+  background: var(--dialog-panel);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+.choice-panel h1 {
+  font-family: var(--display);
+  font-size: 26px;
+  letter-spacing: 0.05em;
+  color: var(--gold-hi);
+}
+
+.choice-pack h2 {
+  margin: 18px 0 8px;
+  font-family: var(--display);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.choice-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choice-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(212, 166, 74, 0.26);
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--card-hi), var(--card));
+}
+
+.choice-card h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 17px;
+  color: var(--bone);
+}
+
+.choice-card p {
+  margin: 3px 0 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.choice-card .choice-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--bone);
+}
+
+.choice-card.status-unavailable {
+  border-style: dashed;
+  border-color: rgba(224, 138, 98, 0.5);
+}
+
+.choice-card.status-unavailable .choice-status {
+  color: var(--rust-text);
+}
+
+.choice-card.status-complete .choice-status {
+  color: var(--gold-hi);
+}
+
+.choice-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* Condition badges (the Roll, the ledger, the outcome). */
+.condition {
+  display: inline-block;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.condition.fresh {
+  border: 1px solid rgba(127, 201, 138, 0.55);
+  color: #9fdaa8;
+}
+
+.condition.worn {
+  border: 1px solid rgba(240, 198, 107, 0.6);
+  background: rgba(212, 166, 74, 0.14);
+  color: var(--gold-hi);
+}
+
+.condition.reforming {
+  border: 1px dashed rgba(224, 138, 98, 0.7);
+  color: var(--rust-text);
+}
+
+/* Call the Banners. */
+.roll-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px 22px;
+  padding: 22px 28px 18px;
+  background:
+    radial-gradient(90% 60% at 30% 0%, rgba(212, 166, 74, 0.1), transparent 70%),
+    linear-gradient(180deg, #17131b, #0d0c12);
+  color: var(--bone);
+}
+
+.roll-head {
+  grid-column: 1 / -1;
+}
+
+.roll-head h1 {
+  font-family: var(--display);
+  font-size: 28px;
+  letter-spacing: 0.05em;
+  color: var(--gold-hi);
+}
+
+.roll-threat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 7px 12px;
+  border-left: 3px solid var(--ember);
+  background: rgba(58, 39, 36, 0.55);
+  font-size: 14px;
+}
+
+.roll-fixed {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.roll-posts,
+.roll-roster {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.roll-posts h2,
+.roll-roster h2 {
+  margin: 0 0 8px;
+  font-family: var(--display);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.roll-posts ol,
+.roll-roster ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.post {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 10px;
+  border: 1px solid rgba(212, 166, 74, 0.24);
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--card-hi), var(--card));
+}
+
+.post.armed {
+  border-color: var(--gold-hi);
+  box-shadow: 0 0 0 1px var(--gold-hi);
+}
+
+.post.problem {
+  border-color: rgba(224, 138, 98, 0.7);
+}
+
+.post.locked {
+  background: linear-gradient(180deg, #2a2420, #1d1916);
+}
+
+.post.levy {
+  border-style: dashed;
+}
+
+.post-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+.post-roles {
+  display: inline-flex;
+  gap: 2px;
+  color: var(--gold-hi);
+}
+
+.post-label {
+  display: grid;
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.post-sub {
+  font-family: var(--body);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.post-company {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 13.5px;
+}
+
+.post-called strong {
+  font-weight: 600;
+}
+
+.post-numbers,
+.post-lock-note,
+.post-empty {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.post-levy {
+  color: var(--rust-text);
+  font-style: italic;
+}
+
+.post-pick select {
+  padding: 2px 6px;
+  border: 1px solid rgba(239, 227, 200, 0.22);
+  border-radius: 4px;
+  background: rgba(18, 15, 22, 0.9);
+  color: var(--bone);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.post-clear {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(239, 227, 200, 0.2);
+  border-radius: 4px;
+  background: none;
+}
+
+.post-problem {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--rust-text);
+}
+
+.roll-company {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid rgba(239, 227, 200, 0.14);
+  border-radius: 6px;
+  background: rgba(20, 16, 23, 0.85);
+  text-align: left;
+  cursor: grab;
+}
+
+.roll-company.called {
+  border-color: var(--gold-line);
+  background: rgba(212, 166, 74, 0.08);
+}
+
+.roll-company.out {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.roll-name {
+  display: grid;
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.roll-sub {
+  font-family: var(--body);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.roll-at {
+  grid-column: 2 / -1;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.roll-company.called .roll-at {
+  color: var(--gold-hi);
+}
+
+.roll-rest {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.roll-foot {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.roll-foot .btn-quiet:first-of-type {
+  margin-right: auto;
+}
+
+.roll-problems {
+  margin: 0;
+  color: var(--rust-text);
+  font-size: 13.5px;
+}
+
+/* The carry-over picker. */
+.modal.carry-over {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.carry-list {
+  display: grid;
+  gap: 4px;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin: 10px 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.carry-row {
+  display: grid;
+  grid-template-columns: auto 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid rgba(239, 227, 200, 0.14);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.carry-row.on {
+  border-color: var(--gold);
+  background: rgba(212, 166, 74, 0.1);
+}
+
+.carry-name {
+  display: grid;
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.carry-sub {
+  font-family: var(--body);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.carry-resolve {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.carry-was {
+  color: var(--muted);
+}
+
+.modal .carry-count,
+.modal .carry-error {
+  margin: 4px 0 10px;
+  font-size: 13px;
+}
+
+.modal .carry-error {
+  color: var(--rust-text);
+}
+
+.carry-source {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}

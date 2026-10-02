@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import App from "../App";
 import { isCaptureToggle, useCaptureStore } from "./captureStore";
+import { CampaignChoice } from "./flow/CampaignChoice";
 import { CampaignScreen } from "./flow/CampaignScreen";
+import { CallTheBanners } from "./roll/CallTheBanners";
 import { EndScreen } from "./flow/EndScreen";
 import { startAudioCues } from "./audioCues";
 import { useMotionClass } from "./motionClass";
@@ -48,7 +50,9 @@ export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: st
   return (
     <>
       {screen === "title" && <TitleScreen onSettings={openSettings} onHowTo={() => setHowToOpen(true)} onEditor={() => setEditor({})} />}
+      {screen === "campaigns" && <CampaignChoice onSettings={openSettings} />}
       {screen === "campaign" && <CampaignScreen onSettings={openSettings} />}
+      {screen === "roll" && <CallTheBanners />}
       {screen === "battle" && <App still={still} pauseAt={pauseAt} />}
       {screen === "ending" && <EndScreen />}
       {settingsOpen && !captureMode && <SettingsDialog onClose={() => setSettingsOpen(false)} />}

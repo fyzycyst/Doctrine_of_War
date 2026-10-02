@@ -11,6 +11,7 @@ export function TitleScreen({ onSettings, onHowTo, onEditor }: { onSettings?: ()
   const checkSave = useFlow((s) => s.checkSave);
   const begin = useFlow((s) => s.beginCampaign);
   const continueCampaign = useFlow((s) => s.continueCampaign);
+  const go = useFlow((s) => s.go);
   const [confirming, setConfirming] = useState(false);
   const first = useRef<HTMLButtonElement>(null);
 
@@ -46,6 +47,9 @@ export function TitleScreen({ onSettings, onHowTo, onEditor }: { onSettings?: ()
               Continue
             </button>
           )}
+          <button type="button" className="btn-quiet" onClick={() => go("campaigns")}>
+            Choose a campaign
+          </button>
           {onHowTo && (
             <button type="button" className="btn-quiet" onClick={onHowTo}>
               How to play

@@ -26,6 +26,16 @@ const STAGES = [
     sizes: [[1100, 760]],
     eval: `[...document.querySelectorAll(".title-menu button")].find((b) => b.textContent === "Settings")?.click()`,
   },
+  // M1 (P6), on the stand-in Roll and preview packs until the engine lands.
+  { name: "m1-choose-campaign", query: "screen=campaigns&mockRoll=1", settleMs: 2500 },
+  { name: "m1-call-banners", query: "screen=roll&mockRoll=1", settleMs: 1500 },
+  { name: "m1-call-banners-worn", query: "screen=roll&mockRoll=worn", settleMs: 1500 },
+  {
+    name: "m1-carry-over",
+    query: "screen=campaigns&mockRoll=carry",
+    settleMs: 1500,
+    eval: `[...document.querySelectorAll(".choice-card button")].find((b) => /Cinder Road/.test(b.getAttribute("aria-label") ?? ""))?.click()`,
+  },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
   { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },
