@@ -3,6 +3,7 @@ import { validateCampaignDefinition } from "../campaign/campaign";
 import { isRollCampaign, lintRollCampaign } from "../campaign/roll";
 import { LEVY_ID } from "../campaign/types";
 import { getHex, hexKey, isPassableTerrain } from "../board";
+import { GATE_SEEDS, isGateSeed } from "../engine/balance";
 import { validateWinCondition } from "../engine/outcome";
 import type { DoctrineLibrary, EngineScenario } from "../engine/types";
 import type { PackManifest } from "./types";
@@ -85,6 +86,9 @@ export function lintScenario(scenario: EngineScenario, doctrines: DoctrineLibrar
     for (const doctrineId of Object.values(plan)) {
       if (!scenario.playerDoctrineIds.includes(doctrineId)) at(`reference plan ${name} uses ${doctrineId}, not a player doctrine here`);
     }
+  }
+  if (scenario.curatedSeed !== undefined && isGateSeed(scenario.curatedSeed)) {
+    at(`curated seed ${scenario.curatedSeed} is in the held-out balance gate range (${GATE_SEEDS.first}..${GATE_SEEDS.first + GATE_SEEDS.size - 1})`);
   }
   try {
     validateWinCondition(scenario);

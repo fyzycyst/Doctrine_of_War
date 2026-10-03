@@ -14,7 +14,29 @@ export const GUARDRAILS = {
   monoMax: 0.6,
 };
 
-export type PlanKind = "intended" | "bad" | "mono";
+export type Guardrails = typeof GUARDRAILS;
+
+/** How many binomial standard errors the smoke suite gives each threshold. */
+export const SMOKE_STANDARD_ERRORS = 2;
+
+/**
+ * The thresholds a small-N SMOKE run is judged by: each gated threshold moved toward
+ * leniency by SMOKE_STANDARD_ERRORS binomial standard errors at `seeds` games,
+ * sqrt(p(1-p)/n) at p = the threshold. At 60 seeds: intended 75% -> ~63.8%, bad 35% ->
+ * ~47.3%, mono 60% -> ~72.6%. The sign-off is the 500-seed gate run at GUARDRAILS
+ * exactly; the smoke suite only catches gross regressions without flaking on a window.
+ */
+export function smokeGuardrails(seeds: number): Guardrails {
+  const se = (p: number) => Math.sqrt((p * (1 - p)) / seeds);
+  return {
+    intendedMin: GUARDRAILS.intendedMin - SMOKE_STANDARD_ERRORS * se(GUARDRAILS.intendedMin),
+    badMax: GUARDRAILS.badMax + SMOKE_STANDARD_ERRORS * se(GUARDRAILS.badMax),
+    monoMax: GUARDRAILS.monoMax + SMOKE_STANDARD_ERRORS * se(GUARDRAILS.monoMax),
+  };
+}
+
+/** "alternative": the scenario's strongest known alternative plan, a diagnostic row (never gated). */
+export type PlanKind = "intended" | "bad" | "mono" | "alternative";
 
 export interface BalancePlan {
   name: string;
@@ -56,6 +78,7 @@ export function balancePlans(scenario: EngineScenario): BalancePlan[] {
   const plans: BalancePlan[] = [
     { name: "intended", kind: "intended", orders: scenario.referencePlans.intended },
     { name: "bad", kind: "bad", orders: scenario.referencePlans.bad },
+    ...(scenario.referencePlans.alternative ? [{ name: "strongest alternative", kind: "alternative" as const, orders: scenario.referencePlans.alternative }] : []),
   ];
   for (const doctrineId of scenario.playerDoctrineIds) {
     plans.push({
@@ -68,24 +91,48 @@ export function balancePlans(scenario: EngineScenario): BalancePlan[] {
 }
 
 /**
+ * Seed ranges (P7): balance is tuned on one range and gated on another, held out.
+ * - TUNING_SEEDS: what authors iterate on (scratch sweeps, ablation and scenario tests,
+ *   curated seeds). Anything goes.
+ * - GATE_SEEDS: only the balance gate reads these (`npm run balance`, the per-battle
+ *   guardrail tests). Never tune on them; curated seeds must stay out (pack lint).
+ * Every plan in a run plays the same seeds, so comparisons between plans stay paired.
+ */
+export const TUNING_SEEDS = { first: 1, size: 1000 } as const;
+export const GATE_SEEDS = { first: 100_001, size: 500 } as const;
+
+/** Whether `seed` is one of the held-out gate seeds. */
+export function isGateSeed(seed: number): boolean {
+  return seed >= GATE_SEEDS.first && seed < GATE_SEEDS.first + GATE_SEEDS.size;
+}
+
+/**
  * The guardrails are judged with the player-realistic "heuristic" muster; "none" (the
  * player never musters) is checked as a winnability floor. `kinds` limits the plans.
+ * Plays `seeds` seeds from `firstSeed` (default: the held-out gate range).
  */
 export function runBalance(
   scenario: EngineScenario,
   seeds: number,
   fortune: FortuneMode = "on",
   muster: MusterPolicy = "heuristic",
-  kinds: PlanKind[] = ["intended", "bad", "mono"],
+  kinds: PlanKind[] = ["intended", "bad", "mono", "alternative"],
+  firstSeed: number = GATE_SEEDS.first,
 ): BalanceRow[] {
   if (!Number.isInteger(seeds) || seeds < 1) {
     throw new Error(`Seed count must be a positive integer, got ${seeds}`);
+  }
+  if (!Number.isInteger(firstSeed) || firstSeed < 1) {
+    throw new Error(`First seed must be a positive integer, got ${firstSeed}`);
+  }
+  if (firstSeed === GATE_SEEDS.first && seeds > GATE_SEEDS.size) {
+    throw new Error(`The gate range holds ${GATE_SEEDS.size} seeds, not ${seeds}`);
   }
   return balancePlans(scenario).filter((plan) => kinds.includes(plan.kind)).map((plan) => {
     let wins = 0;
     let stalemates = 0;
     let objectiveSum = 0;
-    for (let seed = 1; seed <= seeds; seed += 1) {
+    for (let seed = firstSeed; seed < firstSeed + seeds; seed += 1) {
       const final = playBattle(scenario, plan.orders, seed, fortune, muster);
       wins += final.status === "victory" ? 1 : 0;
       stalemates += final.status === "stalemate" ? 1 : 0;
@@ -112,7 +159,7 @@ export function runBalance(
 export type GuardrailPolicy = "full" | "floor";
 
 /** Human-readable guardrail failures; empty only when the scenario is provably in balance (fails closed). */
-export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = "full"): string[] {
+export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = "full", limits: Guardrails = GUARDRAILS): string[] {
   const pct = (value: number) => `${Math.round(value * 100)}%`;
   const missing = (["intended", "bad"] as const)
     .filter((kind) => !rows.some((row) => row.kind === kind))
@@ -123,22 +170,22 @@ export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = 
     }
     if (policy === "floor") {
       const advance = row.winRate + row.stalemateRate;
-      if (row.kind === "intended" && advance < GUARDRAILS.intendedMin) {
-        return [`intended plan advances ${pct(advance)} (< ${pct(GUARDRAILS.intendedMin)})`];
+      if (row.kind === "intended" && advance < limits.intendedMin) {
+        return [`intended plan advances ${pct(advance)} (< ${pct(limits.intendedMin)})`];
       }
-      if (row.kind === "bad" && advance > GUARDRAILS.badMax) {
-        return [`bad plan advances ${pct(advance)} (> ${pct(GUARDRAILS.badMax)})`];
+      if (row.kind === "bad" && advance > limits.badMax) {
+        return [`bad plan advances ${pct(advance)} (> ${pct(limits.badMax)})`];
       }
       return [];
     }
-    if (row.kind === "intended" && row.winRate < GUARDRAILS.intendedMin) {
-      return [`intended plan wins ${pct(row.winRate)} (< ${pct(GUARDRAILS.intendedMin)})`];
+    if (row.kind === "intended" && row.winRate < limits.intendedMin) {
+      return [`intended plan wins ${pct(row.winRate)} (< ${pct(limits.intendedMin)})`];
     }
-    if (row.kind === "bad" && row.winRate > GUARDRAILS.badMax) {
-      return [`bad plan wins ${pct(row.winRate)} (> ${pct(GUARDRAILS.badMax)})`];
+    if (row.kind === "bad" && row.winRate > limits.badMax) {
+      return [`bad plan wins ${pct(row.winRate)} (> ${pct(limits.badMax)})`];
     }
-    if (row.kind === "mono" && row.winRate + row.stalemateRate >= GUARDRAILS.monoMax) {
-      return [`${row.name} advances ${pct(row.winRate + row.stalemateRate)} (>= ${pct(GUARDRAILS.monoMax)})`];
+    if (row.kind === "mono" && row.winRate + row.stalemateRate >= limits.monoMax) {
+      return [`${row.name} advances ${pct(row.winRate + row.stalemateRate)} (>= ${pct(limits.monoMax)})`];
     }
     return [];
   }));

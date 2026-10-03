@@ -9,7 +9,7 @@ import { playBattle, type GuardrailPolicy } from "../engine/balance";
 import type { EngineScenario } from "../engine/types";
 import { applyCampaign, recordBattle, REFORMED_RESOLVE, rosterFor, startCampaign } from "./campaign";
 import { isRollCampaign } from "./roll";
-import { rollCalls, type RollCallKind } from "./rollCalls";
+import { rollCallMatrix, type NotApplicableCall, type RollCallKind } from "./rollCalls";
 import type { CampaignDefinition, CampaignState } from "./types";
 
 export type RosterKind = "baseline" | "strong" | "rough";
@@ -113,17 +113,29 @@ export function balanceVariantsIn(
   scenario: EngineScenario,
   carryFrom?: () => CarrySource,
 ): BalanceVariant[] {
+  return balanceMatrixIn(campaigns, scenarios, scenario, carryFrom).variants;
+}
+
+/**
+ * The same, as a census: the variants plus every documented call that does not apply to
+ * this battle and why (a Roll battle's illegal flex-role patterns). A mandatory call that
+ * cannot be built throws (MissingCallError): the matrix never silently shrinks.
+ */
+export function balanceMatrixIn(
+  campaigns: readonly CampaignDefinition[],
+  scenarios: EngineScenario[],
+  scenario: EngineScenario,
+  carryFrom?: () => CarrySource,
+): { variants: BalanceVariant[]; notApplicable: NotApplicableCall[] } {
   const owner = campaigns.find((def) => def.battles.some((battle) => battle.scenarioId === scenario.id && !battle.placeholder));
-  if (!owner) return [{ kind: "baseline", policy: "full", scenario, roster: "" }];
-  if (!isRollCampaign(owner)) return balanceVariantsFor(owner, scenarios, scenario);
+  if (!owner) return { variants: [{ kind: "baseline", policy: "full", scenario, roster: "" }], notApplicable: [] };
+  if (!isRollCampaign(owner)) return { variants: balanceVariantsFor(owner, scenarios, scenario), notApplicable: [] };
   const index = owner.battles.findIndex((battle) => battle.scenarioId === scenario.id && !battle.placeholder);
-  return rollCalls(owner, scenarios, index, index === 0 ? carryFrom?.() : undefined).map((item) => ({
-    kind: item.kind,
-    name: item.name,
-    policy: item.policy,
-    scenario: item.scenario,
-    roster: item.roster,
-  }));
+  const matrix = rollCallMatrix(owner, scenarios, index, index === 0 ? carryFrom?.() : undefined);
+  return {
+    variants: matrix.calls.map((item) => ({ kind: item.kind, name: item.name, policy: item.policy, scenario: item.scenario, roster: item.roster })),
+    notApplicable: matrix.notApplicable,
+  };
 }
 
 /** The intro, completed along its curated path: the source of a strong player's carry-over. */

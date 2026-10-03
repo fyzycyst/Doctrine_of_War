@@ -185,7 +185,7 @@ export const readScenario: Reader<EngineScenario> = object({
   timeOfDayByPhase: opt(record((value, path) => String(int(1, 20)(Number(value), path)), oneOf(...HOURS), 20)),
   curatedSeed: opt(int(0, 0xffffffff)),
   forecast: opt(object({ start: req(oneOf(...WEATHER)), shiftChance: req(num(0, 1)), shifts: req(list(oneOf(...WEATHER), 4, 1)) })),
-  referencePlans: opt(object({ intended: req(orders), bad: req(orders) })),
+  referencePlans: opt(object({ intended: req(orders), bad: req(orders), alternative: opt(orders) })),
 }) as Reader<EngineScenario>;
 
 const profile = object({ strength: req(int(1, 100)), cohesion: req(int(1, 100)) });

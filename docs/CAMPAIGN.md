@@ -193,29 +193,69 @@ a fixed campaign's rosters, or the baseline.
 | role: … | the curated path | one per combination of flex-post roles (the most famous company of that role), when it can be filled legally | floor |
 | carried: recommended / greedy | battle 1 only, with the intro's 5 most famous companies carried in (`strongCarryOver`; at most `maxCarriedFielded` of them fielded) | recommended / greedy | full |
 
-Plans follow the call: on a flex post the reference plans use the call's doctrine for the
-role that fills it (`templatePlan`), so a frontline company riding the lances' post is
-judged on the lances' template, never on a cavalry plan. Every gated call is also played
-with no muster (the floor).
+**Reference plans are played exactly as authored on every call** (P7): every order a plan
+sets stands, whoever fills the post (doctrines are not tied to roles). The call's role
+template (`flex.doctrines`) only fills a flex post a plan leaves unset (`templatePlan`); a
+test pins every call's plans to the authored ones. Every gated call is also played with
+no muster (the floor).
+
+**The call census** (`rollCallMatrix`, P7): every documented call is built, or the run
+fails (`MissingCallError`); the matrix never silently shrinks. The only exception is a
+role pattern the Roll cannot legally field, listed as *not applicable* with its reason
+(Cinder Road 1: frontline on both flex posts "needs 5 frontline companies and the Roll
+has 4 ready"). `npm run balance` prints it.
 
 **Diagnostics, not gates** (decided on pilot evidence at the Oct 8 gate), printed by `npm
 run balance` with and without muster (`rollDiagnostics`):
 - **selection spread**: intended-plan advance on the best call minus the worst (proposed
   ≤ 25 points, ≥ 5 informational);
 - **plan beats roster**: the bad plan on the call where it does best still advances less
-  than the intended plan on the worst call.
+  than the intended plan on the worst call;
+- **strongest alternative** (when a scenario authors `referencePlans.alternative`, the
+  strongest known cheap plan): the intended plan's smallest lead over it across the calls
+  (negative = the alternative wins there). Played on every call, never gated.
 
 **Coverage matrix** (roster × plan × muster × seeds, and where it runs):
 
 | Where | Calls | Plans | Muster | Seeds |
 | --- | --- | --- | --- | --- |
-| `balance.<battle>.test.ts` (every `npm test`, one test per call) | every named call | intended, bad, every mono | heuristic; intended and bad also with none | 60, fortune on |
-| `npm run balance` (every content merge) | every named call | intended, bad, every mono | heuristic and none, plus the diagnostics | 500 (default), fortune on |
-| `campaign/cinderRoad.test.ts` | the authored call | intended and its ablations | none | 60 |
-| `fogProjection.test.ts` | the authored call | intended, bad, all Counterstroke, all Bring the Water | none | 10 (projection), 6 (decisions) |
+| `balance.<battle>.test.ts` (every `npm test`, one test per call: a **smoke test**) | every named call | heuristic: intended, bad, alternative, every mono; none: intended, bad, alternative | as listed | gate seeds 100001–100060, fortune on; thresholds relaxed by 2 binomial SE (`smokeGuardrails`) |
+| `npm run balance` (the gate; every content merge) | every named call, plus the census | the same | as listed, plus the diagnostics | gate seeds 100001–100500 (`--range gate`, default), fortune on |
+| `campaign/cinderRoad.test.ts` | the authored call | intended and its ablations | none (the banner ablation: heuristic) | tuning seeds 1–60 |
+| `fogProjection.test.ts` | the authored call | intended, bad, all Counterstroke, all Bring the Water | none | 10 (projection), 6 (decisions), random |
+
+**Seed ranges** (P7, `engine/balance.ts`): balance is tuned on `TUNING_SEEDS` (1–1000:
+sweeps, ablation tests, curated seeds) and gated on the held-out `GATE_SEEDS`
+(100001–100500), which only the gate reads. Never tune on the gate range; pack lint
+refuses a curated seed inside it. All plans in a run play the same seeds (paired).
 
 Sampling limits: 60 seeds at a true 75% has a standard error near 5.6 points, 500 seeds
 near 1.9. The calls sample reachable states; they do not prove every state.
+
+**The 60-seed smoke suite** judges each gated threshold relaxed by two binomial standard
+errors at n = 60, computed in code (`smokeGuardrails`, `SMOKE_STANDARD_ERRORS`): intended
+≥ 63.8%, bad ≤ 47.3%, mono < 72.6%. Each test prints the tolerance it used. It catches
+gross regressions without flaking on a 60-seed window; it is not the sign-off.
+
+**Balance merge checklist** (required before any content merge: a new or changed battle,
+doctrine, campaign, roster profile or Host schedule):
+1. `npm test` passes, including every `balance.<battle>.test.ts` smoke suite.
+2. **`npm run balance -- --seeds 500` (the gate range, the default) exits 0: the sign-off.**
+   Every gated call meets GUARDRAILS exactly on the held-out seeds 100001–100500.
+3. The census shows every documented call, and any *not applicable* entry has a reason.
+4. The diagnostics (selection spread, plan beats roster, strongest alternative) are read
+   and any change is noted in the merge description; they are not gates.
+5. Tuning happened on `--range tuning` (never on the gate range), and curated seeds stay
+   outside the gate range (pack lint).
+
+**Decision (2026-10-02, P7): roster- and muster-dependent best plans are accepted.**
+On *Cinder Road* battle 1, the strongest alternative (the stair held, everyone else
+marching, no banner) beats the intended plan with **no muster** on two calls (the
+frontline-bows role pattern by about 10 points, rough by about 5; about a tie on the
+recommended force). The banner with the assault is worth about +32 points when the player
+musters (relief and rallies) and about 0 when nobody does, while "keep the boats" and
+"march" are essential either way. That is a feature of the Roll, not a defect: the
+alternative stays a tracked diagnostic, and the briefing hints at the banner's role.
 
 **Carry-over and doctrine dominance.** Veterans make blunt plans stronger, and no
 threat adjustment fixes that without also wrecking the intended plan (with two carried

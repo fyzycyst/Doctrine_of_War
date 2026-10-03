@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { balancePlans, guardrailFailures, runBalance, type BalanceRow } from "./balance";
+import { balancePlans, GATE_SEEDS, guardrailFailures, isGateSeed, playBattle, runBalance, smokeGuardrails, TUNING_SEEDS, type BalanceRow } from "./balance";
+import { doctrineLibrary } from "./doctrines";
+import { prototypeScenarios } from "./fixtures/wagonPark";
 import { GUARDRAIL_SCENARIO_IDS } from "./guardrails.testkit";
+import { lintScenario } from "../packs/lint";
+import { registry } from "../packs/registry";
 import { scenarios } from "./scenarios";
 
 describe("balance guardrails (small-N version of npm run balance)", () => {
@@ -15,6 +19,46 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
   it("builds intended, bad and one mono plan per player doctrine", () => {
     const plans = balancePlans(scenarios[0]);
     expect(plans.map((plan) => plan.kind)).toEqual(["intended", "bad", "mono", "mono", "mono", "mono", "mono"]);
+  });
+
+  it("gates on held-out seeds: the gate range by default, disjoint from tuning, and never past its size", () => {
+    expect(GATE_SEEDS.first).toBeGreaterThan(TUNING_SEEDS.first + TUNING_SEEDS.size - 1);
+    const spy = scenarios[0];
+    const plan = spy.referencePlans!.intended;
+    // The default range is the gate range: runBalance(…, 12) plays exactly 100001..100012.
+    const wins = (first: number) =>
+      Array.from({ length: 12 }, (_, index) => playBattle(spy, plan, first + index, "on", "none")).filter((final) => final.status === "victory").length;
+    expect(runBalance(spy, 12, "on", "none", ["intended"])[0].wins).toBe(wins(GATE_SEEDS.first));
+    expect(runBalance(spy, 12, "on", "none", ["intended"], TUNING_SEEDS.first)[0].wins).toBe(wins(TUNING_SEEDS.first));
+    expect(isGateSeed(GATE_SEEDS.first) && isGateSeed(GATE_SEEDS.first + GATE_SEEDS.size - 1)).toBe(true);
+    expect(isGateSeed(GATE_SEEDS.first + GATE_SEEDS.size) || isGateSeed(TUNING_SEEDS.first + TUNING_SEEDS.size - 1)).toBe(false);
+    expect(() => runBalance(spy, GATE_SEEDS.size + 1)).toThrow(/gate range holds/);
+    expect(() => runBalance(spy, 1, "on", "none", ["intended"], 0)).toThrow(/First seed/);
+  });
+
+  it("the smoke suite's tolerance is two binomial standard errors at its seed count, never hand-picked", () => {
+    const smoke = smokeGuardrails(60);
+    expect(smoke.intendedMin).toBeCloseTo(0.75 - 2 * Math.sqrt((0.75 * 0.25) / 60), 10);
+    expect(smoke.intendedMin).toBeCloseTo(0.638, 3);
+    expect(smoke.badMax).toBeCloseTo(0.473, 3);
+    expect(smoke.monoMax).toBeCloseTo(0.726, 3);
+    // More seeds, tighter: the 500-seed gate itself is judged at GUARDRAILS exactly.
+    expect(smokeGuardrails(500).intendedMin).toBeGreaterThan(smoke.intendedMin);
+    const row = (kind: BalanceRow["kind"], winRate: number): BalanceRow => ({
+      name: kind, kind, orders: {}, games: 60, wins: winRate * 60, winRate, stalemates: 0, stalemateRate: 0, meanObjective: null,
+    });
+    // 42/60 = 70%: under the 75% gate, inside the smoke tolerance.
+    expect(guardrailFailures([row("intended", 0.7), row("bad", 0)], "floor")).toHaveLength(1);
+    expect(guardrailFailures([row("intended", 0.7), row("bad", 0)], "floor", smoke)).toEqual([]);
+    expect(guardrailFailures([row("intended", 0.6), row("bad", 0)], "floor", smoke)).toHaveLength(1);
+  });
+
+  it("no curated seed is a gate seed (pack lint enforces it)", () => {
+    for (const scenario of [...registry.scenarios(), ...prototypeScenarios]) {
+      if (scenario.curatedSeed !== undefined) expect(isGateSeed(scenario.curatedSeed), scenario.id).toBe(false);
+    }
+    const leaked = { ...registry.scenarios()[0], curatedSeed: GATE_SEEDS.first + 7 };
+    expect(lintScenario(leaked, doctrineLibrary).join()).toMatch(/held-out balance gate range/);
   });
 
   it("fails closed: bad seed counts, missing reference plans, missing rows and NaN rates", () => {

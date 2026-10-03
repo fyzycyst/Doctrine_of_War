@@ -336,9 +336,11 @@ chance outcome is an event with its own callout.
 
 ## Balance harness
 
-`npm run balance -- [--seeds 500] [--fortune on|off] [--scenario id]` (run via `vite-node`)
-plays each scenario's reference plans (`intended`, `bad`) and every mono-doctrine plan
-(all player squads on doctrine X) across seeds 1..N. Plans are played with a
+`npm run balance -- [--seeds 500] [--range gate|tuning] [--fortune on|off] [--scenario id]`
+(run via `vite-node`) plays each scenario's reference plans (`intended`, `bad`, and the
+optional diagnostic `alternative`) and every mono-doctrine plan (all player squads on
+doctrine X) on the held-out gate seeds 100001..100000+N (`--range tuning`: 1..N; see the
+seed ranges in docs/CAMPAIGN.md). Plans are played with a
 **muster policy**: `"heuristic"` (`heuristicMuster`: relieve an engaged company below 35
 cohesion with a fresh neighbour of 60+, then step idle fighting companies, those with
 no seen enemy within 3, toward the fight or the line of retreat; standards stay put;
@@ -381,12 +383,15 @@ Each battle has a **star doctrine** even when it uses a mix:
   it. The Host's outriders (the Drowned Hounds, the Ash Harriers) never fight: they run
   for the boats at the Heron Stair (`enemyEscape`, count 1), so a pure march loses
   whatever the force; the Wickmere Standard holds the stair on Shield the Line, and the
-  bows carry a banner with the assault. 500 seeds, fortune on, recommended call: intended
-  96.4% (90.6% with no muster), bad (the pure march) 0%, all Bring the Water 2.2%, every
-  other mono 0%. Ablations (heuristic / no muster): the standard leaving the stair 0% /
-  0–1%; no banner with the assault (bows on Bring the Water) 72.2% / 87.4%; the march on
-  Clean Counterstroke 0% / 0%. The banner matters with the player-realistic muster and
-  on weak forces (weakest legal: 81% with it, 41% without). **Keep step is inert here:** the Sunward Lances (cavalry) never get 2 hexes ahead of
+  bows carry a banner with the assault. Gate seeds (100001–100500), fortune on,
+  recommended call: intended 95.6% (90.8% with no muster), bad (the pure march, played
+  as authored since P7) 1.4% (2.0%), all Bring the Water 1.4%, every other mono 0%; the
+  strongest alternative (the stair held, no banner) 63.2% (90.0%). With no muster that
+  alternative beats the intended plan on two calls (docs/CAMPAIGN.md). Ablations (tuning
+  seeds, heuristic / no muster): the standard leaving the stair 0% / 0–1%; no banner
+  with the assault (bows on Bring the Water) 72.2% / 87.4%; the march on Clean
+  Counterstroke 0% / 0%. The banner matters with the player-realistic muster and on weak
+  forces (weakest legal: 81% with it, 41% without). **Keep step is inert here:** the Sunward Lances (cavalry) never get 2 hexes ahead of
   every other company (they move after the infantry, and lead by at most 1), so Bring the
   Water without `btw_step` scores the same. Every named call is in docs/CAMPAIGN.md.
 - *The Wagon Park* (prototype, `fixtures/wagonPark.ts`, P4): the first battle with
