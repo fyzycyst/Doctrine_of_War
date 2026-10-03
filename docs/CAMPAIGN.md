@@ -226,8 +226,12 @@ run balance` with and without muster (`rollDiagnostics`):
 
 **Seed ranges** (P7, `engine/balance.ts`): balance is tuned on `TUNING_SEEDS` (1–1000:
 sweeps, ablation tests, curated seeds) and gated on the held-out `GATE_SEEDS`
-(100001–100500), which only the gate reads. Never tune on the gate range; pack lint
-refuses a curated seed inside it. All plans in a run play the same seeds (paired).
+(100001–100500): every *scored* gate trial is played on gate seeds. One exception, by
+design: the curated-path roster state (the `curated` call, and carried calls built from a
+completed intro) is *constructed* by replaying earlier battles at their curated seeds,
+which lie in the tuning range; only that setup reads tuning seeds, never a scored trial.
+Never tune on the gate range; pack lint refuses a curated seed inside it. All plans in a
+run play the same seeds (paired).
 
 Sampling limits: 60 seeds at a true 75% has a standard error near 5.6 points, 500 seeds
 near 1.9. The calls sample reachable states; they do not prove every state.

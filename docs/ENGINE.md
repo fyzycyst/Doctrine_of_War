@@ -400,8 +400,9 @@ Each battle has a **star doctrine** even when it uses a mix:
   four companies on the wagon park (integrity 48) while a Rescue Standard keeps them
   standing against the Kept Coal's dread and the thralls' Terror Push charge. Everyone on
   Bring the Water, standard included, is a storm without a standard and breaks on the
-  guard. 500 seeds, fortune on: intended 93% (91.8% with no muster), bad 0%, all Bring
-  the Water 23%, every other mono 0%. `btw_step` (keep step) does not fire in this
+  guard. Gate range (seeds 100001–100500), fortune on: intended 90.8% (91.2% with no
+  muster), bad 0%, all Bring the Water 16.6%, every other mono 0%. (Tuning-range figures
+  from authoring were 93% / 91.8% / 23%.) `btw_step` (keep step) does not fire in this
   fixture's intended plan (the line starts and moves together); it is the guard against
   a fast or forward company arriving alone, covered by `offensive.test.ts`.
 
