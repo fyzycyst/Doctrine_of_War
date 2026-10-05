@@ -3,7 +3,7 @@ import { hexKey, hexNeighbors, hexDistance, type BoardHex, type BoardLayout, typ
 import { GeoBuilder, color, jitterColor, trs } from "../geo/GeoBuilder";
 import { boardCenter, hexCorner, hexRandom, hexToWorld, islandShore, mulberry32 } from "../hexWorld";
 import type { Skin } from "../skins/types";
-import { buildObjectiveProps, objectiveDressing, roadGoal, type ObjectiveProp, type ObjectiveStage } from "./objectiveProps";
+import { buildObjectiveProps, nearestRoadGoal, objectiveDressing, roadGoal, type ObjectiveProp, type ObjectiveStage } from "./objectiveProps";
 
 /**
  * Builds the floating-island diorama from a BoardLayout: extruded hex columns
@@ -819,9 +819,11 @@ function drawRoads(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], roadC
   const byKey = new Map(hexes.map((h) => [hexKey(h.coord), h]));
   const roads = layout.hexes.filter((h) => h.terrain === "road");
   if (roads.length === 0) return;
-  // The Host's objective when there is one (M2: a board may have two), else the first.
+  // Each road leads to its nearest objective, ties to the Host's (M2: a board may have
+  // two); with none, to the first wall.
   const goalCoord = roadGoal(layout);
   const goal = goalCoord ? { coord: goalCoord } : undefined;
+  const goalFor = (c: HexCoord) => nearestRoadGoal(layout, c) ?? goalCoord!;
   const isRoadish = (c: HexCoord) => {
     const h = layout.hexes.find((x) => x.coord.q === c.q && x.coord.r === c.r);
     return h && (h.terrain === "road" || h.terrain === "wall");
@@ -830,15 +832,18 @@ function drawRoads(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], roadC
   const inflow = new Set<string>();
   for (const road of roads) {
     const from = byKey.get(hexKey(road.coord))!;
-    const options = hexNeighbors(road.coord).filter(isRoadish);
-    if (!goal || options.length === 0) continue;
-    const here = hexDistance(road.coord, goal.coord);
+    if (!goal) continue;
+    const target = goalFor(road.coord);
+    // A road may run up to its objective's hex too (half a strip, to the edge).
+    const options = hexNeighbors(road.coord).filter((n) => isRoadish(n) || hexKey(n) === hexKey(target));
+    if (options.length === 0) continue;
+    const here = hexDistance(road.coord, target);
     const best = options
-      .filter((n) => hexDistance(n, goal.coord) < here)
-      .sort((a, c) => hexDistance(a, goal.coord) - hexDistance(c, goal.coord))[0];
+      .filter((n) => hexDistance(n, target) < here)
+      .sort((a, c) => hexDistance(a, target) - hexDistance(c, target))[0];
     if (!best) continue;
     const to = byKey.get(hexKey(best))!;
-    const toWall = layout.hexes.find((h) => hexKey(h.coord) === hexKey(best))?.terrain === "wall";
+    const toWall = layout.hexes.find((h) => hexKey(h.coord) === hexKey(best))?.terrain !== "road";
     edges.push([from, to, toWall]);
     inflow.add(hexKey(best));
   }

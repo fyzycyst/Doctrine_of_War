@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { BoardLayout } from "../../game/board";
+import type { BoardLayout, HexCoord } from "../../game/board";
 import { boardCenter, boardRadius, hexToWorld } from "../hexWorld";
 
 /** Pure camera framing (no React/drei): shared by DioramaCamera, the Diorama's fog offset and tests. */
@@ -54,3 +54,19 @@ export function closeShot(target: [number, number, number]): CameraShot {
   return { target: [target[0] - 0.9, target[1] + 0.1, target[2] - 0.6], azimuth: 18, polar: 56, distance: 6.2 };
 }
 
+
+/**
+ * A close beat on a few hexes of a board (e.g. Cinder Road 2's Sluice Walk and the
+ * sluice as the ram arrives): the plain close shot, centred on their middle and
+ * pulled back just enough to hold them all. Same framing as `closeShot`; no new type.
+ */
+export function closeShotOn(board: BoardLayout, hexes: HexCoord[], azimuth?: number): CameraShot {
+  const center = boardCenter(board);
+  const pts = hexes.map((h) => hexToWorld(h, center));
+  const mx = pts.reduce((s, p) => s + p[0], 0) / Math.max(1, pts.length);
+  const mz = pts.reduce((s, p) => s + p[1], 0) / Math.max(1, pts.length);
+  const spread = Math.max(0, ...pts.map((p) => Math.hypot(p[0] - mx, p[1] - mz)));
+  // closeShot frames a point offset from its argument; undo that so the middle is centred.
+  const base = closeShot([mx + 0.9, 0.3, mz + 0.6]);
+  return { ...base, azimuth: azimuth ?? base.azimuth, distance: base.distance + spread * 2.2 };
+}
