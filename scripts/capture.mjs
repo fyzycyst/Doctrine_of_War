@@ -103,6 +103,16 @@ jobs.push(
   { name: "campaign-n11-focus", query: "view=campaign&campaignMock=n11&focus=battle_7" },
   { name: "campaign-select", query: "view=campaignSelect" },
   { name: "campaign-select-highlight", query: "view=campaignSelect&highlight=cinder-road" },
+  // T25 §3: framing for a panel docked on the left, the visible highlight, and reduced motion.
+  ...[
+    [1600, 1000],
+    [1280, 800],
+  ].flatMap(([width, height]) => [
+    { name: `t25-campaign-right-${width}`, query: "view=campaignSelect&framing=right&panel=1&highlight=cinder-road", width, height },
+    { name: `t25-skirmish-right-${width}`, query: "view=campaignSelect&skirmish=1&framing=right&panel=1&highlight=ember-ford", width, height },
+  ]),
+  { name: "t25-skirmish-right-nohighlight", query: "view=campaignSelect&skirmish=1&framing=right&panel=1" },
+  { name: "t25-campaign-reduced", query: "view=campaignSelect&framing=right&panel=1&highlight=cinder-road&motion=reduce" },
   { name: "path-craneInGate", query: "preset=dusk&figures=a&path=craneInGate&seq=1", sequence: { frames: 3, fps: 0.35 } },
   // The dawn turn as the stage plays it (2 s cross-fade), wide.
   {

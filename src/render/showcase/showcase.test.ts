@@ -39,6 +39,25 @@ describe("showcase", () => {
     expect(Math.min(...CLUSTER_SLOTS.map((s) => s[0]))).toBeGreaterThan(0);
   });
 
+  it("campaign-select backdrop: reduced motion keeps every island in place, and the right framing shifts the view", async () => {
+    const { clusterSlots, clusterSlot, framingViewOffset } = await import("./CampaignSelectBackdrop");
+    // Under reduced motion the highlight is a rim light only: nothing changes places.
+    expect(clusterSlots(["a", "b", "c"], "c", { reduced: true })).toEqual([0, 1, 2]);
+    expect(clusterSlots(["a", "b", "c"], "c")).toEqual([1, 2, 0]);
+    // "center" leaves the camera alone; "right" nudges the picture right (the camera also steps back).
+    expect(framingViewOffset("center", 1600)).toBe(0);
+    expect(framingViewOffset("right", 1600)).toBe(-96);
+    // More campaigns than the composed slots still get their own places.
+    const placed = Array.from({ length: 8 }, (_, i) => clusterSlot(i));
+    for (let i = 0; i < placed.length; i += 1) {
+      for (let j = i + 1; j < placed.length; j += 1) {
+        const [ax, , az] = placed[i];
+        const [bx, , bz] = placed[j];
+        expect(Math.hypot(ax - bx, az - bz), `${i}-${j}`).toBeGreaterThan(7);
+      }
+    }
+  });
+
   it("builds placeholder boards for unbuilt battles", () => {
     const marsh = placeholderBoard("saltmarsh");
     expect(marsh.hexes.some((h) => h.terrain === "ford")).toBe(true);
