@@ -12,8 +12,17 @@ import { useFlow } from "./flow/flowStore";
 import { DoctrineEditor } from "./variants/DoctrineEditor";
 import { useVariants } from "./variants/variantStore";
 import { TitleScreen } from "./flow/TitleScreen";
-import { HowToPlay } from "./guide/HowToPlay";
+import { FieldManual } from "./guide/FieldManual";
+import { pressed, isTyping } from "./shortcuts";
+import type { HelpPageId } from "./flow/flowStore";
 import { SettingsDialog } from "./ui/SettingsDialog";
+
+/** The Field Manual page F1 opens on, by screen. */
+const HELP_FOR_SCREEN: Partial<Record<ReturnType<typeof useFlow.getState>["screen"], HelpPageId>> = {
+  roll: "call",
+  campaigns: "modes",
+  skirmish: "modes",
+};
 
 /**
  * The whole game: title → campaign map → battle → campaign map … → ending.
@@ -38,6 +47,18 @@ export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: st
   useEffect(() => {
     if (useVariants.getState().status === "idle") void useVariants.getState().load();
   }, []);
+  // F1 or ? opens the Field Manual anywhere outside a text box, on the page for where you are (T26).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!pressed("help", event) || isTyping(event.target) || event.defaultPrevented) return;
+      const flow = useFlow.getState();
+      if (flow.howToOpen || document.querySelector("dialog[open]")) return;
+      event.preventDefault();
+      flow.openHelp(HELP_FOR_SCREEN[flow.screen] ?? "play");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (isCaptureToggle(event)) {
@@ -59,7 +80,7 @@ export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: st
       {screen === "battle" && <App still={still} pauseAt={pauseAt} />}
       {screen === "ending" && <EndScreen />}
       {settingsOpen && !captureMode && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
-      {howToOpen && !captureMode && <HowToPlay onClose={() => setHowToOpen(false)} />}
+      {howToOpen && !captureMode && <FieldManual onClose={() => setHowToOpen(false)} />}
       {editor && !captureMode && <DoctrineEditor target={editor} onClose={() => setEditor(null)} />}
     </>
   );

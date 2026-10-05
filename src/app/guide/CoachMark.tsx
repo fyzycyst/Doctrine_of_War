@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { COACH_COPY, type CoachCopy } from "./coach";
 import { COACH_STEPS, useGuide, type CoachStep } from "./guideStore";
+import { pressed } from "../shortcuts";
 
 export type Placement = "above" | "below" | "left" | "right";
 
@@ -110,7 +111,7 @@ export function CoachMark({
   useEffect(() => {
     // Capture phase, so Escape skips the guide without also skipping playback.
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (pressed("skipGuide", event)) {
         event.preventDefault();
         event.stopPropagation();
         skip();

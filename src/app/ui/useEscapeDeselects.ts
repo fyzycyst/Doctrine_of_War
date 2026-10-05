@@ -8,11 +8,12 @@
 import { useEffect } from "react";
 import { useGame } from "../game/gameStore";
 import { useAppStore } from "../store";
+import { pressed } from "../shortcuts";
 
 export function useEscapeDeselects() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (!pressed("deselect", event) || event.defaultPrevented) return;
       const stage = useGame.getState().stage;
       if (stage !== "deploy" && stage !== "command") return;
       if (document.querySelector("dialog[open]")) return;

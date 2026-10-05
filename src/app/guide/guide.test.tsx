@@ -156,12 +156,12 @@ describe("first-battle coach marks", () => {
   });
 });
 
-describe("How to play", () => {
+describe("How to play (the Field Manual's first page)", () => {
   it("opens from the title and from Settings, and Settings can show the guide again", async () => {
     const user = userEvent.setup();
     act(() => useGuide.setState({ introSeen: true, coach: "done" }));
     render(<Root />);
-    await user.click(screen.getByRole("button", { name: "How to play" }));
+    await user.click(screen.getByRole("button", { name: "Help" }));
     const page = screen.getByRole("dialog", { name: "How to play" });
     for (const heading of ["The doctrine loop", "A doctrine", "Three beats a phase", "Resolve and renown", "Fortune", "Fog of war"]) {
       expect(within(page).getByRole("heading", { name: heading })).toBeInTheDocument();
@@ -172,7 +172,7 @@ describe("How to play", () => {
     await user.click(screen.getByRole("button", { name: "Settings" }));
     await user.click(screen.getByRole("button", { name: "Show the guide again" }));
     expect(guide()).toMatchObject({ introSeen: false, coach: "active", step: "select" });
-    await user.click(within(screen.getByRole("dialog", { name: "Settings" })).getByRole("button", { name: "How to play" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Settings" })).getByRole("button", { name: "Field Manual" }));
     expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
   });

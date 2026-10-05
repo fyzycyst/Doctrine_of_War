@@ -3,6 +3,7 @@
 // onto the real controls. Esc, the (?) button again, or a click anywhere closes it.
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { place, type Layout, type Placement } from "./CoachMark";
+import { pressed } from "../shortcuts";
 
 /** A note's place: beside its target (a coach-mark layout), or `inside` it (no pennant). */
 export type HelpLayout = Layout & { inside?: boolean };
@@ -37,7 +38,7 @@ interface Placed {
   layout: HelpLayout | null;
 }
 
-export function CallHelp({ notes, onClose }: { notes: CallHelpNote[]; onClose: () => void }) {
+export function CallHelp({ notes, onClose, onMore }: { notes: CallHelpNote[]; onClose: () => void; /** Opens the Field Manual's page on this. */ onMore?: () => void }) {
   const panels = useRef<(HTMLElement | null)[]>([]);
   const close = useRef<HTMLButtonElement>(null);
   const [placed, setPlaced] = useState<Placed[]>([]);
@@ -81,7 +82,7 @@ export function CallHelp({ notes, onClose }: { notes: CallHelpNote[]; onClose: (
   useEffect(() => {
     // Capture phase: Escape closes the help and nothing underneath (a list, the post) sees it.
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (!pressed("listClose", event)) return;
       event.preventDefault();
       event.stopPropagation();
       onClose();
@@ -137,9 +138,23 @@ export function CallHelp({ notes, onClose }: { notes: CallHelpNote[]; onClose: (
           );
         })}
       </ol>
-      <button ref={close} type="button" className="btn-command call-help-close" onClick={onClose}>
-        Got it <kbd>Esc</kbd>
-      </button>
+      <div className="call-help-actions">
+        {onMore && (
+          <button
+            type="button"
+            className="btn-quiet"
+            onClick={(event) => {
+              event.stopPropagation();
+              onMore();
+            }}
+          >
+            More in the Field Manual
+          </button>
+        )}
+        <button ref={close} type="button" className="btn-command" onClick={onClose}>
+          Got it <kbd>Esc</kbd>
+        </button>
+      </div>
     </div>
   );
 }

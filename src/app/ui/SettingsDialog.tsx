@@ -71,7 +71,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const close = useRef<HTMLButtonElement>(null);
   // Open at the top (the list now scrolls): focus lands on the heading, not on Done at the foot.
   const heading = useRef<HTMLHeadingElement>(null);
-  const setHowToOpen = useFlow((s) => s.setHowToOpen);
+  const openHelp = useFlow((s) => s.openHelp);
   const setEditor = useFlow((s) => s.setEditor);
   const saveStore = useFlow((s) => s.store);
   const activeCampaign = useFlow((s) => s.definition.id);
@@ -197,10 +197,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 className="btn-quiet"
                 onClick={() => {
                   onClose();
-                  setHowToOpen(true);
+                  openHelp();
                 }}
               >
-                How to play
+                Field Manual
               </button>
               <button type="button" className="btn-quiet" disabled={guideFresh} onClick={resetGuide}>
                 {guideFresh ? "Guide ready" : "Show the guide again"}

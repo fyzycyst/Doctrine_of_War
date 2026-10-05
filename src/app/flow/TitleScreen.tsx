@@ -55,7 +55,7 @@ export function TitleScreen({ onSettings, onHowTo, onEditor }: { onSettings?: ()
           </button>
           {onHowTo && (
             <button type="button" className="btn-quiet" onClick={onHowTo}>
-              How to play
+              Help
             </button>
           )}
           {onEditor && (
