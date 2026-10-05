@@ -82,7 +82,7 @@ describe("the pack schema keeps up with the engine", () => {
     }
   });
 
-  it("round-trips every core doctrine and the offensive kinds (aheadOfLine, breakObjective)", () => {
+  it("round-trips every core doctrine and the offensive kinds (aheadOfLine, breakObjective, objectiveLost)", () => {
     for (const doctrine of Object.values(doctrineLibrary)) {
       expect(readDoctrine(JSON.parse(JSON.stringify(doctrine)), "doctrine"), doctrine.id).toEqual(doctrine);
     }
@@ -90,6 +90,9 @@ describe("the pack schema keeps up with the engine", () => {
     const offensive = { ...structuredClone(scenarios[0]), id: "offensive", winCondition: { kind: "breakObjective", objectiveId: scenarios[0].objectives[0].id } };
     expect(readScenario(JSON.parse(JSON.stringify(offensive)), "scenario")).toEqual(offensive);
     expect(() => readScenario({ ...offensive, winCondition: { kind: "breakObjective" } }, "scenario")).toThrow(/objectiveId is required/);
+    const guarded = { ...offensive, defeatConditions: [{ kind: "objectiveLost", objectiveId: "anything" }] };
+    expect(readScenario(JSON.parse(JSON.stringify(guarded)), "scenario")).toEqual(guarded);
+    expect(() => readScenario({ ...offensive, defeatConditions: [{ kind: "objectiveLost" }] }, "scenario")).toThrow(/objectiveId is required/);
     const ahead = { kind: "aheadOfLine", by: 99 };
     const doctrine = { ...structuredClone(doctrineLibrary.shield_the_line), rules: [{ id: "x", label: "If ahead → hold", when: ahead, then: { kind: "hold" } }] };
     expect(() => readDoctrine(doctrine, "doctrine")).toThrow(/by must be an integer in 1\.\.8/);

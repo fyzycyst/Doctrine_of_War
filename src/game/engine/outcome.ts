@@ -18,6 +18,13 @@ export function exitHexesFor(scenario: EngineScenario, faction: FactionId): HexC
 /** Throws on win/defeat-condition data that could never be evaluated correctly. */
 export function validateWinCondition(scenario: EngineScenario) {
   for (const condition of scenario.defeatConditions ?? []) {
+    if (condition.kind === "objectiveLost") {
+      const objective = scenario.objectives.find((item) => item.id === condition.objectiveId);
+      if (!objective || objective.defender !== scenario.playerFaction || !(objective.integrity > 0)) {
+        throw new Error(`Scenario ${scenario.id}: objectiveLost needs a standing player-defended objective ${condition.objectiveId}`);
+      }
+      continue;
+    }
     if (condition.count < 1 || (condition.kind === "enemyEscape" && condition.edgeHexes.length === 0)) {
       throw new Error(`Scenario ${scenario.id}: invalid ${condition.kind} defeat condition`);
     }
@@ -170,7 +177,12 @@ export function evaluateOutcome(state: EngineState, scenario: EngineScenario, fi
   }
 
   for (const condition of scenario.defeatConditions ?? []) {
-    if (condition.kind === "enemyEscape") {
+    if (condition.kind === "objectiveLost") {
+      const objective = state.objectives.find((item) => item.id === condition.objectiveId);
+      if (objective && objective.integrity <= 0) {
+        return { status: "defeat", reason: `${objective.name} has fallen.` };
+      }
+    } else if (condition.kind === "enemyEscape") {
       const through = state.squads.filter(
         (squad) => squad.faction !== scenario.playerFaction && squad.status === "escaped",
       ).length;

@@ -48,7 +48,9 @@ export function conditionsInWords(scenario: EngineScenario): { win: string; lose
     lose.push(
       condition.kind === "enemyEscape"
         ? `${condition.count} enemy ${condition.count === 1 ? "company slips" : "companies slip"} past your line.`
-        : `${condition.count} of your companies are routed or destroyed.`,
+        : condition.kind === "objectiveLost"
+          ? `${objective(condition.objectiveId)} is battered down.`
+          : `${condition.count} of your companies are routed or destroyed.`,
     );
   }
   lose.push("Every one of your companies leaves the field.");

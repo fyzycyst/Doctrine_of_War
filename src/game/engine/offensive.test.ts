@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { doctrineLibrary } from "./doctrines";
 import { wagonPark } from "./fixtures/wagonPark";
 import { createInitialState, resolvePhase } from "./resolvePhase";
-import { evaluateCondition } from "./rules";
+import { chooseRule, evaluateCondition, resolveTarget } from "./rules";
 import { actionContext, advanceRate, library, scenario, squad } from "./testKit";
 import type { EngineEvent, EngineScenario, ObjectiveSetup, SquadSetup } from "./types";
 
@@ -160,4 +160,84 @@ describe("The Wagon Park (prototype, Banner initiative under fog)", () => {
     const noMarch = Object.fromEntries(Object.entries(intended).map(([id, doctrineId]) => [id, doctrineId === BTW ? "clean_counterstroke" : doctrineId]));
     expect(base - advanceRate(wagonPark, noMarch)).toBeGreaterThanOrEqual(0.15);
   }, 60_000);
+});
+
+describe("objectiveLost (C2): break theirs before they break ours", () => {
+  // The Host's wagons in one corner, the Banners' sluice in the other.
+  const wagons: ObjectiveSetup = { id: "park", name: "The Park", description: "", hex: { q: 1, r: 4 }, integrity: 30, defender: AH };
+  const sluice: ObjectiveSetup = { id: "sluice", name: "The Sluice", description: "", hex: { q: 6, r: 0 }, integrity: 12, defender: FB };
+  const twoObjectives = (overrides: Partial<EngineScenario> = {}) =>
+    scenario({
+      initiativeSide: FB,
+      objectives: [wagons, sluice],
+      winCondition: { kind: "breakObjective", objectiveId: "park" },
+      defeatConditions: [{ kind: "objectiveLost", objectiveId: "sluice" }],
+      squads: [
+        squad("p", FB, { q: 4, r: 4 }),
+        // A Host ram beside the Banners' sluice: one siege blow at full strength breaks it.
+        squad("ram", AH, { q: 5, r: 0 }, { doctrineId: "break_the_gate", role: "siege", strength: 100 }),
+      ],
+      ...overrides,
+    });
+
+  it("is a defeat the moment the player's objective is battered to 0, mid-beat", () => {
+    const { state, events } = run(twoObjectives());
+    expect(state.status).toBe("defeat");
+    expect(state.objectives.find((item) => item.id === "sluice")?.integrity).toBe(0);
+    expect(events.at(-1)).toMatchObject({ kind: "outcome", status: "defeat", beat: 1, reason: "The Sluice has fallen." });
+  });
+
+  it("is checked after the win: breaking theirs first still wins", () => {
+    const scen = twoObjectives({
+      squads: [
+        squad("p", FB, { q: 2, r: 4 }, { doctrineId: BTW, strength: 100 }),
+        squad("p2", FB, { q: 2, r: 3 }, { doctrineId: BTW, strength: 100 }),
+        squad("h", AH, { q: 6, r: 4 }),
+      ],
+    });
+    expect(run(scen).state.status).toBe("victory");
+  });
+
+  it("fails closed at battle start: the objective must exist, stand, and be the player's", () => {
+    const lost = (objectiveId: string, objectives = [wagons, sluice]) =>
+      () => createInitialState(twoObjectives({ objectives, defeatConditions: [{ kind: "objectiveLost", objectiveId }] }));
+    expect(lost("ghost")).toThrow(/objectiveLost needs a standing player-defended objective ghost/);
+    expect(lost("park")).toThrow(/objectiveLost needs/); // the enemy's
+    expect(lost("sluice", [wagons, { ...sluice, integrity: 0 }])).toThrow(/objectiveLost needs/);
+    expect(lost("sluice")).not.toThrow();
+  });
+
+  it("with a friendly and an enemy objective, every selector and condition picks the right one", () => {
+    const scen = twoObjectives({
+      squads: [
+        squad("holder", FB, { q: 5, r: 1 }, { doctrineId: "hold_for_dawn" }),
+        squad("marcher", FB, { q: 4, r: 2 }, { doctrineId: BTW }),
+        squad("raider", AH, { q: 6, r: 1 }, { doctrineId: "break_the_gate" }),
+      ],
+    });
+    const kit = actionContext(scen);
+    const holder = kit.get("holder");
+    const marcher = kit.get("marcher");
+    const raider = kit.get("raider");
+    const target = (who: typeof holder, side: "own" | "enemy") => {
+      const resolved = resolveTarget(kit.ctx, who, { kind: "objective", side });
+      return resolved?.kind === "objective" ? resolved.objective.id : null;
+    };
+    // Hold for Dawn takes position at its own objective: the sluice, never the park.
+    expect(chooseRule(kit.ctx, holder, doctrineLibrary.hold_for_dawn)?.id).toBe("hfd_endure"); // the raider is adjacent
+    expect(target(holder, "own")).toBe("sluice");
+    // Bring the Water marches on the enemy's: the park, never the sluice.
+    expect(target(marcher, "enemy")).toBe("park");
+    // The Host's enemy objective is the Banners' sluice; its own is the park.
+    expect(target(raider, "enemy")).toBe("sluice");
+    expect(target(raider, "own")).toBe("park");
+    // atObjective is about the objective a side assaults; objectiveThreatened about its own.
+    expect(evaluateCondition(kit.ctx, raider, { kind: "atObjective" })).toBe(true);
+    expect(evaluateCondition(kit.ctx, holder, { kind: "atObjective" })).toBe(false);
+    expect(evaluateCondition(kit.ctx, holder, { kind: "objectiveThreatened" })).toBe(true);
+    expect(evaluateCondition(kit.ctx, raider, { kind: "objectiveThreatened" })).toBe(false);
+    // Keep step measures the line against the enemy's objective.
+    const near = actionContext(twoObjectives({ squads: [squad("a", FB, { q: 2, r: 3 }, { doctrineId: BTW }), squad("b", FB, { q: 5, r: 4 }, { doctrineId: BTW }), squad("h", AH, { q: 6, r: 4 })] }));
+    expect(evaluateCondition(near.ctx, near.get("a"), { kind: "aheadOfLine", by: 2 })).toBe(true);
+  });
 });
