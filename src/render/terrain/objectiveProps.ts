@@ -48,6 +48,43 @@ export function objectiveFacing(board: BoardLayout, at: HexCoord): [number, numb
   return len < 1e-6 ? [-1, 0] : [dx / len, dz / len];
 }
 
+/**
+ * Where the board's roads lead: the Host's objective (the one the Banners
+ * attack) when one can be told from the board, else the first objective, else
+ * the first wall. An objective is the Host's by its kind (barricade, wagons; a
+ * sluice is always the Banners'), by who deploys on it, or else by lying nearer
+ * the Host's deployment than the Banners'. Independent of the hex list's order.
+ */
+export function roadGoal(board: BoardLayout): HexCoord | null {
+  const objectives = board.hexes.filter((h) => h.objectiveId);
+  const center = boardCenter(board);
+  const centroid = (faction: string) => {
+    const pts = board.hexes.filter((h) => h.deploymentFaction === faction).map((h) => hexToWorld(h.coord, center));
+    if (pts.length === 0) return null;
+    return [pts.reduce((s, p) => s + p[0], 0) / pts.length, pts.reduce((s, p) => s + p[1], 0) / pts.length] as const;
+  };
+  const host = centroid("ashen_host");
+  const banners = centroid("free_banners");
+  const hostness = (h: BoardHex) => {
+    let score = 0;
+    if (h.objectiveKind === "barricade" || h.objectiveKind === "wagons") score += 100;
+    if (h.objectiveKind === "sluice") score -= 100;
+    if (h.deploymentFaction === "ashen_host") score += 50;
+    if (h.deploymentFaction === "free_banners") score -= 50;
+    if (host && banners) {
+      const [x, z] = hexToWorld(h.coord, center);
+      score += Math.hypot(x - banners[0], z - banners[1]) - Math.hypot(x - host[0], z - host[1]);
+    }
+    return score;
+  };
+  const ranked = objectives
+    .map((h) => ({ h, score: hostness(h) }))
+    .filter((o) => o.score > 0)
+    // Ties broken by coordinate, never by list order.
+    .sort((a, b) => b.score - a.score || a.h.coord.q - b.h.coord.q || a.h.coord.r - b.h.coord.r);
+  return (ranked[0]?.h ?? objectives[0] ?? board.hexes.find((h) => h.terrain === "wall"))?.coord ?? null;
+}
+
 /** How far an objective has been battered (the Diorama's `objectiveStates`). */
 export type ObjectiveStage = "intact" | "battered" | "broken";
 export const OBJECTIVE_STAGES: readonly ObjectiveStage[] = ["intact", "battered", "broken"];

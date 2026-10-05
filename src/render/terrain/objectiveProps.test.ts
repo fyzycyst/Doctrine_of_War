@@ -9,7 +9,7 @@ import { boardCenter, hexToWorld } from "../hexWorld";
 import { LAB_SLUICE, LAB_WAGON_PARK, twoObjectivesBoard } from "../lab/twoObjectives";
 import { emberDusk } from "../skins";
 import { buildIsland } from "./buildIsland";
-import { objectiveDressing, objectiveFacing, OBJECTIVE_STAGES } from "./objectiveProps";
+import { objectiveDressing, objectiveFacing, OBJECTIVE_STAGES, roadGoal } from "./objectiveProps";
 
 const hex = (over: Partial<BoardHex>): BoardHex => ({ coord: { q: 0, r: 0 }, terrain: "field", ...over });
 const count = (g: { getAttribute(n: string): { count: number } } | null | undefined) => g?.getAttribute("position").count ?? 0;
@@ -45,6 +45,25 @@ describe("objective dressing (M2)", () => {
     const [dx, dz] = objectiveFacing(cinderRoad1.board, SALTGATE_BARRICADE);
     expect(Math.hypot(dx, dz)).toBeCloseTo(1);
     expect((dx * tx + dz * tz) / Math.hypot(tx, tz)).toBeGreaterThan(0.95);
+  });
+});
+
+describe("where the roads lead (M2 follow-up)", () => {
+  it("prefers the Host's objective, whatever the order of the hex list", () => {
+    expect(hexKey(roadGoal(twoObjectivesBoard)!)).toBe(hexKey(LAB_WAGON_PARK));
+    const reversed = { ...twoObjectivesBoard, hexes: [...twoObjectivesBoard.hexes].reverse() };
+    expect(hexKey(roadGoal(reversed)!)).toBe(hexKey(LAB_WAGON_PARK));
+    // Without kinds, the objective on or toward the Host's ground is still theirs.
+    const bare = { ...twoObjectivesBoard, hexes: twoObjectivesBoard.hexes.map(({ objectiveKind: _k, ...h }) => h) };
+    expect(hexKey(roadGoal(bare)!)).toBe(hexKey(LAB_WAGON_PARK));
+    expect(hexKey(roadGoal(cinderRoad1.board)!)).toBe(hexKey(SALTGATE_BARRICADE));
+  });
+
+  it("falls back to the first objective, then to a wall", () => {
+    // First Breach: one objective, the Banners' own gate.
+    expect(hexKey(roadGoal(firstBreach.board)!)).toBe(hexKey(firstBreach.objectives[0].hex));
+    const noObjective = { ...firstBreach.board, hexes: firstBreach.board.hexes.map(({ objectiveId: _o, ...h }) => h) };
+    expect(roadGoal(noObjective)).toEqual(noObjective.hexes.find((h) => h.terrain === "wall")!.coord);
   });
 });
 

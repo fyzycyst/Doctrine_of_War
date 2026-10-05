@@ -3,7 +3,7 @@ import { hexKey, hexNeighbors, hexDistance, type BoardHex, type BoardLayout, typ
 import { GeoBuilder, color, jitterColor, trs } from "../geo/GeoBuilder";
 import { boardCenter, hexCorner, hexRandom, hexToWorld, islandShore, mulberry32 } from "../hexWorld";
 import type { Skin } from "../skins/types";
-import { buildObjectiveProps, objectiveDressing, type ObjectiveProp, type ObjectiveStage } from "./objectiveProps";
+import { buildObjectiveProps, objectiveDressing, roadGoal, type ObjectiveProp, type ObjectiveStage } from "./objectiveProps";
 
 /**
  * Builds the floating-island diorama from a BoardLayout: extruded hex columns
@@ -814,7 +814,9 @@ function drawRoads(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], roadC
   const byKey = new Map(hexes.map((h) => [hexKey(h.coord), h]));
   const roads = layout.hexes.filter((h) => h.terrain === "road");
   if (roads.length === 0) return;
-  const goal = layout.hexes.find((h) => h.objectiveId) ?? layout.hexes.find((h) => h.terrain === "wall");
+  // The Host's objective when there is one (M2: a board may have two), else the first.
+  const goalCoord = roadGoal(layout);
+  const goal = goalCoord ? { coord: goalCoord } : undefined;
   const isRoadish = (c: HexCoord) => {
     const h = layout.hexes.find((x) => x.coord.q === c.q && x.coord.r === c.r);
     return h && (h.terrain === "road" || h.terrain === "wall");
