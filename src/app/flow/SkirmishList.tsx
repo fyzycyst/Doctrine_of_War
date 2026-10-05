@@ -1,12 +1,14 @@
-// "Skirmish" (M1, P6): any battle from the packs' skirmish lists, fought again as authored.
-// The companies stand at their authored strength, every fight draws a fresh seed, and
-// nothing is saved: no run is touched and no Resolve is won or lost.
+// "Skirmish" (M1, P6; T25 §4): every battle of every campaign (registry.skirmishes()),
+// fought on its default forces: the authored companies, or for a Roll battle the recommended
+// call from its campaign's starting army (all fresh, no veterans). Every fight draws a fresh
+// seed, and nothing is saved: no run is touched and no Resolve is won or lost.
 import { Home, Swords } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CampaignSelectBackdrop, type CampaignSelectChain } from "../../render/showcase/CampaignSelectBackdrop";
 import { packs } from "../roll/api";
 import { FrameProbe } from "../ui/FrameProbe";
 import { useFlow } from "./flowStore";
+import { useDockedMenu } from "./useDockedMenu";
 
 /** The briefing's opening sentence: enough to tell the battles apart. */
 export function firstSentence(text: string): string {
@@ -17,66 +19,85 @@ export function firstSentence(text: string): string {
 export function SkirmishList({ onSettings }: { onSettings?: () => void }) {
   const go = useFlow((s) => s.go);
   const playSkirmish = useFlow((s) => s.playSkirmish);
-  const first = useRef<HTMLButtonElement>(null);
+  const firstButton = useRef<HTMLButtonElement>(null);
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const entries = packs()
     .skirmishes()
-    .map(({ pack, skirmish }) => ({ pack, skirmish, scenario: packs().scenario(skirmish.scenarioId) }))
+    .map((offer) => ({ ...offer, scenario: packs().scenario(offer.skirmish.scenarioId) }))
     .filter((entry) => entry.scenario !== undefined);
-  // One island per skirmish: the board it is fought on.
-  const chains: CampaignSelectChain[] = entries.map(({ skirmish, scenario }) => ({ id: skirmish.id, boards: [scenario!.board] }));
+  const first = entries[0]?.skirmish.id;
+  /** A pack's offers grouped by campaign, in order; standalone skirmishes last, under the pack. */
+  const groupsOf = (packId: string) => {
+    const groups: { key: string; title: string | null; items: typeof entries }[] = [];
+    for (const entry of entries.filter((item) => item.pack.id === packId)) {
+      const key = entry.campaign?.id ?? "";
+      const group = groups.find((item) => item.key === key) ?? groups[groups.push({ key, title: entry.campaign?.title ?? null, items: [] }) - 1];
+      group.items.push(entry);
+    }
+    return groups;
+  };
+  // One island per skirmish: the board it is fought on, labelled with its title when lit.
+  const chains: CampaignSelectChain[] = entries.map(({ skirmish, scenario }) => ({ id: skirmish.id, boards: [scenario!.board], title: skirmish.title }));
+  const docked = useDockedMenu();
   const byPack = packs().packs.filter((pack) => entries.some((entry) => entry.pack.id === pack.id));
 
-  useEffect(() => first.current?.focus({ preventScroll: true }), []);
+  useEffect(() => firstButton.current?.focus({ preventScroll: true }), []);
 
   return (
     <div className="screen choice-screen">
-      <CampaignSelectBackdrop chains={chains} highlightedId={highlighted} inCanvas={<FrameProbe />}>
-        <section className="choice-panel" aria-labelledby="skirmish-title" aria-describedby="skirmish-rules">
+      <CampaignSelectBackdrop chains={chains} highlightedId={highlighted ?? chains[0]?.id ?? null} framing={docked ? "right" : "center"} inCanvas={<FrameProbe />}>
+        <section className={`choice-panel ${docked ? "docked" : ""}`} aria-labelledby="skirmish-title" aria-describedby="skirmish-rules">
           <header>
             <p className="bar-stage">Doctrine of War</p>
             <h1 id="skirmish-title">Skirmish</h1>
-            <p id="skirmish-rules" className="choice-lede">
-              Fight any battle again as it was written: its companies at full authored strength and a fresh fortune each time. Nothing is
-              saved, and no company gains or loses Resolve.
-            </p>
+            <div id="skirmish-rules">
+              <p className="choice-lede">Fight any battle of any campaign again, on a fresh fortune each time. No company gains or loses Resolve.</p>
+              <p className="choice-lede">
+                Every skirmish starts with the battle&apos;s default forces: its own companies, all fresh, with no veterans. The Host comes at its
+                usual strength. Nothing is saved.
+              </p>
+            </div>
           </header>
           {entries.length === 0 && <p className="choice-lede">No skirmishes are offered in this build.</p>}
           {byPack.map((pack) => (
             <section key={pack.id} className="choice-pack" aria-label={pack.title}>
               <h2>{pack.title}</h2>
-              <ul className="choice-list">
-                {entries
-                  .filter((entry) => entry.pack.id === pack.id)
-                  .map(({ skirmish, scenario }, index) => {
-                    const own = scenario!.squads.filter((squad) => squad.faction === scenario!.playerFaction).length;
-                    return (
-                      <li
-                        key={skirmish.id}
-                        className="choice-card"
-                        onPointerEnter={() => setHighlighted(skirmish.id)}
-                        onFocus={() => setHighlighted(skirmish.id)}
-                      >
-                        <div className="choice-body">
-                          <h3>{skirmish.title}</h3>
-                          <p>{firstSentence(scenario!.briefing)}</p>
-                          <p className="choice-status">
-                            {own} companies · {scenario!.maxPhases} phases
-                          </p>
-                        </div>
-                        <button
-                          ref={index === 0 && pack === byPack[0] ? first : undefined}
-                          type="button"
-                          className="btn-command"
-                          onClick={() => playSkirmish(skirmish.id)}
-                          aria-label={`Fight: ${skirmish.title}`}
+              {groupsOf(pack.id).map((group) => (
+                <section key={group.key} className="choice-group" aria-label={group.title ?? pack.title}>
+                  {group.title && <h3 className="choice-group-title">{group.title}</h3>}
+                  <ul className="choice-list">
+                    {group.items.map(({ skirmish, scenario, campaign }) => {
+                      const own = scenario!.squads.filter((squad) => squad.faction === scenario!.playerFaction).length;
+                      return (
+                        <li
+                          key={skirmish.id}
+                          className="choice-card"
+                          onPointerEnter={() => setHighlighted(skirmish.id)}
+                          onFocus={() => setHighlighted(skirmish.id)}
                         >
-                          <Swords size={15} aria-hidden="true" /> Fight
-                        </button>
-                      </li>
-                    );
-                  })}
-              </ul>
+                          <div className="choice-body">
+                            <h4>{skirmish.title}</h4>
+                            <p>{firstSentence(scenario!.briefing)}</p>
+                            <p className="choice-status">
+                              {own} companies · {scenario!.maxPhases} phases
+                            </p>
+                            {campaign?.mode === "roll" && <p className="choice-default">Default force: the recommended call.</p>}
+                          </div>
+                          <button
+                            ref={skirmish.id === first ? firstButton : undefined}
+                            type="button"
+                            className="btn-command"
+                            onClick={() => playSkirmish(skirmish.id)}
+                            aria-label={`Fight: ${skirmish.title}`}
+                          >
+                            <Swords size={15} aria-hidden="true" /> Fight
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
             </section>
           ))}
           <div className="choice-actions">

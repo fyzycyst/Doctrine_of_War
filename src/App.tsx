@@ -14,6 +14,7 @@ import { Roster } from "./app/ui/Roster";
 import { SealOrders } from "./app/ui/SealOrders";
 import { useBoardDeployment } from "./app/ui/useBoardDeployment";
 import { useBoardMuster } from "./app/ui/useMuster";
+import { useEscapeDeselects } from "./app/ui/useEscapeDeselects";
 import { useCaptureStore } from "./app/captureStore";
 import { CoachLayer } from "./app/guide/CoachLayer";
 import { MusterTip } from "./app/guide/MusterTip";
@@ -36,6 +37,7 @@ function App({ still = false, pauseAt }: { still?: boolean; pauseAt?: string }) 
   const showIntro = !introSeen && firstBattle;
   useBoardDeployment();
   useBoardMuster();
+  useEscapeDeselects();
 
   return (
     <div className={`shell stage-${stage}`}>

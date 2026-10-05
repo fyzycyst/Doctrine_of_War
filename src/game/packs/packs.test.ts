@@ -132,15 +132,18 @@ describe("lintPacks (cross-pack ids and references)", () => {
   });
 
   it("refuses ids reused across packs: packs, campaigns, companies, scenarios, doctrines, skirmishes", () => {
-    const twin = clone();
-    const problems = lintPacks([firstCall, twin], doctrineLibrary);
+    // Skirmishes are derived from campaign battles (T25); a manifest's own list holds standalone extras.
+    const extra = { id: "skirmish_extra", title: "Extra", scenarioId: "first_breach" };
+    const original = { ...firstCall, skirmishes: [extra] };
+    const twin = { ...clone(), skirmishes: [{ ...extra }] };
+    const problems = lintPacks([original, twin], doctrineLibrary);
     expect(problems).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/pack id first_call is used by/),
         expect.stringMatching(/campaign id ash_and_banner is used by/),
         expect.stringMatching(/company id greyford_shields is used by campaign ash_and_banner and campaign ash_and_banner/),
         expect.stringMatching(/scenario id first_breach is used by/),
-        expect.stringMatching(/skirmish id skirmish_first_breach is used by/),
+        expect.stringMatching(/skirmish id skirmish_extra is used by/),
       ]),
     );
     const doctrine = clone();
@@ -181,7 +184,8 @@ describe("the registry", () => {
     expect(registry.campaign("cinder_road")?.campaign).toEqual(cinderRoad);
     expect(registry.scenarios().map((item) => item.id)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh"]);
     expect(registry.scenario("hold_for_dawn")).toEqual(scenarios.find((item) => item.id === "hold_for_dawn"));
-    expect(registry.skirmishes().map(({ skirmish }) => skirmish.scenarioId)).toEqual(scenarios.map((item) => item.id));
+    // Every campaign battle, in campaign order: the intro's four, then Cinder Road's first.
+    expect(registry.skirmishes().map(({ skirmish }) => skirmish.scenarioId)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh"]);
     expect(registry.campaign("nowhere")).toBeUndefined();
   });
 

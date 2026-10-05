@@ -28,8 +28,8 @@ const STAGES = [
   },
   // M1 (P6), on the stand-in Roll and preview packs until the engine lands.
   { name: "m1-choose-campaign", query: "screen=campaigns&mockRoll=1", settleMs: 2500 },
-  { name: "m1-call-banners", query: "screen=roll&mockRoll=1", settleMs: 1500 },
-  { name: "m1-call-banners-veterans", query: "screen=roll&mockRoll=veterans", settleMs: 1500 },
+  { name: "m1-call-banners", query: "screen=roll&mockRoll=1&callHelp=seen", settleMs: 1500 },
+  { name: "m1-call-banners-veterans", query: "screen=roll&mockRoll=veterans&callHelp=seen", settleMs: 1500 },
   { name: "m1-roll-outcome", query: "mockRoll=1&rollBattle=1&stage=outcome&plan=intended", settleMs: 2500 },
   { name: "m1-choose-stale", query: "screen=campaigns&mockRoll=stale", settleMs: 2500, sizes: [[1600, 1000]] },
   {
@@ -39,7 +39,22 @@ const STAGES = [
     eval: `[...document.querySelectorAll(".choice-card button")].find((b) => /Cinder Road/.test(b.getAttribute("aria-label") ?? ""))?.click()`,
   },
   { name: "m1-skirmish", query: "screen=skirmish", settleMs: 2500 },
-  { name: "m1-skirmish-outcome", query: "skirmish=skirmish_ember_ford&seed=7&stage=outcome&plan=intended", settleMs: 2500 },
+  { name: "m1-skirmish-outcome", query: "skirmish=skirmish_ash_and_banner_battle_1&seed=7&stage=outcome&plan=intended", settleMs: 2500 },
+  {
+    name: "t25-skirmish-hover",
+    query: "screen=skirmish",
+    settleMs: 3500,
+    // Hovering a card lights its island (keyboard focus does too: menuDock.test.tsx). The
+    // harness shoots right after eval, so the snippet waits for the camera to ease in.
+    eval: `(async () => {
+      const card = document.querySelector('[aria-label="Fight: The Saltmarsh, Northbound"]')?.closest("li");
+      card?.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 2500));
+    })()`,
+  },
+  { name: "t25-call-help", query: "screen=roll&mockRoll=1&callHelp=open", settleMs: 1800 },
+  { name: "t25-call-help-veterans", query: "screen=roll&mockRoll=veterans&callHelp=open", settleMs: 1800, sizes: [[1280, 800]] },
+  { name: "t25-skirmish-cinder-outcome", query: "skirmish=skirmish_cinder_road_cr_saltmarsh&seed=7&stage=outcome&plan=intended", settleMs: 2500 },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
   { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },

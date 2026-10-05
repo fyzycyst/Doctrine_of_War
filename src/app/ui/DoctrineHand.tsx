@@ -60,6 +60,8 @@ export const DoctrineHand = forwardRef<HandHandle>(function DoctrineHand(_, ref)
       event.preventDefault();
       assign(squad.id, doctrines[active].id);
     } else if (event.key === "Escape") {
+      // One layer per press (T25): leave the hand for the company's tab; the next Escape deselects.
+      event.stopPropagation();
       document.querySelector<HTMLElement>(`[data-squad="${squad.id}"]`)?.focus();
     }
   };

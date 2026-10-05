@@ -50,7 +50,10 @@ export function PostMap({ scenario, slots, names, active }: { scenario: EngineSc
           );
         })}
       </svg>
-      <figcaption>Posts, numbered in the order they act{exits.length ? " · the way out is marked" : ""}</figcaption>
+      <figcaption>
+        Posts, numbered in the order they act{scenario.objectives.length ? " · gold: the objective" : ""}
+        {exits.length ? " · the way out is marked" : ""}
+      </figcaption>
     </figure>
   );
 }

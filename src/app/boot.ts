@@ -10,6 +10,7 @@
 //   &select=<squadId>      select a squad
 //   &still=1               no idle camera drift (captures)
 //   &guide=reset | &coach=select|read|assign|seal|watch|chronicle | &howto=1   guidance
+//   &callHelp=seen|open    Call the Banners' "How the call works" (T25)
 import { scenarios, type EngineScenario } from "../game/engine";
 import { campaignAfter } from "./flow/devCampaign";
 import { useFlow } from "./flow/flowStore";
@@ -69,6 +70,9 @@ export function bootFromUrl(search: string): BootOptions {
   if (params.get("guide") === "reset" || params.get("coach")) {
     useGuide.getState().reset();
   }
+  // `&callHelp=seen|open`: Call the Banners' "How the call works" already seen, or due to open (T25).
+  const callHelp = params.get("callHelp");
+  if (callHelp === "seen" || callHelp === "open") useGuide.setState({ callHelpSeen: callHelp === "seen" });
   const coach = params.get("coach") as CoachStep | null;
   if (coach && COACH_STEPS.includes(coach)) {
     useGuide.setState({ introSeen: true, step: coach });

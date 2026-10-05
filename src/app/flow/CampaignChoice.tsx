@@ -13,6 +13,7 @@ import { RoleGlyph, ROLE_NAME } from "../ui/glyphs";
 import { Modal } from "../ui/Modal";
 import { scenarioFor } from "./campaignView";
 import { useFlow, type CarrySource } from "./flowStore";
+import { useDockedMenu } from "./useDockedMenu";
 
 /** What the player can do with a campaign now, and how its card says it. */
 export interface CampaignStatus {
@@ -63,8 +64,9 @@ export function CampaignChoice({ onSettings }: { onSettings?: () => void }) {
   const [settingAside, setSettingAside] = useState<CampaignDefinition | null>(null);
   // One chain of islands per campaign: the boards of its first built battles.
   const chains: CampaignSelectChain[] = list.flatMap((pack) =>
-    pack.campaigns.map((def) => ({ id: def.id, boards: def.battles.map((battle) => scenarioFor(battle)?.board).filter((board) => board !== undefined).slice(0, 3) })),
+    pack.campaigns.map((def) => ({ id: def.id, title: def.title, boards: def.battles.map((battle) => scenarioFor(battle)?.board).filter((board) => board !== undefined).slice(0, 3) })),
   );
+  const docked = useDockedMenu();
 
   useEffect(() => {
     void flow.checkSave();
@@ -76,8 +78,8 @@ export function CampaignChoice({ onSettings }: { onSettings?: () => void }) {
 
   return (
     <div className="screen choice-screen">
-      <CampaignSelectBackdrop chains={chains} highlightedId={highlighted} inCanvas={<FrameProbe />}>
-        <section className="choice-panel" aria-labelledby="choice-title">
+      <CampaignSelectBackdrop chains={chains} highlightedId={highlighted ?? chains[0]?.id ?? null} framing={docked ? "right" : "center"} inCanvas={<FrameProbe />}>
+        <section className={`choice-panel ${docked ? "docked" : ""}`} aria-labelledby="choice-title">
           <header>
             <p className="bar-stage">Doctrine of War</p>
             <h1 id="choice-title">Choose a campaign</h1>
