@@ -7,10 +7,12 @@
 // Covenant's sluice-house on our bank, which stands in its own race of water with one dry
 // walk to it. Lesson (the star is Bring the Water; the second role is the sluice guard):
 // break theirs before they break ours. A pure march, however strong, leaves the Sluice
-// Walk open and the ram breaks the sluice in two blows. The guard role has two answers:
-// Hold for Dawn takes its stand on the walk (it goes to its own objective and braces), and
-// Clean Counterstroke (the accepted alternative) waits and strikes the ram when it comes
-// up alone. The standard carries a banner with the assault (Rescue Standard, not a family).
+// Walk open and the ram breaks the sluice in two blows. The guard is a role, defined by what
+// it does: a company holds the walk when the ram comes up, or fights the ram before it
+// strikes the sluice. Accepted fillers (docs/CAMPAIGN.md): Hold for Dawn takes its stand on
+// the walk (intended); Clean Counterstroke waits and strikes the ram when it comes up alone
+// (roster-dependent); any holding doctrine the player musters onto the walk
+// (muster-dependent). The standard carries a banner with the assault (Rescue Standard, an extra).
 // Registered in the First Call pack (packs/registry.ts), not in the intro's scenario list.
 import type { BoardHex, BoardLayout, TerrainType } from "../../board";
 import type { EngineScenario } from "../types";
@@ -158,8 +160,8 @@ export const cinderRoad2: EngineScenario = {
       standard: "rescue_standard",
       keepers: "hold_for_dawn",
     },
-    // The accepted alternative for the keepers' post (tracked, never gated): Clean
-    // Counterstroke waits and strikes the ram when it comes up the walk alone.
+    // The fixed-order accepted alternative for the keepers' post (tracked, never gated):
+    // Clean Counterstroke waits and strikes the ram when it comes up the walk alone.
     alternative: {
       ford_van: "bring_the_water",
       track_van: "bring_the_water",

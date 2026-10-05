@@ -268,21 +268,37 @@ musters (relief and rallies) and about 0 when nobody does, while "keep the boats
 "march" are essential either way. That is a feature of the Roll, not a defect: the
 alternative stays a tracked diagnostic, and the briefing hints at the banner's role.
 
-**Rule (2026-10-05, C2): ablation is by role, and a post may have accepted alternatives.**
-- A battle's intended plan fills **roles** (march on the objective, guard the works, keep
-  the boats…). The ≥ 15-point ablation applies to each **role**: replace every doctrine
-  that fulfils it with the best doctrine that does not, and the advance rate must drop by
-  at least 15 points.
-- A battle may name **accepted alternatives for a post**: another doctrine that fulfils the
-  same role (*Cinder Road* battle 2: Clean Counterstroke for the sluice keepers, who wait
-  and strike the ram when it comes up alone, beside Hold for Dawn, which holds the walk).
-  They are tracked as their own diagnostic row (`referencePlans.alternative`), never
-  gated, and listed on the battle sheet. A doctrine game may have more than one right
-  answer for a post; the lesson is the role.
+**Rule (2026-10-05, C2; tightened after the warden's re-review): roles are defined by what
+they achieve, declared before the gate, and ablated as roles.**
+- A battle's intended plan fills **roles**, and each role is defined by **function**, as
+  something a run can observe, not by the doctrine that fills it (*Cinder Road* battle 2:
+  the **guard** is a company holding the Sluice Walk when the ram comes up to it, or
+  fighting the ram before it strikes the sluice; the **march** is companies striking the
+  wagon park).
+- The battle sheet **declares the roles and their accepted fillers before the gate run**.
+  An accepted filler is a way of filling the role that the design accepts, with what it
+  depends on: fixed orders, the roster, or the player's muster (battle 2's guard: Hold for
+  Dawn, intended; Clean Counterstroke, roster-dependent; any holding doctrine, Shield the
+  Line or an edited variant, mustered onto the walk, muster-dependent). Accepted fillers are
+  never gated. Their per-call results under matched muster policies go on the battle sheet,
+  and one of them may be the tracked `referencePlans.alternative` row.
+- **The gate, and what makes the rule falsifiable:** plans where a role is genuinely
+  **unfilled** (each doctrine that does not fill it on the role's posts, with no muster that
+  fills it, and the pure march) are played on **every named call, with no muster and with
+  the heuristic muster**. Each must stay **below the floor** (advance < 75%), and the role's
+  observable must confirm that the role really was left unfilled (in at least 95% of games). This is a scenario test,
+  and the 500-seed numbers go on the battle sheet.
+- **The ≥ 15-point ablation is by role:** replace every doctrine that fills the role with
+  the best doctrine that does not (no muster), and the advance rate must drop by at least 15
+  points.
+- **Adding an accepted filler after the gate run** needs the orchestrator's sign-off,
+  recorded on the battle sheet with a **dominance review**: does it beat the intended plan
+  anywhere, by how much, and at what cost (command effort, roster, muster)? There is no fixed
+  numerical cap: a two-click muster and a self-positioning doctrine cost the player
+  different things, and the Roll changes their performance by roster.
 - An extra that is not a counted role (battle 2's standard on Rescue Standard) carries no
   ablation requirement.
-- Unchanged: every mono plan, the named bad plan and the pure march stay gated, and no
-  plan that leaves a role unfilled may reach the floor.
+- Unchanged: every mono plan, the named bad plan and the pure march stay gated.
 
 **Carry-over and doctrine dominance.** Veterans make blunt plans stronger, and no
 threat adjustment fixes that without also wrecking the intended plan (with two carried
@@ -324,10 +340,14 @@ holds Greyford Gate in battle 6). Defeat: the Covenant's Weir Sluice on our bank
 (`objectiveLost`, new in C2), or 3 companies lost. Posts (authored as the army stands
 after battle 1, so the curated path meets a nil threat): the Wainford, the Wagon Track,
 the Sedge Flank, the Lance Line (flex: cavalry or frontline), Willow Rise, and the Weir
-Sluice keepers (flex: skirmish or cavalry). Roles: **the march** (Bring the Water on the
-four assault posts) and **the sluice guard** (Hold for Dawn on the keepers, who take their
-stand on the Sluice Walk; **accepted alternative: Clean Counterstroke**, which waits and
-strikes the ram when it comes up alone). The standard carries a banner with the assault
+Sluice keepers (flex: skirmish or cavalry). Roles, by function: **the march** strikes the
+park (Bring the Water on the four assault posts); **the guard** holds the Sluice Walk when
+the ram comes up, or fights the ram before it strikes the sluice. Accepted guards: Hold for
+Dawn on the keepers (intended), who take their stand on the walk; Clean Counterstroke
+(roster-dependent), which waits and strikes the ram when it comes up alone; and any holding
+doctrine the player musters onto the walk (muster-dependent, signed off by the
+orchestrator after the warden's re-review; numbers and the dominance review are on the
+battle sheet). The standard carries a banner with the assault
 (Rescue Standard: an extra, not a counted role). The briefing names the role ("someone
 must keep the Sluice Walk"), not a doctrine. Bad plan: the pure march. Curated seed 64:
 won in phase 3, no company lost, the sluice untouched, the Kept Coal detachment routed.

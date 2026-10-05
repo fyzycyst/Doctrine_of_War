@@ -52,18 +52,20 @@ describe("Strike the Wagon Park: the battle", () => {
     expect(cinderRoad2.board.hexes.find((hex) => hex.objectiveId === "weir_sluice")?.objectiveKind).toBe("sluice");
   });
 
-  // Role ablation (docs/CAMPAIGN.md): replace every doctrine that fulfils a role with the best
-  // doctrine that does not; it must cost >= 15 points. Roles: the march (Bring the Water) and
-  // the sluice guard (Hold for Dawn, or the accepted alternative Clean Counterstroke). The
-  // standard's banner (Rescue Standard) is an extra, not a counted role.
+  // Role ablation (docs/CAMPAIGN.md): replace every doctrine that fills a role with the best
+  // doctrine that does not; with no muster it must cost >= 15 points. The roles, by function:
+  // the march strikes the park (Bring the Water); the guard holds the Sluice Walk or fights
+  // the ram (by orders: Hold for Dawn, or Clean Counterstroke; the muster-dependent filler,
+  // a holding doctrine mustered onto the walk, is in cinderRoad2.guard.test.ts, with every
+  // unfilled plan on every call). The standard's banner (Rescue Standard) is an extra.
   const OTHERS = ["bring_the_water", "shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke", "hold_for_dawn"];
-  const GUARDS = ["hold_for_dawn", "clean_counterstroke"];
+  const GUARDS_BY_ORDERS = ["hold_for_dawn", "clean_counterstroke"];
 
-  it("each role earns its place (role ablation >= 15 points, no muster); no non-guarding plan reaches the floor", () => {
+  it("each role earns its place (role ablation >= 15 points, no muster)", () => {
     const base = advanceRate(cinderRoad2, intended);
     expect(base).toBeGreaterThanOrEqual(0.75);
     // The sluice guard: the best keeper that does not guard.
-    const unguarded = OTHERS.filter((doctrineId) => !GUARDS.includes(doctrineId)).map((doctrineId) => advanceRate(cinderRoad2, { ...intended, keepers: doctrineId }));
+    const unguarded = OTHERS.filter((doctrineId) => !GUARDS_BY_ORDERS.includes(doctrineId)).map((doctrineId) => advanceRate(cinderRoad2, { ...intended, keepers: doctrineId }));
     expect(base - Math.max(...unguarded)).toBeGreaterThanOrEqual(0.15);
     for (const rate of unguarded) expect(rate).toBeLessThan(0.75);
     // The march: every Bring the Water post on the best doctrine that does not march.
