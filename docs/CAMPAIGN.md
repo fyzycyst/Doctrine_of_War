@@ -268,6 +268,22 @@ musters (relief and rallies) and about 0 when nobody does, while "keep the boats
 "march" are essential either way. That is a feature of the Roll, not a defect: the
 alternative stays a tracked diagnostic, and the briefing hints at the banner's role.
 
+**Rule (2026-10-05, C2): ablation is by role, and a post may have accepted alternatives.**
+- A battle's intended plan fills **roles** (march on the objective, guard the works, keep
+  the boats…). The ≥ 15-point ablation applies to each **role**: replace every doctrine
+  that fulfils it with the best doctrine that does not, and the advance rate must drop by
+  at least 15 points.
+- A battle may name **accepted alternatives for a post**: another doctrine that fulfils the
+  same role (*Cinder Road* battle 2: Clean Counterstroke for the sluice keepers, who wait
+  and strike the ram when it comes up alone, beside Hold for Dawn, which holds the walk).
+  They are tracked as their own diagnostic row (`referencePlans.alternative`), never
+  gated, and listed on the battle sheet. A doctrine game may have more than one right
+  answer for a post; the lesson is the role.
+- An extra that is not a counted role (battle 2's standard on Rescue Standard) carries no
+  ablation requirement.
+- Unchanged: every mono plan, the named bad plan and the pure march stay gated, and no
+  plan that leaves a role unfilled may reach the floor.
+
 **Carry-over and doctrine dominance.** Veterans make blunt plans stronger, and no
 threat adjustment fixes that without also wrecking the intended plan (with two carried
 veterans fielded, all Bring the Water still advanced about 78% on the first version of
@@ -308,12 +324,13 @@ holds Greyford Gate in battle 6). Defeat: the Covenant's Weir Sluice on our bank
 (`objectiveLost`, new in C2), or 3 companies lost. Posts (authored as the army stands
 after battle 1, so the curated path meets a nil threat): the Wainford, the Wagon Track,
 the Sedge Flank, the Lance Line (flex: cavalry or frontline), Willow Rise, and the Weir
-Sluice keepers (flex: skirmish or cavalry). Intended plan: Bring the Water on five posts,
-Hold for Dawn on the keepers, who take their stand on the Sluice Walk. Bad plan: the pure
-march. Curated seed 64: won in phase 3, no company lost, the sluice untouched, the Kept
-Coal detachment routed. Its strongest alternative (the standard rallying instead of
-marching) is a tracked diagnostic: about level without muster and about 7 points better
-with it, the same muster-dependent pattern accepted for battle 1.
+Sluice keepers (flex: skirmish or cavalry). Roles: **the march** (Bring the Water on the
+four assault posts) and **the sluice guard** (Hold for Dawn on the keepers, who take their
+stand on the Sluice Walk; **accepted alternative: Clean Counterstroke**, which waits and
+strikes the ram when it comes up alone). The standard carries a banner with the assault
+(Rescue Standard: an extra, not a counted role). The briefing names the role ("someone
+must keep the Sluice Walk"), not a doctrine. Bad plan: the pure march. Curated seed 64:
+won in phase 3, no company lost, the sluice untouched, the Kept Coal detachment routed.
 
 ## Saves
 

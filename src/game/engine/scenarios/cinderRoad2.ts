@@ -5,10 +5,12 @@
 // initiative, under fog: they cannot see the guard, but the park is on every map.
 // The Host answers in kind: a kiln-clan ram crosses at the Sallow Weir to break the
 // Covenant's sluice-house on our bank, which stands in its own race of water with one dry
-// walk to it; an escort of raiders falls on whoever bars that walk. Lesson (the star is Bring the Water; Hold for Dawn keeps the sluice): break
-// theirs before they break ours. A pure march, however strong, leaves the Sluice Walk
-// open and the ram breaks the sluice in two blows; a company that takes its stand on the
-// walk (Hold for Dawn goes to its own objective and braces) bars it for the day.
+// walk to it. Lesson (the star is Bring the Water; the second role is the sluice guard):
+// break theirs before they break ours. A pure march, however strong, leaves the Sluice
+// Walk open and the ram breaks the sluice in two blows. The guard role has two answers:
+// Hold for Dawn takes its stand on the walk (it goes to its own objective and braces), and
+// Clean Counterstroke (the accepted alternative) waits and strikes the ram when it comes
+// up alone. The standard carries a banner with the assault (Rescue Standard, not a family).
 // Registered in the First Call pack (packs/registry.ts), not in the intro's scenario list.
 import type { BoardHex, BoardLayout, TerrainType } from "../../board";
 import type { EngineScenario } from "../types";
@@ -80,7 +82,7 @@ export const cinderRoad2: EngineScenario = {
     "escorted by a detachment of the Kept Coal, who carry coals from the first kiln. " +
     "We cannot see its companies across the water, but the park is on every map: cross at the shallows and march on it together. " +
     "The Host will answer in kind. A kiln-clan ram is coming down to the Sallow Weir for the Covenant's sluice-house on our bank, " +
-    "and one dry walk leads to it: a company that takes its stand there and holds keeps the sluice for the day.",
+    "and one dry walk leads to it. Someone must keep the Sluice Walk while the rest strike the park.",
   playerFaction: "free_banners",
   initiativeSide: "free_banners",
   maxPhases: 6,
@@ -114,7 +116,7 @@ export const cinderRoad2: EngineScenario = {
     { id: "track_van", name: "Ferrymoot Pikes", faction: "free_banners", role: "frontline", hex: { q: 5, r: 6 }, strength: 80, cohesion: 70, resolve: 1, doctrineId: "bring_the_water" },
     { id: "sedge_van", name: "Sedgewick Levy", faction: "free_banners", role: "frontline", hex: { q: 5, r: 7 }, strength: 72, cohesion: 64, resolve: 1, doctrineId: "bring_the_water" },
     { id: "lances", name: "Sunward Lances", faction: "free_banners", role: "cavalry", hex: { q: 6, r: 5 }, strength: 72, cohesion: 66, resolve: 1, doctrineId: "bring_the_water" },
-    { id: "standard", name: "Wickmere Standard", faction: "free_banners", role: "support", hex: { q: 6, r: 6 }, strength: 52, cohesion: 82, resolve: 1, doctrineId: "bring_the_water" },
+    { id: "standard", name: "Wickmere Standard", faction: "free_banners", role: "support", hex: { q: 6, r: 6 }, strength: 52, cohesion: 82, resolve: 1, doctrineId: "rescue_standard" },
     // The sluice keepers: posted on the Weir Road, two steps below the Sluice Walk.
     { id: "keepers", name: "Heronwick Bows", faction: "free_banners", role: "skirmish", hex: { q: 6, r: 3 }, strength: 64, cohesion: 70, resolve: 1, doctrineId: "hold_for_dawn" },
 
@@ -146,23 +148,25 @@ export const cinderRoad2: EngineScenario = {
   timeoutOutcome: "defeat",
   forecast: { start: "clear", shiftChance: 0.25, shifts: ["clear", "rain"] },
   referencePlans: {
+    // March on the park; the keepers guard the sluice (Hold for Dawn); the standard carries
+    // a banner with the assault (Rescue Standard: an extra, not a counted family).
     intended: {
-      ford_van: "bring_the_water",
-      track_van: "bring_the_water",
-      sedge_van: "bring_the_water",
-      lances: "bring_the_water",
-      standard: "bring_the_water",
-      keepers: "hold_for_dawn",
-    },
-    // The strongest known alternative (tracked, never gated): the standard rallies the
-    // assault instead of marching. About level with the intended plan: an optional extra.
-    alternative: {
       ford_van: "bring_the_water",
       track_van: "bring_the_water",
       sedge_van: "bring_the_water",
       lances: "bring_the_water",
       standard: "rescue_standard",
       keepers: "hold_for_dawn",
+    },
+    // The accepted alternative for the keepers' post (tracked, never gated): Clean
+    // Counterstroke waits and strikes the ram when it comes up the walk alone.
+    alternative: {
+      ford_van: "bring_the_water",
+      track_van: "bring_the_water",
+      sedge_van: "bring_the_water",
+      lances: "bring_the_water",
+      standard: "rescue_standard",
+      keepers: "clean_counterstroke",
     },
     // The pure march: everyone on the park, the sluice left bare.
     bad: {

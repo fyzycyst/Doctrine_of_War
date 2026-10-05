@@ -410,22 +410,21 @@ Each battle has a **star doctrine** even when it uses a mix:
   Water without `btw_step` scores the same. Every named call is in docs/CAMPAIGN.md.
 - *Strike the Wagon Park* (*Cinder Road* battle 2, `scenarios/cinderRoad2.ts`, C2; the M1
   Wagon Park prototype promoted, and the prototype fixture retired): the star is **Bring
-  the Water**, the second family **Hold for Dawn**. Banner initiative under fog on a
-  stretch of the Emberwater upstream of Ember Ford. Two objectives: `breakObjective` on
-  the Host's wagon park (integrity 56), and `objectiveLost` on the Covenant's Weir Sluice
+  the Water**; the second role is **the sluice guard**. Banner initiative under fog on a
+  stretch of the Emberwater upstream of Ember Ford. Two objectives: `breakObjective` on the
+  Host's wagon park (integrity 56), and `objectiveLost` on the Covenant's Weir Sluice
   (integrity 32), which stands in its own race of water with **one dry approach, the
-  Sluice Walk**. A kiln-clan ram (siege) and its escort cross the Sallow Weir for the
-  sluice: a pure march leaves the walk open and the ram breaks the sluice in two blows,
-  whatever the force; a company on Hold for Dawn takes its stand on the walk (its own
-  objective's only free neighbour) and bars it. Gate seeds, recommended call: intended
-  92.8% (100% with no muster), the pure march 0%, every mono 0% (Hold for Dawn
-  included). Ablations (tuning seeds, no muster): the keepers marching 0%, on Shield
-  the Line (which stays where it stands) 0%, the march on Clean Counterstroke 0%. The
-  strongest alternative (the standard on Rescue Standard instead of marching) is level
-  without muster and about 7 points better with it: an optional extra, tracked.
-  **Engine quirk, noted:** an attacker whose goal hexes include impassable hexes next to
-  the objective (the race) stops beside them rather than stepping up to ram whoever bars
-  the walk, so the ram stalls at the weir instead of battering the keepers.
+  Sluice Walk**. A kiln-clan ram (siege) crosses the Sallow Weir for the sluice: a pure
+  march leaves the walk open and the ram breaks the sluice in two blows, whatever the
+  force. The guard: Hold for Dawn takes its stand on the walk (its own objective's only
+  standable neighbour) and the ram fights it there (C4); **accepted alternative: Clean
+  Counterstroke**, which waits and strikes the ram when it comes up alone. The standard
+  carries a banner (Rescue Standard: an extra, not a counted role). Gate seeds,
+  recommended call: intended 96.0% (100% with no muster), the pure march 0%, every mono 0%
+  (Hold for Dawn included), the accepted alternative 99.4% (100%); on calls that put
+  another company on the keepers' post it drops to 0.2–45.8%, so Hold for Dawn is the
+  robust guard. Role ablations (tuning seeds, no muster / heuristic): every non-guarding
+  keeper 0 / 0, every non-marching assault 0 / 0.
 
 **Scenario design principle.** Every battle's intended plan uses at least two doctrine
 families in meaningful roles. Its scenario test ablates each family (swapping it for
