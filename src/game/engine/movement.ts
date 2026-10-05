@@ -40,7 +40,28 @@ function inEnemyZone(state: EngineState, squad: ActiveSquad, hex: HexCoord): boo
 }
 
 /**
- * Path (including the start hex) for moving up to `maxSteps` toward any of `goals`.
+ * Hexes connected to `start` over passable, non-objective ground, ignoring squads (they
+ * move; the ground does not). Keys from hexKey.
+ */
+function groundReachable(state: EngineState, board: BoardLayout, start: HexCoord): Set<string> {
+  const seen = new Set([hexKey(start)]);
+  const queue = [start];
+  for (let index = 0; index < queue.length; index += 1) {
+    for (const neighbor of boardNeighbors(board, queue[index])) {
+      const key = hexKey(neighbor.coord);
+      if (seen.has(key) || !isPassableTerrain(neighbor.terrain) || state.objectives.some((objective) => sameHex(objective.hex, neighbor.coord))) {
+        continue;
+      }
+      seen.add(key);
+      queue.push(neighbor.coord);
+    }
+  }
+  return seen;
+}
+
+/**
+ * Path (including the start hex) for moving up to `maxSteps` toward any of `goals` (the
+ * targets the mover could stand on; see groundReachable).
  * - Already on a goal: no move.
  * - A goal is reachable: follow the shortest path to it.
  * - Otherwise: move to the reachable hex that gets closest to the goals (never further).
@@ -50,10 +71,16 @@ export function planAdvance(
   state: EngineState,
   board: BoardLayout,
   squad: ActiveSquad,
-  goals: HexCoord[],
+  targets: HexCoord[],
   maxSteps: number,
 ): HexCoord[] {
   const start = squad.hex;
+  // A goal must be ground the mover could stand on (C4): a deep-water or walled neighbour
+  // of the target is no goal, or a mover already beside it would never close on the real
+  // approach. A target walled in entirely keeps every goal (the old nearest approach).
+  const open = groundReachable(state, board, start);
+  const usable = targets.filter((goal) => open.has(hexKey(goal)));
+  const goals = usable.length > 0 ? usable : targets;
   if (goals.length === 0 || goals.some((goal) => sameHex(goal, start))) {
     return [{ ...start }];
   }

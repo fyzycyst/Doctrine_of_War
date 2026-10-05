@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { hexDistance } from "../board";
 import { BOMBARD_DAMAGE, BRACE_BITE, engagementLosses, executeAction, RALLY_BASE, SIEGE_OBJECTIVE_DAMAGE } from "./actions";
-import { actionContext, kinds, scenario, squad } from "./testKit";
+import { actionContext, kinds, openBoard, scenario, squad } from "./testKit";
 import type { Action, ObjectiveSetup } from "./types";
 
 const FB = "free_banners" as const;
@@ -231,5 +232,41 @@ describe("routing", () => {
     const guard = bout("clean_counterstroke");
     expect(wall.attackerStrength - guard.attackerStrength).toBeGreaterThanOrEqual(2 * BRACE_BITE - 1);
     expect(wall.attackerCohesion - guard.attackerCohesion).toBeGreaterThanOrEqual(2 * BRACE_BITE - 2);
+  });
+});
+
+// C4: an objective in its own race of water, reached by one dry walk (Cinder Road 2's
+// Weir Sluice in miniature). (6,0) is the sluice; (5,0) and (6,1) are deep water; the walk
+// is (5,1), where a keeper stands. The ram starts at (4,0), beside the race at (5,0).
+describe("pathing to a target with impassable neighbours (C4)", () => {
+  const sluice: ObjectiveSetup = { id: "sluice", name: "Sluice", description: "", hex: { q: 6, r: 0 }, integrity: 100, defender: FB };
+  const race = openBoard(7, 5, { "6,0": "river", "5,0": "river", "6,1": "river", "5,1": "road" });
+  const batter: Action = { kind: "attack", target: { kind: "objective", side: "enemy" } };
+  const kitFor = (ram = { q: 4, r: 0 }) =>
+    actionContext(scenario({ board: race, objectives: [sluice], squads: [squad("ram", AH, ram), squad("keeper", FB, { q: 5, r: 1 })] }));
+
+  it("an attacker beside deep water still closes on the only dry approach, then fights whoever holds it", () => {
+    const kit = kitFor();
+    executeAction(kit.ctx, kit.get("ram"), batter);
+    // It moves up beside the keeper on the walk, not stalling at the water's edge.
+    expect(kit.events[0]).toMatchObject({ kind: "move", squadId: "ram", from: { q: 4, r: 0 } });
+    expect(hexDistance(kit.get("ram").hex, { q: 5, r: 1 })).toBe(1);
+    executeAction(kit.ctx, kit.get("ram"), batter);
+    expect(kit.events.at(-1)).toMatchObject({ kind: "engagement", attackerId: "ram", defenderId: "keeper" });
+  });
+
+  it("with the walk clear, walks up it and batters the objective", () => {
+    const kit = actionContext(scenario({ board: race, objectives: [sluice], squads: [squad("ram", AH, { q: 4, r: 0 })] }));
+    for (let beat = 0; beat < 3 && kit.state.objectives[0].integrity === 100; beat += 1) executeAction(kit.ctx, kit.get("ram"), batter);
+    expect(kit.get("ram").hex).toEqual({ q: 5, r: 1 });
+    expect(kit.state.objectives[0].integrity).toBeLessThan(100);
+  });
+
+  it("a target walled in by water keeps the old approach: the attacker closes as near as the ground allows", () => {
+    const moat = openBoard(7, 5, { "5,0": "river", "6,1": "river", "5,1": "river", "6,0": "river" });
+    const kit = actionContext(scenario({ board: moat, objectives: [sluice], squads: [squad("ram", AH, { q: 2, r: 2 })] }));
+    executeAction(kit.ctx, kit.get("ram"), batter);
+    expect(kit.events[0]).toMatchObject({ kind: "move", squadId: "ram" });
+    expect(kit.get("ram").hex).not.toEqual({ q: 2, r: 2 });
   });
 });

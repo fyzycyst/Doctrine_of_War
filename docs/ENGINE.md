@@ -156,8 +156,12 @@ Deep `river` hexes, like walls, cannot be entered; `ford` hexes can. Entering `m
 ends a move, a squad cannot brace in marsh, and marsh gives −1 defense. `reeds` give +1
 defense and, like ruins, block sight. Squads cannot enter walls, objective hexes,
 off-board hexes or occupied hexes. Paths are found by BFS in `hexNeighbors` order, so
-tie-breaks are deterministic. If no goal hex is reachable, the squad moves to the
-reachable hex closest to the goal, and never further away. **Zone of control:** a move
+tie-breaks are deterministic. A goal (a hex beside the target) counts only if the mover
+could stand on it: passable, not an objective, and connected to the mover by passable
+ground (squads are ignored, since they move). So a deep-water neighbour of a target is no
+goal, and an attacker beside one still closes on the real approach (C4). A target walled
+in entirely keeps every neighbour as a goal. If no goal hex is reachable, the squad moves
+to the reachable hex closest to the goal, and never further away. **Zone of control:** a move
 stops after entering a hex adjacent to an enemy.
 
 **Combat.** Battles turn on cohesion (morale), which only a rally restores.
