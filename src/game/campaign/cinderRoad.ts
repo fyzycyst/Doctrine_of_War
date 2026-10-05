@@ -1,7 +1,7 @@
 // Cinder Road (M1 pilot): the counter-offensive, fought from the Roll. The morning after
-// the Last Wall holds, the Banners march back down the road the Host came up. Only
-// battle 1 is authored for the pilot; the rest are appended before release (nothing
-// ships until Cinder Road's length is frozen). Its own army: company ids never reuse
+// the Last Wall holds, the Banners march back down the road the Host came up. Battles
+// are appended as they are built (battle 2: M2, C2); nothing ships until Cinder Road's
+// length is frozen. Its own army: company ids never reuse
 // the intro's (intro companies arrive only by carry-over). Home realms per the setting
 // bible (lore v2): the Greyford March holds, the Fenwardens withdraw and rescue, the
 // Dawnwatch Holds wait, then strike. Profiles sit inside PROFILE_BANDS.
@@ -55,6 +55,37 @@ export const cinderRoad: CampaignDefinition = {
         flex: {
           outriders: { roles: ["cavalry", "frontline"], doctrines: { cavalry: "bring_the_water", frontline: "bring_the_water" } },
           bows: { roles: ["skirmish", "frontline"], doctrines: { skirmish: "rescue_standard", frontline: "rescue_standard" } },
+        },
+      },
+    },
+    {
+      id: "cr_wagon_park",
+      title: "Strike the Wagon Park",
+      scenarioId: "cinder_road_wagon_park",
+      // The authored call: battle 1's force, as the recommended force calls it after battle 1.
+      slots: {
+        ford_van: "coldwater_shields",
+        track_van: "ferrymoot_pikes",
+        sedge_van: "sedgewick_levy",
+        lances: "sunward_lances",
+        standard: "wickmere_standard",
+        keepers: "heronwick_bows",
+      },
+      call: {
+        labels: {
+          ford_van: "The Wainford",
+          track_van: "The Wagon Track",
+          sedge_van: "The Sedge Flank",
+          lances: "The Lance Line",
+          standard: "Willow Rise",
+          keepers: "The Weir Sluice",
+        },
+        // Two flex posts: a frontline company may ride the lances' post and march on the
+        // park; a cavalry company may keep the sluice. These are the intended plan's
+        // templates for each role.
+        flex: {
+          lances: { roles: ["cavalry", "frontline"], doctrines: { cavalry: "bring_the_water", frontline: "bring_the_water" } },
+          keepers: { roles: ["skirmish", "cavalry"], doctrines: { skirmish: "hold_for_dawn", cavalry: "hold_for_dawn" } },
         },
       },
     },

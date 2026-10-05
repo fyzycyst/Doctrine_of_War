@@ -1,0 +1,89 @@
+// Cinder Road battle 2 (M2, C2): Strike the Wagon Park, on the Roll after battle 1.
+import { describe, expect, it } from "vitest";
+import { hexDistance } from "../board";
+import { playBattle, TUNING_SEEDS } from "../engine/balance";
+import { createInitialState, resolvePhase } from "../engine/resolvePhase";
+import { cinderRoad2, SLUICE_WALK, WEIR_SLUICE } from "../engine/scenarios/cinderRoad2";
+import { advanceRate } from "../engine/testKit";
+import type { EngineEvent } from "../engine/types";
+import { registry } from "../packs/registry";
+import { cinderRoad } from "./cinderRoad";
+import { assembleBattle, battleThreat, lintRollCampaign, MAX_FLEX_SLOTS, recommendedForce, rollSlots } from "./roll";
+import { curatedRollState } from "./rollCalls";
+
+const scenarios = registry.scenarios();
+const intended = cinderRoad2.referencePlans!.intended;
+const BTW = "bring_the_water";
+
+describe("Cinder Road battle 2: the call", () => {
+  const after1 = curatedRollState(cinderRoad, scenarios, 1);
+
+  it("is battle 2 of Cinder Road, in the First Call pack, linted clean", () => {
+    expect(cinderRoad.battles.map((battle) => battle.scenarioId).slice(0, 2)).toEqual(["cinder_road_saltmarsh", "cinder_road_wagon_park"]);
+    expect(registry.scenario("cinder_road_wagon_park")).toEqual(cinderRoad2);
+    expect(lintRollCampaign(cinderRoad, scenarios)).toEqual([]);
+  });
+
+  it("calls six named posts, two flex; after battle 1 the recommended force is the authored call and the Host's threat is nil", () => {
+    const slots = rollSlots(cinderRoad, after1, cinderRoad2);
+    expect(slots.map((slot) => [slot.slotId, slot.label])).toEqual([
+      ["ford_van", "The Wainford"],
+      ["track_van", "The Wagon Track"],
+      ["sedge_van", "The Sedge Flank"],
+      ["lances", "The Lance Line"],
+      ["standard", "Willow Rise"],
+      ["keepers", "The Weir Sluice"],
+    ]);
+    expect(slots.filter((slot) => slot.flex).length).toBeLessThanOrEqual(MAX_FLEX_SLOTS);
+    expect(recommendedForce(cinderRoad, after1, cinderRoad2)).toEqual(cinderRoad.battles[1].slots);
+    expect(battleThreat(cinderRoad, after1, cinderRoad2)).toEqual({ fame: 0, strength: 0, resolve: 0 });
+    // The scenario is authored as the army stands after battle 1: assembly changes nothing.
+    expect(assembleBattle(cinderRoad, after1, cinderRoad2, cinderRoad.battles[1].slots).squads).toEqual(cinderRoad2.squads);
+  });
+});
+
+describe("Strike the Wagon Park: the battle", () => {
+  it("has two objectives: the Host's wagon park to break and the Banners' sluice to keep, with one dry walk to it", () => {
+    expect(cinderRoad2.winCondition).toEqual({ kind: "breakObjective", objectiveId: "wagon_park" });
+    expect(cinderRoad2.defeatConditions).toContainEqual({ kind: "objectiveLost", objectiveId: "weir_sluice" });
+    const passable = cinderRoad2.board.hexes.filter((hex) => hexDistance(hex.coord, WEIR_SLUICE) === 1 && hex.terrain !== "river" && hex.terrain !== "wall");
+    expect(passable.map((hex) => hex.coord)).toEqual([SLUICE_WALK]);
+    expect(cinderRoad2.board.hexes.find((hex) => hex.objectiveId === "wagon_park")?.objectiveKind).toBe("wagons");
+    expect(cinderRoad2.board.hexes.find((hex) => hex.objectiveId === "weir_sluice")?.objectiveKind).toBe("sluice");
+  });
+
+  it("each family earns its place (ablation >= 15 points, no muster); the march always has a target under fog", () => {
+    const base = advanceRate(cinderRoad2, intended);
+    expect(base).toBeGreaterThanOrEqual(0.75);
+    // Hold for Dawn keeps the sluice: off the walk (marching, or a wall that stays where it stands), the sluice falls.
+    expect(base - advanceRate(cinderRoad2, { ...intended, keepers: BTW })).toBeGreaterThanOrEqual(0.15);
+    expect(base - advanceRate(cinderRoad2, { ...intended, keepers: "shield_the_line" })).toBeGreaterThanOrEqual(0.15);
+    // Without the march, nothing reaches the park.
+    const noMarch = Object.fromEntries(Object.entries(intended).map(([id, doctrineId]) => [id, doctrineId === BTW ? "clean_counterstroke" : doctrineId]));
+    expect(base - advanceRate(cinderRoad2, noMarch)).toBeGreaterThanOrEqual(0.15);
+    // The pure march (the bad plan) loses whatever the force: the ram breaks the sluice.
+    expect(advanceRate(cinderRoad2, cinderRoad2.referencePlans!.bad)).toBeLessThanOrEqual(0.1);
+    const blocked: string[] = [];
+    for (let seed = TUNING_SEEDS.first; seed < TUNING_SEEDS.first + 20; seed += 1) {
+      let state = createInitialState(cinderRoad2, { seed, fortune: "on" });
+      while (state.status === "command") {
+        const result = resolvePhase(state, intended, cinderRoad2);
+        for (const event of result.events as EngineEvent[]) {
+          if (event.kind === "blocked" && intended[event.squadId] === BTW && event.reason === "no target") blocked.push(`#${seed} ${event.squadId}`);
+        }
+        state = result.state;
+      }
+    }
+    expect(blocked).toEqual([]);
+  }, 60_000);
+
+  it("the curated seed is a clean win: no company lost, the keepers on the Sluice Walk, the sluice untouched", () => {
+    expect(cinderRoad2.curatedSeed).toBeLessThan(TUNING_SEEDS.first + TUNING_SEEDS.size);
+    const final = playBattle(cinderRoad2, intended, cinderRoad2.curatedSeed!, "on");
+    expect(final.status).toBe("victory");
+    expect(final.phase).toBeLessThanOrEqual(4);
+    expect(final.squads.filter((squad) => squad.faction === "free_banners" && squad.status !== "active")).toEqual([]);
+    expect(final.squads.find((squad) => squad.id === "keepers")?.hex).toEqual(SLUICE_WALK);
+    expect(final.objectives.find((objective) => objective.id === "weir_sluice")?.integrity).toBe(32);
+  });
+});

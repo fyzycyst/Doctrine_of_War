@@ -107,11 +107,11 @@ describe("The Saltmarsh, Northbound", () => {
     expect(final.squads.find((squad) => squad.id === "standard")?.hex).toEqual(HERON_STAIR);
   });
 
-  it("records the curated win on the Roll: the one-battle pilot completes and settles conditions", () => {
+  it("records the curated win on the Roll: the campaign moves on to battle 2 and settles conditions", () => {
     const assignment = recommendedForce(cinderRoad, start, cinderRoad1);
     const final = playBattle(assembleBattle(cinderRoad, start, cinderRoad1, assignment), intended, cinderRoad1.curatedSeed!, "on");
     const after = recordBattle(cinderRoad, start, final, { assignment });
-    expect(after.status).toBe("complete");
+    expect(after).toMatchObject({ status: "inProgress", battleIndex: 1 });
     expect(after.history[0]).toMatchObject({ battleId: "cr_saltmarsh", outcome: "victory", assignment });
     // Nobody fielded ended under half strength, so every company is still fresh.
     for (const companyId of Object.values(assignment)) {

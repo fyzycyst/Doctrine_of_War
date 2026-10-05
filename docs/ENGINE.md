@@ -368,9 +368,10 @@ if a guardrail fails:
 
 The same check runs with 60 seeds on every `npm test`, one file per battle
 (`balance.<battle>.test.ts` via `guardrails.testkit.ts`; Roll battles one test per named
-call). Every pack scenario (`registry.scenarios()`) must pass, and so must the engine prototypes in
+call). Every pack scenario (`registry.scenarios()`) must pass, and so must any engine prototype in
 `fixtures/` (test fixtures, never offered to the player; run one by name with
-`npm run balance -- --scenario proto_wagon_park`). The scenarios so far:
+`npm run balance -- --scenario <id>`; none since the Wagon Park was promoted into
+*Cinder Road* battle 2). The scenarios so far:
 Each battle has a **star doctrine** even when it uses a mix:
 - *The First Breach*: the tutorial; the star is the wall. Shields hold the gate, the
   standard rallies them, and the riders (Counterstroke) pounce on whatever comes alone.
@@ -407,17 +408,24 @@ Each battle has a **star doctrine** even when it uses a mix:
   forces (weakest legal: 81% with it, 41% without). **Keep step is inert here:** the Sunward Lances (cavalry) never get 2 hexes ahead of
   every other company (they move after the infantry, and lead by at most 1), so Bring the
   Water without `btw_step` scores the same. Every named call is in docs/CAMPAIGN.md.
-- *The Wagon Park* (prototype, `fixtures/wagonPark.ts`, P4): the first battle with
-  **Banner initiative**, `breakObjective` and fog. The Banners cannot see the park's guard
-  from their start, so the assault is anchored to the objective: Bring the Water marches
-  four companies on the wagon park (integrity 48) while a Rescue Standard keeps them
-  standing against the Kept Coal's dread and the thralls' Terror Push charge. Everyone on
-  Bring the Water, standard included, is a storm without a standard and breaks on the
-  guard. Gate range (seeds 100001–100500), fortune on: intended 90.8% (91.2% with no
-  muster), bad 0%, all Bring the Water 16.6%, every other mono 0%. (Tuning-range figures
-  from authoring were 93% / 91.8% / 23%.) `btw_step` (keep step) does not fire in this
-  fixture's intended plan (the line starts and moves together); it is the guard against
-  a fast or forward company arriving alone, covered by `offensive.test.ts`.
+- *Strike the Wagon Park* (*Cinder Road* battle 2, `scenarios/cinderRoad2.ts`, C2; the M1
+  Wagon Park prototype promoted, and the prototype fixture retired): the star is **Bring
+  the Water**, the second family **Hold for Dawn**. Banner initiative under fog on a
+  stretch of the Emberwater upstream of Ember Ford. Two objectives: `breakObjective` on
+  the Host's wagon park (integrity 56), and `objectiveLost` on the Covenant's Weir Sluice
+  (integrity 32), which stands in its own race of water with **one dry approach, the
+  Sluice Walk**. A kiln-clan ram (siege) and its escort cross the Sallow Weir for the
+  sluice: a pure march leaves the walk open and the ram breaks the sluice in two blows,
+  whatever the force; a company on Hold for Dawn takes its stand on the walk (its own
+  objective's only free neighbour) and bars it. Gate seeds, recommended call: intended
+  92.8% (100% with no muster), the pure march 0%, every mono 0% (Hold for Dawn
+  included). Ablations (tuning seeds, no muster): the keepers marching 0%, on Shield
+  the Line (which stays where it stands) 0%, the march on Clean Counterstroke 0%. The
+  strongest alternative (the standard on Rescue Standard instead of marching) is level
+  without muster and about 7 points better with it: an optional extra, tracked.
+  **Engine quirk, noted:** an attacker whose goal hexes include impassable hexes next to
+  the objective (the race) stops beside them rather than stepping up to ram whoever bars
+  the walk, so the ram stalls at the weir instead of battering the keepers.
 
 **Scenario design principle.** Every battle's intended plan uses at least two doctrine
 families in meaningful roles. Its scenario test ablates each family (swapping it for

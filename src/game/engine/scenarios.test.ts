@@ -28,7 +28,9 @@ describe("every scenario", () => {
         // The finale's first play is a near-miss by design (holdForDawn.test checks its range).
         const nearMiss = scenario.id === "hold_for_dawn";
         for (const objective of final.objectives.filter((item) => item.defender === scenario.playerFaction)) {
-          expect(objective.integrity).toBeGreaterThanOrEqual(nearMiss ? 1 : 85);
+          // 85% of the objective's own starting integrity (a sluice starts at 32, a gate at 100).
+          const start = scenario.objectives.find((item) => item.id === objective.id)!.integrity;
+          expect(objective.integrity).toBeGreaterThanOrEqual(nearMiss ? 1 : Math.ceil(0.85 * start));
         }
       });
     });

@@ -10,6 +10,7 @@ import { emberFord } from "../engine/scenarios/emberFord";
 import { saltmarshColumn } from "../engine/scenarios/saltmarshColumn";
 import { holdForDawn } from "../engine/scenarios/holdForDawn";
 import { cinderRoad1 } from "../engine/scenarios/cinderRoad1";
+import { cinderRoad2 } from "../engine/scenarios/cinderRoad2";
 import type { DoctrineLibrary } from "../engine/types";
 import { lintPacks } from "./lint";
 import { parsePackManifest } from "./manifest";
@@ -32,7 +33,7 @@ export const firstCall: PackManifest = {
   readsContent: [1],
   // Cinder Road (Roll) is in development: battle 1 only until its length is frozen.
   campaigns: [ashAndBanner, cinderRoad],
-  scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn, cinderRoad1],
+  scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn, cinderRoad1, cinderRoad2],
   doctrines: [],
   // Skirmish offers every campaign battle (derived in the registry); this lists standalone extras only.
   skirmishes: [],

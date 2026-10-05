@@ -60,7 +60,7 @@ reference, each scenario's internal consistency, and each campaign against its
 scenarios. Nothing is exposed from a set that fails. `registry.compatibility(provenance)`
 says whether a saved run (pack, campaign, content and rules revision) can continue.
 The shipped pack is `first_call` (The First Call), holding the intro and *Cinder Road*
-(in development: battle 1 only until its length is frozen; see below).
+(in development: battles 1–2 so far, until its length is frozen; see below).
 
 Adding an engine condition, action, selector, win or defeat kind means adding it to
 `packs/manifest.ts` too; the shipped-pack round-trip test fails until you do.
@@ -293,6 +293,20 @@ pass); the bows carry a banner with the assault (Rescue Standard). The bad plan 
 pure march (everyone on Bring the Water): the stair is left empty, and it loses whatever
 the force. Curated seed 91: won in phase 5 with no company lost, the Hounds held at the
 stair. Numbers are in docs/ENGINE.md.
+
+**Battle 2, *Strike the Wagon Park*** (`engine/scenarios/cinderRoad2.ts`, C2): upstream of
+Ember Ford, by daylight, Banner initiative, fog, 6 phases. Win: break the Host's wagon
+park (`breakObjective`), escorted by a detachment of the Kept Coal (the renowned main body
+holds Greyford Gate in battle 6). Defeat: the Covenant's Weir Sluice on our bank falls
+(`objectiveLost`, new in C2), or 3 companies lost. Posts (authored as the army stands
+after battle 1, so the curated path meets a nil threat): the Wainford, the Wagon Track,
+the Sedge Flank, the Lance Line (flex: cavalry or frontline), Willow Rise, and the Weir
+Sluice keepers (flex: skirmish or cavalry). Intended plan: Bring the Water on five posts,
+Hold for Dawn on the keepers, who take their stand on the Sluice Walk. Bad plan: the pure
+march. Curated seed 64: won in phase 3, no company lost, the sluice untouched, the Kept
+Coal detachment routed. Its strongest alternative (the standard rallying instead of
+marching) is a tracked diagnostic: about level without muster and about 7 points better
+with it, the same muster-dependent pattern accepted for battle 1.
 
 ## Saves
 

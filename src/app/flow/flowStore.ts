@@ -279,10 +279,12 @@ export const useFlow = create<FlowState>((set, get) => ({
     const authored = found && packs().scenario(found.skirmish.scenarioId);
     if (!found || !authored) return;
     // The battle's default forces. A Roll battle: the recommended call from its campaign's
-    // starting army (all fresh, no veterans, the Host at its authored strength). Otherwise
-    // the authored companies as written.
+    // starting army (all fresh, no veterans), as the Roll stands at that battle (its arrivals
+    // so far; a later battle is not the first one, so the state points at it). Otherwise the
+    // authored companies as written.
     const def = found.campaign;
-    const start = def?.mode === "roll" ? startCampaign(def) : null;
+    const index = def ? def.battles.findIndex((battle) => battle.scenarioId === authored.id) : -1;
+    const start = def?.mode === "roll" && index >= 0 ? { ...startCampaign(def), battleIndex: index } : null;
     const scenario = def && start ? roll().assembleBattle(def, start, authored, roll().recommendedForce(def, start, authored)) : authored;
     const { doctrineOnly, defaultPace } = useSettings.getState();
     const game = useGame.getState();

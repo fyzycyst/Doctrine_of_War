@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { balancePlans, GATE_SEEDS, guardrailFailures, isGateSeed, playBattle, runBalance, smokeGuardrails, TUNING_SEEDS, type BalanceRow } from "./balance";
 import { doctrineLibrary } from "./doctrines";
-import { prototypeScenarios } from "./fixtures/wagonPark";
+import { prototypeScenarios } from "./fixtures";
 import { GUARDRAIL_SCENARIO_IDS } from "./guardrails.testkit";
 import { lintScenario } from "../packs/lint";
 import { registry } from "../packs/registry";

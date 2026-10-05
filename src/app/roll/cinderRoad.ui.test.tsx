@@ -96,14 +96,15 @@ afterEach(() => {
 });
 
 describe("Cinder Road, end to end", () => {
-  it("plays battle 1 through Call the Banners into its own save, leaving the intro's save untouched", async () => {
+  it("plays every battle through Call the Banners into its own save, leaving the intro's save untouched", async () => {
     const user = userEvent.setup();
     // An intro campaign in progress, saved in its own (v1) file.
     const intro = saveCampaign(campaignAfter(ashAndBanner, 1, { fortune: "on" }));
     const introStore = launch({ intro });
 
     const cinder = await card(/^Cinder Road$/);
-    expect(cinder).toHaveTextContent("Call the Banners: choose your companies for each battle · 1 battle");
+    const battles = cinderRoad.battles.length;
+    expect(cinder).toHaveTextContent(`Call the Banners: choose your companies for each battle · ${battles} battle${battles === 1 ? "" : "s"}`);
     expect(cinder).toHaveTextContent("Not started");
     await user.click(within(cinder).getByRole("button", { name: "Begin: Cinder Road" }));
     await waitFor(() => expect(useFlow.getState().screen).toBe("campaign"));
@@ -141,16 +142,30 @@ describe("Cinder Road, end to end", () => {
     // The intro's save: byte for byte as it was.
     expect(introStore.data).toBe(intro);
 
-    // Battle 1 completes the campaign as it stands: Cinder Road's own ending, which never
-    // offers to begin (and so overwrite) the intro.
+    // The later battles, each called from the Roll as it stands (recommended force) and won
+    // on its curated seed, to the end of the campaign as it stands.
+    for (const battle of cinderRoad.battles.slice(1)) {
+      await user.click(screen.getByRole("button", { name: "Return to the campaign map" }));
+      await user.click(screen.getByRole("button", { name: new RegExp(`Take the field: ${battle.title}`) }));
+      expect(useFlow.getState().screen).toBe("roll");
+      await user.click(screen.getByRole("button", { name: "Take the field" }));
+      expect(useGame.getState()).toMatchObject({ stage: "briefing", baseScenario: { id: battle.scenarioId } });
+      fightOpenBattle("intended");
+      expect(useGame.getState().stage).toBe("outcome");
+      expect(await screen.findByText(/campaign saved/)).toBeInTheDocument();
+    }
+    expect(introStore.data).toBe(intro);
+
+    // The last battle completes the campaign as it stands: Cinder Road's own ending, which
+    // never offers to begin (and so overwrite) the intro.
     await user.click(screen.getByRole("button", { name: "Read the epilogue" }));
     expect(useFlow.getState().screen).toBe("ending");
-    expect(screen.getByText(/Cinder Road is won: 1 battle fought/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Cinder Road is won: ${battles} battles? fought`))).toBeInTheDocument();
     expect(screen.queryByText(/last wall/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Begin a new campaign" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Choose a campaign" }));
     expect(useFlow.getState().screen).toBe("campaigns");
-    expect(await card(/^Cinder Road$/)).toHaveTextContent("Completed · 1 battle fought");
+    expect(await card(/^Cinder Road$/)).toHaveTextContent(new RegExp(`Completed · ${battles} battles? fought`));
     expect(introStore.data).toBe(intro);
   });
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { hexKey, type BoardHex } from "../../game/board";
 import { cinderRoad1, SALTGATE_BARRICADE } from "../../game/engine/scenarios/cinderRoad1";
 import { firstBreach } from "../../game/engine/scenarios/firstBreach";
-import { wagonPark } from "../../game/engine/fixtures/wagonPark";
+import { cinderRoad2 } from "../../game/engine/scenarios/cinderRoad2";
 import { wideShotFor } from "../camera/shots";
 import { objectiveStagesFor } from "../fromEngine";
 import { boardCenter, hexToWorld } from "../hexWorld";
@@ -112,8 +112,9 @@ describe("objective props in the island build (M2)", () => {
     const gate = buildIsland(firstBreach.board, emberDusk);
     expect(gate.wallGeometry).not.toBeNull();
     expect(gate.objectiveProps).toHaveLength(0);
-    // The wagon fixture without a kind: no prop, as before M2.
-    expect(buildIsland(wagonPark.board, emberDusk).objectiveProps).toHaveLength(0);
+    // Open-ground objectives without a kind: no prop, as before M2 (battle 2's board, kinds stripped).
+    const bare = { ...cinderRoad2.board, hexes: cinderRoad2.board.hexes.map(({ objectiveKind: _kind, ...hex }) => hex) };
+    expect(buildIsland(bare, emberDusk).objectiveProps).toHaveLength(0);
   });
 });
 
