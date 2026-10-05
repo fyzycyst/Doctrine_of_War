@@ -453,6 +453,21 @@ Each battle has a **star doctrine** even when it uses a mix:
   12.6% on any call under no muster, heuristic or the rush; no march-unfilled plan can win
   (only Bring the Water strikes the park). Role gate: `cinderRoad2.roles.<call>.sim.test.ts`,
   one per named call.
+- *Open a Road* (*Cinder Road* battle 3, `scenarios/cinderRoad3.ts`, C3, in the First
+  Call pack): the star is **Open the Road**. Ember Ford's own ground by daylight, crossed
+  the other way: Banner initiative under fog, `escapeEdge` (2 companies onto the Cinder Road
+  and the Ashpit Lane, the far-bank road heads). The column cannot see the road guard, but
+  the map shows the roads, so it marches on the exits and cuts down what stands on them;
+  Bring the Water has no objective to march on and stands on the bank. The Host's reserve
+  wades the Mill Ford for the Mill Road behind (`enemyEscape`, count 1), so a pure march
+  loses; the lances and the bows hold the Mill Road on Shield the Line. Gate seeds
+  (100001–100500), fortune on, recommended call: intended 100.0% (100.0% with no muster),
+  bad (all Bring the Water) 0%, all Open the Road 1.6%, every other mono 0%; strongest
+  alternative (the Mill Ford watch on Clean Counterstroke) 99.6%. Worst gated call: rough
+  (recovery force) 86.8% (90.4%). Ablations (tuning seeds 1–200, no muster): the column on
+  Fighting Withdrawal, Keep the Column Moving, Bring the Water or Clean Counterstroke 0%
+  (intended 100%); the Mill Ford watch marching too 3%. Every named call is in
+  docs/CAMPAIGN.md.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
 with at least two doctrine families. A role is defined by what it achieves (hold the gate,
