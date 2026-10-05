@@ -129,6 +129,34 @@ jobs.push(
   { name: "path-riverPush", query: "scenario=emberFord&preset=nightFires&figures=a&path=riverPush&seq=1", sequence: { frames: 3, fps: 0.4 } },
 );
 
+// M2: objectives on open ground. Cinder Road 1's barricade, and the two-objective lab
+// board (the Host's wagons at 6,2, the Banners' sluice at 2,2), each intact, battered,
+// broken, hit, at night, and broken under reduced motion.
+{
+  const props = [
+    { id: "barricade", base: "scenario=cinderRoad1&preset=dusk&figures=a", at: "3,1" },
+    { id: "wagons", base: "scenario=twoObjectives&preset=dusk&figures=a", at: "6,2" },
+    { id: "sluice", base: "scenario=twoObjectives&preset=dusk&figures=a", at: "2,2" },
+  ];
+  jobs.push(
+    { name: "m2-barricade-wide", query: props[0].base },
+    { name: "m2-barricade-broken-wide", query: `${props[0].base}&objective=broken` },
+    { name: "m2-two-wide", query: props[1].base },
+    { name: "m2-two-broken-wide", query: `${props[1].base}&objective=broken` },
+    ...props.flatMap(({ id, base, at }) => {
+      const close = `${base}&cam=close&focusHex=${at}&objectiveAt=${at}`;
+      return [
+        { name: `m2-${id}-intact`, query: close },
+        { name: `m2-${id}-battered`, query: `${close}&objective=battered` },
+        { name: `m2-${id}-broken`, query: `${close}&objective=broken` },
+        { name: `m2-${id}-hit`, query: `${close}&anim=shake&shakeAt=${at}&animFreeze=0.3` },
+        { name: `m2-${id}-night`, query: `${close.replace("preset=dusk", "preset=nightFires")}` },
+        { name: `m2-${id}-broken-reduced`, query: `${close}&objective=broken&motion=reduce` },
+      ];
+    }),
+  );
+}
+
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 ? process.argv[i + 1] : fallback;

@@ -78,7 +78,11 @@ function readParams() {
   const board: LabSceneId =
     p.get("board") === "stress"
       ? "stress"
-      : scenarioParam === "emberFord" || scenarioParam === "saltmarsh" || scenarioParam === "holdForDawn"
+      : scenarioParam === "emberFord" ||
+          scenarioParam === "saltmarsh" ||
+          scenarioParam === "holdForDawn" ||
+          scenarioParam === "cinderRoad1" ||
+          scenarioParam === "twoObjectives"
         ? scenarioParam
         : "firstBreach";
   return {
@@ -115,7 +119,17 @@ function readParams() {
     fadeDur: num("fadeDur"),
     focusHex: p.get("focusHex"),
     fogFreeze: num("fogFreeze"),
+    // M2: objective=battered|broken (every objective, or only objectiveAt=q,r); shakeAt=q,r picks the hit.
+    objective: ((v): "battered" | "broken" | null => (v === "battered" || v === "broken" ? v : null))(p.get("objective")),
+    objectiveAt: hexParam(p.get("objectiveAt")),
+    shakeAt: hexParam(p.get("shakeAt")),
+    reduceMotion: p.get("motion") === "reduce",
   };
+}
+
+function hexParam(v: string | null) {
+  const [q, r] = (v ?? "").split(",").map(Number);
+  return v && Number.isFinite(q) && Number.isFinite(r) ? { q, r } : null;
 }
 
 export function LookLab() {
@@ -244,6 +258,7 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
   useEffect(() => {
     setQuality(initial.quality);
   }, [initial.quality, setQuality]);
+  useState(() => initial.reduceMotion && useAppStore.setState({ motion: "reduce" }));
 
   // Preset picking state from the URL (for captures of the highlights).
   useEffect(() => {
@@ -337,8 +352,8 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
     (name: AnimName, squadId: string | null) => {
       const api = animations.current;
       if (api && name === "shake") {
-        const objective = scene.board.hexes.find((h) => h.objectiveId) ?? scene.board.hexes.find((h) => h.terrain === "wall");
-        return objective ? api.shakeObjective(objective.coord, 1) : Promise.resolve();
+        const objective = initial.shakeAt ?? (scene.board.hexes.find((h) => h.objectiveId) ?? scene.board.hexes.find((h) => h.terrain === "wall"))?.coord;
+        return objective ? api.shakeObjective(objective, 1) : Promise.resolve();
       }
       const squad = scene.squads.find((s) => s.id === squadId);
       if (!api || !squad) return Promise.resolve();
@@ -359,15 +374,23 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
         case "rally":
           return api.rally(squad.id);
         case "shake": {
-          const objective = scene.board.hexes.find((h) => h.objectiveId) ?? scene.board.hexes.find((h) => h.terrain === "wall");
-          return objective ? api.shakeObjective(objective.coord, 1) : Promise.resolve();
+          const objective = initial.shakeAt ?? (scene.board.hexes.find((h) => h.objectiveId) ?? scene.board.hexes.find((h) => h.terrain === "wall"))?.coord;
+          return objective ? api.shakeObjective(objective, 1) : Promise.resolve();
         }
         case "brace":
           return api.brace(squad.id);
       }
     },
-    [scene],
+    [scene, initial.shakeAt],
   );
+  const objectiveStates = useMemo(() => {
+    const stage = initial.objective;
+    if (!stage) return undefined;
+    const at = initial.objectiveAt;
+    return scene.board.hexes
+      .filter((h) => h.objectiveId && (!at || (h.coord.q === at.q && h.coord.r === at.r)))
+      .map((h) => ({ hex: h.coord, stage }));
+  }, [scene, initial.objective, initial.objectiveAt]);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0d0c12" }}>
@@ -395,6 +418,7 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
             deploymentHexes={state.deploy ? scene.deployment : state.march ? marchZone : undefined}
             zoneStyle={state.march === "march" ? "march" : "deploy"}
             exitHexes={state.exit ? scene.exits : undefined}
+            objectiveStates={objectiveStates}
             animationRef={animations}
             onFiguresReady={onFiguresReady}
           />

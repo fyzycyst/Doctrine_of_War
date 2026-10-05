@@ -3,7 +3,9 @@ import { emberFord } from "../../game/engine/scenarios/emberFord";
 import { firstBreach } from "../../game/engine/scenarios/firstBreach";
 import { holdForDawn } from "../../game/engine/scenarios/holdForDawn";
 import { saltmarshColumn } from "../../game/engine/scenarios/saltmarshColumn";
+import { cinderRoad1 } from "../../game/engine/scenarios/cinderRoad1";
 import { stressScenario } from "./stressScenario";
+import { twoObjectivesBoard, twoObjectivesSquads } from "./twoObjectives";
 import type { DioramaVisibility } from "../Diorama";
 import type { DioramaSquad } from "../figures/types";
 import { dioramaSquads, lightingFor } from "../fromEngine";
@@ -59,6 +61,9 @@ export const LAB_SCENES = {
     exits: saltmarshColumn.winCondition.kind === "escapeEdge" ? saltmarshColumn.winCondition.edgeHexes : undefined,
   },
   holdForDawn: toScene(holdForDawn.board, dioramaSquads(holdForDawn.squads), lightingFor(holdForDawn.timeOfDay)),
+  // M2: Cinder Road battle 1 (the barricade), and a two-objective board (wagons + sluice) until battle 2's lands.
+  cinderRoad1: toScene(cinderRoad1.board, dioramaSquads(cinderRoad1.squads), lightingFor(cinderRoad1.timeOfDay)),
+  twoObjectives: toScene(twoObjectivesBoard, twoObjectivesSquads, "dusk"),
 } as const;
 
 export type LabSceneId = keyof typeof LAB_SCENES;
