@@ -213,7 +213,7 @@ describe("the registry", () => {
   });
 
   it("says why a saved run cannot continue on this build", () => {
-    const run = { packId: "first_call", packRevision: 1, campaignId: "ash_and_banner", contentRevision: 1, rulesRevision: RULES_REVISION };
+    const run = { packId: "first_call", packRevision: 1, campaignId: "ash_and_banner", contentRevision: firstCall.revision.content, rulesRevision: RULES_REVISION };
     expect(registry.compatibility(run)).toEqual({ ok: true });
     expect(registry.compatibility({ ...run, packId: "shoal_towns" })).toMatchObject({ ok: false, reason: expect.stringMatching(/pack this build does not have/) });
     expect(registry.compatibility({ ...run, campaignId: "sluice_line" })).toMatchObject({ ok: false });

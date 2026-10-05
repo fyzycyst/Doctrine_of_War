@@ -62,6 +62,13 @@ says whether a saved run (pack, campaign, content and rules revision) can contin
 The shipped pack is `first_call` (The First Call), holding the intro and *Cinder Road*
 (in development: battles 1–2 so far, until its length is frozen; see below).
 
+**Editions.** `first_call` is at content revision **2** (`readsContent: [2]`) since
+*Cinder Road* gained battle 2 (C2): a content-1 Cinder Road run (one completed after
+battle 1 cannot replay against a two-battle campaign) is read as **unavailable**, kept
+as it is, and can be set aside to begin anew; it is never shown as unreadable. Appending
+a battle to a campaign is such a change, so bump the content revision with it. The
+intro's v1 save is not gated by content revision.
+
 Adding an engine condition, action, selector, win or defeat kind means adding it to
 `packs/manifest.ts` too; the shipped-pack round-trip test fails until you do.
 
