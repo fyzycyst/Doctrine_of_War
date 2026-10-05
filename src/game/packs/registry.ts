@@ -21,6 +21,7 @@ import {
   type PackManifest,
   type PackRegistry,
   type SaveProvenance,
+  type SkirmishOffer,
 } from "./types";
 
 /** The first pack, "The First Call": the intro (Ash & Banner) and, as they land, the M1 campaigns. */
@@ -33,12 +34,8 @@ export const firstCall: PackManifest = {
   campaigns: [ashAndBanner, cinderRoad],
   scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn, cinderRoad1],
   doctrines: [],
-  skirmishes: [
-    { id: "skirmish_first_breach", title: "The First Breach", scenarioId: "first_breach" },
-    { id: "skirmish_ember_ford", title: "Ember Ford", scenarioId: "ember_ford" },
-    { id: "skirmish_saltmarsh_column", title: "The Saltmarsh Column", scenarioId: "saltmarsh_column" },
-    { id: "skirmish_hold_for_dawn", title: "Hold for Dawn", scenarioId: "hold_for_dawn" },
-  ],
+  // Skirmish offers every campaign battle (derived in the registry); this lists standalone extras only.
+  skirmishes: [],
 };
 
 /** The packs this build ships, in title-screen order. */
@@ -76,7 +73,21 @@ export function createRegistry(packs: readonly unknown[], core: DoctrineLibrary 
       return frozen.flatMap((pack) => pack.scenarios);
     },
     skirmishes() {
-      return frozen.flatMap((pack) => pack.skirmishes.map((skirmish) => ({ pack, skirmish })));
+      return frozen.flatMap((pack) => {
+        const fromCampaigns: SkirmishOffer[] = pack.campaigns.flatMap((campaign) =>
+          campaign.battles
+            .filter((battle) => !battle.placeholder && pack.scenarios.some((item) => item.id === battle.scenarioId))
+            .map((battle) => ({
+              pack,
+              campaign,
+              battle,
+              skirmish: { id: `skirmish_${campaign.id}_${battle.id}`, title: battle.title, scenarioId: battle.scenarioId },
+            })),
+        );
+        const fought = new Set(fromCampaigns.map((offer) => offer.skirmish.scenarioId));
+        const standalone = pack.skirmishes.filter((skirmish) => !fought.has(skirmish.scenarioId)).map((skirmish) => ({ pack, skirmish }));
+        return [...fromCampaigns, ...standalone];
+      });
     },
     compatibility(provenance) {
       return compatibility(frozen, provenance);

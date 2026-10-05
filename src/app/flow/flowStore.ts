@@ -266,11 +266,17 @@ export const useFlow = create<FlowState>((set, get) => ({
     const found = packs()
       .skirmishes()
       .find((item) => item.skirmish.id === skirmishId);
-    const scenario = found && packs().scenario(found.skirmish.scenarioId);
-    if (!found || !scenario) return;
+    const authored = found && packs().scenario(found.skirmish.scenarioId);
+    if (!found || !authored) return;
+    // The battle's default forces. A Roll battle: the recommended call from its campaign's
+    // starting army (all fresh, no veterans, the Host at its authored strength). Otherwise
+    // the authored companies as written.
+    const def = found.campaign;
+    const start = def?.mode === "roll" ? startCampaign(def) : null;
+    const scenario = def && start ? roll().assembleBattle(def, start, authored, roll().recommendedForce(def, start, authored)) : authored;
     const { doctrineOnly, defaultPace } = useSettings.getState();
     const game = useGame.getState();
-    // No campaign: the authored companies at their authored strength, and nothing is recorded.
+    // No campaign context: nothing is recorded or saved.
     game.loadBattle(scenario, { seed: freshSeed(), fortune: doctrineOnly ? "off" : "on" }, "briefing", null);
     game.setPace(defaultPace);
     set({ skirmish: found.skirmish, screen: "battle", notice: null });

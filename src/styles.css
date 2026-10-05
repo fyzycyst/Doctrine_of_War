@@ -3957,7 +3957,8 @@ html.reduce-motion .ticker-text.static {
   background: linear-gradient(180deg, var(--card-hi), var(--card));
 }
 
-.choice-card h3 {
+.choice-card h3,
+.choice-card h4 {
   margin: 0;
   font-family: var(--display);
   font-size: 17px;
@@ -3988,6 +3989,20 @@ html.reduce-motion .ticker-text.static {
 
 .choice-card.status-complete .choice-status {
   color: var(--gold-hi);
+}
+
+.choice-group-title {
+  margin: 10px 0 6px;
+  font-family: var(--display);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--bone);
+}
+
+.choice-card .choice-default {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--gold);
 }
 
 .choice-lede {

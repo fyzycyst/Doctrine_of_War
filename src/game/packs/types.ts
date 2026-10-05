@@ -2,7 +2,7 @@
 // scenarios they fight, any doctrines the pack adds, and a skirmish list. Packs ship
 // compiled in (app updates), but every manifest is validated as if it were untrusted
 // input, so a future "Import Campaign…" is a loader rather than a rewrite.
-import type { CampaignDefinition } from "../campaign/types";
+import type { CampaignBattle, CampaignDefinition } from "../campaign/types";
 import type { Doctrine, EngineScenario } from "../engine/types";
 
 /**
@@ -29,6 +29,15 @@ export interface SkirmishEntry {
   id: string;
   title: string;
   scenarioId: string;
+}
+
+/** A skirmish as the registry offers it: from a campaign battle, or a standalone manifest entry. */
+export interface SkirmishOffer {
+  pack: PackManifest;
+  skirmish: SkirmishEntry;
+  /** Present for a campaign battle: the campaign whose default forces it fights with. */
+  campaign?: CampaignDefinition;
+  battle?: CampaignBattle;
 }
 
 export interface PackManifest {
@@ -69,8 +78,12 @@ export interface PackRegistry {
   scenario(id: string): EngineScenario | undefined;
   /** Every scenario from every pack (the balance harness runs them all). */
   scenarios(): EngineScenario[];
-  /** Every skirmish entry, pack by pack. */
-  skirmishes(): { pack: PackManifest; skirmish: SkirmishEntry }[];
+  /**
+   * Every skirmish, pack by pack (T25): every built battle of every campaign, in campaign
+   * order (with its campaign and battle), then any of the manifest's own `skirmishes` that
+   * fight a scenario no campaign uses. Derived, so a new battle is offered without a list.
+   */
+  skirmishes(): SkirmishOffer[];
   /** Whether a run recorded with `provenance` can be continued on this build. */
   compatibility(provenance: SaveProvenance): Compatibility;
 }
