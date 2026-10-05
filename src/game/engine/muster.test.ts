@@ -328,6 +328,23 @@ describe("the harness's muster", () => {
     expect(validateMuster(state, scen, moves)).toEqual({});
   });
 
+  it("in an attack on the roads (an escape battle with no column) relieves, but leaves idle companies on their posts", () => {
+    // Open a Road: the march doctrine takes the roads itself; a rear guard is not dragged off its post.
+    const scen = scenario({
+      maxPhases: 2,
+      board: openBoard(9, 5),
+      winCondition: { kind: "escapeEdge", edgeHexes: [{ q: 0, r: 2 }], count: 1 },
+      squads: [
+        squad("worn", FB, { q: 3, r: 2 }, { cohesion: 30 }),
+        squad("fresh", FB, { q: 4, r: 2 }, { cohesion: 80 }),
+        squad("idle", FB, { q: 8, r: 4 }),
+        squad("h", AH, { q: 2, r: 2 }),
+      ],
+    });
+    const moves = heuristicMuster(createInitialState(scen, { fortune: "off" }), scen);
+    expect(moves).toEqual([{ squadId: "fresh", relieve: "worn" }]);
+  });
+
   it("is a legal muster in every battle, every phase (it reads only the player's view)", () => {
     for (const seed of [1, 2, 3]) {
       expect(() => playBattle(saltmarshColumn, saltmarshColumn.referencePlans!.intended, seed, "on", "heuristic")).not.toThrow();
