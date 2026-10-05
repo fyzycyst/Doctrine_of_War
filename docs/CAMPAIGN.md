@@ -191,7 +191,7 @@ a fixed campaign's rosters, or the baseline.
 | greedy | the curated path | highest fame per post (veteran-heavy, ignores Worn) | floor |
 | weakest legal | the curated path | lowest fame per post, Worn first, levies only where forced | **diagnostic**: its recovery force is the recommended call on the same state, gated in full |
 | role: … | the curated path | one per combination of flex-post roles (the most famous company of that role), when it can be filled legally | floor |
-| carried: recommended / greedy | battle 1 only, with the intro's 5 most famous companies carried in (`strongCarryOver`; at most `maxCarriedFielded` of them fielded) | recommended / greedy | full |
+| carried: recommended / greedy | every battle: the curated path replayed with the intro's 5 most famous companies carried in (`strongCarryOver`; at most `maxCarriedFielded` of them fielded) | recommended / greedy | full |
 
 **Reference plans are played exactly as authored on every call** (P7): every order a plan
 sets stands, whoever fills the post (doctrines are not tied to roles). The call's role

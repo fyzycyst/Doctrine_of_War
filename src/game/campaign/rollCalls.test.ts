@@ -64,6 +64,26 @@ describe("the call census (P7 finding 3)", () => {
     ]);
   });
 
+  it("builds the carried calls at a later battle too, on the curated path replayed with the veterans", () => {
+    // A two-battle stand-in (battle 1 fought twice): the carried calls are not first-battle-only.
+    const twice = structuredClone(cinderRoad);
+    twice.battles.push({ ...structuredClone(cinderRoad.battles[0]), id: "cr_saltmarsh_again" });
+    const matrix = rollCallMatrix(twice, scenarios, 1, carryFrom());
+    const carried = matrix.calls.filter((item) => item.kind.startsWith("carried"));
+    expect(carried.map((item) => [item.name, item.policy])).toEqual([
+      ["carried: recommended", "full"],
+      ["carried: greedy", "full"],
+    ]);
+    for (const item of carried) {
+      // Battle 1 already fought on its curated seed, with the five veterans on the Roll.
+      expect(item.state.battleIndex, item.name).toBe(1);
+      expect(item.state.history.map((entry) => entry.battleId), item.name).toEqual(["cr_saltmarsh"]);
+      expect(item.state.carried, item.name).toHaveLength(5);
+    }
+    // Without a carry source there are no carried calls, at any battle.
+    expect(rollCallMatrix(twice, scenarios, 1).calls.some((item) => item.kind.startsWith("carried"))).toBe(false);
+  });
+
   it("fails closed when a mandatory call cannot be built (here: an authored call that is not legal)", () => {
     const broken = structuredClone(cinderRoad);
     broken.battles[0].slots.van_west = "sunward_lances"; // a cavalry company on a frontline post
