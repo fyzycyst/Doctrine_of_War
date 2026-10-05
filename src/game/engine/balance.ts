@@ -1,7 +1,7 @@
 // Monte Carlo balance harness (tech plan §4a). Plays every reference plan and
 // every mono-doctrine plan across many seeds and checks the guardrails:
 // doctrine decides the odds; fortune decides the moment.
-import { heuristicMuster, type MusterPolicy } from "./muster";
+import { heuristicMuster, rushMuster, type MusterPolicy } from "./muster";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import type { EngineScenario, EngineState, FortuneMode, Orders } from "./types";
 
@@ -57,13 +57,15 @@ export interface BalanceRow extends BalancePlan {
 
 /**
  * One battle with fixed orders. `muster` is how the player repositions each command
- * window: "none" (never), or "heuristic" (heuristicMuster: relieve the worn, close idle
- * companies on the fight), which reads only the player's view.
+ * window: "none" (never), "heuristic" (heuristicMuster: relieve the worn, close idle
+ * companies on the fight), or "rush" (rushMuster: every fighting company steps toward the
+ * enemy objective, the adversarial check that strength alone cannot skip a role). Each
+ * reads only the player's view.
  */
 export function playBattle(scenario: EngineScenario, orders: Orders, seed: number, fortune: FortuneMode, muster: MusterPolicy = "none"): EngineState {
   let state = createInitialState(scenario, { seed, fortune });
   while (state.status === "command") {
-    const moves = muster === "heuristic" ? heuristicMuster(state, scenario) : [];
+    const moves = muster === "heuristic" ? heuristicMuster(state, scenario) : muster === "rush" ? rushMuster(state, scenario) : [];
     state = resolvePhase(state, orders, scenario, { muster: moves }).state;
   }
   return state;

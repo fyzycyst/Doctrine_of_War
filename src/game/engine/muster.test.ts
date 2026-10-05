@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { boardNeighbors, hexDistance } from "../board";
 import { playBattle } from "./balance";
 import { eventsFor, visibleState } from "./fog";
-import { applyMuster, heuristicMuster, MUSTER_HALTED, musterOptions, validateMuster } from "./muster";
+import { applyMuster, heuristicMuster, MUSTER_HALTED, musterOptions, rushMuster, validateMuster } from "./muster";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { createRng } from "./rng";
 import { scenarios } from "./scenarios";
@@ -330,6 +330,50 @@ describe("the harness's muster", () => {
   it("is a legal muster in every battle, every phase (it reads only the player's view)", () => {
     for (const seed of [1, 2, 3]) {
       expect(() => playBattle(saltmarshColumn, saltmarshColumn.referencePlans!.intended, seed, "on", "heuristic")).not.toThrow();
+    }
+  });
+});
+
+describe("the harness's rush (adversarial)", () => {
+  it("steps every fighting company as far as it can toward the enemy objective; standards stay; the moves are legal", () => {
+    const scen = scenario({
+      board: openBoard(9, 5),
+      maxPhases: 2,
+      objectives: [{ id: "park", name: "Park", description: "", hex: { q: 0, r: 2 }, integrity: 20, defender: AH }],
+      winCondition: { kind: "breakObjective", objectiveId: "park" },
+      squads: [
+        squad("front", FB, { q: 6, r: 2 }),
+        squad("behind", FB, { q: 7, r: 2 }),
+        squad("cav", FB, { q: 8, r: 0 }, { role: "cavalry" }),
+        squad("banner", FB, { q: 8, r: 4 }, { role: "support" }),
+        squad("h", AH, { q: 0, r: 0 }),
+      ],
+    });
+    const state = createInitialState(scen, { fortune: "off" });
+    const moves = rushMuster(state, scen);
+    const to = (id: string) => moves.find((move): move is { squadId: string; to: { q: number; r: number } } => move.squadId === id && "to" in move)?.to;
+    const park = { q: 0, r: 2 };
+    expect(hexDistance(to("front")!, park)).toBe(5);
+    expect(hexDistance(to("behind")!, park)).toBe(6);
+    expect(hexDistance(to("cav")!, park)).toBe(hexDistance({ q: 8, r: 0 }, park) - 2);
+    expect(to("banner")).toBeUndefined();
+    expect(validateMuster(state, scen, moves)).toEqual({});
+    // A named set rushes only those companies.
+    expect(rushMuster(state, scen, ["cav"]).map((move) => move.squadId)).toEqual(["cav"]);
+  });
+
+  it("rushes for the line of retreat in an escape battle, and is a legal muster in every battle, every phase", () => {
+    const state = createInitialState(saltmarshColumn, { fortune: "off" });
+    const exits = saltmarshColumn.winCondition.kind === "escapeEdge" ? saltmarshColumn.winCondition.edgeHexes : [];
+    const near = (hex: { q: number; r: number }) => Math.min(...exits.map((exit) => hexDistance(exit, hex)));
+    for (const move of rushMuster(state, saltmarshColumn)) {
+      const from = state.squads.find((item) => item.id === move.squadId)!.hex;
+      expect("to" in move && near(move.to)).toBeLessThan(near(from));
+    }
+    for (const battle of scenarios) {
+      for (const seed of [1, 2]) {
+        expect(() => playBattle(battle, battle.referencePlans!.intended, seed, "on", "rush")).not.toThrow();
+      }
     }
   });
 });

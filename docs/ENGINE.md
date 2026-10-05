@@ -357,7 +357,11 @@ seed ranges in docs/CAMPAIGN.md). Plans are played with a
 **muster policy**: `"heuristic"` (`heuristicMuster`: relieve an engaged company below 35
 cohesion with a fresh neighbour of 60+, then step idle fighting companies, those with
 no seen enemy within 3, toward the fight or the line of retreat; standards stay put;
-it reads only the player's view) or `"none"`. The guardrails are judged with the
+it reads only the player's view) or `"none"`. A third policy, `"rush"` (`rushMuster`:
+every fighting company, or a named set, steps as far as it can toward the enemy objective,
+or the line of retreat in an escape battle), is the adversary for role tests: strength
+alone must not skip a role (docs/CAMPAIGN.md); it is not used for the guardrails. The
+guardrails are judged with the
 heuristic, the player-realistic one; with `"none"` the intended plan must still pass
 the winnability floor. It prints win rates and the mean objective integrity, and exits 1
 if a guardrail fails:

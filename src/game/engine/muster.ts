@@ -311,7 +311,7 @@ export const IDLE_RANGE = 3;
 /** In an escape battle with a column, an idle company closes on it when farther than this. */
 export const WARD_RANGE = 2;
 
-export type MusterPolicy = "none" | "heuristic";
+export type MusterPolicy = "none" | "heuristic" | "rush";
 
 /**
  * A simple, sensible player: relieve any engaged company below RELIEVE_BELOW cohesion
@@ -363,6 +363,38 @@ export function heuristicMuster(state: EngineState, scenario: EngineScenario): M
     if (best && distance(best) < distance(squad.hex)) {
       moves.push({ squadId: squad.id, to: best });
       used.add(squad.id);
+      squad.hex = { ...best };
+    }
+  }
+  return moves;
+}
+
+/**
+ * An adversarial player (the harness's "rush" policy, C2): every command window, each listed
+ * company out of contact steps as far as it can, by a known-clear path, toward the enemy
+ * objectives still standing (in an escape battle, the line of retreat). By default every
+ * fighting company rushes; standards and the Column stay. Front companies move first, so
+ * the column does not block itself. Reads only the player's view; every move is valid.
+ * It tests whether strength alone can skip part of a plan (gated for unfilled-role plans).
+ */
+export function rushMuster(state: EngineState, scenario: EngineScenario, squadIds?: readonly string[]): MusterMove[] {
+  const know = knowledge(state, scenario, false);
+  const exits = exitHexesFor(scenario, scenario.playerFaction) ?? [];
+  const goals = exits.length > 0
+    ? exits
+    : state.objectives.filter((objective) => objective.defender !== scenario.playerFaction && objective.integrity > 0).map((objective) => objective.hex);
+  if (goals.length === 0) return [];
+  const distance = (hex: HexCoord) => Math.min(...goals.map((goal) => hexDistance(goal, hex)));
+  const companies = [...know.own.values()]
+    .filter((squad) => !squad.noncombatant && (squadIds ? squadIds.includes(squad.id) : squad.role !== "support"))
+    .sort((a, b) => distance(a.hex) - distance(b.hex));
+  const moves: MusterMove[] = [];
+  for (const squad of companies) {
+    if (inContact(state, squad)) continue;
+    const options = [...reach(know, squad).values()].map((path) => path[path.length - 1]);
+    const best = options.sort((a, b) => distance(a) - distance(b))[0];
+    if (best && distance(best) < distance(squad.hex)) {
+      moves.push({ squadId: squad.id, to: best });
       squad.hex = { ...best };
     }
   }
