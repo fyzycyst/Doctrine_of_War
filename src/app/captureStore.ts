@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { pressed } from "./shortcuts";
 
 /**
  * Capture mode (T13): when on, every UI layer hides so the diorama can be
@@ -27,5 +28,5 @@ export const useCaptureStore = create<CaptureState>((set) => ({
 
 /** Ctrl/⌘ + Shift + H toggles capture mode, so footage can start mid-battle. */
 export function isCaptureToggle(event: Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey">): boolean {
-  return event.shiftKey && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "h";
+  return pressed("capture", event);
 }

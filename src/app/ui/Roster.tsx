@@ -6,6 +6,7 @@ import { getDoctrine, resolveRank, rosterName } from "../game/view";
 import { ColumnGlyph, RoleGlyph, ROLE_NAME } from "./glyphs";
 import { isRelief, planFor } from "../game/muster";
 import { inContact, useMuster } from "./useMuster";
+import { pressed } from "../shortcuts";
 
 /** More companies than this and the roster turns compact. */
 const DENSE_FROM = 7;
@@ -53,10 +54,10 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    if (pressed("rosterMove", event)) {
       event.preventDefault();
       move(event.key === "ArrowDown" ? 1 : -1);
-    } else if (event.key === "Enter" || event.key === " ") {
+    } else if (pressed("rosterChoose", event)) {
       event.preventDefault();
       if (focusId) {
         selectSquad(focusId);
@@ -64,7 +65,7 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
           onOpenHand();
         }
       }
-    } else if (event.key === "Escape") {
+    } else if (pressed("deselect", event)) {
       selectSquad(null);
     }
   };

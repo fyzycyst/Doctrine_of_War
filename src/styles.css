@@ -2759,6 +2759,349 @@ html.reduce-motion *::after {
   padding: 12px;
 }
 
+/* The Field Manual (T26): pages as tabs, each short and drawn with the game's pieces. */
+.manual .howto-head h2 {
+  margin-bottom: 10px;
+}
+
+.manual-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(212, 166, 74, 0.22);
+}
+
+.manual-tabs [role="tab"] {
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.manual-tabs [role="tab"]:hover {
+  color: var(--bone);
+}
+
+.manual-tabs [role="tab"][aria-selected="true"] {
+  border-color: var(--gold);
+  background: rgba(212, 166, 74, 0.12);
+  color: var(--gold-hi);
+}
+
+.manual-lede,
+.manual-note {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.manual-doctrines {
+  display: grid;
+  gap: 14px;
+}
+
+.manual-doctrines .howto-panel p.manual-note {
+  margin: 0;
+}
+
+.manual-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.manual-cards li {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.manual-cards .howto-card {
+  max-width: none;
+}
+
+.howto-panel p.manual-flavor {
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.manual-conditions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 10px;
+  align-items: start;
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.manual-conditions dt,
+.manual-conditions dd {
+  margin: 0;
+}
+
+.manual-realms {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.manual-realms div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.manual-realms dt {
+  font-family: var(--display);
+  color: var(--bone);
+}
+
+.manual-realms dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+.manual-roles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.manual-roles li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold-hi);
+}
+
+.manual-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 14px;
+}
+
+.manual-verdicts {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.manual-verdicts dt {
+  font-family: var(--display);
+  color: var(--gold-hi);
+}
+
+.manual-verdicts dd {
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+
+.manual-call {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.manual-call-sample {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.manual-page:not(.page-play) .howto-panel p {
+  margin: 0;
+}
+
+.manual-call-sample .post {
+  pointer-events: none;
+}
+
+.manual-call-sample {
+  padding: 14px;
+  border: 1px solid rgba(212, 166, 74, 0.2);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #17131b, #0d0c12);
+}
+
+.manual-mark {
+  flex: none;
+  margin-left: 8px;
+  background: var(--card);
+}
+
+.manual-mini-host {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0;
+  padding: 8px 12px;
+}
+
+.manual-mini-host h2 {
+  font-size: 14px !important;
+}
+
+.manual-mini-host p {
+  margin: 2px 0 0;
+  font-size: 12.5px !important;
+}
+
+.manual-mini-columns,
+.manual-mini-label {
+  display: flex;
+  align-items: center;
+  font-family: var(--display);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.manual-mini-columns {
+  display: grid;
+  grid-template-columns: minmax(200px, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+}
+
+.manual-mini-columns span {
+  display: flex;
+  align-items: center;
+}
+
+.manual-mini-posts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.manual-mini-roll {
+  display: grid;
+  gap: 5px;
+}
+
+.manual-mini-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(212, 166, 74, 0.2);
+  border-radius: 5px;
+  background: linear-gradient(180deg, var(--card-hi), var(--card));
+  font-size: 13px;
+}
+
+.manual-mini-entry em {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.manual-mini-recommended {
+  display: flex;
+  align-items: center;
+}
+
+.manual-mini-recommended .btn-quiet {
+  pointer-events: none;
+}
+
+.manual-call-sample figcaption {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.manual-call-notes {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: note;
+}
+
+.manual-call-notes li {
+  counter-increment: note;
+}
+
+.manual-call-notes h3::before {
+  content: counter(note);
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border: 1px solid var(--gold-hi);
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.manual-controls {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.manual-controls th {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(212, 166, 74, 0.3);
+  font-family: var(--display);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--gold);
+}
+
+.manual-controls td {
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(239, 227, 200, 0.08);
+  vertical-align: top;
+}
+
+.manual-controls td:first-child {
+  white-space: nowrap;
+}
+
+.manual-controls td:last-child {
+  color: var(--muted);
+}
+
+.manual-controls kbd {
+  padding: 1px 6px;
+  border: 1px solid rgba(239, 227, 200, 0.3);
+  border-radius: 4px;
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .manual-call {
+    grid-template-columns: 1fr;
+  }
+}
+
 .howto-foot {
   display: flex;
   justify-content: flex-end;
@@ -4266,14 +4609,16 @@ html.reduce-motion .ticker-text.static {
   line-height: 1.35;
 }
 
-.call-help-close {
+.call-help-actions {
   position: fixed;
   right: 28px;
   top: 14px;
   z-index: 62;
+  display: flex;
+  gap: 8px;
 }
 
-.call-help-close kbd {
+.call-help-actions kbd {
   margin-left: 6px;
   font-size: 10px;
   opacity: 0.7;

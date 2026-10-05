@@ -36,6 +36,9 @@ export interface CarrySource {
   candidates: CarriedCompany[];
 }
 
+/** The Field Manual's pages (T26), in tab order. */
+export type HelpPageId = "play" | "doctrines" | "companies" | "call" | "modes" | "editor" | "controls";
+
 /** "invalid": a save exists but failed validation (it is never loaded). */
 export type SaveStatus = "checking" | "none" | "valid" | "invalid";
 
@@ -90,8 +93,13 @@ export interface FlowState {
   /** The doctrine editor (T16), and what it opened on. */
   editor: EditorTarget | null;
   setEditor: (editor: EditorTarget | null) => void;
+  /** The Field Manual (T26) is open, on `helpPage`. */
   howToOpen: boolean;
+  /** Opens it on How to play, or closes it. */
   setHowToOpen: (open: boolean) => void;
+  helpPage: HelpPageId;
+  /** Opens the Field Manual on a page (a context's own help links here). */
+  openHelp: (page?: HelpPageId) => void;
 
   go: (screen: Screen) => void;
   /** Looks for a usable save (for the title's Continue). */
@@ -178,7 +186,9 @@ export const useFlow = create<FlowState>((set, get) => ({
   editor: null,
   setEditor: (editor) => set({ editor }),
   howToOpen: false,
-  setHowToOpen: (howToOpen) => set({ howToOpen }),
+  setHowToOpen: (howToOpen) => set(howToOpen ? { howToOpen, helpPage: "play" } : { howToOpen }),
+  helpPage: "play",
+  openHelp: (helpPage = "play") => set({ howToOpen: true, helpPage }),
 
   go: (screen) => set({ screen, notice: null }),
 

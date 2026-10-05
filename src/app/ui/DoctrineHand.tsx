@@ -7,6 +7,7 @@ import { getDoctrine } from "../game/view";
 import { useVariants } from "../variants/variantStore";
 import { DoctrineCardFace } from "./DoctrineCard";
 import { SealMark } from "./glyphs";
+import { pressed } from "../shortcuts";
 
 export interface HandHandle {
   focus: () => void;
@@ -50,16 +51,14 @@ export const DoctrineHand = forwardRef<HandHandle>(function DoctrineHand(_, ref)
 
   const onKeyDown = (event: KeyboardEvent) => {
     const count = doctrines.length;
-    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+    if (pressed("handBrowse", event)) {
       event.preventDefault();
-      focusCard((active + (event.key === "ArrowRight" ? 1 : -1) + count) % count);
-    } else if (event.key === "Home" || event.key === "End") {
-      event.preventDefault();
-      focusCard(event.key === "Home" ? 0 : count - 1);
-    } else if (event.key === "Enter" || event.key === " ") {
+      if (event.key === "Home" || event.key === "End") focusCard(event.key === "Home" ? 0 : count - 1);
+      else focusCard((active + (event.key === "ArrowRight" ? 1 : -1) + count) % count);
+    } else if (pressed("handAssign", event)) {
       event.preventDefault();
       assign(squad.id, doctrines[active].id);
-    } else if (event.key === "Escape") {
+    } else if (pressed("handLeave", event)) {
       // One layer per press (T25): leave the hand for the company's tab; the next Escape deselects.
       event.stopPropagation();
       document.querySelector<HTMLElement>(`[data-squad="${squad.id}"]`)?.focus();

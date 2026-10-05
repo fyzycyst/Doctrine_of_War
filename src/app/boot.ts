@@ -10,6 +10,7 @@
 //   &select=<squadId>      select a squad
 //   &still=1               no idle camera drift (captures)
 //   &guide=reset | &coach=select|read|assign|seal|watch|chronicle | &howto=1   guidance
+//   &help=play|doctrines|companies|call|modes|editor|controls   the Field Manual on a page (T26)
 //   &callHelp=seen|open    Call the Banners' "How the call works" (T25)
 import { scenarios, type EngineScenario } from "../game/engine";
 import { campaignAfter } from "./flow/devCampaign";
@@ -18,6 +19,8 @@ import { COACH_STEPS, useGuide, type CoachStep } from "./guide/guideStore";
 import { useGame, type Stage } from "./game/gameStore";
 import { bootMockRoll } from "./roll/devBoot";
 import { cinderRoad } from "../game/campaign";
+import { HELP_PAGES } from "./guide/FieldManual";
+import type { HelpPageId } from "./flow/flowStore";
 import { useSettings } from "./settingsStore";
 import { useAppStore } from "./store";
 
@@ -80,6 +83,9 @@ export function bootFromUrl(search: string): BootOptions {
   if (params.get("howto") === "1") {
     useFlow.getState().setHowToOpen(true);
   }
+  // `&help=<page>`: the Field Manual open on a page (T26 captures).
+  const help = params.get("help");
+  if (help && HELP_PAGES.some((page) => page.id === help)) useFlow.getState().openHelp(help as HelpPageId);
 
   // `&motion=reduce|full`: the Settings motion override (reduced-motion QA).
   const motion = params.get("motion");

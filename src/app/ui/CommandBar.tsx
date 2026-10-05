@@ -1,4 +1,4 @@
-import { Castle, CloudFog, CloudRain, DoorOpen, Settings, Sun, Swords, Volume2, VolumeX, Wind } from "lucide-react";
+import { Castle, CircleHelp, CloudFog, CloudRain, DoorOpen, Settings, Sun, Swords, Volume2, VolumeX, Wind } from "lucide-react";
 import { goalFor, type GoalIcon } from "../game/goal";
 
 const GOAL_ICON: Record<GoalIcon, typeof Sun> = { hold: Castle, break: Swords, escape: DoorOpen };
@@ -31,6 +31,7 @@ export function CommandBar() {
   const muted = useAudioStore((s) => s.muted);
   const toggleMuted = useAudioStore((s) => s.toggleMuted);
   const setSettingsOpen = useFlow((s) => s.setSettingsOpen);
+  const openHelp = useFlow((s) => s.openHelp);
   const stage = useGame((s) => s.stage);
   const pace = useGame((s) => s.pace);
   const setPace = useGame((s) => s.setPace);
@@ -98,6 +99,9 @@ export function CommandBar() {
         onClick={toggleMuted}
       >
         {muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}
+      </button>
+      <button type="button" className="chip mute" aria-label="Field Manual" title="Field Manual (F1)" onClick={() => openHelp()}>
+        <CircleHelp size={15} aria-hidden="true" />
       </button>
       <button type="button" className="chip mute" aria-label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}>
         <Settings size={15} aria-hidden="true" />

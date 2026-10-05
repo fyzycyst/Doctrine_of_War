@@ -28,6 +28,7 @@ import { roll } from "./api";
 import { PostMap } from "./PostMap";
 import { postNames } from "./posts";
 import { realmOf } from "./realms";
+import { pressed } from "../shortcuts";
 
 const signed = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const roleWords = (slot: RollSlot) => slot.roles.map((role) => ROLE_NAME[role]).join(" or ");
@@ -167,6 +168,7 @@ export function CallTheBanners() {
   const called = useCalled();
   const go = useFlow((s) => s.go);
   const fieldBanners = useFlow((s) => s.fieldBanners);
+  const openHelp = useFlow((s) => s.openHelp);
   const [assignment, setAssignment] = useState<Assignment>(() => (called ? { ...called.recommended } : {}));
   const [armed, setArmed] = useState<string | null>(null);
   const [choosing, setChoosing] = useState<string | null>(null);
@@ -248,6 +250,8 @@ export function CallTheBanners() {
               type="button"
               className="btn-quiet roll-help"
               aria-expanded={helping}
+              // Hidden while the overlay is up (a note sits over it); Esc, a click or Got it closes the overlay.
+              style={helping ? { visibility: "hidden" } : undefined}
               aria-label="How the call works"
               onClick={() => (helping ? closeHelp() : setHelping(true))}
             >
@@ -424,7 +428,16 @@ export function CallTheBanners() {
           <Swords size={15} aria-hidden="true" /> Take the field
         </button>
       </footer>
-      {helping && <CallHelp notes={HELP_NOTES} onClose={closeHelp} />}
+      {helping && (
+        <CallHelp
+          notes={HELP_NOTES}
+          onClose={closeHelp}
+          onMore={() => {
+            setHelping(false);
+            openHelp("call");
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -472,10 +485,10 @@ function CompanyChoices({
   const onKey = (event: KeyboardEvent) => {
     const items = [...(list.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
     const at = items.indexOf(document.activeElement as HTMLElement);
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    if (pressed("listMove", event)) {
       event.preventDefault();
       items[(at + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
-    } else if (event.key === "Escape") {
+    } else if (pressed("listClose", event)) {
       event.preventDefault();
       event.stopPropagation();
       onClose();

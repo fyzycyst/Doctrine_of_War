@@ -12,6 +12,7 @@ import { useGuide } from "../guide/guideStore";
 import { PlaybackDirector } from "../playback/director";
 import { buildTimeline, snapshotBefore } from "../playback/timeline";
 import { stageTurn } from "../game/goal";
+import { pressed } from "../shortcuts";
 
 /** How long the "dawn breaks" moment holds at the end of the last night phase (ms). */
 const STAGE_TURN_MS = 2600;
@@ -188,7 +189,7 @@ export function Playback({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === " " || event.key === "Escape") {
+      if (pressed("skipPhase", event)) {
         event.preventDefault();
         director.current?.skip();
         endTurn.current?.();
