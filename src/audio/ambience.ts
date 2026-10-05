@@ -31,3 +31,10 @@ export function ambienceMix(spec: AmbienceSpec): Record<AmbientBed, number> {
   const fire = spec.timeOfDay === "nightFires" ? 0.45 : spec.timeOfDay === "predawn" ? 0.18 : 0;
   return { wind, rain, river, drums, fire };
 }
+
+/** Bed levels for a spec, or all zero (no battle: the menus) for null. */
+export function ambienceTargets(spec: AmbienceSpec | null): Record<AmbientBed, number> {
+  if (!spec) return { wind: 0, rain: 0, river: 0, drums: 0, fire: 0 };
+  return ambienceMix(spec);
+}
+

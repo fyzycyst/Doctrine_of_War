@@ -31,4 +31,21 @@ describe("audio", () => {
     expect(useAudioStore.getState().musicVolume).toBe(0);
     useAudioStore.getState().setMusicVolume(0.6);
   });
+
+  it("silences every bed (drums included) when the ambience is cleared for the menus", async () => {
+    const { ambienceTargets } = await import("./ambience");
+    const battle = ambienceTargets({ timeOfDay: "nightFires", weather: "ashWind", water: true, hostDrums: true });
+    expect(battle.drums).toBeGreaterThan(0);
+    const menu = ambienceTargets(null);
+    for (const bed of AMBIENT_BEDS) expect(menu[bed]).toBe(0);
+  });
+
+  it("keeps the score playing between screens: no pin and no battle yet keeps the last mood", async () => {
+    const { resolveMood } = await import("./engine");
+    expect(resolveMood("dusk", null, null)).toBe("dusk");
+    expect(resolveMood(undefined, { timeOfDay: "predawn", weather: "clear", water: false, hostDrums: true }, "dusk")).toBe("predawn");
+    // Released for a battle whose ambience hasn't arrived yet: keep playing the menu's mood.
+    expect(resolveMood(undefined, null, "dusk")).toBe("dusk");
+    expect(resolveMood(null, null, "dusk")).toBeNull();
+  });
 });

@@ -1,5 +1,5 @@
 import { useAudioStore } from "../app/audioStore";
-import { AMBIENT_BEDS, ambienceMix, type AmbienceSpec, type AmbientBed } from "./ambience";
+import { AMBIENT_BEDS, ambienceTargets, type AmbienceSpec, type AmbientBed } from "./ambience";
 import { DRUM_SWELLS, drumBar, DrumIntensity, drumTempo } from "./drums";
 import { DUCK, MOODS, MUSIC_LEVEL, musicBar, type MotifKind, type MusicMood } from "./music";
 import { Orchestra } from "./sampler";
@@ -31,6 +31,8 @@ const SAMPLES = {
 } as const;
 
 const BED_FADE = 2.5;
+/** The first sound fades in over this long (seconds). */
+export const FADE_IN_SECONDS = 2;
 const AMBIENT_LEVEL = 0.55;
 
 export class AudioEngine {
@@ -49,6 +51,9 @@ export class AudioEngine {
   private musicBus: GainNode | null = null;
   private duck: GainNode | null = null;
   private musicOverride: MusicMood | null | undefined = undefined;
+  /** The mood last played, so the score never drops out between screens. */
+  private lastMood: MusicMood | null = null;
+  private faded = false;
   /** Phrase dynamics: the score swells with battle intensity (hush in command windows). */
   private dyn: GainNode | null = null;
   /** Motifs and stingers: same music volume, not ducked (they answer the SFX). */
@@ -103,7 +108,13 @@ export class AudioEngine {
       void this.orchestra.load(this.ctx, `${import.meta.env.BASE_URL}`);
     }
     if (this.ctx.state !== "running") await this.ctx.resume();
-    if (this.spec) this.setAmbience(this.spec);
+    this.applyBeds();
+  }
+
+  /** No battle on screen (the menus): every bed, the war drums included, fades out; the score plays on. */
+  clearAmbience() {
+    this.spec = null;
+    this.applyBeds();
   }
 
   setAmbience(spec: AmbienceSpec) {
@@ -113,8 +124,12 @@ export class AudioEngine {
       this.motif("dawn");
     }
     this.spec = spec;
+    this.applyBeds();
+  }
+
+  private applyBeds() {
     if (!this.ctx) return;
-    const mix = ambienceMix(spec);
+    const mix = ambienceTargets(this.spec);
     const now = this.ctx.currentTime;
     for (const bed of AMBIENT_BEDS) {
       const g = this.beds.get(bed);
@@ -124,6 +139,7 @@ export class AudioEngine {
       g.gain.linearRampToValueAtTime(mix[bed], now + BED_FADE);
     }
   }
+
 
   /** The drums' resting level (0..1): e.g. DRUM_BASE.command or DRUM_BASE.playback. */
   setDrumIntensity(base: number) {
@@ -149,7 +165,9 @@ export class AudioEngine {
   }
 
   private get mood(): MusicMood | null {
-    return this.musicOverride !== undefined ? this.musicOverride : (this.spec?.timeOfDay ?? null);
+    const mood = resolveMood(this.musicOverride, this.spec, this.lastMood);
+    if (mood) this.lastMood = mood;
+    return mood;
   }
 
   playSfx(name: SfxName) {
@@ -217,7 +235,15 @@ export class AudioEngine {
     const { muted, volume, musicVolume } = useAudioStore.getState();
     const now = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(now);
-    this.master.gain.setTargetAtTime(muted ? 0 : volume, now, 0.05);
+    if (!this.faded) {
+      // The first sound fades in (no jump into the title's score), already at the
+      // player's volume and mute.
+      this.faded = true;
+      this.master.gain.setValueAtTime(0, now);
+      this.master.gain.linearRampToValueAtTime(muted ? 0 : volume, now + FADE_IN_SECONDS);
+    } else {
+      this.master.gain.setTargetAtTime(muted ? 0 : volume, now, 0.05);
+    }
     this.musicBus?.gain.setTargetAtTime(musicVolume * MUSIC_LEVEL, now, 0.1);
     this.motifBus?.gain.setTargetAtTime(musicVolume * MUSIC_LEVEL * 1.1, now, 0.1);
   }
@@ -626,3 +652,14 @@ export class AudioEngine {
 function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
+
+/**
+ * Which mood the score plays: a pinned mood (menus), else the battle's time of
+ * day, else (released for a battle whose ambience hasn't arrived yet) the last
+ * mood, so there's no silent gap between screens. A pinned null is silence.
+ */
+export function resolveMood(override: MusicMood | null | undefined, spec: AmbienceSpec | null, last: MusicMood | null): MusicMood | null {
+  if (override !== undefined) return override;
+  return spec?.timeOfDay ?? last;
+}
+
