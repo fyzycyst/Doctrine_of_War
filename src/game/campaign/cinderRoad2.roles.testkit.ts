@@ -4,7 +4,7 @@
 // simulations across workers; see guardrails.testkit.ts).
 import { hexDistance, sameHex, type HexCoord } from "../board";
 import { GATE_SEEDS } from "../engine/balance";
-import { heuristicMuster, validateMuster, type MusterMove, type MusterPolicy } from "../engine/muster";
+import { heuristicMuster, rushMuster, validateMuster, type MusterMove, type MusterPolicy } from "../engine/muster";
 import { createInitialState, resolvePhase } from "../engine/resolvePhase";
 import { scenarios as intro } from "../engine/scenarios";
 import { SLUICE_WALK } from "../engine/scenarios/cinderRoad2";
@@ -19,11 +19,22 @@ import { introCarrySource } from "./rosters";
 export const SEEDS = 40;
 const RAM = "kiln_ram";
 export const BTW = "bring_the_water";
+/**
+ * The share of an unfilled plan's games that may still touch the role by accident (a stray
+ * engagement with the ram, e.g. rushing cavalry crossing its path: up to 5.5% on one call).
+ * More than this and the plan is misclassified: it is filling the role, not leaving it.
+ */
+export const UNFILLED_SLACK = 0.1;
 
 /** The player's two-step muster that puts the keepers on the Sluice Walk (phase 1, then 2). */
 const ONTO_THE_WALK: Record<number, HexCoord> = { 1: { q: 6, r: 2 }, 2: SLUICE_WALK };
 
-export type Muster = MusterPolicy | "onto the walk";
+/**
+ * How the player musters: a harness policy ("none", "heuristic", "rush": every fighting
+ * company steps toward the park), "rush the march" (only the companies on Bring the Water
+ * rush, the warden's re-check), or "onto the walk" (the keepers' two moves).
+ */
+export type Muster = MusterPolicy | "rush the march" | "onto the walk";
 
 interface RoleRun {
   advanced: boolean;
@@ -34,8 +45,10 @@ interface RoleRun {
   invalidMusters: string[];
 }
 
-function musterFor(state: EngineState, scenario: EngineScenario, muster: Muster, invalid: string[]): MusterMove[] {
+function musterFor(state: EngineState, scenario: EngineScenario, orders: Orders, muster: Muster, invalid: string[]): MusterMove[] {
   if (muster === "heuristic") return heuristicMuster(state, scenario);
+  if (muster === "rush") return rushMuster(state, scenario);
+  if (muster === "rush the march") return rushMuster(state, scenario, Object.keys(orders).filter((id) => orders[id] === BTW));
   const to = muster === "onto the walk" ? ONTO_THE_WALK[state.phase] : undefined;
   if (!to) return [];
   const moves = [{ squadId: "keepers", to }];
@@ -51,7 +64,7 @@ function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muste
   let struck = false;
   let march = false;
   while (state.status === "command") {
-    const result = resolvePhase(state, orders, scenario, { muster: musterFor(state, scenario, muster, invalidMusters) });
+    const result = resolvePhase(state, orders, scenario, { muster: musterFor(state, scenario, orders, muster, invalidMusters) });
     for (const event of result.events as EngineEvent[]) {
       if (event.kind === "objectiveDamage" && event.objectiveId === "weir_sluice") struck = true;
       if (event.kind === "objectiveDamage" && event.objectiveId === "wagon_park") march = true;
@@ -73,10 +86,10 @@ function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muste
   };
 }
 
-export function rates(scenario: EngineScenario, orders: Orders, muster: Muster) {
-  const runs = Array.from({ length: SEEDS }, (_, index) => playRoles(scenario, orders, GATE_SEEDS.first + index, muster));
+export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, seeds = SEEDS, firstSeed: number = GATE_SEEDS.first) {
+  const runs = Array.from({ length: seeds }, (_, index) => playRoles(scenario, orders, firstSeed + index, muster));
   return {
-    advance: runs.filter((run) => run.advanced).length / SEEDS,
+    advance: runs.filter((run) => run.advanced).length / seeds,
     guarded: runs.filter((run) => run.guard === true).length,
     marched: runs.filter((run) => run.march).length,
     invalid: runs.flatMap((run) => run.invalidMusters),

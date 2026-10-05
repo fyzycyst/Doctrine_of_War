@@ -7,7 +7,7 @@
 // Covenant's sluice-house on our bank, which stands in its own race of water with one dry
 // walk to it. Lesson (the star is Bring the Water; the second role is the sluice guard):
 // break theirs before they break ours. A pure march, however strong, leaves the Sluice
-// Walk open and the ram breaks the sluice in two blows. The guard is a role, defined by what
+// Walk open and the ram breaks the sluice at its first blow. The guard is a role, defined by what
 // it does: a company holds the walk when the ram comes up, or fights the ram before it
 // strikes the sluice. Accepted fillers (docs/CAMPAIGN.md): Hold for Dawn takes its stand on
 // the walk (intended); Clean Counterstroke waits and strikes the ram when it comes up alone
@@ -105,7 +105,9 @@ export const cinderRoad2: EngineScenario = {
       name: "The Weir Sluice",
       description: "The Covenant's sluice-house on our bank: keep it standing.",
       hex: WEIR_SLUICE,
-      integrity: 32,
+      // One blow from the ram breaks it (C2 re-check): an unguarded sluice falls in phase 2,
+      // before even a strong force rushing the park can break it.
+      integrity: 16,
       defender: "free_banners",
     },
   ],
@@ -130,7 +132,7 @@ export const cinderRoad2: EngineScenario = {
     // The raid: across the Sallow Weir for the sluice.
     // The ram's escort: it falls on whoever comes within reach.
     { id: "cinderhook_raiders", name: "Cinderhook Raiders", faction: "ashen_host", role: "skirmish", hex: { q: 1, r: 0 }, strength: 46, cohesion: 62, resolve: 0, doctrineId: "iron_tide" },
-    // A kiln-clan ram crew: steady while the engine stands, and it breaks stone in two blows.
+    // A kiln-clan ram crew: steady while the engine stands; one blow breaks the sluice.
     { id: "kiln_ram", name: "Kiln Ram", faction: "ashen_host", role: "siege", hex: { q: 2, r: 0 }, strength: 60, cohesion: 60, resolve: 1, doctrineId: "break_the_gate" },
   ],
   // The Host's intent for each phase: the Chronicle's phase titles.

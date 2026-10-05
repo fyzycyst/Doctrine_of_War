@@ -102,6 +102,6 @@ describe("Strike the Wagon Park: the battle", () => {
     expect(final.phase).toBeLessThanOrEqual(4);
     expect(final.squads.filter((squad) => squad.faction === "free_banners" && squad.status !== "active")).toEqual([]);
     expect(final.squads.find((squad) => squad.id === "keepers")?.hex).toEqual(SLUICE_WALK);
-    expect(final.objectives.find((objective) => objective.id === "weir_sluice")?.integrity).toBe(32);
+    expect(final.objectives.find((objective) => objective.id === "weir_sluice")?.integrity).toBe(cinderRoad2.objectives[1].integrity);
   });
 });

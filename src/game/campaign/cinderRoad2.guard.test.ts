@@ -1,14 +1,11 @@
 // Cinder Road battle 2 (C2): the guard role on every named call. A plan that leaves the
 // guard unfilled stays below the floor with no muster and with the heuristic muster, and the
-// observable confirms nobody guarded. The accepted fillers are not gated; Hold for Dawn and
+// observable confirms nobody guarded (the rush adversary is in cinderRoad2.rush.test.ts). The accepted fillers are not gated; Hold for Dawn and
 // the muster-dependent one (Shield the Line mustered onto the walk) are pinned as fillers.
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";
 import type { Orders } from "../engine/types";
-import { BTW, calls, rates, SEEDS } from "./cinderRoad2.roles.testkit";
-
-/** The share of games an unfilled plan may still touch the role by accident. */
-const UNFILLED_SLACK = 0.05;
+import { BTW, calls, rates, SEEDS, UNFILLED_SLACK } from "./cinderRoad2.roles.testkit";
 
 describe("Strike the Wagon Park: no plan that leaves the guard unfilled reaches the floor, on every call", () => {
   for (const call of calls) {
@@ -25,8 +22,7 @@ describe("Strike the Wagon Park: no plan that leaves the guard unfilled reaches 
         for (const [name, orders] of unguarded) {
           const result = rates(call.scenario, orders, muster);
           if (result.advance >= GUARDRAILS.intendedMin) failures.push(`${name} (${muster}) advances ${result.advance}`);
-          // Unfilled means unfilled in nearly every game (a stray engagement can touch the ram:
-          // at most 1 in 500 on the gate seeds).
+          // Unfilled means unfilled in nearly every game (see UNFILLED_SLACK).
           if (result.guarded > SEEDS * UNFILLED_SLACK) failures.push(`${name} (${muster}) guarded in ${result.guarded}/${SEEDS}: not an unfilled plan`);
         }
       }

@@ -284,10 +284,14 @@ they achieve, declared before the gate, and ablated as roles.**
   and one of them may be the tracked `referencePlans.alternative` row.
 - **The gate, and what makes the rule falsifiable:** plans where a role is genuinely
   **unfilled** (each doctrine that does not fill it on the role's posts, with no muster that
-  fills it, and the pure march) are played on **every named call, with no muster and with
-  the heuristic muster**. Each must stay **below the floor** (advance < 75%), and the role's
-  observable must confirm that the role really was left unfilled (in at least 95% of games). This is a scenario test,
-  and the 500-seed numbers go on the battle sheet.
+  fills it, and the pure march) are played on **every named call, with no muster, with
+  the heuristic muster, and against the rush** (`rushMuster`, the adversarial policy: every
+  fighting company, or only the companies on the role that is filled, steps toward the
+  enemy objective each phase, or toward the line of retreat in an escape battle). Strength
+  alone must not skip a role. Each plan must stay **below the floor** (advance < 75%), and
+  the role's observable must confirm that the role really was left unfilled (in at least
+  90% of games: a rushing company can cross the enemy's path by accident). These are
+  scenario tests, and the 500-seed numbers go on the battle sheet.
 - **The ≥ 15-point ablation is by role:** replace every doctrine that fills the role with
   the best doctrine that does not (no muster), and the advance rate must drop by at least 15
   points.
@@ -350,7 +354,8 @@ orchestrator after the warden's re-review; numbers and the dominance review are 
 battle sheet). The standard carries a banner with the assault
 (Rescue Standard: an extra, not a counted role). The briefing names the role ("someone
 must keep the Sluice Walk"), not a doctrine. Bad plan: the pure march. Curated seed 64:
-won in phase 3, no company lost, the sluice untouched, the Kept Coal detachment routed.
+won in phase 4, no company lost, the sluice untouched. The sluice falls at the ram's first
+blow (integrity 16), so even a strong force rushing the park cannot beat the ram to it.
 
 ## Saves
 

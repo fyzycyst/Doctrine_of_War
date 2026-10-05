@@ -1,6 +1,7 @@
 // Cinder Road battle 2 (C2): the march role on every named call. A plan that leaves the
 // march unfilled (every Bring the Water post on another doctrine) stays below the floor with
-// no muster and with the heuristic muster, and the observable confirms nobody struck the park.
+// no muster and with the heuristic muster, and the observable confirms nobody struck the park
+// (the rush adversary is in cinderRoad2.rush.test.ts).
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";
 import { BTW, calls, rates, SEEDS } from "./cinderRoad2.roles.testkit";

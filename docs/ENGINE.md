@@ -417,24 +417,26 @@ Each battle has a **star doctrine** even when it uses a mix:
   the Water**; the second role is **the sluice guard**. Banner initiative under fog on a
   stretch of the Emberwater upstream of Ember Ford. Two objectives: `breakObjective` on the
   Host's wagon park (integrity 56), and `objectiveLost` on the Covenant's Weir Sluice
-  (integrity 32), which stands in its own race of water with **one dry approach, the
+  (integrity 16), which stands in its own race of water with **one dry approach, the
   Sluice Walk**. A kiln-clan ram (siege) crosses the Sallow Weir for the sluice: a pure
-  march leaves the walk open and the ram breaks the sluice in two blows, whatever the
+  march leaves the walk open and the ram breaks the sluice at its first blow, whatever the
   force. The roles are defined by function: the **guard** holds the walk when the ram
   comes up, or fights the ram before it strikes the sluice; the **march** strikes the park.
   Accepted guards: Hold for Dawn (intended) takes its stand on the walk (its own
   objective's only standable neighbour) and the ram fights it there (C4); Clean
   Counterstroke waits and strikes the ram when it comes up alone (roster-dependent); and
   any holding doctrine the player musters onto the walk (two moves; muster-dependent). The
-  standard carries a banner (Rescue Standard: an extra, not a counted role). Gate seeds,
-  recommended call: intended 96.0% (100% with no muster), the pure march 0%, every mono 0%
-  (Hold for Dawn included), Clean Counterstroke 99.4% (100%), but 0–46% on calls that put
-  another company on the keepers' post; Shield the Line mustered onto the walk 98.6%
-  (100%), and at least 80.8% on every call. Every plan that leaves the guard or the march
-  unfilled advances at most 0.4% on every call, with either muster
-  (`cinderRoad2.guard.test.ts`, `cinderRoad2.march.test.ts`). Role ablations (tuning seeds,
-  no muster / heuristic): every keeper that does not guard 0 / 0, every assault that does
-  not march 0 / 0.
+  standard carries a banner (Rescue Standard: an extra, not a counted role). The sluice
+  falls at the ram's first blow (integrity 16, tuned after the warden found that a strong
+  carried force rushing the park with muster beat the ram to it). Gate seeds, recommended
+  call: intended 92.8% (100% with no muster), the pure march 0%, every mono 0% (Hold for
+  Dawn included), Clean Counterstroke 94.0% (94.2%), but 0–43% on calls that put another
+  company on the keepers' post; Shield the Line mustered onto the walk 96.8% (100%), and at
+  least 75.6% (96.8%) on every call. Every plan that leaves the guard or the march unfilled
+  advances at most 7.2% on every call, with no muster, the heuristic muster or the rush
+  (`cinderRoad2.guard.test.ts`, `cinderRoad2.march.test.ts`, `cinderRoad2.rush.test.ts`).
+  Role ablations (gate seeds, no muster and heuristic): every keeper that does not guard,
+  and every assault that does not march, 0% on every call.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
 with at least two doctrine families. A role is defined by what it achieves (hold the gate,
@@ -444,7 +446,7 @@ replaced by the best doctrine that does not, and the swap must cost at least 15 
 advance rate. The earlier battles' tests ablate doctrine families; where one family is the
 only thing that fills a role, the two ablations are the same. A battle may declare accepted fillers for a
 role (another doctrine, or a muster); plans that leave a role unfilled must stay below the
-floor on every named call, with no muster and with the heuristic muster.
+floor on every named call, with no muster, with the heuristic muster and against the rush.
 
 **Doctrine identity matrix** (`identityKit.ts`, `identity.test.ts`). Canonical
 micro-battles against Iron Tide marching on a gate (30 seeds, fortune on) assert that
