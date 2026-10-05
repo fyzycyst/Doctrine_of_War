@@ -89,5 +89,34 @@ export const cinderRoad: CampaignDefinition = {
         },
       },
     },
+    {
+      id: "cr_ember_ford",
+      title: "Open a Road",
+      scenarioId: "cinder_road_ember_ford",
+      slots: {
+        ford_van: "coldwater_shields",
+        road_van: "ferrymoot_pikes",
+        chapel_van: "thornwick_spears",
+        standard: "wickmere_standard",
+        lances: "sunward_lances",
+        bows: "heronwick_bows",
+      },
+      call: {
+        // Where each post stands on our own bank before the crossing.
+        labels: {
+          ford_van: "The Cinder Ford",
+          road_van: "The Ferry Road",
+          chapel_van: "The North Bank",
+          standard: "Watcher's Rise",
+          lances: "The Mill Road",
+          bows: "The Mill Ford",
+        },
+        // Two flex posts, both on the Mill Ford watch: a frontline company may hold either.
+        flex: {
+          lances: { roles: ["cavalry", "frontline"], doctrines: { cavalry: "shield_the_line", frontline: "shield_the_line" } },
+          bows: { roles: ["skirmish", "frontline"], doctrines: { skirmish: "shield_the_line", frontline: "shield_the_line" } },
+        },
+      },
+    },
   ],
 };

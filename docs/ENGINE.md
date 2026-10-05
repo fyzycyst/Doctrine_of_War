@@ -312,7 +312,9 @@ The library (`doctrines.ts`) holds the Free Banners doctrines *Shield the Line*,
 *Fighting Withdrawal*, *Rescue Standard*, *Clean Counterstroke*, *Hold for Dawn* and
 *Bring the Water* (the Advance, P4: fall back below 30 cohesion, batter the objective when
 beside it, strike whoever bars the way, wait when 2 hexes ahead of the line, otherwise
-march on the objective; passives 1/2/1; not yet offered by a shipped battle), and
+march on the objective; passives 1/2/1) and *Open the Road* (the Advance, C3: fall back
+below 20 cohesion, strike whoever bars the way, otherwise march on the exits; passives
+1/2/1; it needs no sight of the enemy, since every map shows the roads), and
 the Ashen Host doctrines *Iron Tide*, *Break the Gate*, *No Step Back*, *Cull the Weak*,
 *Terror Push*, *Through the Embers* (cross and cut through blockers toward the exits),
 *Slip the Leash* (outriders: never fight, run for the exits), *Hurl Fire* (a mangonel:
@@ -364,7 +366,9 @@ docs/CAMPAIGN.md). It also plays each battle's editor-variant probes (`variantPr
 `runVariantProbe`) and prints them as diagnostic rows, never gated. Plans are played with a
 **muster policy**: `"heuristic"` (`heuristicMuster`: relieve an engaged company below 35
 cohesion with a fresh neighbour of 60+, then step idle fighting companies, those with
-no seen enemy within 3, toward the fight or the line of retreat; standards stay put;
+no seen enemy within 3, toward the fight, or in an escape battle toward the column when
+it is more than 2 hexes away; in an escape battle with no column (an attack on the roads)
+idle companies stay on their posts, since the march doctrine takes the roads itself; standards stay put;
 it reads only the player's view) or `"none"`. A third policy, `"rush"` (`rushMuster`:
 every fighting company, or a named set, steps as far as it can toward the enemy objective,
 or the line of retreat in an escape battle), is the adversary for role tests: strength

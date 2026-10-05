@@ -60,12 +60,13 @@ reference, each scenario's internal consistency, and each campaign against its
 scenarios. Nothing is exposed from a set that fails. `registry.compatibility(provenance)`
 says whether a saved run (pack, campaign, content and rules revision) can continue.
 The shipped pack is `first_call` (The First Call), holding the intro and *Cinder Road*
-(in development: battles 1–2 so far, until its length is frozen; see below).
+(in development: battles 1–3 so far, until its length is frozen; see below).
 
-**Editions.** `first_call` is at content revision **2** (`readsContent: [2]`) since
-*Cinder Road* gained battle 2 (C2): a content-1 Cinder Road run (one completed after
-battle 1 cannot replay against a two-battle campaign) is read as **unavailable**, kept
-as it is, and can be set aside to begin anew; it is never shown as unreadable. Appending
+**Editions.** `first_call` is at content revision **3** (`readsContent: [3]`) since
+*Cinder Road* gained battle 3 (C3; revision 2 came with battle 2, C2): an earlier-content
+Cinder Road run (one completed after battle 2 cannot replay against a three-battle
+campaign) is read as **unavailable**, kept as it is, and can be set aside to begin anew; it
+is never shown as unreadable. Appending
 a battle to a campaign is such a change, so bump the content revision with it. The
 intro's v1 save is not gated by content revision.
 
@@ -404,6 +405,26 @@ Repaired on C5 (honest routes): five shallow fords (the Upper Shallows, (4,3)), 
 waits on the weir bank (3,0) and the park's integrity is 44, so a march that misses the
 shallows cannot reach the ram by the walk before it strikes. Signed off on `signoff3`
 (300001–300500); the battle sheet has the numbers and why the earlier ranges are burned.
+
+**Battle 3, *Open a Road*** (`engine/scenarios/cinderRoad3.ts`, M2 C3): Ember Ford's own
+ground by daylight, crossed the other way. The Banners deploy on the same east bank as on
+the night of the burning bridges and cross west; the far-bank road now runs on to the west
+edge, where it forks into the Cinder Road and the Ashpit Lane. Goal: `escapeEdge`, 2
+companies onto those two road hexes within 7 phases. Defeats: one Host company on the Mill
+Road behind us (`enemyEscape`, count 1), or 4 companies lost. The Host: the Cinderwake
+Spears (No Step Back) and the Ashpit Wardens (Lie in Wait) stand on the two road heads; the
+Chapel Stalkers rise from the Burnt Chapel on Cull the Weak in phase 3; the reserve (the
+Scorchmark Spears, the Kilnbrand Raiders) waits opposite the Mill Ford and wades over on
+Through the Embers in phase 2 for the Mill Road. Posts (authored labels): the Cinder Ford,
+the Ferry Road and the North Bank (frontline), Watcher's Rise (the standard, support), the
+Mill Road (cavalry, flex: frontline) and the Mill Ford (skirmish, flex: frontline).
+Intended plan: **Open the Road** (the Advance, the star; a new data-only doctrine that
+marches on the exits) on the three frontline posts and the standard; Shield the Line on
+the Mill Road and the Mill Ford. The bad plan is last battle's star misapplied: everyone on
+Bring the Water, which has no objective to march on and stands on the bank. The pure march
+(everyone on Open the Road) leaves the Mill Road open and loses to the reserve. Curated
+seed 50: won in phase 5 in the rain with no company lost, the Mill Road guard breaking the
+Scorchmark Spears. Numbers are in docs/ENGINE.md.
 
 ## Saves
 

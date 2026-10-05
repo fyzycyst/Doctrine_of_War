@@ -185,10 +185,10 @@ describe("the registry", () => {
     expect(registry.campaign("ash_and_banner")).toMatchObject({ pack: { id: "first_call" }, campaign: { id: ashAndBanner.id } });
     expect(registry.campaign("ash_and_banner")?.campaign).toEqual(ashAndBanner);
     expect(registry.campaign("cinder_road")?.campaign).toEqual(cinderRoad);
-    expect(registry.scenarios().map((item) => item.id)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh", "cinder_road_wagon_park"]);
+    expect(registry.scenarios().map((item) => item.id)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh", "cinder_road_wagon_park", "cinder_road_ember_ford"]);
     expect(registry.scenario("hold_for_dawn")).toEqual(scenarios.find((item) => item.id === "hold_for_dawn"));
-    // Every campaign battle, in campaign order: the intro's four, then Cinder Road's first.
-    expect(registry.skirmishes().map(({ skirmish }) => skirmish.scenarioId)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh", "cinder_road_wagon_park"]);
+    // Every campaign battle, in campaign order: the intro's four, then Cinder Road's.
+    expect(registry.skirmishes().map(({ skirmish }) => skirmish.scenarioId)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh", "cinder_road_wagon_park", "cinder_road_ember_ford"]);
     expect(registry.campaign("nowhere")).toBeUndefined();
   });
 

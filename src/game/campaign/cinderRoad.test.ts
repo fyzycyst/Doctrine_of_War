@@ -4,6 +4,7 @@ import { playBattle } from "../engine/balance";
 import { scenarios as introScenarios } from "../engine/scenarios";
 import { hexDistance } from "../board";
 import { cinderRoad1, HERON_STAIR } from "../engine/scenarios/cinderRoad1";
+import { cinderRoad3, FAR_BANK_ROADS, NEAR_BANK_ROADS } from "../engine/scenarios/cinderRoad3";
 import { advanceRate } from "../engine/testKit";
 import { registry } from "../packs/registry";
 import { HOST_RESOLVE_CAP, HOST_STRENGTH_CAP, recordBattle, startCampaign } from "./campaign";
@@ -22,7 +23,7 @@ import {
   rollSlots,
   snapshotCarryOver,
 } from "./roll";
-import { greedyScore, pickForce, rollCalls, strongCarryOver, templatePlan, weakestScore } from "./rollCalls";
+import { curatedRollState, greedyScore, pickForce, rollCalls, strongCarryOver, templatePlan, weakestScore } from "./rollCalls";
 import { introCarrySource } from "./rosters";
 
 const scenarios = registry.scenarios();
@@ -117,6 +118,68 @@ describe("The Saltmarsh, Northbound", () => {
     for (const companyId of Object.values(assignment)) {
       expect(after.companies.find((company) => company.id === companyId)?.condition).toBe("fresh");
     }
+  });
+});
+
+describe("Open a Road (Cinder Road, battle 3)", () => {
+  const plans = cinderRoad3.referencePlans!;
+  const index = cinderRoad.battles.findIndex((battle) => battle.scenarioId === cinderRoad3.id);
+  const column = ["ford_van", "road_van", "chapel_van", "standard"];
+  const columnOn = (doctrineId: string) => ({ ...plans.intended, ...Object.fromEntries(column.map((id) => [id, doctrineId])) });
+
+  it("is Ember Ford's own ground by daylight, crossed the other way: an exit win on the far-bank roads", () => {
+    expect(cinderRoad3.timeOfDay).toBe("day");
+    expect(cinderRoad3.winCondition).toEqual({ kind: "escapeEdge", edgeHexes: FAR_BANK_ROADS, count: 2 });
+    expect(cinderRoad3.objectives).toEqual([]);
+    // The Banners deploy on the same east bank as on the night of the burning bridges.
+    for (const squad of cinderRoad3.squads.filter((item) => item.faction === "free_banners")) expect(squad.hex.q, squad.id).toBeGreaterThanOrEqual(5);
+    for (const road of [...FAR_BANK_ROADS, ...NEAR_BANK_ROADS]) {
+      expect(cinderRoad3.board.hexes.find((hex) => hex.coord.q === road.q && hex.coord.r === road.r)?.terrain).toBe("road");
+    }
+  });
+
+  it("calls six named posts with two flex posts on the Mill Ford watch, from the army as battle 1 left it", () => {
+    const state = curatedRollState(cinderRoad, scenarios, index);
+    expect(state.history.map((entry) => entry.battleId)).toEqual(cinderRoad.battles.slice(0, index).map((battle) => battle.id));
+    const slots = rollSlots(cinderRoad, state, cinderRoad3);
+    expect(slots.map((slot) => slot.label)).toEqual(["The Cinder Ford", "The Ferry Road", "The North Bank", "Watcher's Rise", "The Mill Road", "The Mill Ford"]);
+    expect(slots.filter((slot) => slot.flex).map((slot) => slot.slotId)).toEqual(["lances", "bows"]);
+    expect(Object.keys(recommendedForce(cinderRoad, state, cinderRoad3))).toEqual(slots.map((slot) => slot.slotId));
+  });
+
+  it("each doctrine family earns its place in the intended plan (ablation >= 15 points, no muster)", () => {
+    const base = advanceRate(cinderRoad3, plans.intended);
+    expect(base).toBeGreaterThanOrEqual(0.75);
+    // The Advance: no other doctrine takes the roads. Fighting Withdrawal gives ground from
+    // every guard; Bring the Water has no objective to march on; Counterstroke waits.
+    for (const doctrineId of ["fighting_withdrawal", "bring_the_water", "clean_counterstroke"]) {
+      expect(base - advanceRate(cinderRoad3, columnOn(doctrineId)), doctrineId).toBeGreaterThanOrEqual(0.15);
+    }
+    // The wall: a Mill Ford watch that marches too leaves the Mill Road to the reserve.
+    expect(base - advanceRate(cinderRoad3, { ...plans.intended, lances: "open_the_road", bows: "open_the_road" })).toBeGreaterThanOrEqual(0.15);
+    expect(advanceRate(cinderRoad3, plans.bad)).toBeLessThanOrEqual(0.1);
+    // The pure march, however strong, leaves the Mill Road open behind it.
+    const allMarch = Object.fromEntries(Object.keys(plans.intended).map((id) => [id, "open_the_road"]));
+    expect(advanceRate(cinderRoad3, allMarch)).toBeLessThanOrEqual(0.1);
+  }, 60_000);
+
+  it("the curated seed is a clean win: no company lost, the Mill Road guard breaks the reserve", () => {
+    const final = playBattle(cinderRoad3, plans.intended, cinderRoad3.curatedSeed!, "on");
+    expect(final.status).toBe("victory");
+    expect(final.phase).toBeLessThanOrEqual(5);
+    expect(final.squads.filter((squad) => squad.faction === "free_banners" && (squad.status === "routed" || squad.status === "destroyed"))).toEqual([]);
+    expect(final.squads.find((squad) => squad.id === "scorchmark_spears")?.status).not.toBe("active");
+  });
+
+  it("records the curated win on the Roll after battle 1's", () => {
+    const state = curatedRollState(cinderRoad, scenarios, index);
+    const assignment = recommendedForce(cinderRoad, state, cinderRoad3);
+    const fought = assembleBattle(cinderRoad, state, cinderRoad3, assignment);
+    const final = playBattle(fought, templatePlan(plans.intended, cinderRoad, state, cinderRoad3, assignment), cinderRoad3.curatedSeed!, "on");
+    expect(final.status).toBe("victory");
+    const after = recordBattle(cinderRoad, state, final, { assignment });
+    expect(after.history.at(-1)).toMatchObject({ battleId: "cr_ember_ford", outcome: "victory", assignment });
+    expect(after.battleIndex).toBe(index + 1);
   });
 });
 
