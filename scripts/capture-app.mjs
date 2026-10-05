@@ -40,6 +40,18 @@ const STAGES = [
   },
   { name: "m1-skirmish", query: "screen=skirmish", settleMs: 2500 },
   { name: "m1-skirmish-outcome", query: "skirmish=skirmish_ash_and_banner_battle_1&seed=7&stage=outcome&plan=intended", settleMs: 2500 },
+  {
+    name: "t25-skirmish-hover",
+    query: "screen=skirmish",
+    settleMs: 3500,
+    // Hovering a card lights its island (keyboard focus does too: menuDock.test.tsx). The
+    // harness shoots right after eval, so the snippet waits for the camera to ease in.
+    eval: `(async () => {
+      const card = document.querySelector('[aria-label="Fight: The Saltmarsh, Northbound"]')?.closest("li");
+      card?.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 2500));
+    })()`,
+  },
   { name: "t25-call-help", query: "screen=roll&mockRoll=1&callHelp=open", settleMs: 1800 },
   { name: "t25-call-help-veterans", query: "screen=roll&mockRoll=veterans&callHelp=open", settleMs: 1800, sizes: [[1280, 800]] },
   { name: "t25-skirmish-cinder-outcome", query: "skirmish=skirmish_cinder_road_cr_saltmarsh&seed=7&stage=outcome&plan=intended", settleMs: 2500 },

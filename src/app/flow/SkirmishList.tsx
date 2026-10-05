@@ -8,6 +8,7 @@ import { CampaignSelectBackdrop, type CampaignSelectChain } from "../../render/s
 import { packs } from "../roll/api";
 import { FrameProbe } from "../ui/FrameProbe";
 import { useFlow } from "./flowStore";
+import { useDockedMenu } from "./useDockedMenu";
 
 /** The briefing's opening sentence: enough to tell the battles apart. */
 export function firstSentence(text: string): string {
@@ -35,16 +36,17 @@ export function SkirmishList({ onSettings }: { onSettings?: () => void }) {
     }
     return groups;
   };
-  // One island per skirmish: the board it is fought on.
-  const chains: CampaignSelectChain[] = entries.map(({ skirmish, scenario }) => ({ id: skirmish.id, boards: [scenario!.board] }));
+  // One island per skirmish: the board it is fought on, labelled with its title when lit.
+  const chains: CampaignSelectChain[] = entries.map(({ skirmish, scenario }) => ({ id: skirmish.id, boards: [scenario!.board], title: skirmish.title }));
+  const docked = useDockedMenu();
   const byPack = packs().packs.filter((pack) => entries.some((entry) => entry.pack.id === pack.id));
 
   useEffect(() => firstButton.current?.focus({ preventScroll: true }), []);
 
   return (
     <div className="screen choice-screen">
-      <CampaignSelectBackdrop chains={chains} highlightedId={highlighted} inCanvas={<FrameProbe />}>
-        <section className="choice-panel" aria-labelledby="skirmish-title" aria-describedby="skirmish-rules">
+      <CampaignSelectBackdrop chains={chains} highlightedId={highlighted ?? chains[0]?.id ?? null} framing={docked ? "right" : "center"} inCanvas={<FrameProbe />}>
+        <section className={`choice-panel ${docked ? "docked" : ""}`} aria-labelledby="skirmish-title" aria-describedby="skirmish-rules">
           <header>
             <p className="bar-stage">Doctrine of War</p>
             <h1 id="skirmish-title">Skirmish</h1>
