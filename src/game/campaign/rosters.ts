@@ -131,7 +131,7 @@ export function balanceMatrixIn(
   if (!owner) return { variants: [{ kind: "baseline", policy: "full", scenario, roster: "" }], notApplicable: [] };
   if (!isRollCampaign(owner)) return { variants: balanceVariantsFor(owner, scenarios, scenario), notApplicable: [] };
   const index = owner.battles.findIndex((battle) => battle.scenarioId === scenario.id && !battle.placeholder);
-  const matrix = rollCallMatrix(owner, scenarios, index, index === 0 ? carryFrom?.() : undefined);
+  const matrix = rollCallMatrix(owner, scenarios, index, carryFrom?.());
   return {
     variants: matrix.calls.map((item) => ({ kind: item.kind, name: item.name, policy: item.policy, scenario: item.scenario, roster: item.roster })),
     notApplicable: matrix.notApplicable,

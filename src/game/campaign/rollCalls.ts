@@ -238,9 +238,9 @@ function patternShortfall(def: CampaignDefinition, state: CampaignState, slots: 
 /**
  * The named calls for Roll battle `index`, as a census. Every documented call is built or
  * the matrix FAILS (MissingCallError): recommended, curated, rough, greedy, weakest legal,
- * every flex-role pattern, and (at the first battle, given `carryFrom`, a completed
- * campaign whose most famous companies a strong player carries in) carried recommended and
- * carried greedy. The only exception is a role pattern the Roll cannot legally field (too
+ * every flex-role pattern, and (given `carryFrom`, a completed campaign whose most famous
+ * companies a strong player carries in) carried recommended and carried greedy: at a later
+ * battle the carried state replays the curated path with those veterans on the Roll. The only exception is a role pattern the Roll cannot legally field (too
  * few companies of a role), which is listed in `notApplicable` with its reason.
  */
 export function rollCallMatrix(
@@ -276,10 +276,10 @@ export function rollCallMatrix(
     }
     calls.push(call("role", name, "floor", def, curated, scenario, required(name, assignment, "no legal force although the Roll has the companies")));
   }
-  if (carryFrom && index === 0) {
+  if (carryFrom) {
     // Full guardrails: with at most carriedFieldedLimit() veterans fielded, a strong force
     // must still not win with one doctrine (the battle punishes a pure march in content).
-    const carried = curatedRollState(def, scenarios, 0, strongCarryOver(carryFrom));
+    const carried = curatedRollState(def, scenarios, index, strongCarryOver(carryFrom));
     calls.push(call("carried-recommended", "carried: recommended", "full", def, carried, scenario, recommendedForce(def, carried, scenario)));
     calls.push(call("carried-greedy", "carried: greedy", "full", def, carried, scenario, required("carried: greedy", pickForce(def, carried, scenario, greedyScore), "no legal highest-fame force with veterans")));
   }
