@@ -10,7 +10,7 @@ const SPECIAL = ["keep_the_column_moving", "lie_in_wait"];
 const byFaction = (faction: FactionId) => doctrines.filter((item) => item.faction === faction && !SPECIAL.includes(item.id));
 
 describe("doctrine library", () => {
-  it("has the six Free Banners doctrines and the Ashen Host doctrines", () => {
+  it("has the seven Free Banners doctrines and the Ashen Host doctrines", () => {
     expect(byFaction("free_banners").map((item) => item.name)).toEqual([
       "Shield the Line",
       "Fighting Withdrawal",
@@ -18,6 +18,7 @@ describe("doctrine library", () => {
       "Clean Counterstroke",
       "Hold for Dawn",
       "Bring the Water",
+      "Open the Road",
     ]);
     expect(byFaction("ashen_host").map((item) => item.name)).toEqual([
       "Iron Tide",
@@ -31,7 +32,7 @@ describe("doctrine library", () => {
       "Hurl Fire",
       "The Nerve Fails",
     ]);
-    expect(Object.keys(doctrineLibrary)).toHaveLength(18);
+    expect(Object.keys(doctrineLibrary)).toHaveLength(19);
     expect(doctrineLibrary.keep_the_column_moving.faction).toBe("free_banners");
   });
 
@@ -80,6 +81,8 @@ describe("doctrine library", () => {
           squad("lone", enemy, { q: 1, r: 4 }, { cohesion: 40 }),
           // Host subjects only: a sentry beside the road to the exit.
           ...(enemy === "free_banners" ? [squad("sentry", enemy, { q: 5, r: 1 })] : []),
+          // Banner subjects only: a picket standing on the road to the exit (a road-taker cuts through it).
+          ...(enemy === "ashen_host" ? [squad("picket", enemy, { q: 3, r: 4 }, { doctrineId: "test_hold_ah" })] : []),
         ],
       });
       const { events, state } = resolvePhase(createInitialState(scen), {}, scen, { doctrines: library() });

@@ -207,6 +207,36 @@ export const doctrines: Doctrine[] = [
     ],
   },
 
+  {
+    // The Advance (Cinder Road): the road-taker. It marches on the exits, which every
+    // commander's map shows, so like Bring the Water it needs no sight of the enemy to act.
+    id: "open_the_road",
+    faction: "free_banners",
+    name: "Open the Road",
+    flavor: "A road belongs to whoever stands on it. Cut through what bars the way, and do not turn aside for what does not.",
+    passives: { defense: 1, cohesion: 2, counter: 1 },
+    rules: [
+      {
+        id: "otr_steady",
+        label: "If cohesion < 20 → fall back 1 hex",
+        when: { kind: "selfCohesionBelow", value: 20 },
+        then: { kind: "fallBack", hexes: 1 },
+      },
+      {
+        id: "otr_clear",
+        label: "If an enemy bars the way → strike it",
+        when: { kind: "enemyAdjacent" },
+        then: { kind: "attack", target: { kind: "nearestEnemy" } },
+      },
+      {
+        id: "otr_march",
+        label: "Otherwise → march for the far-bank roads",
+        when: { kind: "always" },
+        then: { kind: "advance", toward: { kind: "exitEdge" } },
+      },
+    ],
+  },
+
   // ---------------------------------------------------------------- Ashen Host
   {
     id: "iron_tide",
