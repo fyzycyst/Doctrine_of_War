@@ -56,6 +56,8 @@ export interface IslandBuild {
   geometry: THREE.BufferGeometry;
   /** Walls, towers and gatehouse as their own mesh (so an objective hit can jolt them); null if none. */
   wallGeometry: THREE.BufferGeometry | null;
+  /** The Host's braziers as their own mesh (shown only under nightFires); null if none. */
+  brazierGeometry: THREE.BufferGeometry | null;
   /** Reed banks as their own mesh (a wind-sway material); `glow` = sway weight, 0 at the root. */
   reedGeometry: THREE.BufferGeometry | null;
   hexes: IslandHex[];
@@ -322,9 +324,11 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
     fireAnchors.push({ x: fx, y: h.top + 0.05, z: fz, yaw: 0, kind: "campfire" });
   }
 
-  if (hasRiver) {
+  const bb = new GeoBuilder();
+  if (hasRiver && (layout.fordDressing ?? "bridgeWrecks") === "bridgeWrecks") {
     // Ember Ford: the Host fired its own bridges. Charred wreckage at every
-    // ford is the key light; braziers mark the Host's bank.
+    // ford is the key light at night (cold stumps by day); braziers mark the
+    // Host's bank, in their own mesh so they only stand at night.
     for (const ford of hexes.filter((h) => h.terrain === "ford")) {
       fireAnchors.push(...drawBridgeWreck(b, ford, waterLevel, mulberry32(ford.coord.q * 97 + ford.coord.r * 13 + 3)));
     }
@@ -337,12 +341,13 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
       .map((h) => hexes.find((x) => x.kind === "board" && x.coord.q === h.coord.q && x.coord.r === h.coord.r)!)
       .sort((a, c) => a.z - c.z);
     const picks = hostBank.filter((_, i) => i % 2 === 0).slice(0, 3);
-    for (const h of picks) fireAnchors.push(drawBrazier(b, h, mulberry32(h.coord.q * 31 + h.coord.r * 7 + 9)));
+    for (const h of picks) fireAnchors.push(drawBrazier(bb, h, mulberry32(h.coord.q * 31 + h.coord.r * 7 + 9)));
   }
 
   return {
     geometry: b.build(),
     wallGeometry: wb.vertexCount > 0 ? wb.build() : null,
+    brazierGeometry: bb.vertexCount > 0 ? bb.build() : null,
     reedGeometry: rb.vertexCount > 0 ? rb.build() : null,
     hexes,
     water,

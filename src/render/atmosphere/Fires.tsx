@@ -5,6 +5,7 @@ import { mulberry32 } from "../hexWorld";
 import { useLook } from "../look/LookContext";
 import type { Anchor, IslandBuild } from "../terrain/buildIsland";
 import type { ObjectiveStage } from "../terrain/objectiveProps";
+import { firesBurn, smokesCold } from "./fireRules";
 import { useDisposable } from "../dispose";
 
 /**
@@ -12,7 +13,8 @@ import { useDisposable } from "../dispose";
  * with smoke columns and rising embers), Host braziers, campfires and gate
  * torches, and the Host's fire-pots on an objective (M2), which go out as the
  * objective is battered (`objectiveStages`). They burn when the lighting preset
- * has fires (night fires, predawn).
+ * has fires (night fires, predawn); the bridge wrecks and braziers only under
+ * nightFires (`fireRules.ts`). By day a cold bridge stump trails a thin smoke.
  *
  * Lights stay mounted at all times and only change intensity, so switching
  * presets never forces a shader recompile. Point lights are budgeted
@@ -54,7 +56,7 @@ export function isDoused(anchor: Anchor, stages?: ReadonlyMap<string, ObjectiveS
 }
 
 export function Fires({ island, objectiveStages }: { island: IslandBuild; objectiveStages?: ReadonlyMap<string, ObjectiveStage> }) {
-  const { preset, quality, motion } = useLook();
+  const { preset, quality, motion, timeOfDay } = useLook();
   const lights = useRef<Array<THREE.PointLight | null>>([]);
   const flames = useRef<Array<THREE.Group | null>>([]);
   const riverLight = useRef<THREE.PointLight>(null);
@@ -88,7 +90,7 @@ export function Fires({ island, objectiveStages }: { island: IslandBuild; object
       const i = a.index;
       // Reduced motion: a steady glow instead of a flicker.
       const flick = 0.85 + motion * (-0.13 + 0.28 * Math.sin(t * 9 + i * 3.1) * Math.sin(t * 5.3 + i) + 0.08 * Math.sin(t * 23 + i));
-      const out = isDoused(a, objectiveStages) ? 0 : 1;
+      const out = firesBurn(a.kind, timeOfDay) && !isDoused(a, objectiveStages) ? 1 : 0;
       const light = lights.current[i];
       if (light) light.intensity = out * on * flick * LIGHT[a.kind].intensity;
       const group = flames.current[i];
@@ -104,7 +106,8 @@ export function Fires({ island, objectiveStages }: { island: IslandBuild; object
     }
   });
 
-  const bridges = anchors.filter((a) => a.kind === "bridge");
+  const bridges = anchors.filter((a) => a.kind === "bridge" && firesBurn(a.kind, timeOfDay));
+  const cold = anchors.filter((a) => smokesCold(a.kind, timeOfDay));
   return (
     <>
       {anchors.map((a) => (
@@ -121,7 +124,7 @@ export function Fires({ island, objectiveStages }: { island: IslandBuild; object
               position={[0, LIGHT[a.kind].height, 0]}
             />
           )}
-          {on > 0 && !isDoused(a, objectiveStages) && (
+          {on > 0 && firesBurn(a.kind, timeOfDay) && !isDoused(a, objectiveStages) && (
             <group
               ref={(el) => {
                 flames.current[a.index] = el;
@@ -142,6 +145,7 @@ export function Fires({ island, objectiveStages }: { island: IslandBuild; object
         </group>
       ))}
       {on > 0 && bridges.length > 0 && <SmokeAndEmbers sources={bridges} quality={quality} motion={motion} />}
+      {cold.length > 0 && <ColdSmoke sources={cold} quality={quality} motion={motion} />}
       {river && (
         <pointLight ref={riverLight} position={river} color={preset.fires.color} intensity={0} distance={5} decay={1.4} />
       )}
@@ -226,4 +230,66 @@ function SmokeAndEmbers({ sources, quality, motion }: { sources: Anchor[]; quali
       <points geometry={geometry} material={sparks} renderOrder={6} />
     </>
   );
+}
+
+/** A thin, pale-grey smoke trail off cold, charred stumps (no sparks, no glow). */
+function ColdSmoke({ sources, quality, motion }: { sources: Anchor[]; quality: "high" | "low"; motion: number }) {
+  const dpr = useThree((s) => s.viewport.dpr);
+  const perSource = quality === "high" ? 26 : 12;
+  const geometry = useDisposable(() => {
+    const n = sources.length * perSource;
+    const rand = mulberry32(919);
+    const seed = new Float32Array(n * 4);
+    const origin = new Float32Array(n * 3);
+    for (let i = 0; i < n; i += 1) {
+      const src = sources[Math.floor(i / perSource)];
+      origin.set([src.x, src.y - 0.05, src.z], i * 3);
+      seed.set([rand(), rand(), rand(), rand()], i * 4);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(origin, 3));
+    g.setAttribute("aSeed", new THREE.Float32BufferAttribute(seed, 4));
+    g.computeBoundingSphere();
+    g.boundingSphere!.radius += 3;
+    return g;
+  }, [sources, perSource]);
+  const material = useDisposable(
+    () =>
+      new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        uniforms: { uTime: { value: 0 }, uPixel: { value: dpr } },
+        vertexShader: /* glsl */ `
+          attribute vec4 aSeed;
+          uniform float uTime, uPixel;
+          varying float vA;
+          void main() {
+            float life = 5.0 + aSeed.x * 3.0;
+            float t = mod(uTime + aSeed.y * life, life);
+            float k = t / life;
+            vec3 p = position;
+            // A thin trail: rises slowly and leans east with the wind.
+            p.y += t * 0.2;
+            p.x += t * t * 0.012 + sin(t * 1.3 + aSeed.z * 20.0) * 0.03 * k;
+            p.z += cos(t * 1.1 + aSeed.w * 20.0) * 0.03 * k;
+            vec4 mv = modelViewMatrix * vec4(p, 1.0);
+            gl_Position = projectionMatrix * mv;
+            vA = smoothstep(0.0, 0.1, k) * (1.0 - smoothstep(0.45, 1.0, k));
+            gl_PointSize = (1.4 + k * 6.0) * 26.0 * uPixel / -mv.z;
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          varying float vA;
+          void main() {
+            float d = length(gl_PointCoord - 0.5);
+            gl_FragColor = vec4(vec3(0.4, 0.38, 0.37), smoothstep(0.5, 0.0, d) * vA * 0.38);
+          }
+        `,
+      }),
+    [dpr],
+  );
+  useFrame((_, dt) => {
+    material.uniforms.uTime.value += dt * motion;
+  });
+  return <points geometry={geometry} material={material} renderOrder={4} />;
 }

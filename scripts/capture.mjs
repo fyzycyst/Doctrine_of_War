@@ -68,7 +68,7 @@ const jobs = [
   })),
   { name: "emberFord-dusk", query: "scenario=emberFord&preset=dusk&figures=a" },
   { name: "saltmarsh-rain", query: "scenario=saltmarsh&preset=rainGrey&figures=a&weather=rain" },
-  { name: "saltmarsh-column-close", query: "scenario=saltmarsh&preset=rainGrey&figures=a&weather=rain&cam=close&focusHex=3,2" },
+  { name: "saltmarsh-column-close", query: "scenario=saltmarsh&preset=rainGrey&figures=a&weather=rain&cam=close&focusHex=4,4" },
   { name: "saltmarsh-exit", query: "scenario=saltmarsh&preset=rainGrey&figures=a&weather=rain&exit=1" },
   { name: "saltmarsh-exit-close", query: "scenario=saltmarsh&preset=rainGrey&figures=a&weather=rain&exit=1&cam=close&focusHex=3,6" },
   { name: "saltmarsh-reeds-close", query: "scenario=saltmarsh&preset=rainGrey&figures=a&weather=rain&cam=close&focusHex=0,3" },
@@ -156,6 +156,14 @@ jobs.push(
     }),
   );
 }
+
+// M2 follow-ups: Ember Ford by day (cold charred stumps, a thin smoke, no braziers) and by
+// night (unchanged: the bridges burn).
+jobs.push(
+  { name: "m2f-emberFord-day", query: "scenario=emberFord&preset=dusk&figures=a" },
+  { name: "m2f-emberFord-day-close", query: "scenario=emberFord&preset=dusk&figures=a&cam=close&focusHex=4,4" },
+  { name: "m2f-emberFord-night", query: "scenario=emberFord&preset=nightFires&figures=a" },
+);
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);

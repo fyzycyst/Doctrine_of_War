@@ -32,7 +32,15 @@ export interface BoardLayout {
   hexes: BoardHex[];
   width: number;
   height: number;
+  /**
+   * How the renderer dresses fords on a river board. Render-only: no rule reads it.
+   * Absent = "bridgeWrecks" (Ember Ford: the Host's burned bridges, and its braziers).
+   */
+  fordDressing?: FordDressing;
 }
+
+/** Ford dressing on a river board (see BoardLayout.fordDressing). */
+export type FordDressing = "bridgeWrecks" | "none";
 
 const neighborOffsets: HexCoord[] = [
   { q: 1, r: 0 },
