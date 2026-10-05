@@ -6,6 +6,7 @@ import { saltmarshColumn } from "../../game/engine/scenarios/saltmarshColumn";
 import { cinderRoad1 } from "../../game/engine/scenarios/cinderRoad1";
 import { stressScenario } from "./stressScenario";
 import { twoObjectivesBoard, twoObjectivesSquads } from "./twoObjectives";
+import { cinderRoad2LabBoard, cinderRoad2LabSquads } from "./cinderRoad2Lab";
 import type { DioramaVisibility } from "../Diorama";
 import type { DioramaSquad } from "../figures/types";
 import { dioramaSquads, lightingFor } from "../fromEngine";
@@ -64,6 +65,8 @@ export const LAB_SCENES = {
   // M2: Cinder Road battle 1 (the barricade), and a two-objective board (wagons + sluice) until battle 2's lands.
   cinderRoad1: toScene(cinderRoad1.board, dioramaSquads(cinderRoad1.squads), lightingFor(cinderRoad1.timeOfDay)),
   twoObjectives: toScene(twoObjectivesBoard, twoObjectivesSquads, "dusk"),
+  // Cinder Road 2 by day, from the lab copy of engine #2's board.
+  cinderRoad2: toScene(cinderRoad2LabBoard, cinderRoad2LabSquads, "dusk"),
 } as const;
 
 export type LabSceneId = keyof typeof LAB_SCENES;

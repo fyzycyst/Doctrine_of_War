@@ -163,6 +163,14 @@ jobs.push(
   { name: "m2f-emberFord-day", query: "scenario=emberFord&preset=dusk&figures=a" },
   { name: "m2f-emberFord-day-close", query: "scenario=emberFord&preset=dusk&figures=a&cam=close&focusHex=4,4" },
   { name: "m2f-emberFord-night", query: "scenario=emberFord&preset=nightFires&figures=a" },
+  // Roads to the Host's objective on the two-objective board, and C2 (lab copy of engine
+  // #2's board): wide with both objectives, and the Sluice Walk beat as the ram arrives.
+  { name: "m2f-two-roads", query: "scenario=twoObjectives&preset=dusk&figures=a" },
+  { name: "m2f-c2-wide", query: "scenario=cinderRoad2&preset=dusk&figures=a" },
+  { name: "m2f-c2-wide-rain", query: "scenario=cinderRoad2&preset=rainGrey&figures=a&weather=rain" },
+  { name: "m2f-c2-sluice-walk", query: "scenario=cinderRoad2&preset=dusk&figures=a&closeOn=6,1;7,0" },
+  { name: "m2f-c2-sluice-walk-battered", query: "scenario=cinderRoad2&preset=dusk&figures=a&closeOn=6,1;7,0&objective=battered&objectiveAt=7,0" },
+  { name: "m2f-c2-wagons", query: "scenario=cinderRoad2&preset=dusk&figures=a&cam=close&focusHex=1,6" },
 );
 
 function arg(name, fallback) {
