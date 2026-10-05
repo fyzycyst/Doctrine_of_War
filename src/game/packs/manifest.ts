@@ -102,6 +102,7 @@ const winCondition = union<WinCondition>(winConditions);
 const defeatConditions = {
   enemyEscape: { edgeHexes: req(list(hex, 64, 1)), count: req(int(1, 30)) },
   squadsLost: { count: req(int(1, 30)) },
+  objectiveLost: { objectiveId: req(id) },
 } satisfies Record<DefeatCondition["kind"], Shape>;
 const defeatCondition = union<DefeatCondition>(defeatConditions);
 

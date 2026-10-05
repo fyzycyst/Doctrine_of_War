@@ -9,6 +9,17 @@ describe("briefing conditions in plain words", () => {
     expect(conditionsInWords(holdForDawn).lose[0]).toBe("The Last Gate is battered down.");
   });
 
+  it("names an objective the player must not lose alongside an offensive win (objectiveLost)", () => {
+    const scen = {
+      ...structuredClone(holdForDawn),
+      objectives: [...holdForDawn.objectives, { id: "their_wagons", name: "The Wagons", description: "", hex: { q: 0, r: 0 }, integrity: 30, defender: "ashen_host" as const }],
+      winCondition: { kind: "breakObjective" as const, objectiveId: "their_wagons" },
+      defeatConditions: [{ kind: "objectiveLost" as const, objectiveId: holdForDawn.objectives[0].id }],
+    };
+    expect(conditionsInWords(scen).win).toBe("Batter the Wagons down within 5 phases.");
+    expect(conditionsInWords(scen).lose).toContain("The Last Gate is battered down.");
+  });
+
   it("says the Column must be among those who get out", () => {
     expect(conditionsInWords(saltmarshColumn).win).toBe("Get the Column and 3 more off the field through the far edge within 4 phases.");
   });

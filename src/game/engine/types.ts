@@ -205,7 +205,12 @@ export type DefeatCondition =
   /** The opposing side gets `count` squads off the board via `edgeHexes`. */
   | { kind: "enemyEscape"; edgeHexes: HexCoord[]; count: number }
   /** `count` player squads are routed or destroyed ("the line breaks"). */
-  | { kind: "squadsLost"; count: number };
+  | { kind: "squadsLost"; count: number }
+  /**
+   * An objective the player defends is battered to integrity 0 (alongside a win that is
+   * not about holding it, e.g. breakObjective: "break theirs before they break ours").
+   */
+  | { kind: "objectiveLost"; objectiveId: string };
 
 export interface HostPhaseOrders {
   phase: number;

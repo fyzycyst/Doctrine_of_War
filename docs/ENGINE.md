@@ -273,6 +273,15 @@ Either way it emits `rout` and leaves the board (`hex: null`), which frees its h
       standing on one after its activation exits.
     - `squadsLost {count}`: that many player squads are routed or destroyed ("the line
       breaks").
+    - `objectiveLost {objectiveId}` (C2): an objective the **player** defends is battered to
+      integrity 0 ("break theirs before they break ours", beside a `breakObjective` win).
+      `createInitialState` throws unless it names a standing player-defended objective.
+      Checked after the win condition, like every defeat condition. Objectives are public,
+      so it is fog-safe; selectors keep to their side's objective on a two-objective board
+      (`objective {side: "own"}`, `objectiveThreatened` and Hold for Dawn's `hfd_to_gate`
+      pick the player's; `objective {side: "enemy"}`, `atObjective` and `aheadOfLine` pick
+      the enemy's). An additive rules change: no existing history changes meaning, so
+      `RULES_REVISION` stays 1.
   - `timeoutOutcome: "defeat" | "stalemate"` (default `"defeat"`) decides what running out
     of phases means for `escapeEdge`, `destroySquads`, `holdThenBreak` and `breakObjective`. A stalemate must be earned:
     `stalemateRequires {minEnemyBroken, targetsOnly?}` turns a timeout with too few
