@@ -20,6 +20,7 @@ import { campaignAfter } from "../flow/devCampaign";
 import { useFlow } from "../flow/flowStore";
 import { memoryStore } from "../flow/testKit";
 import { useGame } from "../game/gameStore";
+import { useGuide } from "../guide/guideStore";
 import { Root } from "../Root";
 import { exportFileName } from "../support";
 import { engineRuns, installRollApi } from "./api";
@@ -82,7 +83,11 @@ function fightOpenBattle(plan: "intended" | "bad") {
 
 const card = async (title: RegExp) => (await screen.findByRole("heading", { level: 3, name: title })).closest("li")!;
 
-beforeEach(() => useGame.setState({ playbackSpeed: 1 }));
+beforeEach(() => {
+  useGame.setState({ playbackSpeed: 1 });
+  // "How the call works" opens by itself on a first visit (callHelp.test.tsx); these tests start past it.
+  useGuide.setState({ callHelpSeen: true });
+});
 afterEach(() => {
   restore();
   restore = () => {};

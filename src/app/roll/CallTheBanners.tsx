@@ -3,8 +3,8 @@
 // the ground; a flex post takes either of two roles; a locked post is the story's. Click a
 // post's company to choose from a list, click a post then a company on the Roll, or drag a
 // company onto a post. The Host's strength is fixed before you choose.
-import { ChevronDown, Lock, Shuffle, Swords, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
+import { ChevronDown, CircleHelp, ListChecks, Lock, Swords, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent } from "react";
 import {
   currentBattle,
   LEVY_ID,
@@ -20,6 +20,8 @@ import {
 import type { EngineScenario } from "../../game/engine";
 import { scenarioFor } from "../flow/campaignView";
 import { useFlow } from "../flow/flowStore";
+import { CALL_HELP_COPY, CallHelp, type CallHelpNote, type HelpLayout } from "../guide/CallHelp";
+import { useGuide } from "../guide/guideStore";
 import { resolveRank } from "../game/view";
 import { RoleGlyph, ROLE_NAME, Sigil } from "../ui/glyphs";
 import { roll } from "./api";
@@ -29,10 +31,75 @@ import { realmOf } from "./realms";
 
 const signed = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const roleWords = (slot: RollSlot) => slot.roles.map((role) => ROLE_NAME[role]).join(" or ");
+/** What a post requires (T25): the engine refuses a company of any other role. */
+const takes = (slot: RollSlot) => (slot.flex ? `Flex: ${roleWords(slot)}` : `Takes: ${roleWords(slot)}`);
+/** An empty post asks for the same thing: "Choose cavalry or line infantry…". */
+const asks = (slot: RollSlot) => `Choose ${slot.roles.map((role) => ROLE_NAME[role].toLowerCase()).join(" or ")}…`;
 /** A carried veteran the per-battle cap keeps out (it stays available: the engine says why on the post). */
 const VETERAN_CAP_NOTE = "In reserve: veteran cap reached";
 
-/** A company's readiness, as a badge. */
+/** Where "How the call works" pins its notes, from the screen as laid out right now. */
+const rectsOf = (selector: string) => [...document.querySelectorAll(`.roll-screen ${selector}`)].map((element) => element.getBoundingClientRect());
+function bounds(rects: DOMRect[]): DOMRect | null {
+  if (rects.length === 0) return null;
+  const left = Math.min(...rects.map((rect) => rect.left));
+  const top = Math.min(...rects.map((rect) => rect.top));
+  return new DOMRect(left, top, Math.max(...rects.map((rect) => rect.right)) - left, Math.max(...rects.map((rect) => rect.bottom)) - top);
+}
+const posts = () => bounds(rectsOf(".post-head"));
+const choices = () => bounds(rectsOf(".post-company"));
+// The Roll's section (its list scrolls inside it, past the window's foot).
+const rollList = () => rectsOf(".roll-roster")[0] ?? null;
+const GAP = 14;
+
+/**
+ * Three notes share the band under the two post columns (posts, selection, the Roll), and
+ * the Host's note sits between the Host box and the map. When the band is too short (a
+ * smaller window, taller posts), the three sit inside the foot of their own ringed column,
+ * so notes never cover each other or the footer's Recommended force.
+ */
+function bandSlot(index: number, pointAt: () => DOMRect | null, side: "below" | "left") {
+  return (panel: { width: number; height: number }): HelpLayout | null => {
+    const columns = [posts(), choices()].filter((rect): rect is DOMRect => rect !== null);
+    const roll = rollList();
+    const target = pointAt();
+    const recommended = rectsOf(".roll-recommended")[0];
+    if (columns.length < 2 || !roll || !target || !recommended) return null;
+    const left = columns[0].left;
+    const width = Math.min(280, (roll.left - GAP - left - 2 * GAP) / 3);
+    if (width < 170) return null;
+    const x = left + index * (width + GAP);
+    // Under the columns; when that is too short, lifted to sit just above Recommended force,
+    // over the foot of the columns (those two notes then lose their pennant).
+    const below = Math.max(columns[0].bottom, columns[1].bottom) + GAP;
+    const top = Math.min(below, recommended.top - 8 - panel.height);
+    const lifted = top < below && side === "below";
+    const pointer =
+      side === "below"
+        ? Math.max(18, Math.min(width - 18, target.left + target.width / 2 - x))
+        : Math.max(18, Math.min(panel.height - 18, (Math.min(target.bottom, top + panel.height) + Math.max(target.top, top)) / 2 - top));
+    return { side, inside: lifted, ring: {}, panel: { left: x, top, width, ["--pointer" as string]: `${pointer}px` } as CSSProperties };
+  };
+}
+
+function hostSlot(panel: { width: number; height: number }): HelpLayout | null {
+  const host = rectsOf(".roll-threat")[0];
+  const map = rectsOf(".post-map")[0];
+  if (!host || !map) return null;
+  const left = host.right + GAP + 4;
+  const width = Math.min(300, map.left - GAP - left);
+  if (width < 200) return null;
+  const top = Math.max(GAP, host.top + host.height / 2 - panel.height / 2);
+  return { side: "right", ring: {}, panel: { left, top, width, ["--pointer" as string]: `${host.top + host.height / 2 - top}px` } as CSSProperties };
+}
+
+const HELP_NOTES: CallHelpNote[] = [
+  { ...CALL_HELP_COPY[0], targets: () => [posts()].filter((rect): rect is DOMRect => rect !== null), prefer: "below", slot: bandSlot(0, posts, "below") },
+  { ...CALL_HELP_COPY[1], targets: () => [choices()].filter((rect): rect is DOMRect => rect !== null), prefer: "below", slot: bandSlot(1, choices, "below") },
+  { ...CALL_HELP_COPY[2], targets: () => [rollList()].filter((rect): rect is DOMRect => rect !== null), prefer: "left", slot: bandSlot(2, rollList, "left") },
+  { ...CALL_HELP_COPY[3], targets: () => [...rectsOf(".roll-threat"), ...rectsOf(".roll-recommended")], prefer: "right", slot: hostSlot },
+];
+
 export function ConditionBadge({ condition }: { condition: RollEntry["condition"] }) {
   if (condition === "worn") {
     return (
@@ -105,6 +172,16 @@ export function CallTheBanners() {
   const [choosing, setChoosing] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
+  // "How the call works": by itself the first time a player reaches this screen, then on the (?) button.
+  const [helping, setHelping] = useState(() => !useGuide.getState().callHelpSeen);
+  const helpButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (helping) useGuide.getState().seeCallHelp();
+  }, [helping]);
+  const closeHelp = useCallback(() => {
+    setHelping(false);
+    helpButton.current?.focus({ preventScroll: true });
+  }, []);
   // Dev captures: no canvas here, so the screen says it is ready itself.
   useEffect(() => {
     if (import.meta.env.DEV) window.__battleBoard = { ready: true, frames: 9999 };
@@ -156,21 +233,36 @@ export function CallTheBanners() {
         <div className="roll-title">
           <p className="bar-stage">{def.title} · Call the Banners</p>
           <h1>{called.battle.title}</h1>
-          <section className="roll-threat" aria-label="The Host">
-            <Sigil faction="ashen_host" size={30} />
-            <div>
-              <h2>{story.heading}</h2>
-              <p>
-                {story.detail} <span className="roll-fixed">Fixed before you choose: your picks do not change it.</span>
-              </p>
-            </div>
-          </section>
+          <div className="roll-threat-row">
+            <section className="roll-threat" aria-label="The Host">
+              <Sigil faction="ashen_host" size={30} />
+              <div>
+                <h2>{story.heading}</h2>
+                <p>
+                  {story.detail} <span className="roll-fixed">Fixed before you choose: your picks do not change it.</span>
+                </p>
+              </div>
+            </section>
+            <button
+              ref={helpButton}
+              type="button"
+              className="btn-quiet roll-help"
+              aria-expanded={helping}
+              aria-label="How the call works"
+              onClick={() => (helping ? closeHelp() : setHelping(true))}
+            >
+              <CircleHelp size={16} aria-hidden="true" /> How the call works
+            </button>
+          </div>
         </div>
         <PostMap scenario={scenario} slots={slots} names={names} active={hovered ?? choosing ?? armed} />
       </header>
 
       <section className="roll-posts" aria-labelledby="posts-title">
-        <h2 id="posts-title">The posts, in the order they act</h2>
+        <div className="roll-columns">
+          <h2 id="posts-title">The posts, in the order they act</h2>
+          <h2>Company selection</h2>
+        </div>
         <ol>
           {slots.map((slot, index) => {
             const id = assignment[slot.slotId];
@@ -194,7 +286,7 @@ export function CallTheBanners() {
                   onClick={() => setArmed(armed === slot.slotId ? null : slot.slotId)}
                   onFocus={() => setHovered(slot.slotId)}
                   onBlur={() => setHovered(null)}
-                  aria-label={`Post ${index + 1}: ${name}, ${slot.flex ? `flex: ${roleWords(slot)}` : roleWords(slot)}`}
+                  aria-label={`Post ${index + 1}: ${name}, ${slot.flex ? `flex: ${roleWords(slot)}` : `takes ${roleWords(slot)}`}`}
                 >
                   <span className="post-number" aria-hidden="true">
                     {index + 1}
@@ -206,7 +298,7 @@ export function CallTheBanners() {
                   </span>
                   <span className="post-label">
                     {name}
-                    <span className="post-sub">{slot.flex ? `Flex: ${roleWords(slot)}` : roleWords(slot)}</span>
+                    <span className="post-sub">{takes(slot)}</span>
                   </span>
                   {slot.locked && <Lock size={14} aria-hidden="true" />}
                 </button>
@@ -317,8 +409,8 @@ export function CallTheBanners() {
         <p className="sr-only" aria-live="polite">
           {announce}
         </p>
-        <button type="button" className="btn-quiet" disabled={isRecommended} onClick={() => setAssignment({ ...recommended })}>
-          <Shuffle size={14} aria-hidden="true" /> Recommended force
+        <button type="button" className="btn-quiet roll-recommended" disabled={isRecommended} onClick={() => setAssignment({ ...recommended })}>
+          <ListChecks size={14} aria-hidden="true" /> Recommended force
         </button>
         {Object.keys(problems).length > 0 && (
           <p className="roll-problems" role="status">
@@ -332,6 +424,7 @@ export function CallTheBanners() {
           <Swords size={15} aria-hidden="true" /> Take the field
         </button>
       </footer>
+      {helping && <CallHelp notes={HELP_NOTES} onClose={closeHelp} />}
     </div>
   );
 }
@@ -339,7 +432,7 @@ export function CallTheBanners() {
 /** A post's company in one line: name, condition, rank and renown (numbers on hover). */
 function CompanyLine({ entry, levy, slot }: { entry: RollEntry | undefined; levy: boolean; slot: RollSlot }) {
   if (levy) return <span className="post-levy">Levy (no ready company) · {ROLE_NAME[slot.roles[0]]}, Resolve −1</span>;
-  if (!entry) return <span className="post-empty">No company called</span>;
+  if (!entry) return <span className="post-empty">{asks(slot)}</span>;
   return (
     <span className="post-called">
       <strong>{entry.company.name}</strong> <ConditionBadge condition={entry.condition} />{" "}

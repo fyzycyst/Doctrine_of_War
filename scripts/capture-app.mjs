@@ -28,8 +28,8 @@ const STAGES = [
   },
   // M1 (P6), on the stand-in Roll and preview packs until the engine lands.
   { name: "m1-choose-campaign", query: "screen=campaigns&mockRoll=1", settleMs: 2500 },
-  { name: "m1-call-banners", query: "screen=roll&mockRoll=1", settleMs: 1500 },
-  { name: "m1-call-banners-veterans", query: "screen=roll&mockRoll=veterans", settleMs: 1500 },
+  { name: "m1-call-banners", query: "screen=roll&mockRoll=1&callHelp=seen", settleMs: 1500 },
+  { name: "m1-call-banners-veterans", query: "screen=roll&mockRoll=veterans&callHelp=seen", settleMs: 1500 },
   { name: "m1-roll-outcome", query: "mockRoll=1&rollBattle=1&stage=outcome&plan=intended", settleMs: 2500 },
   { name: "m1-choose-stale", query: "screen=campaigns&mockRoll=stale", settleMs: 2500, sizes: [[1600, 1000]] },
   {
@@ -40,6 +40,8 @@ const STAGES = [
   },
   { name: "m1-skirmish", query: "screen=skirmish", settleMs: 2500 },
   { name: "m1-skirmish-outcome", query: "skirmish=skirmish_ash_and_banner_battle_1&seed=7&stage=outcome&plan=intended", settleMs: 2500 },
+  { name: "t25-call-help", query: "screen=roll&mockRoll=1&callHelp=open", settleMs: 1800 },
+  { name: "t25-call-help-veterans", query: "screen=roll&mockRoll=veterans&callHelp=open", settleMs: 1800, sizes: [[1280, 800]] },
   { name: "t25-skirmish-cinder-outcome", query: "skirmish=skirmish_cinder_road_cr_saltmarsh&seed=7&stage=outcome&plan=intended", settleMs: 2500 },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },

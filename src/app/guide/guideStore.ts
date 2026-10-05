@@ -28,6 +28,9 @@ export interface GuideState {
   /** The muster line (T21), shown once in the first battle's second command window. */
   musterTipSeen: boolean;
   seeMusterTip: () => void;
+  /** Call the Banners' "How the call works" overlay has opened once by itself (T25). */
+  callHelpSeen: boolean;
+  seeCallHelp: () => void;
   skip: () => void;
   reset: () => void;
 }
@@ -59,13 +62,15 @@ export const useGuide = create<GuideState>()(
       pinCallout: (watchCallout) => set({ watchCallout }),
       musterTipSeen: false,
       seeMusterTip: () => set({ musterTipSeen: true }),
+      callHelpSeen: false,
+      seeCallHelp: () => set({ callHelpSeen: true }),
       skip: () => set({ coach: "done" }),
-      reset: () => set({ introSeen: false, coach: "active", step: "select", watchCallout: null, musterTipSeen: false }),
+      reset: () => set({ introSeen: false, coach: "active", step: "select", watchCallout: null, musterTipSeen: false, callHelpSeen: false }),
     }),
     {
       name: GUIDE_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ introSeen, coach, musterTipSeen }) => ({ introSeen, coach, musterTipSeen }),
+      partialize: ({ introSeen, coach, musterTipSeen, callHelpSeen }) => ({ introSeen, coach, musterTipSeen, callHelpSeen }),
     },
   ),
 );

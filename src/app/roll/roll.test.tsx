@@ -19,6 +19,7 @@ import { campaignAfter } from "../flow/devCampaign";
 import { useFlow } from "../flow/flowStore";
 import { memoryStore } from "../flow/testKit";
 import { useGame } from "../game/gameStore";
+import { useGuide } from "../guide/guideStore";
 import { Root } from "../Root";
 import { Outcome } from "../ui/Outcome";
 import { engineRuns, installRollApi, runs } from "./api";
@@ -58,7 +59,11 @@ function launch({ intro = null as string | null, run = null as string | null, ba
   render(<Root />);
 }
 
-beforeEach(() => useGame.setState({ playbackSpeed: 1 }));
+beforeEach(() => {
+  useGame.setState({ playbackSpeed: 1 });
+  // "How the call works" opens by itself on a first visit (callHelp.test.tsx); these tests start past it.
+  useGuide.setState({ callHelpSeen: true });
+});
 afterEach(() => {
   restore();
   restore = () => {};

@@ -4,7 +4,7 @@ import { COACH_STEPS, useGuide, type CoachStep } from "./guideStore";
 
 export type Placement = "above" | "below" | "left" | "right";
 
-interface Layout {
+export interface Layout {
   ring: CSSProperties;
   panel: CSSProperties;
   side: Placement;
@@ -14,7 +14,7 @@ const GAP = 16;
 const MARGIN = 12;
 
 /** Where the panel goes around the target, falling back to the other side when there is no room. */
-function place(target: DOMRect, panel: { width: number; height: number }, prefer: Placement): Layout {
+export function place(target: DOMRect, panel: { width: number; height: number }, prefer: Placement): Layout {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const fits: Record<Placement, boolean> = {
