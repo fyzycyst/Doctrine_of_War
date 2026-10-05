@@ -167,8 +167,8 @@ function capLuminance(c: THREE.Color, max: number) {
 
 /** Base fog-of-war opacity per slice; presets scale it (`mist.fogOfWar`). */
 const FOG_ALPHA = 0.85;
-const FIRE_ORDER: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 0, brazier: 1, campfire: 2, torch: 3 };
-const FIRE_WEIGHT: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 1, brazier: 0.4, campfire: 0.4, torch: 0.2 };
+const FIRE_ORDER: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 0, brazier: 1, campfire: 2, torch: 3, firepot: 4 };
+const FIRE_WEIGHT: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 1, brazier: 0.4, campfire: 0.4, torch: 0.2, firepot: 0.1 };
 
 export function GroundMist({ island, densityByHex }: { island: IslandBuild; densityByHex?: MistDensityMap }) {
   const { preset, quality, atmosphere, motion } = useLook();

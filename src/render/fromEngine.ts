@@ -1,4 +1,5 @@
 import { hexDistance, type BoardLayout, type HexCoord } from "../game/board";
+import type { ObjectiveStage } from "./terrain/objectiveProps";
 import type { SquadSetup, TimeOfDay as EngineTimeOfDay, Weather } from "../game/engine/types";
 import type { DioramaVisibility } from "./Diorama";
 import type { DioramaSquad } from "./figures/types";
@@ -105,4 +106,24 @@ function approximateVisibleHexes(view: VisibleStateLike, scenario: { board: Boar
   return scenario.board.hexes
     .map((h) => h.coord)
     .filter((c) => own.some((s) => hexDistance(s.hex!, c) <= sightAt(s.hex!)));
+}
+
+/** An objective at or below this share of its starting integrity reads as battered (M2). */
+export const BATTERED_AT = 0.7;
+
+/**
+ * `<Diorama objectiveStates>` from the engine's objectives (VisibleState.objectives)
+ * and the scenario's setups (their starting integrity): each objective on its own,
+ * battered at BATTERED_AT, broken at 0. Untouched objectives are left out.
+ */
+export function objectiveStagesFor(
+  objectives: ReadonlyArray<{ id: string; hex: HexCoord; integrity: number }>,
+  setups: ReadonlyArray<{ id: string; integrity: number }>,
+): Array<{ hex: HexCoord; stage: Exclude<ObjectiveStage, "intact"> }> {
+  return objectives.flatMap((o): Array<{ hex: HexCoord; stage: Exclude<ObjectiveStage, "intact"> }> => {
+    const start = setups.find((s) => s.id === o.id)?.integrity ?? o.integrity;
+    if (o.integrity <= 0) return [{ hex: o.hex, stage: "broken" as const }];
+    if (start > 0 && o.integrity <= start * BATTERED_AT) return [{ hex: o.hex, stage: "battered" as const }];
+    return [];
+  });
 }

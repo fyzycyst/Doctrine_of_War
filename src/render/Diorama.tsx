@@ -23,6 +23,7 @@ import { ExitMarkers } from "./terrain/ExitMarkers";
 import { buildIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
 import { WallsAndObjectiveFX } from "./terrain/ObjectiveFX";
+import { propGeometries, type ObjectiveStage } from "./terrain/objectiveProps";
 import { Reeds } from "./terrain/Reeds";
 import { Water } from "./terrain/Water";
 import { useDisposable } from "./dispose";
@@ -49,6 +50,9 @@ const KayKitSquads = import.meta.env.DEV
  *   mist and desaturate; `lastKnown` enemies draw as silhouettes; a squad that
  *   becomes visible plays `reveal` while the mist over it parts.
  * - Weather comes from the <LookProvider weather> and cross-fades by itself.
+ * - `objectiveStates` shows battered and broken objectives (M2): the props on
+ *   open ground swap to their battered/broken meshes, fire-pots go out and steam,
+ *   the sluice jets water. Each objective is independent (any number per board).
  */
 
 /** Fog-of-war input, from the engine's `visibleState` for the player's faction. */
@@ -68,6 +72,7 @@ export function Diorama({
   exitHexes,
   emphasisHex,
   visibility,
+  objectiveStates,
   animationRef,
   onFiguresReady,
   onReveal,
@@ -93,6 +98,11 @@ export function Diorama({
   emphasisHex?: HexCoord | null;
   /** Fog of war; omit for everything visible. */
   visibility?: DioramaVisibility;
+  /**
+   * Objectives that are no longer intact, by hex (from `objectiveStagesFor` in
+   * fromEngine.ts). Omitted objectives are intact.
+   */
+  objectiveStates?: ReadonlyArray<{ hex: HexCoord; stage: Exclude<ObjectiveStage, "intact"> }>;
   animationRef?: Ref<SquadAnimationApi>;
   onFiguresReady?: () => void;
   /** Squads that just came out of the fog (e.g. to play the `reveal` SFX). */
@@ -110,6 +120,7 @@ export function Diorama({
       island.geometry.dispose();
       island.wallGeometry?.dispose();
       island.reedGeometry?.dispose();
+      island.objectiveProps.flatMap(propGeometries).forEach((g) => g.dispose());
     },
     [island],
   );
@@ -138,6 +149,11 @@ export function Diorama({
       }));
     return [...squads, ...ghosts];
   }, [squads, visibility]);
+
+  const stages = useMemo(
+    () => new Map<string, ObjectiveStage>((objectiveStates ?? []).map((o) => [hexKey(o.hex), o.stage])),
+    [objectiveStates],
+  );
 
   const placed = useMemo(() => placeSquads(drawn, island, skin.figures.maxFigures), [drawn, island, skin.figures.maxFigures]);
 
@@ -245,6 +261,7 @@ export function Diorama({
         island={island}
         material={material}
         animator={animator}
+        objectiveStages={stages}
         onPointerMove={onIslandMove}
         onPointerOut={() => {
           setHoveredHex(null);
@@ -255,7 +272,7 @@ export function Diorama({
       {outline && <mesh geometry={island.geometry} material={outline} />}
       <Water island={island} />
       <Reeds island={island} />
-      <Fires island={island} />
+      <Fires island={island} objectiveStages={stages} />
       {island.gateBanner && <GateBanner anchor={island.gateBanner} />}
       <BoardHighlights island={island} deploymentHexes={deploymentHexes} zoneStyle={zoneStyle} marchFrom={marchFrom} emphasisHex={emphasisHex} />
       {exitHexes && exitHexes.length > 0 && <ExitMarkers board={board} island={island} hexes={exitHexes} />}

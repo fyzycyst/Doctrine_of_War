@@ -3,6 +3,7 @@ import { hexKey, hexNeighbors, hexDistance, type BoardHex, type BoardLayout, typ
 import { GeoBuilder, color, jitterColor, trs } from "../geo/GeoBuilder";
 import { boardCenter, hexCorner, hexRandom, hexToWorld, islandShore, mulberry32 } from "../hexWorld";
 import type { Skin } from "../skins/types";
+import { buildObjectiveProps, objectiveDressing, type ObjectiveProp, type ObjectiveStage } from "./objectiveProps";
 
 /**
  * Builds the floating-island diorama from a BoardLayout: extruded hex columns
@@ -45,7 +46,10 @@ export interface Anchor {
   z: number;
   yaw: number;
   /** Fire anchors only: what burns here (drives flame size, light and smoke). */
-  kind?: "torch" | "campfire" | "bridge" | "brazier";
+  kind?: "torch" | "campfire" | "bridge" | "brazier" | "firepot";
+  /** An objective's fire-pot (M2): the objective's hex key, and the stage that douses it. */
+  objective?: string;
+  douse?: Exclude<ObjectiveStage, "intact">;
 }
 
 export interface IslandBuild {
@@ -66,6 +70,8 @@ export interface IslandBuild {
   radius: number;
   fireAnchors: Anchor[];
   gateBanner?: Anchor;
+  /** Open-ground objectives (M2): barricades, wagon parks and sluices, each in three stages. */
+  objectiveProps: ObjectiveProp[];
 }
 
 const CAP_RADIUS = 0.95;
@@ -289,6 +295,16 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   fireAnchors.push(...wall.torches);
   drawTown(b, hexes, skin, rand);
 
+  const boardHex = new Map(hexes.filter((h) => h.kind === "board").map((h) => [hexKey(h.coord), h]));
+  const objectiveProps = buildObjectiveProps(
+    layout,
+    { surface: (c) => boardHex.get(hexKey(c)), flow: flowDir, waterLevel },
+    skin,
+  );
+  for (const prop of objectiveProps) {
+    for (const pot of prop.pots) fireAnchors.push({ ...pot, yaw: 0, kind: "firepot", objective: hexKey(prop.coord), douse: pot.douse });
+  }
+
   // Host campfires on the west shore, near the ford.
   const westShore = hexes
     .filter((h) => h.kind === "shore")
@@ -338,6 +354,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
     radius,
     fireAnchors,
     gateBanner,
+    objectiveProps,
   };
 }
 
@@ -943,7 +960,7 @@ function drawWalls(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], skin:
   for (const { board, hex } of walls) {
     const z0 = hex.z - apothem;
     const z1 = hex.z + apothem;
-    if (board.objectiveId) {
+    if (objectiveDressing(board) === "gatehouse") {
       // Gatehouse: two towers flanking an arched gate.
       const gap = 0.26;
       segment(x, hex.top, z0, hex.z - gap - 0.14);

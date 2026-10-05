@@ -4,12 +4,15 @@ import * as THREE from "three";
 import { mulberry32 } from "../hexWorld";
 import { useLook } from "../look/LookContext";
 import type { Anchor, IslandBuild } from "../terrain/buildIsland";
+import type { ObjectiveStage } from "../terrain/objectiveProps";
 import { useDisposable } from "../dispose";
 
 /**
  * Fires by anchor kind: burning bridge wreckage (the Ember Ford key lights,
  * with smoke columns and rising embers), Host braziers, campfires and gate
- * torches. They burn when the lighting preset has fires (night fires, predawn).
+ * torches, and the Host's fire-pots on an objective (M2), which go out as the
+ * objective is battered (`objectiveStages`). They burn when the lighting preset
+ * has fires (night fires, predawn).
  *
  * Lights stay mounted at all times and only change intensity, so switching
  * presets never forces a shader recompile. Point lights are budgeted
@@ -17,12 +20,13 @@ import { useDisposable } from "../dispose";
  */
 
 const MAX_LIGHTS = 6;
-const PRIORITY: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 0, brazier: 1, campfire: 2, torch: 3 };
+const PRIORITY: Record<NonNullable<Anchor["kind"]>, number> = { bridge: 0, brazier: 1, campfire: 2, torch: 3, firepot: 4 };
 const LIGHT: Record<NonNullable<Anchor["kind"]>, { intensity: number; distance: number; height: number }> = {
   bridge: { intensity: 2.2, distance: 4.2, height: 0.35 },
   brazier: { intensity: 0.9, distance: 2.4, height: 0.15 },
   campfire: { intensity: 0.8, distance: 3.2, height: 0.18 },
   torch: { intensity: 0.45, distance: 3.2, height: 0.18 },
+  firepot: { intensity: 0.35, distance: 2.0, height: 0.1 },
 };
 const FLAMES: Record<NonNullable<Anchor["kind"]>, Array<[number, number, number, number, number]>> = {
   // [dx, dz, radius, height, phase]
@@ -38,9 +42,18 @@ const FLAMES: Record<NonNullable<Anchor["kind"]>, Array<[number, number, number,
   ],
   campfire: [[0, 0, 0.045, 0.14, 0]],
   torch: [[0, 0, 0.03, 0.1, 0]],
+  firepot: [[0, 0, 0.022, 0.07, 0]],
 };
 
-export function Fires({ island }: { island: IslandBuild }) {
+const STAGE_RANK: Record<ObjectiveStage, number> = { intact: 0, battered: 1, broken: 2 };
+
+/** True once an objective's fire-pot has been doused (its objective battered to its `douse` stage). */
+export function isDoused(anchor: Anchor, stages?: ReadonlyMap<string, ObjectiveStage>): boolean {
+  if (!anchor.objective || !anchor.douse) return false;
+  return STAGE_RANK[stages?.get(anchor.objective) ?? "intact"] >= STAGE_RANK[anchor.douse];
+}
+
+export function Fires({ island, objectiveStages }: { island: IslandBuild; objectiveStages?: ReadonlyMap<string, ObjectiveStage> }) {
   const { preset, quality, motion } = useLook();
   const lights = useRef<Array<THREE.PointLight | null>>([]);
   const flames = useRef<Array<THREE.Group | null>>([]);
@@ -75,8 +88,9 @@ export function Fires({ island }: { island: IslandBuild }) {
       const i = a.index;
       // Reduced motion: a steady glow instead of a flicker.
       const flick = 0.85 + motion * (-0.13 + 0.28 * Math.sin(t * 9 + i * 3.1) * Math.sin(t * 5.3 + i) + 0.08 * Math.sin(t * 23 + i));
+      const out = isDoused(a, objectiveStages) ? 0 : 1;
       const light = lights.current[i];
-      if (light) light.intensity = on * flick * LIGHT[a.kind].intensity;
+      if (light) light.intensity = out * on * flick * LIGHT[a.kind].intensity;
       const group = flames.current[i];
       if (group) {
         group.children.forEach((flame, k) => {
@@ -107,7 +121,7 @@ export function Fires({ island }: { island: IslandBuild }) {
               position={[0, LIGHT[a.kind].height, 0]}
             />
           )}
-          {on > 0 && (
+          {on > 0 && !isDoused(a, objectiveStages) && (
             <group
               ref={(el) => {
                 flames.current[a.index] = el;
