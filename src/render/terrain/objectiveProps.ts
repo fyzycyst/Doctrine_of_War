@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { hexKey, type BoardHex, type BoardLayout, type HexCoord, type ObjectiveKind } from "../../game/board";
+import { hexDistance, hexKey, hexNeighbors, type BoardHex, type BoardLayout, type HexCoord, type ObjectiveKind } from "../../game/board";
 import { GeoBuilder, color, trs } from "../geo/GeoBuilder";
 import { boardCenter, hexToWorld, mulberry32 } from "../hexWorld";
 import type { Skin } from "../skins/types";
@@ -48,6 +48,59 @@ export function objectiveFacing(board: BoardLayout, at: HexCoord): [number, numb
   return len < 1e-6 ? [-1, 0] : [dx / len, dz / len];
 }
 
+/**
+ * The board's objectives in the order roads prefer them: the Host's (the ones
+ * the Banners attack) first, then the rest. An objective is the Host's by its
+ * kind (barricade, wagons; a sluice is always the Banners'), by who deploys on
+ * it, or else by lying nearer the Host's deployment than the Banners'.
+ * Independent of the hex list's order, except as the last fallback.
+ */
+export function roadGoals(board: BoardLayout): HexCoord[] {
+  const objectives = board.hexes.filter((h) => h.objectiveId);
+  const center = boardCenter(board);
+  const centroid = (faction: string) => {
+    const pts = board.hexes.filter((h) => h.deploymentFaction === faction).map((h) => hexToWorld(h.coord, center));
+    if (pts.length === 0) return null;
+    return [pts.reduce((s, p) => s + p[0], 0) / pts.length, pts.reduce((s, p) => s + p[1], 0) / pts.length] as const;
+  };
+  const host = centroid("ashen_host");
+  const banners = centroid("free_banners");
+  const hostness = (h: BoardHex) => {
+    let score = 0;
+    if (h.objectiveKind === "barricade" || h.objectiveKind === "wagons") score += 100;
+    if (h.objectiveKind === "sluice") score -= 100;
+    if (h.deploymentFaction === "ashen_host") score += 50;
+    if (h.deploymentFaction === "free_banners") score -= 50;
+    if (host && banners) {
+      const [x, z] = hexToWorld(h.coord, center);
+      score += Math.hypot(x - banners[0], z - banners[1]) - Math.hypot(x - host[0], z - host[1]);
+    }
+    return score;
+  };
+  const ranked = objectives
+    .map((h) => ({ h, score: hostness(h) }))
+    .filter((o) => o.score > 0)
+    // Ties broken by coordinate, never by list order.
+    .sort((a, b) => b.score - a.score || a.h.coord.q - b.h.coord.q || a.h.coord.r - b.h.coord.r)
+    .map((o) => o.h);
+  return [...ranked, ...objectives.filter((h) => !ranked.includes(h))].map((h) => h.coord);
+}
+
+/** Where the roads lead: the Host's objective, else the first objective, else the first wall. */
+export function roadGoal(board: BoardLayout): HexCoord | null {
+  return roadGoals(board)[0] ?? board.hexes.find((h) => h.terrain === "wall")?.coord ?? null;
+}
+
+/**
+ * The objective a road hex leads to: the nearest one, ties going to the Host's
+ * (so separate tracks each reach their own objective, as on Cinder Road 2).
+ */
+export function nearestRoadGoal(board: BoardLayout, from: HexCoord): HexCoord | null {
+  const goals = roadGoals(board);
+  if (goals.length === 0) return roadGoal(board);
+  return goals.reduce((best, g) => (hexDistance(from, g) < hexDistance(from, best) ? g : best));
+}
+
 /** How far an objective has been battered (the Diorama's `objectiveStates`). */
 export type ObjectiveStage = "intact" | "battered" | "broken";
 export const OBJECTIVE_STAGES: readonly ObjectiveStage[] = ["intact", "battered", "broken"];
@@ -82,6 +135,8 @@ export interface ObjectiveProp {
   top: number;
   /** Unit (x, z) the prop is turned toward: the attackers, or downstream for the sluice. */
   facing: [number, number];
+  /** Sluice only: unit (x, z) from the hex centre toward the house's bank. */
+  bank?: [number, number];
   stages: Record<ObjectiveStage, PropStage>;
   /** Pot mouths that burn at night (world), and the stage that douses each. */
   pots: Array<Point & { douse: Exclude<ObjectiveStage, "intact"> }>;
@@ -618,12 +673,17 @@ export function buildObjectiveProps(layout: BoardLayout, ctx: PropContext, skin:
     if (!at) continue;
     // The sluice turns downstream; the Host's props toward their attackers.
     const wet = hex.terrain === "river" || hex.terrain === "ford";
-    const facing: [number, number] = kind === "sluice" && wet ? ctx.flow : objectiveFacing(layout, hex.coord);
+    const attack = objectiveFacing(layout, hex.coord);
+    // In a channel the sluice turns with the water through its own hex (a bend
+    // or a side race, not only the river's overall course).
+    const facing: [number, number] = kind === "sluice" && wet ? localFlow(layout, hex.coord, ctx.flow) : attack;
+    // The sluice-house stands on the dry bank across the channel (a dry neighbour,
+    // away from the attackers first); else away from the attackers. Local +z is (-fz, fx).
+    const across: [number, number] = [-facing[1], facing[0]];
+    const dry = kind === "sluice" && wet ? dryBank(layout, hex.coord, across, attack) : null;
+    const houseSide = dry ?? (across[0] * -attack[0] + across[1] * -attack[1] < 0 ? -1 : 1);
     // Local +x along `facing`: three's yaw maps +x to (cos, -sin).
     const yaw = Math.atan2(-facing[1], facing[0]);
-    // The sluice-house stands on its owners' bank: away from the attackers (local +z is (-fz, fx)).
-    const attack = objectiveFacing(layout, hex.coord);
-    const houseSide = -facing[1] * -attack[0] + facing[0] * -attack[1] < 0 ? -1 : 1;
     const base = new THREE.Matrix4().makeTranslation(at.x, at.top, at.z).multiply(new THREE.Matrix4().makeRotationY(yaw));
     const seed = 4093 + hex.coord.q * 131 + hex.coord.r * 17;
     let pots: ObjectiveProp["pots"] = [];
@@ -647,11 +707,62 @@ export function buildObjectiveProps(layout: BoardLayout, ctx: PropContext, skin:
       z: at.z,
       top: at.top,
       facing,
+      ...(kind === "sluice" ? { bank: [-facing[1] * houseSide, facing[0] * houseSide] as [number, number] } : {}),
       stages: { intact: build(0), battered: build(1), broken: build(2) },
       pots,
     });
   }
   return props;
+}
+
+const isWater = (h?: BoardHex) => !!h && (h.terrain === "river" || h.terrain === "ford");
+
+/** Unit direction of a board neighbour from `at` (world x, z). */
+function towards(layout: BoardLayout, at: HexCoord, to: HexCoord): [number, number] {
+  const center = boardCenter(layout);
+  const [ax, az] = hexToWorld(at, center);
+  const [bx, bz] = hexToWorld(to, center);
+  const len = Math.hypot(bx - ax, bz - az) || 1;
+  return [(bx - ax) / len, (bz - az) / len];
+}
+
+/**
+ * Downstream through one channel hex: from one water neighbour to the other
+ * (two or more), or along the single one, signed with the river's overall `flow`;
+ * the overall flow when the hex has no water neighbours.
+ */
+export function localFlow(layout: BoardLayout, at: HexCoord, flow: [number, number]): [number, number] {
+  const byKey = new Map(layout.hexes.map((h) => [hexKey(h.coord), h]));
+  const wet = hexNeighbors(at).filter((c) => isWater(byKey.get(hexKey(c))));
+  if (wet.length === 0) return flow;
+  const dirs = wet.map((c) => towards(layout, at, c)).sort((a, b) => a[0] * flow[0] + a[1] * flow[1] - (b[0] * flow[0] + b[1] * flow[1]));
+  // Most upstream neighbour to most downstream one.
+  const up = dirs[0];
+  const down = dirs[dirs.length - 1];
+  let d: [number, number] = dirs.length === 1 ? up : [down[0] - up[0], down[1] - up[1]];
+  const len = Math.hypot(d[0], d[1]) || 1;
+  d = [d[0] / len, d[1] / len];
+  return d[0] * flow[0] + d[1] * flow[1] < 0 ? [-d[0], -d[1]] : d;
+}
+
+/**
+ * Which side across the channel (+1 along `across`, -1 against) has the dry
+ * approach: the dry board neighbour best lined up with the across axis, the one
+ * away from the attackers first, a road breaking ties. Null when there is none.
+ */
+function dryBank(layout: BoardLayout, at: HexCoord, across: [number, number], attack: [number, number]): 1 | -1 | null {
+  const byKey = new Map(layout.hexes.map((h) => [hexKey(h.coord), h]));
+  const best = hexNeighbors(at)
+    .map((c) => byKey.get(hexKey(c)))
+    .filter((h): h is BoardHex => !!h && !isWater(h))
+    .map((h) => {
+      const dir = towards(layout, at, h.coord);
+      const along = dir[0] * across[0] + dir[1] * across[1];
+      return { along, score: Math.abs(along) - (dir[0] * attack[0] + dir[1] * attack[1]) + (h.terrain === "road" ? 0.3 : 0) };
+    })
+    .filter((o) => Math.abs(o.along) > 0.3)
+    .sort((a, b) => b.score - a.score)[0];
+  return best ? (best.along >= 0 ? 1 : -1) : null;
 }
 
 /** Every geometry a prop owns (for disposal). */

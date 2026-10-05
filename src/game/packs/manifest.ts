@@ -128,6 +128,7 @@ export const readScenario: Reader<EngineScenario> = object({
     object({
       width: req(int(1, MAX_BOARD)),
       height: req(int(1, MAX_BOARD)),
+      fordDressing: opt(oneOf("bridgeWrecks", "none")),
       hexes: req(
         list(
           object({

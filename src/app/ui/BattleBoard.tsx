@@ -7,7 +7,7 @@ import { useAmbience } from "../../audio";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { DioramaCamera, wideShotFor } from "../../render/camera/DioramaCamera";
 import { Diorama } from "../../render/Diorama";
-import { lightingFor, visibilityFromView, weatherFor } from "../../render/fromEngine";
+import { lightingFor, objectiveStagesFor, visibilityFromView, weatherFor } from "../../render/fromEngine";
 import { timeOfDayAt } from "../../game/engine";
 import { LookProvider } from "../../render/look/LookContext";
 import { PostFX } from "../../render/post/PostFX";
@@ -74,6 +74,8 @@ export function BattleBoard({
   });
   // T08 fog of war: the renderer's adapter over the same filtered view.
   const visibility = useMemo(() => visibilityFromView(view, scenario), [view, scenario]);
+  // M2: battered and broken objectives (barricade, wagons, sluice) from the shown view.
+  const objectiveStates = useMemo(() => objectiveStagesFor(view.objectives, scenario.objectives), [view.objectives, scenario.objectives]);
   return (
     <div className={`board ${shaking ? "shake" : ""}`} aria-hidden="true">
       <Canvas
@@ -94,6 +96,7 @@ export function BattleBoard({
             exitHexes={exitHexes}
             emphasisHex={camera.emphasisHex}
             visibility={visibility}
+            objectiveStates={objectiveStates}
             animationRef={animationRef}
             onFiguresReady={onFiguresReady}
           />

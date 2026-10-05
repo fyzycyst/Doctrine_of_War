@@ -16,6 +16,7 @@ import { TitleScene } from "../showcase/TitleScene";
 import { playSfx, SFX_NAMES, useAmbience } from "../../audio";
 import { hexDistance, hexKey } from "../../game/board";
 import { closeShot, DioramaCamera, wideShotFor, type CameraShot } from "../camera/DioramaCamera";
+import { closeShotOn } from "../camera/shots";
 import { Diorama } from "../Diorama";
 import type { SquadAnimationApi, SquadAnimator } from "../figures/squadAnimation";
 import type { FigureApproach } from "../figures/types";
@@ -82,7 +83,8 @@ function readParams() {
           scenarioParam === "saltmarsh" ||
           scenarioParam === "holdForDawn" ||
           scenarioParam === "cinderRoad1" ||
-          scenarioParam === "twoObjectives"
+          scenarioParam === "twoObjectives" ||
+          scenarioParam === "cinderRoad2"
         ? scenarioParam
         : "firstBreach";
   return {
@@ -123,6 +125,8 @@ function readParams() {
     objective: ((v): "battered" | "broken" | null => (v === "battered" || v === "broken" ? v : null))(p.get("objective")),
     objectiveAt: hexParam(p.get("objectiveAt")),
     shakeAt: hexParam(p.get("shakeAt")),
+    // closeOn=q,r;q,r: the close beat on those hexes (shots.ts closeShotOn), e.g. C2's Sluice Walk.
+    closeOn: (p.get("closeOn") ?? "").split(";").map(hexParam).filter((h): h is { q: number; r: number } => h !== null),
     reduceMotion: p.get("motion") === "reduce",
   };
 }
@@ -319,14 +323,15 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
             return [x + 0.9, 0.4, z + 0.6] as [number, number, number];
           })()
         : scene.focus;
-    const base = state.cam === "close" ? closeShot(focus) : wideShotFor(scene.board);
+    const base =
+      initial.closeOn.length > 0 ? closeShotOn(scene.board, initial.closeOn) : state.cam === "close" ? closeShot(focus) : wideShotFor(scene.board);
     return {
       ...base,
       azimuth: initial.shot.azimuth ?? base.azimuth,
       polar: initial.shot.polar ?? base.polar,
       distance: initial.shot.distance ?? base.distance,
     };
-  }, [state.cam, scene, initial.shot]);
+  }, [state.cam, scene, initial.shot, initial.closeOn]);
   const onFiguresReady = useCallback(() => setFiguresReady(true), []);
   const cinematic = useMemo(() => (initial.path ? (cinematicPaths(scene.board)[initial.path] ?? null) : null), [initial.path, scene.board]);
 

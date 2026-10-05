@@ -50,6 +50,15 @@ imported (see `fromEngine.ts`); engine logic may not.
   prop has staved barrels, overturned carts, and doused fire-pots that steam; the pots go out in
   `Fires`. The sluice cracks and jets water when battered, and is breached and running when broken.
   Under reduced motion the stages are static and the only particles are light, slow steam or spray.
+  Roads lead each road hex to its nearest objective, with ties going to the Host's (`roadGoals`,
+  `nearestRoadGoal`), whatever the order of the hex list. In a channel the sluice turns with the
+  water through its own hex (`localFlow`), and its house stands on the dry bank. `closeShotOn(board,
+  hexes)` (shots.ts) is a close beat on a few hexes, e.g. Cinder Road 2's Sluice Walk and sluice.
+- **River dressing (M2):** Ember Ford's burning bridge wrecks and the Host's bank braziers appear
+  only under `nightFires` (`atmosphere/fireRules.ts`; braziers are `island.brazierGeometry`). By day
+  the wrecks are cold, charred stumps trailing a thin smoke. `BoardLayout.fordDressing?:
+  "bridgeWrecks" | "none"` (render-only, accepted by the pack manifest) drops the wrecks and
+  braziers on a board whose fords were never burned bridges, e.g. Cinder Road 2.
 - **Weather (T08):** `<LookProvider weather="clear|rain|mist|ashWind">` (use `weatherFor(view.weather)`).
   Each skin owns `weather: Record<WeatherKind, WeatherPreset>` overlays that are layered on the
   time-of-day preset: mist, particles (rain streaks, ash flurries blowing east), wetness (darker,

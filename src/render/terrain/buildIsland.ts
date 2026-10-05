@@ -3,7 +3,7 @@ import { hexKey, hexNeighbors, hexDistance, type BoardHex, type BoardLayout, typ
 import { GeoBuilder, color, jitterColor, trs } from "../geo/GeoBuilder";
 import { boardCenter, hexCorner, hexRandom, hexToWorld, islandShore, mulberry32 } from "../hexWorld";
 import type { Skin } from "../skins/types";
-import { buildObjectiveProps, objectiveDressing, type ObjectiveProp, type ObjectiveStage } from "./objectiveProps";
+import { buildObjectiveProps, nearestRoadGoal, objectiveDressing, roadGoal, type ObjectiveProp, type ObjectiveStage } from "./objectiveProps";
 
 /**
  * Builds the floating-island diorama from a BoardLayout: extruded hex columns
@@ -56,6 +56,8 @@ export interface IslandBuild {
   geometry: THREE.BufferGeometry;
   /** Walls, towers and gatehouse as their own mesh (so an objective hit can jolt them); null if none. */
   wallGeometry: THREE.BufferGeometry | null;
+  /** The Host's braziers as their own mesh (shown only under nightFires); null if none. */
+  brazierGeometry: THREE.BufferGeometry | null;
   /** Reed banks as their own mesh (a wind-sway material); `glow` = sway weight, 0 at the root. */
   reedGeometry: THREE.BufferGeometry | null;
   hexes: IslandHex[];
@@ -322,9 +324,11 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
     fireAnchors.push({ x: fx, y: h.top + 0.05, z: fz, yaw: 0, kind: "campfire" });
   }
 
-  if (hasRiver) {
+  const bb = new GeoBuilder();
+  if (hasRiver && (layout.fordDressing ?? "bridgeWrecks") === "bridgeWrecks") {
     // Ember Ford: the Host fired its own bridges. Charred wreckage at every
-    // ford is the key light; braziers mark the Host's bank.
+    // ford is the key light at night (cold stumps by day); braziers mark the
+    // Host's bank, in their own mesh so they only stand at night.
     for (const ford of hexes.filter((h) => h.terrain === "ford")) {
       fireAnchors.push(...drawBridgeWreck(b, ford, waterLevel, mulberry32(ford.coord.q * 97 + ford.coord.r * 13 + 3)));
     }
@@ -337,12 +341,13 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
       .map((h) => hexes.find((x) => x.kind === "board" && x.coord.q === h.coord.q && x.coord.r === h.coord.r)!)
       .sort((a, c) => a.z - c.z);
     const picks = hostBank.filter((_, i) => i % 2 === 0).slice(0, 3);
-    for (const h of picks) fireAnchors.push(drawBrazier(b, h, mulberry32(h.coord.q * 31 + h.coord.r * 7 + 9)));
+    for (const h of picks) fireAnchors.push(drawBrazier(bb, h, mulberry32(h.coord.q * 31 + h.coord.r * 7 + 9)));
   }
 
   return {
     geometry: b.build(),
     wallGeometry: wb.vertexCount > 0 ? wb.build() : null,
+    brazierGeometry: bb.vertexCount > 0 ? bb.build() : null,
     reedGeometry: rb.vertexCount > 0 ? rb.build() : null,
     hexes,
     water,
@@ -814,7 +819,11 @@ function drawRoads(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], roadC
   const byKey = new Map(hexes.map((h) => [hexKey(h.coord), h]));
   const roads = layout.hexes.filter((h) => h.terrain === "road");
   if (roads.length === 0) return;
-  const goal = layout.hexes.find((h) => h.objectiveId) ?? layout.hexes.find((h) => h.terrain === "wall");
+  // Each road leads to its nearest objective, ties to the Host's (M2: a board may have
+  // two); with none, to the first wall.
+  const goalCoord = roadGoal(layout);
+  const goal = goalCoord ? { coord: goalCoord } : undefined;
+  const goalFor = (c: HexCoord) => nearestRoadGoal(layout, c) ?? goalCoord!;
   const isRoadish = (c: HexCoord) => {
     const h = layout.hexes.find((x) => x.coord.q === c.q && x.coord.r === c.r);
     return h && (h.terrain === "road" || h.terrain === "wall");
@@ -823,15 +832,18 @@ function drawRoads(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], roadC
   const inflow = new Set<string>();
   for (const road of roads) {
     const from = byKey.get(hexKey(road.coord))!;
-    const options = hexNeighbors(road.coord).filter(isRoadish);
-    if (!goal || options.length === 0) continue;
-    const here = hexDistance(road.coord, goal.coord);
+    if (!goal) continue;
+    const target = goalFor(road.coord);
+    // A road may run up to its objective's hex too (half a strip, to the edge).
+    const options = hexNeighbors(road.coord).filter((n) => isRoadish(n) || hexKey(n) === hexKey(target));
+    if (options.length === 0) continue;
+    const here = hexDistance(road.coord, target);
     const best = options
-      .filter((n) => hexDistance(n, goal.coord) < here)
-      .sort((a, c) => hexDistance(a, goal.coord) - hexDistance(c, goal.coord))[0];
+      .filter((n) => hexDistance(n, target) < here)
+      .sort((a, c) => hexDistance(a, target) - hexDistance(c, target))[0];
     if (!best) continue;
     const to = byKey.get(hexKey(best))!;
-    const toWall = layout.hexes.find((h) => hexKey(h.coord) === hexKey(best))?.terrain === "wall";
+    const toWall = layout.hexes.find((h) => hexKey(h.coord) === hexKey(best))?.terrain !== "road";
     edges.push([from, to, toWall]);
     inflow.add(hexKey(best));
   }

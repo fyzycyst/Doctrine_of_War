@@ -108,7 +108,7 @@ export function Diorama({
   /** Squads that just came out of the fog (e.g. to play the `reveal` SFX). */
   onReveal?: (squadIds: string[]) => void;
 }) {
-  const { skin, preset, atmosphere } = useLook();
+  const { skin, preset, atmosphere, timeOfDay } = useLook();
   const island = useMemo(() => buildIsland(board, skin), [board, skin]);
   const material = useMemo(() => createIslandMaterial(skin.material), [skin.material]);
   const outline = useDisposable(
@@ -120,6 +120,7 @@ export function Diorama({
       island.geometry.dispose();
       island.wallGeometry?.dispose();
       island.reedGeometry?.dispose();
+      island.brazierGeometry?.dispose();
       island.objectiveProps.flatMap(propGeometries).forEach((g) => g.dispose());
     },
     [island],
@@ -269,6 +270,10 @@ export function Diorama({
         }}
         onClick={onIslandClick}
       />
+      {/* The Host's braziers stand on Ember Ford's bank only at night (fireRules.ts). */}
+      {island.brazierGeometry && timeOfDay === "nightFires" && (
+        <mesh geometry={island.brazierGeometry} material={material} castShadow receiveShadow />
+      )}
       {outline && <mesh geometry={island.geometry} material={outline} />}
       <Water island={island} />
       <Reeds island={island} />

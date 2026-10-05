@@ -197,6 +197,13 @@ describe("the registry", () => {
     expect(() => readScenario(scenario, "scenario")).toThrow(/objectiveKind/);
   });
 
+  it("keeps a board's render-only fordDressing and refuses an unknown one", () => {
+    const scenario = structuredClone(scenarios[0]);
+    scenario.board.fordDressing = "none";
+    expect(readScenario(JSON.parse(JSON.stringify(scenario)), "scenario").board.fordDressing).toBe("none");
+    expect(() => readScenario({ ...scenario, board: { ...scenario.board, fordDressing: "lanterns" } }, "scenario")).toThrow(/fordDressing/);
+  });
+
   it("fails closed: a set with a lint problem exposes nothing", () => {
     expect(() => createRegistry([firstCall, clone()])).toThrow(PackError);
     expect(() => createRegistry([{ id: "x" }])).toThrow(/pack.title is required/);
