@@ -189,6 +189,14 @@ describe("the registry", () => {
     expect(registry.campaign("nowhere")).toBeUndefined();
   });
 
+  it("keeps a hex's render-only objectiveKind (M2) and refuses an unknown one", () => {
+    const barricade = registry.scenario("cinder_road_saltmarsh")!.board.hexes.find((hex) => hex.objectiveId === "saltgate_barricade");
+    expect(barricade?.objectiveKind).toBe("barricade");
+    const scenario = structuredClone(scenarios[0]);
+    scenario.board.hexes[0] = { ...scenario.board.hexes[0], objectiveKind: "bonfire" as never };
+    expect(() => readScenario(scenario, "scenario")).toThrow(/objectiveKind/);
+  });
+
   it("fails closed: a set with a lint problem exposes nothing", () => {
     expect(() => createRegistry([firstCall, clone()])).toThrow(PackError);
     expect(() => createRegistry([{ id: "x" }])).toThrow(/pack.title is required/);
