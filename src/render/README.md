@@ -70,6 +70,14 @@ imported (see `fromEngine.ts`); engine logic may not.
   - **Score (T20):** a generative score per time of day (`music.ts`), following the ambience by
     itself (`setMusic(mood | null)` pins a mood for menus). It ducks under every SFX and has its own
     volume, `useAudioStore.musicVolume`.
+  - **From the first screen (T24):** the app unlocks audio itself (`installAudioUnlock` in
+    `src/app/audioCues.ts`): at start-up in the Mac app (its window sets
+    `autoplayPolicy: "no-user-gesture-required"`, `electron/windowOptions.ts`), otherwise on the
+    first click or key anywhere. The first sound fades in over 2 s at the player's volume and mute.
+    Menus pin the dusk score and call `clearAmbience()` (no battle beds, no war drums); a battle's
+    `useAmbience` brings them back. With no pin and no battle ambience yet, the score keeps its
+    last mood, so there's no gap between screens. `useAmbience` no longer unlocks (the lab passes
+    `{ unlock: true }`).
   - **Orchestra (T20b):** the score, motifs and drum ostinato play on CC0 VSCO 2 CE samples
     (`sampler.ts`, `score.ts`; about 2.9 MB in `public/assets/audio/orch/`, built by
     `npm run build:orchestra`). They load lazily after the first interaction, and each voice falls
@@ -113,6 +121,11 @@ imported (see `fromEngine.ts`); engine logic may not.
     between slots). Cinderreach smoulders on the horizon: layered broken ash ridges fading into an
     ember haze, kiln glows as soft smudges at different depths and sizes, two thin smoke columns;
     never a single peak. Low, slowly drifting camera (still under reduced motion).
+    `framing="right"` (T25) nudges the picture right and steps the camera back so every cluster
+    sits in the right ~60%, beside a panel docked on the left. The highlighted cluster also lifts,
+    gains a warm rim light and a small title label (`chains[].title`), and the camera eases toward
+    it; under reduced motion it's rim light, dim and label only. Lab: `&framing=right&panel=1`,
+    `&skirmish=1`, `&motion=reduce`.
     Lab: `?lab=1&view=campaignSelect&highlight=<id>`.
   - **Capture mode:** `useCaptureStore` (`src/app/captureStore.ts`), on with `?capture=1`.
   - **Cinematic paths:** `camera/cameraPath.ts` has keyframed `CameraPath`s with a pure

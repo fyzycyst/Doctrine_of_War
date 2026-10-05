@@ -20,6 +20,8 @@ export const audio = new AudioEngine();
 export const unlockAudio = () => audio.unlock();
 export const playSfx = (name: SfxName) => audio.playSfx(name);
 export const setAmbience = (spec: AmbienceSpec) => audio.setAmbience(spec);
+/** No battle on screen (the menus, T24): the battle beds and the war drums fade out; the score plays on. */
+export const clearAmbience = () => audio.clearAmbience();
 /** War-drum resting level, 0..1 (T20): `DRUM_BASE.command` in command windows, `DRUM_BASE.playback` during playback. */
 export const setDrumIntensity = (base: number) => audio.setDrumIntensity(base);
 /** Swell the drums for a moment: clash, rout, horn, dread and reveal SFX do it themselves; "dawn" fires on predawn → sunrise. */
@@ -36,19 +38,24 @@ export const setMusic = (mood: MusicMood | null | undefined) => audio.setMusic(m
 export const playSting = (kind: "victory" | "defeat") => audio.playSting(kind);
 export { MOODS, type MusicMood } from "./music";
 
-/** Keeps the ambience in sync with a spec and unlocks on the first gesture. */
-export function useAmbience(spec: AmbienceSpec) {
+/**
+ * Keeps the ambience in sync with a spec. (Unlocking audio on the first gesture
+ * is the app's job since T24: `installAudioUnlock` in src/app/audioCues.ts. The
+ * Look Lab, which has no app shell, passes `unlock`.)
+ */
+export function useAmbience(spec: AmbienceSpec, { unlock = false }: { unlock?: boolean } = {}) {
   const { timeOfDay, weather, water, hostDrums } = spec;
   useEffect(() => {
     setAmbience({ timeOfDay, weather, water, hostDrums });
   }, [timeOfDay, weather, water, hostDrums]);
   useEffect(() => {
-    const unlock = () => void unlockAudio();
-    window.addEventListener("pointerdown", unlock, { once: true });
-    window.addEventListener("keydown", unlock, { once: true });
+    if (!unlock) return;
+    const go = () => void unlockAudio();
+    window.addEventListener("pointerdown", go, { once: true });
+    window.addEventListener("keydown", go, { once: true });
     return () => {
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
+      window.removeEventListener("pointerdown", go);
+      window.removeEventListener("keydown", go);
     };
-  }, []);
+  }, [unlock]);
 }

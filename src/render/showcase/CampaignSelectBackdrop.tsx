@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 import * as THREE from "three";
 import type { BoardLayout } from "../../game/board";
 import { Particles } from "../atmosphere/Particles";
@@ -9,7 +9,7 @@ import { makeBannerTexture, makeClothMaterial } from "../figures/SquadMarkers";
 import { mulberry32 } from "../hexWorld";
 import { LightRig } from "../lighting/LightRig";
 import { AtmosphereTicker, LookProvider, useLook } from "../look/LookContext";
-import { createIslandMaterial } from "../materials";
+import { addRimLight, createIslandMaterial } from "../materials";
 import { usePrefersReducedMotion } from "../motion";
 import { PostFX } from "../post/PostFX";
 import { useCanvasDpr } from "../quality";
@@ -36,12 +36,25 @@ export interface CampaignSelectChain {
   id: string;
   /** Up to three boards; more are ignored. */
   boards: BoardLayout[];
+  /** Shown as a small label on the cluster while it is highlighted (T25). */
+  title?: string;
 }
 
 export interface CampaignSelectBackdropProps {
   chains: CampaignSelectChain[];
-  /** The campaign under the cursor/selection: brought nearest and largest; the rest dim. */
+  /**
+   * The campaign under the cursor or keyboard focus: it moves to the nearest,
+   * largest place, lifts, gains a warm rim light and its title label, the camera
+   * eases toward it, and the others dim. Under reduced motion: rim light, dim and
+   * label only, nothing moves.
+   */
   highlightedId?: string | null;
+  /**
+   * "center" (default): the composition as it is. "right": the picture shifts so
+   * the islands sit in the right ~60% of the viewport, clear of a panel docked on
+   * the left (T25 split-screen menus). A view offset, not a different scene.
+   */
+  framing?: "center" | "right";
   frameloop?: "always" | "demand" | "never";
   /** Extra nodes inside the Canvas (lab probes). */
   inCanvas?: ReactNode;
@@ -70,15 +83,38 @@ const CLUSTER_SHAPE: Array<[number, number, number, number]> = [
   [0.2, 1, -4.3, 0.95],
 ];
 
-/** Which slot each chain takes: the highlighted chain gets the focal slot, the rest keep their order. */
-export function clusterSlots(chainIds: string[], highlightedId: string | null): number[] {
-  const focal = highlightedId && chainIds.includes(highlightedId) ? highlightedId : chainIds[0];
-  let next = 1;
-  return chainIds.map((id) => (id === focal ? 0 : Math.min(CLUSTER_SLOTS.length - 1, next++)));
+/** Slot `i`: the composed slots, then further places receding right and back for more campaigns. */
+export function clusterSlot(i: number): [number, number, number, number] {
+  if (i < CLUSTER_SLOTS.length) return CLUSTER_SLOTS[i];
+  const k = i - CLUSTER_SLOTS.length;
+  return [10 + (k % 3) * 9, 3.2 + k * 0.3, -27 - Math.floor(k / 3) * 9 - (k % 3) * 2, 0.85];
 }
 
-export function CampaignSelectBackdrop({ chains, highlightedId = null, frameloop = "always", inCanvas, children }: CampaignSelectBackdropProps) {
+/**
+ * Which slot each chain takes: the highlighted chain gets the focal slot, the
+ * rest keep their order. Under reduced motion nothing changes places.
+ */
+export function clusterSlots(chainIds: string[], highlightedId: string | null, { reduced = false }: { reduced?: boolean } = {}): number[] {
+  const focal = !reduced && highlightedId && chainIds.includes(highlightedId) ? highlightedId : chainIds[0];
+  let next = 1;
+  return chainIds.map((id) => (id === focal ? 0 : next++));
+}
+
+/**
+ * Horizontal view offset (pixels) for a framing. The composition already keeps
+ * the left third clear, so "right" only nudges the picture a little further
+ * right (6% of the width) and the camera steps back (see DriftCamera) so every
+ * cluster stays inside the right ~60%.
+ */
+export function framingViewOffset(framing: "center" | "right", width: number): number {
+  return framing === "right" ? -Math.round(width * 0.06) : 0;
+}
+
+export function CampaignSelectBackdrop({ chains, highlightedId = null, framing = "center", frameloop = "always", inCanvas, children }: CampaignSelectBackdropProps) {
   const dpr = useCanvasDpr();
+  const anchors = useRef(new Map<string, THREE.Vector3>());
+  const label = useRef<HTMLDivElement>(null);
+  const title = chains.find((c) => c.id === highlightedId)?.title;
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", background: "#0d0c12" }}>
       <Canvas
@@ -93,35 +129,108 @@ export function CampaignSelectBackdrop({ chains, highlightedId = null, frameloop
           <AtmosphereTicker />
           <SkyDome />
           <LightRig shadowRadius={34} fogOffset={30} />
-          <Clusters chains={chains} highlightedId={highlightedId} />
+          <Clusters chains={chains} highlightedId={highlightedId} anchors={anchors.current} />
           <Cinderreach />
-          <DriftCamera />
+          <DriftCamera framing={framing} focus={highlightedId ? (anchors.current.get(highlightedId) ?? null) : null} />
+          <LabelProjector anchors={anchors.current} id={highlightedId} label={label} />
           <Particles extent={30} />
           <PostFX focusY={0.42} dof="subtle" />
           {inCanvas}
         </LookProvider>
       </Canvas>
+      {title && (
+        <div ref={label} style={islandLabel} aria-hidden="true">
+          {title}
+        </div>
+      )}
       {children}
     </div>
   );
 }
 
-function Clusters({ chains, highlightedId }: { chains: CampaignSelectChain[]; highlightedId: string | null }) {
+const islandLabel: CSSProperties = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  zIndex: 2,
+  visibility: "hidden",
+  pointerEvents: "none",
+  whiteSpace: "nowrap",
+  padding: "4px 10px",
+  borderRadius: 4,
+  background: "rgba(20, 16, 22, 0.78)",
+  border: "1px solid rgba(255, 207, 110, 0.7)",
+  color: "#efe3c8",
+  font: "600 14px/1.2 Cinzel, Georgia, serif",
+  letterSpacing: "0.06em",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.35)",
+};
+
+/** Keeps the highlighted cluster's DOM label over its pennant. */
+function LabelProjector({ anchors, id, label }: { anchors: Map<string, THREE.Vector3>; id: string | null; label: { current: HTMLDivElement | null } }) {
+  const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
+  const v = useMemo(() => new THREE.Vector3(), []);
+  useFrame(() => {
+    const el = label.current;
+    const a = id ? anchors.get(id) : undefined;
+    if (!el) return;
+    if (!a) {
+      el.style.visibility = "hidden";
+      return;
+    }
+    v.copy(a).project(camera);
+    const x = (v.x * 0.5 + 0.5) * size.width;
+    const y = (-v.y * 0.5 + 0.5) * size.height;
+    el.style.transform = `translate(-50%, -100%) translate(${x.toFixed(1)}px, ${(y - 8).toFixed(1)}px)`;
+    el.style.visibility = v.z < 1 ? "visible" : "hidden";
+  });
+  return null;
+}
+
+function Clusters({ chains, highlightedId, anchors }: { chains: CampaignSelectChain[]; highlightedId: string | null; anchors: Map<string, THREE.Vector3> }) {
+  const reduced = usePrefersReducedMotion();
   const slots = clusterSlots(
     chains.map((c) => c.id),
     highlightedId,
+    { reduced },
   );
   return (
     <>
       {chains.map((chain, c) => (
-        <Cluster key={chain.id} chain={chain} slot={slots[c]} lit={!highlightedId || highlightedId === chain.id} seed={c} />
+        <Cluster
+          key={chain.id}
+          chain={chain}
+          slot={slots[c]}
+          lit={!highlightedId || highlightedId === chain.id}
+          highlighted={highlightedId === chain.id}
+          reduced={reduced}
+          anchors={anchors}
+          seed={c}
+        />
       ))}
     </>
   );
 }
 
 /** One campaign: its islands, the ink trail between them, and a pennant; eases to its slot. */
-function Cluster({ chain, slot, lit, seed }: { chain: CampaignSelectChain; slot: number; lit: boolean; seed: number }) {
+function Cluster({
+  chain,
+  slot,
+  lit,
+  highlighted,
+  reduced,
+  anchors,
+  seed,
+}: {
+  chain: CampaignSelectChain;
+  slot: number;
+  lit: boolean;
+  highlighted: boolean;
+  reduced: boolean;
+  anchors: Map<string, THREE.Vector3>;
+  seed: number;
+}) {
   const { skin } = useLook();
   const group = useRef<THREE.Group>(null);
   const islands = useMemo(
@@ -144,34 +253,52 @@ function Cluster({ chain, slot, lit, seed }: { chain: CampaignSelectChain; slot:
       }),
     [islands],
   );
-  const target = CLUSTER_SLOTS[slot];
-  const goal = useMemo(() => new THREE.Vector3(target[0], target[1], target[2]), [target]);
+  const target = clusterSlot(slot);
+  // The highlighted cluster lifts a little (not under reduced motion).
+  const lift = highlighted && !reduced ? 0.9 : 0;
+  const goal = useMemo(() => new THREE.Vector3(target[0], target[1] + lift, target[2]), [target, lift]);
   const init = useRef(false);
+  const peak = (island: IslandBuild) => Math.max(...island.hexes.map((h) => h.top));
+  // The label anchor is a point just above the pennant's cloth, read back in world space.
+  const labelPoint = useRef<THREE.Object3D>(null);
   useFrame((_, dt) => {
     const g = group.current;
     if (!g) return;
-    const k = init.current ? Math.min(1, dt * 2.2) : 1;
+    const k = init.current && !reduced ? Math.min(1, dt * 2.2) : 1;
     init.current = true;
     g.position.lerp(goal, k);
     g.scale.setScalar(THREE.MathUtils.lerp(g.scale.x, target[3], k));
+    // Label anchor (above the pennant), for the DOM label and the camera's focus.
+    if (labelPoint.current) {
+      g.updateMatrixWorld();
+      const a = anchors.get(chain.id) ?? new THREE.Vector3();
+      anchors.set(chain.id, labelPoint.current.getWorldPosition(a));
+    }
   });
-  const peak = (island: IslandBuild) => Math.max(...island.hexes.map((h) => h.top));
+  useEffect(() => () => void anchors.delete(chain.id), [anchors, chain.id]);
   const trail = useMemo(() => islands.map(({ position, island, scale }) => position.clone().setY(position.y + peak(island) * scale + 0.25)), [islands]);
   return (
     <group ref={group}>
       {islands.map(({ island, position, scale }, i) => (
-        <BackdropIsland key={i} island={island} position={position} scale={scale} lit={lit} phase={seed * 3 + i} />
+        <BackdropIsland key={i} island={island} position={position} scale={scale} lit={lit} rim={highlighted} phase={seed * 3 + i} />
       ))}
       <InkTrail points={trail} lit={lit} />
-      {islands[0] && <Pennant position={[islands[0].position.x, islands[0].position.y + peak(islands[0].island) * islands[0].scale, islands[0].position.z]} lit={lit} />}
+      {islands[0] && (
+        <Pennant position={[islands[0].position.x, islands[0].position.y + peak(islands[0].island) * islands[0].scale, islands[0].position.z]} lit={lit}>
+          <object3D ref={labelPoint} position={[0.28, 1.12, 0]} />
+        </Pennant>
+      )}
     </group>
   );
 }
 
-function BackdropIsland({ island, position, scale, lit, phase }: { island: IslandBuild; position: THREE.Vector3; scale: number; lit: boolean; phase: number }) {
-  const { skin, motion } = useLook();
+/** Warm rim light on a highlighted island (T25). */
+const RIM = { color: "#ffc070", strength: 0.38 };
+
+function BackdropIsland({ island, position, scale, lit, rim, phase }: { island: IslandBuild; position: THREE.Vector3; scale: number; lit: boolean; rim: boolean; phase: number }) {
+  const { skin, motion, reducedMotion } = useLook();
   const material = useDisposable(() => {
-    const m = createIslandMaterial(skin.material);
+    const m = addRimLight(createIslandMaterial(skin.material), RIM.color, 0, "backdrop-island");
     // Keep the rock underside: fade it much lower than on a battle board.
     m.userData.fade.uFadeTop.value = -2.6;
     m.userData.fade.uFadeBottom.value = -9;
@@ -180,7 +307,11 @@ function BackdropIsland({ island, position, scale, lit, phase }: { island: Islan
   const group = useRef<THREE.Group>(null);
   useFrame(({ clock }, dt) => {
     const dim = material.userData.fade.uDim;
-    dim.value = THREE.MathUtils.lerp(dim.value, lit ? 0 : 0.85, Math.min(1, dt * 4));
+    // The others dim slightly; the highlighted one gains its rim (snapped under reduced motion).
+    const k = reducedMotion ? 1 : Math.min(1, dt * 4);
+    dim.value = THREE.MathUtils.lerp(dim.value, lit ? 0 : 0.55, k);
+    const r = material.userData.rim.uRimStrength;
+    r.value = THREE.MathUtils.lerp(r.value, rim ? RIM.strength : 0, k);
     if (group.current) group.current.position.y = position.y + Math.sin(clock.elapsedTime * 0.35 + phase) * 0.05 * motion;
   });
   return (
@@ -230,7 +361,7 @@ function InkTrail({ points, lit }: { points: THREE.Vector3[]; lit: boolean }) {
 }
 
 /** A small Banners pennant on the cluster's first island. */
-function Pennant({ position, lit }: { position: [number, number, number]; lit: boolean }) {
+function Pennant({ position, lit, children }: { position: [number, number, number]; lit: boolean; children?: ReactNode }) {
   const { skin, motion } = useLook();
   const texture = useDisposable(() => makeBannerTexture("free_banners", skin.factions.free_banners), [skin]);
   const cloth = useDisposable(() => makeClothMaterial(texture, 0.7), [texture]);
@@ -247,6 +378,7 @@ function Pennant({ position, lit }: { position: [number, number, number]; lit: b
       <mesh material={cloth} position={[0.28, 0.78, 0]}>
         <planeGeometry args={[0.55, 0.36, 14, 4]} />
       </mesh>
+      {children}
     </group>
   );
 }
@@ -456,17 +588,51 @@ function Cinderreach() {
   );
 }
 
-/** A low, cinematic view across the clusters toward the horizon, drifting slightly (still under reduced motion). */
-function DriftCamera() {
-  const camera = useThree((s) => s.camera);
-  const aspect = useThree((s) => s.size.width / Math.max(1, s.size.height));
+/**
+ * A low, cinematic view across the clusters toward the horizon, drifting
+ * slightly. With a highlighted campaign it eases a little toward that cluster.
+ * "right" framing shifts the projection (setViewOffset) so the picture sits in
+ * the right ~60% of the viewport. Reduced motion: no drift and no easing.
+ */
+function DriftCamera({ framing, focus }: { framing: "center" | "right"; focus: THREE.Vector3 | null }) {
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+  const size = useThree((s) => s.size);
+  const aspect = size.width / Math.max(1, size.height);
   const reduced = usePrefersReducedMotion();
-  useFrame(({ clock }) => {
+  const s = useMemo(() => ({ look: new THREE.Vector3(5, 0.6, -10), pos: new THREE.Vector3(), goalLook: new THREE.Vector3(), goalPos: new THREE.Vector3(), pull: 0, init: false }), []);
+  useEffect(() => {
+    const offset = framingViewOffset(framing, size.width);
+    if (offset === 0) camera.clearViewOffset();
+    else camera.setViewOffset(size.width, size.height, offset, 0, size.width, size.height);
+    camera.updateProjectionMatrix();
+    return () => {
+      camera.clearViewOffset();
+      camera.updateProjectionMatrix();
+    };
+  }, [camera, framing, size.width, size.height]);
+  useFrame(({ clock }, dt) => {
     const t = reduced ? 0 : clock.elapsedTime;
     // Narrow screens step back a little so the right-hand clusters stay in frame.
-    const back = Math.max(0, 1.6 - aspect) * 10;
-    camera.position.set(-1 + Math.sin(t * 0.04) * 1.4, 5.2 + Math.sin(t * 0.03) * 0.3, 27 + back);
-    camera.lookAt(5 + Math.sin(t * 0.04) * 0.8, 0.6, -10);
+    const back = Math.max(0, 1.6 - aspect) * 10 + (framing === "right" ? 5 : 0);
+    const pull = focus && !reduced ? 1 : 0;
+    const k = s.init && !reduced ? Math.min(1, dt * 1.6) : 1;
+    s.pull = THREE.MathUtils.lerp(s.pull, pull, k);
+    s.goalPos.set(-1 + Math.sin(t * 0.04) * 1.4, 5.2 + Math.sin(t * 0.03) * 0.3, 27 + back);
+    s.goalLook.set(5 + Math.sin(t * 0.04) * 0.8, 0.6, -10);
+    if (focus) {
+      // Ease toward the highlighted cluster: look partly at it and come a little closer.
+      s.goalLook.lerp(focus, 0.22 * s.pull);
+      s.goalPos.lerp(focus, 0.08 * s.pull);
+    }
+    if (!s.init) {
+      s.pos.copy(s.goalPos);
+      s.look.copy(s.goalLook);
+      s.init = true;
+    }
+    s.pos.lerp(s.goalPos, k);
+    s.look.lerp(s.goalLook, k);
+    camera.position.copy(s.pos);
+    camera.lookAt(s.look);
   });
   return null;
 }

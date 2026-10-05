@@ -6,7 +6,7 @@ import { CampaignScreen } from "./flow/CampaignScreen";
 import { CallTheBanners } from "./roll/CallTheBanners";
 import { EndScreen } from "./flow/EndScreen";
 import { SkirmishList } from "./flow/SkirmishList";
-import { startAudioCues } from "./audioCues";
+import { installAudioUnlock, startAudioCues } from "./audioCues";
 import { useMotionClass } from "./motionClass";
 import { useFlow } from "./flow/flowStore";
 import { DoctrineEditor } from "./variants/DoctrineEditor";
@@ -33,6 +33,7 @@ export function Root({ still = false, pauseAt }: { still?: boolean; pauseAt?: st
   useMotionClass();
   // Music and drum cues follow the screen and the battle stage (T19, T20's audio).
   useEffect(() => startAudioCues(), []);
+  useEffect(() => installAudioUnlock(), []);
   // Doctrine variants (T16): read once; a broken store leaves the standard doctrines.
   useEffect(() => {
     if (useVariants.getState().status === "idle") void useVariants.getState().load();
