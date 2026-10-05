@@ -20,6 +20,7 @@ import {
   writeVariantsFile,
 } from "./saveFile";
 import { isAppUrl, isTrustedSender, type AppLocation } from "./security";
+import { appWebPreferences } from "./windowOptions";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -32,13 +33,7 @@ function createWindow() {
     width: 1280,
     height: 800,
     title: "Doctrine of War: Ash & Banner",
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
-      preload: path.join(__dirname, "preload.mjs"),
-    },
+    webPreferences: appWebPreferences(path.join(__dirname, "preload.mjs")),
   });
 
   if (devServerUrl) {

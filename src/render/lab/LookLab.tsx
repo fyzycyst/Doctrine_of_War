@@ -330,7 +330,7 @@ function DioramaLab({ initial }: { initial: ReturnType<typeof readParams> }) {
     weather: state.weather,
     water: scene.board.hexes.some((h) => h.terrain === "ford" || h.terrain === "river"),
     hostDrums: true,
-  });
+  }, { unlock: true });
 
   const targetSquad = selectedSquadId ?? scene.squads.find((s) => s.faction === "free_banners")?.id ?? null;
   const play = useCallback(
@@ -705,16 +705,38 @@ function AudioDemoLab() {
 }
 
 /** view=campaignSelect (M1): the "choose a campaign" backdrop, three chains; &highlight=<id>. */
+/**
+ * view=campaignSelect (M1, T25): the "choose a campaign" backdrop; &highlight=<id>,
+ * &framing=right, &panel=1 (a stand-in for the docked left panel, 38% wide), and
+ * &skirmish=1 (four single-island chains, as the Skirmish screen passes them).
+ */
 function CampaignSelectLab({ seq }: { seq: boolean }) {
-  const highlight = new URLSearchParams(window.location.search).get("highlight");
-  const chains = [
-    { id: "ash-and-banner", boards: [firstBreach.board, emberFord.board, holdForDawn.board] },
-    { id: "cinder-road", boards: [saltmarshColumn.board, emberFord.board, firstBreach.board] },
-    { id: "causeway-war", boards: [saltmarshColumn.board, holdForDawn.board] },
-  ];
+  const params = new URLSearchParams(window.location.search);
+  const highlight = params.get("highlight");
+  const framing = params.get("framing") === "right" ? "right" : "center";
+  // &motion=reduce: the reduced-motion highlight (rim light only, nothing moves).
+  useState(() => params.get("motion") === "reduce" && useAppStore.setState({ motion: "reduce" }));
+  const chains = params.get("skirmish")
+    ? [
+        { id: "first-breach", title: "The First Breach", boards: [firstBreach.board] },
+        { id: "ember-ford", title: "Ember Ford", boards: [emberFord.board] },
+        { id: "saltmarsh", title: "The Saltmarsh Column", boards: [saltmarshColumn.board] },
+        { id: "hold-for-dawn", title: "Hold for Dawn", boards: [holdForDawn.board] },
+      ]
+    : [
+        { id: "ash-and-banner", title: "Ash & Banner", boards: [firstBreach.board, emberFord.board, holdForDawn.board] },
+        { id: "cinder-road", title: "Cinder Road", boards: [saltmarshColumn.board, emberFord.board, firstBreach.board] },
+        { id: "causeway-war", title: "The Causeway War", boards: [saltmarshColumn.board, holdForDawn.board] },
+      ];
   return (
     <div style={{ position: "fixed", inset: 0 }}>
-      <CampaignSelectBackdrop chains={chains} highlightedId={highlight} frameloop={seq ? "never" : "always"} inCanvas={<LabProbes ready seq={seq} />} />
+      <CampaignSelectBackdrop chains={chains} highlightedId={highlight} framing={framing} frameloop={seq ? "never" : "always"} inCanvas={<LabProbes ready seq={seq} />}>
+        {params.get("panel") && (
+          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "38%", minWidth: 460, background: "linear-gradient(90deg, rgba(18,14,20,0.94) 85%, rgba(18,14,20,0))", color: "#efe3c8", font: "600 22px Cinzel, Georgia, serif", padding: 32 }}>
+            Docked panel (stand-in)
+          </div>
+        )}
+      </CampaignSelectBackdrop>
     </div>
   );
 }
