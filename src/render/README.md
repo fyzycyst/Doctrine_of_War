@@ -39,6 +39,17 @@ imported (see `fromEngine.ts`); engine logic may not.
     own mesh, `island.wallGeometry`) jolt with a damped shudder, which is skipped under reduced
     motion. A dust cloud billows from the gate's outer face and a few stones fall. It resolves when
     the effect ends, and it follows the animator clock, so pause and time scale apply to it.
+    On an open-ground prop (M2) the hit is a smaller jolt plus splinters and a puff of steam and
+    smoke (Host props), or stone chips and spray (the sluice).
+- **Objective props (M2):** `BoardHex.objectiveKind?: "gatehouse" | "barricade" | "wagons" | "sluice"`
+  is render-only and set per objective hex. When it is absent, a wall objective gets the gatehouse
+  and open ground gets nothing. `terrain/objectiveProps.ts` builds the barricade, the wagon park and
+  the sluice-house in three stages. `<Diorama objectiveStates={objectiveStagesFor(view.objectives,
+  scenario.objectives)}>` swaps each objective to "battered" (at or below 70% of its starting
+  integrity) or "broken" (0), independently, with any number per board. A battered or broken Host
+  prop has staved barrels, overturned carts, and doused fire-pots that steam; the pots go out in
+  `Fires`. The sluice cracks and jets water when battered, and is breached and running when broken.
+  Under reduced motion the stages are static and the only particles are light, slow steam or spray.
 - **Weather (T08):** `<LookProvider weather="clear|rain|mist|ashWind">` (use `weatherFor(view.weather)`).
   Each skin owns `weather: Record<WeatherKind, WeatherPreset>` overlays that are layered on the
   time-of-day preset: mist, particles (rain streaks, ash flurries blowing east), wetness (darker,

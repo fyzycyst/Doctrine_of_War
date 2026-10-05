@@ -135,6 +135,7 @@ export const readScenario: Reader<EngineScenario> = object({
             terrain: req(oneOf(...TERRAIN)),
             label: opt(text(60)),
             objectiveId: opt(id),
+            objectiveKind: opt(oneOf("gatehouse", "barricade", "wagons", "sluice")),
             deploymentFaction: opt(faction),
           }),
           MAX_BOARD * MAX_BOARD,

@@ -17,8 +17,16 @@ export interface BoardHex {
   terrain: TerrainType;
   label?: string;
   objectiveId?: string;
+  /**
+   * How the renderer dresses this hex's objective (M2). Render-only: no rule reads it.
+   * Absent = the old behaviour (a gatehouse on a wall, no prop on open ground).
+   */
+  objectiveKind?: ObjectiveKind;
   deploymentFaction?: FactionId;
 }
+
+/** The objective props the renderer can draw (see BoardHex.objectiveKind). */
+export type ObjectiveKind = "gatehouse" | "barricade" | "wagons" | "sluice";
 
 export interface BoardLayout {
   hexes: BoardHex[];

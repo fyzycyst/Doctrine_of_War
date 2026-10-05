@@ -47,7 +47,8 @@ function hexAt(q: number, r: number): BoardHex {
     coord: { q, r },
     terrain: terrainAt(q, r),
     ...(labels[key] ? { label: labels[key] } : {}),
-    ...(key === "3,1" ? { objectiveId: "saltgate_barricade" } : {}),
+    // objectiveKind is render-only: the barricade prop, not a gatehouse (M2).
+    ...(key === "3,1" ? { objectiveId: "saltgate_barricade", objectiveKind: "barricade" as const } : {}),
     ...(r >= 5 ? { deploymentFaction: "free_banners" as const } : {}),
     ...(r <= 1 ? { deploymentFaction: "ashen_host" as const } : {}),
   };
