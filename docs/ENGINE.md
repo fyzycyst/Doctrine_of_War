@@ -482,6 +482,27 @@ Each battle has a **star doctrine** even when it uses a mix:
   (Fighting Withdrawal with fw_rout_guard 90 on the watch) is a diagnostic probe at 0%.
   Role gate: `cinderRoad3.roles.<call>.sim.test.ts`, one per named call. Every named call is
   in docs/CAMPAIGN.md.
+- *Cut the Retreat* (*Cinder Road* battle 4, the pursuit, `scenarios/cinderRoad5.ts`, CR5,
+  in the First Call pack): the star is **Clean Counterstroke**. Engine #2's shared Greyford
+  Gate board (`greyfordGate.board.ts`, `gateObjective: false`; the gate is dressed as the
+  gatehouse, render-only).
+  - **The Host:** the column (5 companies, Slip the Leash) runs down the Gate Road for
+    Greyford Gate; the rearguard holds the River Ford (No Step Back, texture).
+  - **The goal:** break 3 of the column (`destroySquads`) before 3 reach the gate's
+    approaches (`enemyEscape`); 5 phases.
+  - **One counted role, the hunt,** under the pursuit exception (docs/CAMPAIGN.md):
+    - the harness's `PURSUIT_FILLERS` spares the monos of its fillers (Clean Counterstroke,
+      Bring the Water, Open the Road) from the mono cap;
+    - every other mono and every hunt-unfilled combination are still gated.
+  - **Signed off on `signoff2`** (200001–200500; the gate range is observed by the census),
+    fortune on, curated path after battles 1–3:
+    - intended at least 99.6% on every gated call, with no muster at least 98.2%;
+    - the bad plan and every non-filler mono at most 0.2%;
+    - selection spread 0.4 points.
+  - **Role gate** (`cinderRoad5.roles.<call>.sim.test.ts`, one per named call): a full
+    per-plan census of all 4^3 hunt-unfilled combinations on 40 gate seeds under no muster,
+    the heuristic and the rush; each one below the floor and within the slack (≤ 2/40 wins,
+    ≤ 4/40 against the rush).
 - *Break the Strongpoint* (*Cinder Road* battle 6, the finale, `scenarios/cinderRoad6.ts`, CR6;
   built after battle 3 until battles 4 and 5 land): the star is **Bring the Water**; the second
   role is **the banner**. Greyford Gate, held by the Host, on the shared Greyford Gate board

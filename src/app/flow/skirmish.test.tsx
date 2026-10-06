@@ -73,6 +73,7 @@ describe("skirmish", () => {
     // Every Cinder Road battle says so (one line per battle).
     expect(within(screen.getByRole("region", { name: "Cinder Road" })).getAllByText("Default force: the recommended call.").length).toBeGreaterThanOrEqual(2);
     expect(within(screen.getByRole("region", { name: "Cinder Road" })).getByRole("button", { name: "Fight: Open a Road" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Cinder Road" })).getByRole("button", { name: "Fight: Cut the Retreat" })).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Ash & Banner" })).queryByText("Default force: the recommended call.")).not.toBeInTheDocument();
     expect(offered.length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /^Fight: / }).map((button) => button.getAttribute("aria-label"))).toEqual(offered.map((title) => `Fight: ${title}`));
@@ -152,6 +153,7 @@ describe("every battle is a skirmish", () => {
     expect(offered).toContain("cinder_road_saltmarsh");
     expect(offered).toContain("cinder_road_wagon_park");
     expect(offered).toContain("cinder_road_ember_ford");
+    expect(offered).toContain("cinder_road_gate_road");
     for (const prototype of prototypeScenarios) expect(offered).not.toContain(prototype.id);
     expect(new Set(registry.skirmishes().map(({ skirmish }) => skirmish.id)).size).toBe(offered.length);
   });

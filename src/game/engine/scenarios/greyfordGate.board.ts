@@ -72,7 +72,7 @@ export function greyfordGateBoard(zones: GreyfordGateZones = {}): BoardLayout {
         coord,
         terrain,
         ...(label ? { label } : {}),
-        ...(zones.gateObjective !== false && q === GREYFORD_GATE.q && r === GREYFORD_GATE.r ? { objectiveId: "greyford_gate" } : {}),
+        ...(q === GREYFORD_GATE.q && r === GREYFORD_GATE.r ? (zones.gateObjective !== false ? { objectiveId: "greyford_gate" } : { gatehouse: true as const }) : {}),
         ...(side ? { deploymentFaction: side } : {}),
       });
     }

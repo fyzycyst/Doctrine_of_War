@@ -392,6 +392,23 @@ fighting.**
   - **CR5 (a pursuit):** the hunt has no roster spread, but a second role made of fighting
     (breaking or pinning the rearguard) let mono Counterstroke pass on the strong calls.
 
+**Exception (2026-10-06, the user's option A): pursuit battles.** A pursuit (Cinder Road
+battle 4, *Cut the Retreat*) has **one counted role, the hunt**: break fleeing companies
+before they get away.
+- **Waived for a pursuit:** the "at least two roles in two families" rule, and the mono cap
+  for the hunt's **filler** doctrines. Monos of strikers are pursuits done right. The harness
+  lists them in `PURSUIT_FILLERS` (`engine/balance.ts`), keyed by scenario id; the balance
+  script prints the exception.
+- **Still gated:**
+  - the intended plan ≥ 75% on **every** gated call (the no-muster floor too);
+  - every **non-filler** mono, and every hunt-unfilled combination, below the floor on every
+    call under no muster, the heuristic and the rush, each plan judged on its own (a full
+    census);
+  - the ≥ 15-point role ablation.
+- **Why it is safe:** the loss is structural (escape is a rule, `enemyEscape`), not attrition,
+  and there is no roster spread: on the real calls, a striking hunt wins 98–100% and a
+  standing or yielding one 0%, on every call (artifact m2-cinder-road/cr5-findings).
+
 **Decision (2026-10-05, C3 warden; confirmed by the user 2026-10-06: "if a player can come up with something better, they should"): editor variants are diagnostics,
 not gated.** A doctrine-editor variant that out-thinks a battle is a reward for skill, which
 is what Test in the field is for. The gate guarantees the lesson for **stock doctrines plus
@@ -503,6 +520,35 @@ Mill Road. Signed off on `signoff3` (the gate range and `signoff2` were observed
 the battle sheet). Numbers are in
 docs/ENGINE.md and on the battle sheet.
 
+*Cinder Road* battle 4, **Cut the Retreat** (`scenarios/cinderRoad5.ts`, CR5; the pursuit,
+under the pursuit exception above):
+- **Ground:** the shared Greyford Gate board (`greyfordGate.board.ts`, engine #2's, with
+  `gateObjective: false`), the day before battle 5.
+- **The story:** the Host, broken on the roads at Ember Ford, streams down the Gate Road to
+  Greyford Gate.
+- **The goal:** break 3 of the 5 fleeing companies (`destroySquads`) before 3 reach the gate's
+  approaches (7,3)/(7,4) (`enemyEscape`); or 3 companies lost; 5 phases.
+- **The Host:** the column runs on Slip the Leash and never stops to fight. Its rearguard
+  holds the River Ford on No Step Back (texture, not a counted role).
+- **Posts** (authored labels):
+  - the hunt: the Broken Watch Folds and the South Works Folds (cavalry; the latter flex:
+    skirmish), and the South Ditch (skirmish), lying on the flank edges ahead;
+  - the foot: the North Bank, the River Ford and the South Bank, behind.
+- **The hunt, by function:** break fleeing companies before they reach the gate.
+  - Fillers: **Clean Counterstroke** (intended: it waits, then charges a company that has
+    fallen out of the column), Bring the Water and Open the Road (each strikes whatever comes
+    beside it).
+  - Unfilled by Shield the Line and Hold for Dawn, which stand beside the road and let them
+    by, and Fighting Withdrawal and Rescue Standard, which give ground: all 4^3 combinations
+    are gated.
+- **The lesson:** "strike, don't block", the inverse of Open a Road's guard. The briefing
+  says so.
+- **Plans:** bad, everyone on Shield the Line (Open a Road's guard misapplied); alternative
+  (diagnostic), the hunt on Bring the Water.
+- **No standard is called;** the Rearguard (CR4's doctrine) is not offered.
+- **Curated seed 1:** a clean win, no company lost, nobody worn; on the curated path only the
+  Brightcrag Riders gain Resolve (0 → 1).
+- **Role gate:** `cinderRoad5.roles.<call>.sim.test.ts`, one per named call.
 **Battle 6, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
 after battle 3 until battles 4 and 5 land, then moved to slot 6 and signed off on the full
 path): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
