@@ -4,7 +4,7 @@
 // - `balance.<battle>.test.ts`: a battle's guardrail smoke (one per battle, guardrails.testkit.ts);
 // - `*.sim.test.ts`: any other suite that plays many battles (role sweeps, ablations over ~5 s);
 // - the finale's (`cinderRoad6[.*].sim.test.ts` and `balance.cinderRoad6.test.ts`) go to
-//   test:finale instead: a 23-squad, 9-phase battle costs about four ordinary games, and
+//   test:finale instead: a 19-squad, 9-phase battle costs about four ordinary games, and
 //   would push test:balance past its ~120 s budget.
 // Long synchronous simulations starve vitest's worker RPC under machine load ("Timeout calling
 // onTaskUpdate"), so they stay out of the fast suite.

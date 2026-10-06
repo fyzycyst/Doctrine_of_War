@@ -1,4 +1,4 @@
-// The finale's role ablation and fog regression: many 23-squad battles, so they run under
+// The finale's role ablation and fog regression: many 19-squad battles, so they run under
 // `npm run test:finale` (src/test/suites.ts), not `npm test`.
 import { describe, expect, it } from "vitest";
 import { decisionLeaks } from "../engine/fogDecisions.testkit";

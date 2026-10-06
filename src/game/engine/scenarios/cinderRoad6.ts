@@ -12,7 +12,7 @@
 // one is an accepted filler (roster-dependent: a veteran army needs only one).
 // The Banners' squads are authored at fame 17, not the curated path's: the Roll's threat then
 // never eases the sworn's Resolve, and hardens the Host by +12 strength a company for a famous
-// army, which the battle's 14 Host companies turn into a real difference (docs/CAMPAIGN.md).
+// army, which the battle's 10 Host companies turn into a real difference (docs/CAMPAIGN.md).
 // Registered in the First Call pack (packs/registry.ts), not in the intro's scenario list.
 import type { EngineScenario } from "../types";
 import { GREYFORD_GATE, greyfordGateBoard } from "./greyfordGate.board";

@@ -270,7 +270,7 @@ doctrine, campaign, roster profile or Host schedule):
 
 **Test suites (2026-10-05; the finale's added 2026-10-07).** `npm test` is the fast suite:
 unit, UI and fast engine tests. `npm run test:balance` runs the simulation-heavy files, and
-`npm run test:finale` the finale's (*Cinder Road* battle 6: a 23-squad, 9-phase battle costs
+`npm run test:finale` the finale's (*Cinder Road* battle 6: a 19-squad, 9-phase battle costs
 about four ordinary games, so its sweeps would push test:balance past its ~120 s budget). The
 routing is by **file name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`, which
 also checks every heavy file runs in exactly one of the two heavy suites):
@@ -472,7 +472,7 @@ docs/ENGINE.md and on the battle sheet.
 after battle 3 until battles 4 and 5 land, then moved to slot 6 and signed off on the full
 path): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
 the sworn stand before the gate (every Host company is Resolve 3: they do not waver); 9
-Banners against 14 Host, by day under ash-wind, 9 phases. Win: break the gate
+Banners against 10 Host (19 squads), by day under ash-wind, 9 phases. Win: break the gate
 (`breakObjective`). Defeat: 3 companies lost, or the timeout. **The whole army takes the
 field**: nine posts, one per Roll company (two flex: the second banner may be a frontline
 company, the Upper Gate Road may take one); carried veterans (at most two) take posts in
