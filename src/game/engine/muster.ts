@@ -316,8 +316,8 @@ export type MusterPolicy = "none" | "heuristic" | "rush";
 /**
  * A simple, sensible player: relieve any engaged company below RELIEVE_BELOW cohesion
  * with a fresh neighbour; then step idle fighting companies (not standards) toward the
- * fight (the nearest seen enemy; in an escape battle, the line of retreat, or the
- * column if one is more than WARD_RANGE away).
+ * fight (the nearest seen enemy; in an escape battle, the line of retreat, or the column if
+ * one is more than WARD_RANGE away; nothing at all in an escape battle that has no column).
  * Reads only the player's view.
  */
 export function heuristicMuster(state: EngineState, scenario: EngineScenario): MusterMove[] {
@@ -343,12 +343,17 @@ export function heuristicMuster(state: EngineState, scenario: EngineScenario): M
   }
 
   const exits = exitHexesFor(scenario, scenario.playerFaction) ?? [];
+  const hasColumn = scenario.squads.some((squad) => squad.faction === scenario.playerFaction && squad.noncombatant);
   const enemyHexes = know.enemies.map((enemy) => enemy.hex);
   for (const squad of companies) {
     // Standards stay where their doctrine put them (beside the line, or at the column's side).
     if (used.has(squad.id) || inContact(state, squad) || squad.role === "support") continue;
     // Idle: no seen enemy within IDLE_RANGE. Busy companies keep the places their doctrines chose.
     if (enemyHexes.length > 0 && Math.min(...enemyHexes.map((hex) => hexDistance(hex, squad.hex))) <= IDLE_RANGE) continue;
+    // An escape battle with no column at all (an attack on the roads): stay put. The march
+    // doctrine takes the roads itself, and a sensible player does not drag a rear guard off
+    // its post. Keyed on the scenario, so a column battle is unchanged after its column escapes.
+    if (exits.length > 0 && !hasColumn) continue;
     // An escape battle with a column: stay close to it (the doctrines handle the withdrawal).
     const wards = [...know.own.values()].filter((other) => other.noncombatant).map((other) => other.hex);
     let goals = exits.length > 0 ? exits : enemyHexes;

@@ -10,6 +10,7 @@ import { recordBattle, startCampaign } from "./campaign";
 import { cinderRoad } from "./cinderRoad";
 import { ashAndBanner } from "./definition";
 import { assembleBattle, recommendedForce, snapshotCarryOver } from "./roll";
+import { curatedRollState } from "./rollCalls";
 import { fightRoll, longRoad, testRegistry, testRoad } from "./rollTestKit";
 import { loadCampaign, MAX_SAVE_BYTES, saveCampaign } from "./save";
 import {
@@ -193,46 +194,45 @@ describe("v2 runs", () => {
   });
 });
 
-describe("pack editions (C2: Cinder Road battle 2)", () => {
-  // A Cinder Road run as the content-1 build (e553746) wrote it: battle 1 only, won, so complete.
-  const oneBattle = { ...cinderRoad, battles: [cinderRoad.battles[0]] };
-  const contentOne = createRegistry([{ ...firstCall, revision: { ...firstCall.revision, content: 1 }, readsContent: [1], campaigns: [ashAndBanner, oneBattle] }]);
-  const start = startCampaign(oneBattle);
-  const scenario = registry.scenario("cinder_road_saltmarsh")!;
-  const assignment = recommendedForce(oneBattle, start, scenario);
-  const final = playBattle(assembleBattle(oneBattle, start, scenario, assignment), scenario.referencePlans!.intended, scenario.curatedSeed!, "on");
-  const complete = recordBattle(oneBattle, start, final, { assignment });
-  const payload = serializeCampaignSave(contentOne, complete);
-
-  it("this build is content 2 and reads only content 2", () => {
-    expect(firstCall.revision.content).toBe(2);
-    expect(firstCall.readsContent).toEqual([2]);
-    expect(complete.status).toBe("complete");
-    expect(JSON.parse(payload).provenance.contentRevision).toBe(1);
+describe("pack editions (C2, C3: Cinder Road battles 2 and 3)", () => {
+  it("this build is content 3 and reads only content 3", () => {
+    expect(firstCall.revision.content).toBe(3);
+    expect(firstCall.readsContent).toEqual([3]);
   });
 
-  it("a content-1 run completed after battle 1 is preserved as unavailable, never shown as an error, and can be set aside", async () => {
-    // Without the bump it could not be read at all: it no longer replays against two battles.
-    const unbumped = createRegistry([{ ...firstCall, readsContent: [1, 2] }]);
-    expect(readCampaignSave(unbumped, "cinder_road", payload)).toMatchObject({ kind: "unreadable" });
-    // With it: unavailable, with the edition named, and kept as it is.
-    expect(readCampaignSave(registry, "cinder_road", payload)).toMatchObject({ kind: "unavailable", reason: expect.stringMatching(/different edition/) });
-    const { data, storage } = memory();
-    const intro = saveCampaign(startCampaign(ashAndBanner));
-    data.set(localStorageKeyFor("cinder_road"), payload);
-    data.set(LOCAL_STORAGE_KEY, intro);
-    const store = localStorageCampaignStore(storage);
-    await expect(saveCampaignRun(store, registry, startCampaign(cinderRoad))).rejects.toThrow(PRESERVED_RUN);
-    expect(data.get(localStorageKeyFor("cinder_road"))).toBe(payload);
-    // Set aside: kept under its own key, and a new run of this edition can begin.
-    await store.setAside("cinder_road");
-    expect(data.get(asideKey(localStorageKeyFor("cinder_road"), 1))).toBe(payload);
-    await saveCampaignRun(store, registry, startCampaign(cinderRoad));
-    expect((await loadCampaignRun(store, registry, "cinder_road")).kind).toBe("ok");
-    // The intro's save is untouched and still reads (it is not gated by content revision).
-    expect(data.get(LOCAL_STORAGE_KEY)).toBe(intro);
-    expect(readCampaignSave(registry, INTRO_CAMPAIGN_ID, intro).kind).toBe("ok");
-  });
+  // A Cinder Road run as an earlier build wrote it: the campaign as it stood then (content 1:
+  // battle 1 only, e553746; content 2: battles 1-2, 44ed9d4), won to the end, so complete.
+  for (const edition of [1, 2]) {
+    const earlier = { ...cinderRoad, battles: cinderRoad.battles.slice(0, edition) };
+    const earlierBuild = createRegistry([{ ...firstCall, revision: { ...firstCall.revision, content: edition }, readsContent: [edition], campaigns: [ashAndBanner, earlier] }]);
+    const complete = curatedRollState(earlier, registry.scenarios(), edition);
+    const payload = serializeCampaignSave(earlierBuild, complete);
+
+    it(`a content-${edition} run completed after battle ${edition} is preserved as unavailable, never shown as an error, and can be set aside`, async () => {
+      expect(complete.status).toBe("complete");
+      expect(JSON.parse(payload).provenance.contentRevision).toBe(edition);
+      // Without the bump it could not be read at all: it no longer replays against the longer campaign.
+      const unbumped = createRegistry([{ ...firstCall, readsContent: [edition, firstCall.revision.content] }]);
+      expect(readCampaignSave(unbumped, "cinder_road", payload)).toMatchObject({ kind: "unreadable" });
+      // With it: unavailable, with the edition named, and kept as it is.
+      expect(readCampaignSave(registry, "cinder_road", payload)).toMatchObject({ kind: "unavailable", reason: expect.stringMatching(/different edition/) });
+      const { data, storage } = memory();
+      const intro = saveCampaign(startCampaign(ashAndBanner));
+      data.set(localStorageKeyFor("cinder_road"), payload);
+      data.set(LOCAL_STORAGE_KEY, intro);
+      const store = localStorageCampaignStore(storage);
+      await expect(saveCampaignRun(store, registry, startCampaign(cinderRoad))).rejects.toThrow(PRESERVED_RUN);
+      expect(data.get(localStorageKeyFor("cinder_road"))).toBe(payload);
+      // Set aside: kept under its own key, and a new run of this edition can begin.
+      await store.setAside("cinder_road");
+      expect(data.get(asideKey(localStorageKeyFor("cinder_road"), 1))).toBe(payload);
+      await saveCampaignRun(store, registry, startCampaign(cinderRoad));
+      expect((await loadCampaignRun(store, registry, "cinder_road")).kind).toBe("ok");
+      // The intro's save is untouched and still reads (it is not gated by content revision).
+      expect(data.get(LOCAL_STORAGE_KEY)).toBe(intro);
+      expect(readCampaignSave(registry, INTRO_CAMPAIGN_ID, intro).kind).toBe("ok");
+    });
+  }
 });
 
 describe("levy results on replay (review)", () => {

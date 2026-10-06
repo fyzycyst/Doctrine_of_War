@@ -72,6 +72,7 @@ describe("skirmish", () => {
     expect(within(screen.getByRole("region", { name: "Cinder Road" })).getByRole("button", { name: "Fight: The Saltmarsh, Northbound" })).toBeInTheDocument();
     // Every Cinder Road battle says so (one line per battle).
     expect(within(screen.getByRole("region", { name: "Cinder Road" })).getAllByText("Default force: the recommended call.").length).toBeGreaterThanOrEqual(2);
+    expect(within(screen.getByRole("region", { name: "Cinder Road" })).getByRole("button", { name: "Fight: Open a Road" })).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Ash & Banner" })).queryByText("Default force: the recommended call.")).not.toBeInTheDocument();
     expect(offered.length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /^Fight: / }).map((button) => button.getAttribute("aria-label"))).toEqual(offered.map((title) => `Fight: ${title}`));
@@ -150,6 +151,7 @@ describe("every battle is a skirmish", () => {
     expect(offered.slice(0, battles.length)).toEqual(battles);
     expect(offered).toContain("cinder_road_saltmarsh");
     expect(offered).toContain("cinder_road_wagon_park");
+    expect(offered).toContain("cinder_road_ember_ford");
     for (const prototype of prototypeScenarios) expect(offered).not.toContain(prototype.id);
     expect(new Set(registry.skirmishes().map(({ skirmish }) => skirmish.id)).size).toBe(offered.length);
   });
@@ -181,6 +183,26 @@ describe("every battle is a skirmish", () => {
     // The same companies, profiles and Host as the starting army's recommended call (fresh, no carried veterans).
     expect(game.scenario.squads).toEqual(expected.squads);
     expect(game.scenario.squads.map((squad) => squad.name)).toContain("Coldwater Shields");
+    fightOpenBattle("intended");
+    expect(useGame.getState().stage).toBe("outcome");
+    expect(await screen.findByText(/a skirmish: nothing is saved/)).toBeInTheDocument();
+    expect(store.data).toBeNull();
+    expect(runs.save).not.toHaveBeenCalled();
+  });
+});
+
+describe("Open a Road as a skirmish", () => {
+  it("fights Cinder Road battle 3 on the starting army's recommended force to an outcome; nothing saved", async () => {
+    const user = userEvent.setup();
+    const store = launch();
+    await user.click(screen.getByRole("button", { name: "Fight: Open a Road" }));
+    const scenario = registry.scenario("cinder_road_ember_ford")!;
+    // The starting army (all fresh, no veterans), called up for battle 3 rather than battle 1.
+    const start = { ...startCampaign(cinderRoad), battleIndex: cinderRoad.battles.findIndex((battle) => battle.scenarioId === scenario.id) };
+    const expected = assembleBattle(cinderRoad, start, scenario, recommendedForce(cinderRoad, start, scenario));
+    expect(useFlow.getState().screen).toBe("battle");
+    expect(useGame.getState().campaign).toBeNull();
+    expect(useGame.getState().scenario.squads).toEqual(expected.squads);
     fightOpenBattle("intended");
     expect(useGame.getState().stage).toBe("outcome");
     expect(await screen.findByText(/a skirmish: nothing is saved/)).toBeInTheDocument();

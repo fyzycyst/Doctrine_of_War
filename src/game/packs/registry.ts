@@ -11,6 +11,7 @@ import { saltmarshColumn } from "../engine/scenarios/saltmarshColumn";
 import { holdForDawn } from "../engine/scenarios/holdForDawn";
 import { cinderRoad1 } from "../engine/scenarios/cinderRoad1";
 import { cinderRoad2 } from "../engine/scenarios/cinderRoad2";
+import { cinderRoad3 } from "../engine/scenarios/cinderRoad3";
 import type { DoctrineLibrary } from "../engine/types";
 import { lintPacks } from "./lint";
 import { parsePackManifest } from "./manifest";
@@ -29,15 +30,15 @@ import {
 export const firstCall: PackManifest = {
   id: "first_call",
   title: "The First Call",
-  // Content 2 (C2): Cinder Road gained battle 2, so a content-1 run (battle 1 only; one
-  // completed after battle 1 cannot replay against a two-battle campaign) is no longer
-  // read: it is preserved as unavailable and can be set aside. The intro's v1 save is not
-  // gated by content revision and is unaffected.
-  revision: { pack: 1, content: 2, rules: 1 },
-  readsContent: [2],
+  // Content 3 (C3): Cinder Road gained battle 3 (content 2 came with battle 2, C2), so an
+  // earlier run (one completed after battle 1 or 2 cannot replay against a longer campaign)
+  // is no longer read: it is preserved as unavailable and can be set aside. The intro's v1
+  // save is not gated by content revision and is unaffected.
+  revision: { pack: 1, content: 3, rules: 1 },
+  readsContent: [3],
   // Cinder Road (Roll) is in development: battles are appended until its length is frozen.
   campaigns: [ashAndBanner, cinderRoad],
-  scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn, cinderRoad1, cinderRoad2],
+  scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn, cinderRoad1, cinderRoad2, cinderRoad3],
   doctrines: [],
   // Skirmish offers every campaign battle (derived in the registry); this lists standalone extras only.
   skirmishes: [],

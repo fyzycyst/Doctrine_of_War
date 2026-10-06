@@ -60,12 +60,13 @@ reference, each scenario's internal consistency, and each campaign against its
 scenarios. Nothing is exposed from a set that fails. `registry.compatibility(provenance)`
 says whether a saved run (pack, campaign, content and rules revision) can continue.
 The shipped pack is `first_call` (The First Call), holding the intro and *Cinder Road*
-(in development: battles 1–2 so far, until its length is frozen; see below).
+(in development: battles 1–3 so far, until its length is frozen; see below).
 
-**Editions.** `first_call` is at content revision **2** (`readsContent: [2]`) since
-*Cinder Road* gained battle 2 (C2): a content-1 Cinder Road run (one completed after
-battle 1 cannot replay against a two-battle campaign) is read as **unavailable**, kept
-as it is, and can be set aside to begin anew; it is never shown as unreadable. Appending
+**Editions.** `first_call` is at content revision **3** (`readsContent: [3]`) since
+*Cinder Road* gained battle 3 (C3; revision 2 came with battle 2, C2): an earlier-content
+Cinder Road run (one completed after battle 2 cannot replay against a three-battle
+campaign) is read as **unavailable**, kept as it is, and can be set aside to begin anew; it
+is never shown as unreadable. Appending
 a battle to a campaign is such a change, so bump the content revision with it. The
 intro's v1 save is not gated by content revision.
 
@@ -316,7 +317,12 @@ they achieve, declared before the gate, and ablated as roles.**
   that fills the role, plus the pure march. When the product is too large to simulate in
   full within about 10 s a file, the suite plays a documented spread sample with fewer seeds,
   and a static check must cover every combination (battle 2: no stock doctrine but Bring the
-  Water can strike the park, so no march-unfilled plan can win). The rush (`rushMuster`) is the adversarial policy: every
+  Water can strike the park, so no march-unfilled plan can win). Where no static check
+  covers it, the gate is **two-stage** and judges **each plan on its own** (battle 3's
+  march): every combination is screened on a few gate seeds, then every combination that won
+  or touched the role in the screen, and the most dangerous few besides, are re-run on the
+  full gate seeds against the per-plan limits. A pooled sample of one seed per plan is not a
+  gate: the C3 warden found it hid a plan winning 15.8%. The rush (`rushMuster`) is the adversarial policy: every
   fighting company, or only the companies on the role that is filled, steps toward the
   enemy objective each phase, or toward the line of retreat in an escape battle. Strength
   alone must not skip a role. Each plan must stay **below the floor** (advance < 75%), and
@@ -404,6 +410,51 @@ Repaired on C5 (honest routes): five shallow fords (the Upper Shallows, (4,3)), 
 waits on the weir bank (3,0) and the park's integrity is 44, so a march that misses the
 shallows cannot reach the ram by the walk before it strikes. Signed off on `signoff3`
 (300001–300500); the battle sheet has the numbers and why the earlier ranges are burned.
+
+**Battle 3, *Open a Road*** (`engine/scenarios/cinderRoad3.ts`, C3): Ember Ford's own
+ground by daylight, crossed the other way. The Banners deploy on the same east bank as on
+the night of the burning bridges and cross west; the far-bank road now runs on to the west
+edge, where it forks into the Cinder Road and the Ashpit Lane, and below the Mill Ford the
+river runs shallow by the tollhouse (the Tollhouse Shallows, a second crossing). Goal:
+`escapeEdge`, 2 companies onto those two road hexes within 7 phases. Defeats: one Host
+company on the Mill Road behind us (`enemyEscape`, count 1), or 4 companies lost. The Host:
+the Cinderwake Spears (No Step Back) and the Ashpit Wardens (Lie in Wait) stand on the two
+road heads; the Chapel Stalkers rise from the Burnt Chapel on Cull the Weak in phase 3; the
+outriders (the Scorchmark Spears, the Kilnbrand Raiders) wait opposite the Mill Ford and slip
+over at the first horn, by the ford or the shallows, on Slip the Leash, for the Mill Road:
+they never stop to fight, so someone must stop them before they reach the Mill Road (a watch
+standing on it, or a company sent to meet them in the crossings). Posts (authored labels): the Cinder Ford, the Ferry Road and the North Bank
+(frontline), Watcher's Rise (the standard, support), the Mill Road (cavalry) and the Mill
+Ford (skirmish, flex: frontline). Roles, by function: **the march** (the column) gets
+companies onto the far-bank roads (Open the Road on the three frontline posts and the
+standard); **the guard** keeps the Mill Road: a company stands on it when the reserve comes
+up beside it, or fights an outrider in the crossings or on our bank before any Host company
+gets through.
+Accepted marchers: Open the Road (intended), and Fighting Withdrawal, a **weak** filler: it
+falls back toward the exits and reaches the roads in some games (the C3 warden's mix,
+ford_van on Fighting Withdrawal, road_van on Rescue Standard and the rest on Clean
+Counterstroke, wins at most 16.8% on any call on `signoff3`, against the intended plan's
+99.6–100%).
+Accepted guards by orders: Shield the Line (intended), Clean Counterstroke (the tracked
+alternative: it waits and strikes the crossers), and Bring the Water (nothing to march on:
+it stands where posted; roster-dependent); and one muster-dependent guard: the lances on
+Open the Road mustered into the Tollhouse Shallows in phase 1 (one legal move), where they
+meet the outriders (with everyone else on Open the Road: 78–93% on the gated calls). The
+weak marcher and the muster-dependent guard were declared after the gate run, on the C3
+warden's re-review, **with the orchestrator's sign-off (2026-10-06)**; their dominance
+reviews are on the battle sheet. Neither beats the intended plan on any call.
+The guard is left unfilled by a watch that leaves the Mill Road (Open the Road, Fighting
+Withdrawal, and Rescue Standard, which goes to rally the weakest ally; mixed too) and by the
+pure march: the outriders are on the road before any column can cut through. The briefing
+names the role ("someone must stop them before they reach the Mill Road"), not a doctrine.
+The role gate is `cinderRoad3.roles.<call>.sim.test.ts`, one per named call; the march is
+gated in two stages (all 4^4 combinations screened on 8 gate seeds, then every one that won
+or reached the roads, and the ten most dangerous, judged per plan on 40). Bad plan:
+everyone on Bring the Water (last battle's star misapplied: no objective to march on).
+Curated seed 1: won in phase 3 by daylight, no company lost, an outrider broken short of the
+Mill Road. Signed off on `signoff3` (the gate range and `signoff2` were observed for C3; see
+the battle sheet). Numbers are in
+docs/ENGINE.md and on the battle sheet.
 
 ## Saves
 

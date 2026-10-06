@@ -312,7 +312,9 @@ The library (`doctrines.ts`) holds the Free Banners doctrines *Shield the Line*,
 *Fighting Withdrawal*, *Rescue Standard*, *Clean Counterstroke*, *Hold for Dawn* and
 *Bring the Water* (the Advance, P4: fall back below 30 cohesion, batter the objective when
 beside it, strike whoever bars the way, wait when 2 hexes ahead of the line, otherwise
-march on the objective; passives 1/2/1; not yet offered by a shipped battle), and
+march on the objective; passives 1/2/1) and *Open the Road* (the Advance, C3: fall back
+below 20 cohesion, strike whoever bars the way, otherwise march on the exits; passives
+1/2/1; it needs no sight of the enemy, since every map shows the roads), and
 the Ashen Host doctrines *Iron Tide*, *Break the Gate*, *No Step Back*, *Cull the Weak*,
 *Terror Push*, *Through the Embers* (cross and cut through blockers toward the exits),
 *Slip the Leash* (outriders: never fight, run for the exits), *Hurl Fire* (a mangonel:
@@ -364,7 +366,9 @@ docs/CAMPAIGN.md). It also plays each battle's editor-variant probes (`variantPr
 `runVariantProbe`) and prints them as diagnostic rows, never gated. Plans are played with a
 **muster policy**: `"heuristic"` (`heuristicMuster`: relieve an engaged company below 35
 cohesion with a fresh neighbour of 60+, then step idle fighting companies, those with
-no seen enemy within 3, toward the fight or the line of retreat; standards stay put;
+no seen enemy within 3, toward the fight, or in an escape battle toward the column when
+it is more than 2 hexes away; in an escape battle with no column (an attack on the roads)
+idle companies stay on their posts, since the march doctrine takes the roads itself; standards stay put;
 it reads only the player's view) or `"none"`. A third policy, `"rush"` (`rushMuster`:
 every fighting company, or a named set, steps as far as it can toward the enemy objective,
 or the line of retreat in an escape battle), is the adversary for role tests: strength
@@ -449,6 +453,34 @@ Each battle has a **star doctrine** even when it uses a mix:
   12.6% on any call under no muster, heuristic or the rush; no march-unfilled plan can win
   (only Bring the Water strikes the park). Role gate: `cinderRoad2.roles.<call>.sim.test.ts`,
   one per named call.
+- *Open a Road* (*Cinder Road* battle 3, `scenarios/cinderRoad3.ts`, C3, in the First
+  Call pack): the star is **Open the Road**. Ember Ford's own ground by daylight, crossed
+  the other way, with a second crossing below the Mill Ford (the Tollhouse Shallows): Banner
+  initiative under fog, `escapeEdge` (2 companies onto the Cinder Road and the Ashpit Lane,
+  the far-bank road heads). The column cannot see the road guard, but the map shows the
+  roads, so it marches on the exits and cuts down what stands on them; Bring the Water has no
+  objective to march on and stands on the bank. The Host's outriders slip over at the first
+  horn for the Mill Road behind (`enemyEscape`, count 1; Slip the Leash: they never stop to
+  fight, so someone must stop them before they reach the Mill Road), so a watch that leaves,
+  or a pure march, loses. The roles, by function: the **march** gets companies onto the far-bank
+  roads (Open the Road; Fighting Withdrawal is a declared weak filler); the **guard** keeps
+  the Mill Road (the watch on Shield the Line, Clean Counterstroke or Bring the Water, or the
+  lances on Open the Road mustered into the Tollhouse Shallows; the weak marcher and the
+  muster were declared late, with the orchestrator's sign-off). **Signed off on `signoff3`** (300001–300500; the gate
+  and `signoff2` were observed for C3), fortune on, curated path after battles 1–2:
+  intended at least 99.6% on every gated call, with no muster too; bad 0%; every mono at
+  most 1.4%; the strongest alternative (the watch on Clean Counterstroke) ties the intended
+  plan; selection spread 0.4 points. Every stock combination that leaves the guard unfilled
+  (3^2 over the watch's posts) and the pure march advance at most 1.6% on any call under no
+  muster, the heuristic, the rush or the rush of the column alone. The march is gated in two
+  stages, per plan: every march-unfilled combination (4^4) is screened on 8 gate seeds, and
+  every one that won or reached the roads, plus the ten most dangerous, is judged on 40
+  (with Fighting Withdrawal struck from the fillers, the gate fails on the C3 warden's mix,
+  7/40). Fighting Withdrawal's best mix wins at most 16.8% on `signoff3`; the shallows
+  muster, 78–93% on the gated calls. The editor variant the C3 warden found
+  (Fighting Withdrawal with fw_rout_guard 90 on the watch) is a diagnostic probe at 0%.
+  Role gate: `cinderRoad3.roles.<call>.sim.test.ts`, one per named call. Every named call is
+  in docs/CAMPAIGN.md.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
 with at least two doctrine families. A role is defined by what it achieves (hold the gate,
