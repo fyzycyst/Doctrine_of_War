@@ -1,7 +1,8 @@
 // Cinder Road battle 2 (C2): the roles by function (docs/CAMPAIGN.md, "roles are defined by
-// what they achieve"), observed in a run, and the named calls they are checked on. Used by
-// cinderRoad2.guard.sim.test.ts and cinderRoad2.march.sim.test.ts (two files so vitest spreads the
-// simulations across workers; see guardrails.testkit.ts).
+// what they achieve"), observed in a run, and the named calls they are checked on. The role
+// gate (cinderRoad2.roleGate.testkit.ts) runs one file per named call
+// (cinderRoad2.roles.<call>.sim.test.ts); cinderRoad2.test.ts checks every call has its file.
+// No vitest import here, so scripts can reuse these helpers.
 import { hexDistance, sameHex, type HexCoord } from "../board";
 import { GATE_SEEDS } from "../engine/balance";
 import { heuristicMuster, rushMuster, validateMuster, type MusterMove, type MusterPolicy } from "../engine/muster";
@@ -15,17 +16,19 @@ import { cinderRoad } from "./cinderRoad";
 import { ashAndBanner } from "./definition";
 import { rollCallMatrix } from "./rollCalls";
 import { introCarrySource } from "./rosters";
+import type { RoleDeclaration } from "./roles.testkit";
 
 /** Gate seeds per plan and muster policy (the plans checked here sit near 0%, far below the floor). */
 export const SEEDS = 40;
 const RAM = "kiln_ram";
 export const BTW = "bring_the_water";
 /**
- * The share of an unfilled plan's games that may still touch the role by accident; more
- * than this and the plan is misclassified: it is filling the role, not leaving it. Tight
- * without muster and with the heuristic (at most 1 stray game in 500 on the gate seeds), so
- * a regression still shows; looser against the rush, whose cavalry can run into the ram
- * (7.2% on one call).
+ * The share of an unfilled plan's games it may WIN with the role filled by accident; more
+ * than this and the plan is misclassified: it is winning by filling the role, not without
+ * it. Since C5 (routes planned on what the mover knows) a company can meet the ram or stand
+ * on the walk on its honest route and still lose, so touching the role is not counted, only
+ * winning by it. Tight without muster and with the heuristic; looser against the rush,
+ * whose cavalry can run into the ram.
  */
 export function unfilledSlack(muster: Muster): number {
   return muster === "rush" || muster === "rush the march" ? 0.1 : 0.05;
@@ -97,6 +100,8 @@ export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, 
   return {
     advance: runs.filter((run) => run.advanced).length / seeds,
     guarded: runs.filter((run) => run.guard === true).length,
+    /** Games advanced while the role's observable says the guard was filled (by accident, for an unfilled plan). */
+    wonGuarded: runs.filter((run) => run.advanced && run.guard === true).length,
     marched: runs.filter((run) => run.march).length,
     invalid: runs.flatMap((run) => run.invalidMusters),
   };
@@ -104,3 +109,11 @@ export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, 
 
 /** Every named call of battle 2 (rollCallMatrix: ten calls, none not applicable). */
 export const calls = rollCallMatrix(cinderRoad, registry.scenarios(), 1, introCarrySource(ashAndBanner, intro, "first_call")).calls;
+
+/**
+ * The roles, as the battle sheet declares them. The guard's fillers by orders are Hold for
+ * Dawn and Clean Counterstroke; its third accepted filler, any holding doctrine mustered onto
+ * the walk, is muster-dependent and pinned below ("onto the walk"). The standard is an extra.
+ */
+export const GUARD: RoleDeclaration = { posts: ["keepers"], fillers: ["hold_for_dawn", "clean_counterstroke"] };
+export const MARCH: RoleDeclaration = { posts: ["ford_van", "track_van", "sedge_van", "lances"], fillers: [BTW] };

@@ -3,7 +3,7 @@ import { validateCampaignDefinition } from "../campaign/campaign";
 import { isRollCampaign, lintRollCampaign } from "../campaign/roll";
 import { LEVY_ID } from "../campaign/types";
 import { getHex, hexKey, isPassableTerrain } from "../board";
-import { GATE_SEEDS, isGateSeed } from "../engine/balance";
+import { reservedRangeOf } from "../engine/balance";
 import { validateWinCondition } from "../engine/outcome";
 import type { DoctrineLibrary, EngineScenario } from "../engine/types";
 import type { PackManifest } from "./types";
@@ -87,8 +87,10 @@ export function lintScenario(scenario: EngineScenario, doctrines: DoctrineLibrar
       if (!scenario.playerDoctrineIds.includes(doctrineId)) at(`reference plan ${name} uses ${doctrineId}, not a player doctrine here`);
     }
   }
-  if (scenario.curatedSeed !== undefined && isGateSeed(scenario.curatedSeed)) {
-    at(`curated seed ${scenario.curatedSeed} is in the held-out balance gate range (${GATE_SEEDS.first}..${GATE_SEEDS.first + GATE_SEEDS.size - 1})`);
+  const reserved = scenario.curatedSeed === undefined ? null : reservedRangeOf(scenario.curatedSeed);
+  if (reserved) {
+    const where = reserved.name === "gate" ? "the held-out balance gate range" : `the reserved sign-off range ${reserved.name}`;
+    at(`curated seed ${scenario.curatedSeed} is in ${where} (${reserved.first}..${reserved.first + reserved.size - 1})`);
   }
   try {
     validateWinCondition(scenario);

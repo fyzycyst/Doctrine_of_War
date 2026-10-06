@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { balancePlans, GATE_SEEDS, guardrailFailures, isGateSeed, playBattle, runBalance, smokeGuardrails, TUNING_SEEDS, type BalanceRow } from "./balance";
+import { balancePlans, GATE_SEEDS, runVariantProbe, guardrailFailures, isGateSeed, playBattle, reservedRangeOf, runBalance, seedRange, SIGNOFF_BLOCKS, signoffRange, smokeGuardrails, TUNING_SEEDS, type BalanceRow } from "./balance";
 import { doctrineLibrary } from "./doctrines";
 import { prototypeScenarios } from "./fixtures";
 import { GUARDRAIL_SCENARIO_IDS } from "./guardrails.testkit";
 import { lintScenario } from "../packs/lint";
 import { registry } from "../packs/registry";
 import { scenarios } from "./scenarios";
+import { variantProbes } from "./variantProbes";
 
 describe("balance guardrails (small-N version of npm run balance)", () => {
   // The per-battle guardrail suites live in balance.<battle>.test.ts (see guardrails.testkit.ts).
@@ -53,12 +54,37 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
     expect(guardrailFailures([row("intended", 0.6), row("bad", 0)], "floor", smoke)).toHaveLength(1);
   });
 
+  it("reserves sign-off blocks: the gate is block 1, signoff<k> is k*100000+1..+500, never overlapping tuning", () => {
+    expect(seedRange("gate")).toEqual({ name: "gate", first: GATE_SEEDS.first, size: GATE_SEEDS.size });
+    expect(seedRange("signoff1")).toEqual(seedRange("gate"));
+    expect(seedRange("signoff2")).toEqual({ name: "signoff2", first: 200_001, size: 500 });
+    expect(seedRange(`signoff${SIGNOFF_BLOCKS}`)?.first).toBe(SIGNOFF_BLOCKS * 100_000 + 1);
+    expect(seedRange("tuning")).toEqual({ name: "tuning", ...TUNING_SEEDS });
+    for (const bad of ["signoff0", "signoff10", "signoff", "held-out", ""]) expect(seedRange(bad), bad).toBeNull();
+    expect(() => signoffRange(SIGNOFF_BLOCKS + 1)).toThrow(/Sign-off blocks/);
+    expect(reservedRangeOf(200_001)?.name).toBe("signoff2");
+    expect(reservedRangeOf(200_500)?.name).toBe("signoff2");
+    expect(reservedRangeOf(200_501)).toBeNull();
+    expect(reservedRangeOf(TUNING_SEEDS.first + TUNING_SEEDS.size - 1)).toBeNull();
+    expect(reservedRangeOf(GATE_SEEDS.first)?.name).toBe("gate");
+    // A sign-off block is played like the gate: paired seeds from its first, never past its size.
+    const spy = scenarios[0];
+    expect(runBalance(spy, 3, "on", "none", ["intended"], 200_001)[0].games).toBe(3);
+    expect(() => runBalance(spy, 501, "on", "none", ["intended"], 200_001)).toThrow(/signoff2 range holds 500/);
+  });
+
   it("no curated seed is a gate seed (pack lint enforces it)", () => {
     for (const scenario of [...registry.scenarios(), ...prototypeScenarios]) {
       if (scenario.curatedSeed !== undefined) expect(isGateSeed(scenario.curatedSeed), scenario.id).toBe(false);
     }
     const leaked = { ...registry.scenarios()[0], curatedSeed: GATE_SEEDS.first + 7 };
     expect(lintScenario(leaked, doctrineLibrary).join()).toMatch(/held-out balance gate range/);
+    // ...nor in any reserved sign-off block.
+    for (const scenario of [...registry.scenarios(), ...prototypeScenarios]) {
+      if (scenario.curatedSeed !== undefined) expect(reservedRangeOf(scenario.curatedSeed), scenario.id).toBeNull();
+    }
+    const signoff = { ...registry.scenarios()[0], curatedSeed: 300_042 };
+    expect(lintScenario(signoff, doctrineLibrary).join()).toMatch(/reserved sign-off range signoff3 \(300001\.\.300500\)/);
   });
 
   it("fails closed: bad seed counts, missing reference plans, missing rows and NaN rates", () => {
@@ -98,5 +124,25 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
     // Mono plans are judged on advancing: wins plus stalemates.
     const stalling: BalanceRow = { ...row("mono", 0.3), stalemates: 30, stalemateRate: 0.3 };
     expect(guardrailFailures([row("intended", 0.8), row("bad", 0.1), stalling])).toEqual(["mono advances 60% (>= 60%)"]);
+  });
+
+  it("plays editor-variant probes as diagnostic rows, never gated, and fails closed on a variant the editor would refuse", () => {
+    for (const [scenarioId, probes] of Object.entries(variantProbes)) {
+      const scenario = registry.scenario(scenarioId);
+      expect(scenario, scenarioId).toBeDefined();
+      for (const probe of probes) {
+        const players = scenario!.squads.filter((squad) => squad.faction === scenario!.playerFaction && !squad.noncombatant).map((squad) => squad.id);
+        expect(Object.keys(probe.orders).sort(), probe.name).toEqual(players.sort());
+        const row = runVariantProbe(scenario!, probe, 2, "on", "none");
+        expect(row).toMatchObject({ kind: "variant", games: 2 });
+        // A diagnostic: even a probe that won every game is never a guardrail failure.
+        expect(guardrailFailures([{ ...row, wins: 2, winRate: 1 }, row, { ...row, kind: "intended", wins: 2, winRate: 1 }, { ...row, kind: "bad", wins: 0, winRate: 0 }])).toEqual([]);
+      }
+    }
+    const [probe] = variantProbes.cinder_road_wagon_park;
+    const scenario = registry.scenario("cinder_road_wagon_park")!;
+    const outOfBounds = { ...probe, variants: [{ ...(probe.variants[0] as object), params: { stl_break: { value: 5 } } }] };
+    expect(() => runVariantProbe(scenario, outOfBounds, 1)).toThrow(/invalid variant/);
+    expect(() => runVariantProbe(scenario, { ...probe, orders: { ...probe.orders, keepers: "v-unknown" } }, 1)).toThrow(/not offered here/);
   });
 });

@@ -12,7 +12,7 @@ describe("Strike the Wagon Park: the roles (simulation)", () => {
   // doctrine that does not; with no muster it must cost >= 15 points. The roles, by function:
   // the march strikes the park (Bring the Water); the guard holds the Sluice Walk or fights
   // the ram (by orders: Hold for Dawn, or Clean Counterstroke; the muster-dependent filler,
-  // a holding doctrine mustered onto the walk, is in cinderRoad2.guard.sim.test.ts, with every
+  // a holding doctrine mustered onto the walk, is in the role gate (cinderRoad2.roles.<call>.sim.test.ts), with every
   // unfilled plan on every call). The standard's banner (Rescue Standard) is an extra.
   const OTHERS = ["bring_the_water", "shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke", "hold_for_dawn"];
   const GUARDS_BY_ORDERS = ["hold_for_dawn", "clean_counterstroke"];

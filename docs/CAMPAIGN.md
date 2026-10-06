@@ -253,13 +253,19 @@ doctrine, campaign, roster profile or Host schedule):
 1. `npm test` **and** `npm run test:balance` pass (the second runs every
    `balance.<battle>.test.ts` smoke suite and every `*.sim.test.ts` suite; see "Two test
    suites" below).
-2. **`npm run balance -- --seeds 500` (the gate range, the default) exits 0: the sign-off.**
-   Every gated call meets GUARDRAILS exactly on the held-out seeds 100001–100500.
+2. **`npm run balance -- --seeds 500` on the battle's sign-off range exits 0: the sign-off.**
+   Every gated call meets GUARDRAILS exactly on held-out seeds. The sign-off range is the
+   gate (100001–100500, the default) unless that range was **observed while tuning the
+   battle** (a gate run read before a retune, or an adversarial search on it): then it is
+   burned for that battle, and the sign-off uses the next reserved block nobody has observed
+   for it, `--range signoff2` (200001–200500), then `signoff3` (300001–300500), … up to
+   `signoff9`. The battle sheet records which range signed it off, and why a range was
+   burned. Never tune to a sign-off range's outcomes.
 3. The census shows every documented call, and any *not applicable* entry has a reason.
 4. The diagnostics (selection spread, plan beats roster, strongest alternative) are read
    and any change is noted in the merge description; they are not gates.
-5. Tuning happened on `--range tuning` (never on the gate range), and curated seeds stay
-   outside the gate range (pack lint).
+5. Tuning happened on `--range tuning` (never on a sign-off range), and curated seeds stay
+   outside every reserved sign-off block (pack lint).
 
 **Two test suites (2026-10-05).** `npm test` is the fast suite: unit, UI and fast engine
 tests. `npm run test:balance` runs the simulation-heavy files. The routing is by **file
@@ -267,10 +273,13 @@ name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`):
 - `balance.<battle>.test.ts`: a battle's guardrail smoke (one per battle, via
   `guardrails.testkit.ts`; `balance.test.ts` checks every battle has one);
 - `*.sim.test.ts`: any other suite that plays many battles: role and unfilled-role sweeps
-  (`cinderRoad2.guard.sim.test.ts`, `.march.sim`, `.rush.sim`), ablations over about 5 s
-  (`holdForDawn.sim.test.ts`, `cinderRoad2.sim.test.ts`). A new battle's role tests follow
-  C2: `cinderRoad<N>.<role>.sim.test.ts`, sharing a `cinderRoad<N>.roles.testkit.ts`
-  (a testkit is not a test file and is not routed).
+  (`cinderRoad2.roles.<call>.sim.test.ts`, one per named call), ablations over about 5 s
+  (`holdForDawn.sim.test.ts`, `cinderRoad2.sim.test.ts`). A new battle's role gate follows
+  C2: one `cinderRoad<N>.roles.<call>.sim.test.ts` per named call, each calling a
+  `describeRoleGate("<call>")` from `cinderRoad<N>.roleGate.testkit.ts`, with the role
+  declarations and observables in `cinderRoad<N>.roles.testkit.ts` (no vitest import, so
+  scripts can use it) and the shared helpers in `roles.testkit.ts`. A fast test checks every
+  call has its file. A testkit is not a test file and is not routed.
 Keep each heavy test under about 10 s at normal load, so it stays under vitest's 60 s worker
 RPC timeout even when the machine is busy. The balance suite yields to the event loop
 before each test (`src/test/setup.balance.ts`), so long files no longer trip "Timeout
@@ -300,16 +309,24 @@ they achieve, declared before the gate, and ablated as roles.**
   never gated. Their per-call results under matched muster policies go on the battle sheet,
   and one of them may be the tracked `referencePlans.alternative` row.
 - **The gate, and what makes the rule falsifiable:** plans where a role is genuinely
-  **unfilled** (each doctrine that does not fill it on the role's posts, with no muster that
-  fills it, and the pure march) are played on **every named call, with no muster, with
-  the heuristic muster, and against the rush** (`rushMuster`, the adversarial policy: every
+  **unfilled** are played on **every named call, with no muster, with the heuristic muster,
+  and against the rush**. The unfilled plans are the **cartesian product of the battle's
+  stock non-filler doctrines over the role's posts** (`unfilledCombos` in `roles.testkit.ts`:
+  mixed orders too, since a mixed watch is still no watch; about 5^posts), with no muster
+  that fills the role, plus the pure march. When the product is too large to simulate in
+  full within about 10 s a file, the suite plays a documented spread sample with fewer seeds,
+  and a static check must cover every combination (battle 2: no stock doctrine but Bring the
+  Water can strike the park, so no march-unfilled plan can win). The rush (`rushMuster`) is the adversarial policy: every
   fighting company, or only the companies on the role that is filled, steps toward the
-  enemy objective each phase, or toward the line of retreat in an escape battle). Strength
+  enemy objective each phase, or toward the line of retreat in an escape battle. Strength
   alone must not skip a role. Each plan must stay **below the floor** (advance < 75%), and
-  the role's observable must confirm that the role really was left unfilled (in at least
-  95% of games with no muster or the heuristic, and 90% against the rush, whose companies
-  can cross the enemy's path by accident). These are
-  scenario tests, and the 500-seed numbers go on the battle sheet.
+  the role's observable must confirm the plan does not win by filling the role: it may win
+  with the role filled in at most 5% of games with no muster or the heuristic, and 10%
+  against the rush. (Since C5, routes are planned on what the mover knows, so a company can
+  meet the enemy or stand on the guarded ground on its honest route and still lose: touching
+  the role by accident is reported, not failed. Until C5 the check counted every game that
+  touched the role.) These are scenario tests, and the 500-seed numbers go on the battle
+  sheet.
 - **The ≥ 15-point ablation is by role:** replace every doctrine that fills the role with
   the best doctrine that does not (no muster), and the advance rate must drop by at least 15
   points.
@@ -321,6 +338,15 @@ they achieve, declared before the gate, and ablated as roles.**
 - An extra that is not a counted role (battle 2's standard on Rescue Standard) carries no
   ablation requirement.
 - Unchanged: every mono plan, the named bad plan and the pure march stay gated.
+
+**Decision (2026-10-05, C3 warden; for the user's review): editor variants are diagnostics,
+not gated.** A doctrine-editor variant that out-thinks a battle is a reward for skill, which
+is what Test in the field is for. The gate guarantees the lesson for **stock doctrines plus
+legal musters** (the unfilled-role product above, under every muster policy). Variants a
+review finds worth tracking are recorded per battle in `engine/variantProbes.ts`; `npm run
+balance` plays each on every named call and prints it as an "editor variant (diagnostic)"
+row (`runVariantProbe`, fails closed on a variant the editor would refuse). They are never
+gated, and the battle sheet lists them.
 
 **Carry-over and doctrine dominance.** Veterans make blunt plans stronger, and no
 threat adjustment fixes that without also wrecking the intended plan (with two carried
@@ -372,8 +398,12 @@ orchestrator after the warden's re-review; numbers and the dominance review are 
 battle sheet). The standard carries a banner with the assault
 (Rescue Standard: an extra, not a counted role). The briefing names the role ("someone
 must keep the Sluice Walk"), not a doctrine. Bad plan: the pure march. Curated seed 64:
-won in phase 4, no company lost, the sluice untouched. The sluice falls at the ram's first
+won in phase 3, no company lost, the sluice untouched. The sluice falls at the ram's first
 blow (integrity 16), so even a strong force rushing the park cannot beat the ram to it.
+Repaired on C5 (honest routes): five shallow fords (the Upper Shallows, (4,3)), the ram
+waits on the weir bank (3,0) and the park's integrity is 44, so a march that misses the
+shallows cannot reach the ram by the walk before it strikes. Signed off on `signoff3`
+(300001–300500); the battle sheet has the numbers and why the earlier ranges are burned.
 
 ## Saves
 

@@ -17,9 +17,8 @@ describe("test suites", () => {
   it("sends every battle's guardrail smoke and the simulation suites to test:balance, and nothing else", () => {
     expect(routed.filter((file) => /\/balance\.[^/]+\.test\.ts$/.test(file))).toHaveLength(GUARDRAIL_SCENARIO_IDS.length);
     for (const file of [
-      "src/game/campaign/cinderRoad2.guard.sim.test.ts",
-      "src/game/campaign/cinderRoad2.march.sim.test.ts",
-      "src/game/campaign/cinderRoad2.rush.sim.test.ts",
+      "src/game/campaign/cinderRoad2.roles.recommended.sim.test.ts",
+      "src/game/campaign/cinderRoad2.roles.carried-greedy.sim.test.ts",
       "src/game/campaign/cinderRoad2.sim.test.ts",
       "src/game/engine/holdForDawn.sim.test.ts",
     ]) {

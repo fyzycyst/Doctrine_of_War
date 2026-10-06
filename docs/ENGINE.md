@@ -161,7 +161,12 @@ could stand on it: passable, not an objective, and connected to the mover by pas
 ground (squads are ignored, since they move). So a deep-water neighbour of a target is no
 goal, and an attacker beside one still closes on the real approach (C4). A target walled
 in entirely keeps every neighbour as a goal. If no goal hex is reachable, the squad moves
-to the reachable hex closest to the goal, and never further away. **Zone of control:** a move
+to the reachable hex closest to the goal, and never further away. **Paths are planned on
+knowledge (C5, fog):** a route (`planRoute`) and a withdrawal (`planWithdrawal`) treat
+the hexes of enemies the mover cannot see as open ground, so the path never depends on
+them; walking it, a squad stops short of an unseen enemy it meets (contact). The fog
+decision property in `fogProjection.test.ts` checks every Banner company's route and its
+one- and two-hex withdrawal under erased and moved unseen enemies. **Zone of control:** a move
 stops after entering a hex adjacent to an enemy.
 
 **Combat.** Battles turn on cohesion (morale), which only a rally restores.
@@ -349,11 +354,14 @@ chance outcome is an event with its own callout.
 
 ## Balance harness
 
-`npm run balance -- [--seeds 500] [--range gate|tuning] [--fortune on|off] [--scenario id]`
+`npm run balance -- [--seeds 500] [--range gate|tuning|signoff2..signoff9] [--fortune on|off] [--scenario id]`
 (run via `vite-node`) plays each scenario's reference plans (`intended`, `bad`, and the
 optional diagnostic `alternative`) and every mono-doctrine plan (all player squads on
-doctrine X) on the held-out gate seeds 100001..100000+N (`--range tuning`: 1..N; see the
-seed ranges in docs/CAMPAIGN.md). Plans are played with a
+doctrine X) on the held-out gate seeds 100001..100000+N (`--range tuning`: 1..N;
+`--range signoff<k>`: the reserved sign-off block k*100000+1..+500, for a battle whose gate
+range was observed while tuning it; `seedRange`, `reservedRangeOf`; see the seed ranges in
+docs/CAMPAIGN.md). It also plays each battle's editor-variant probes (`variantProbes.ts`,
+`runVariantProbe`) and prints them as diagnostic rows, never gated. Plans are played with a
 **muster policy**: `"heuristic"` (`heuristicMuster`: relieve an engaged company below 35
 cohesion with a fresh neighbour of 60+, then step idle fighting companies, those with
 no seen enemy within 3, toward the fight or the line of retreat; standards stay put;
@@ -401,12 +409,13 @@ Each battle has a **star doctrine** even when it uses a mix:
   it. The Host's outriders (the Drowned Hounds, the Ash Harriers) never fight: they run
   for the boats at the Heron Stair (`enemyEscape`, count 1), so a pure march loses
   whatever the force; the Wickmere Standard holds the stair on Shield the Line, and the
-  bows carry a banner with the assault. Gate seeds (100001–100500), fortune on,
-  recommended call: intended 95.6% (90.8% with no muster), bad (the pure march, played
-  as authored since P7) 1.4% (2.0%), all Bring the Water 1.4%, every other mono 0%; the
-  strongest alternative (the stair held, no banner) 63.2% (90.0%). With no muster that
-  alternative beats the intended plan on two calls (docs/CAMPAIGN.md). Ablations (tuning
-  seeds, heuristic / no muster): the standard leaving the stair 0% / 0–1%; no banner
+  bows carry a banner with the assault. Gate seeds (100001–100500), fortune on, after C5's
+  fog-correct pathing, recommended call: intended 95.2% (90.6% with no muster), bad (the
+  pure march, played as authored since P7) 1.4% (2.0%), all Bring the Water 1.4%, every
+  other mono 0%; the strongest alternative (the stair held, no banner) 60.0% (90.2%).
+  (Before C5: 95.6% (90.8%), alternative 63.2% (90.0%).) With no muster that alternative
+  beats the intended plan on two calls (docs/CAMPAIGN.md). Ablations (tuning seeds,
+  heuristic / no muster; measured before C5): the standard leaving the stair 0% / 0–1%; no banner
   with the assault (bows on Bring the Water) 72.2% / 87.4%; the march on Clean
   Counterstroke 0% / 0%. The banner matters with the player-realistic muster and on weak
   forces (weakest legal: 81% with it, 41% without). **Keep step is inert here:** the Sunward Lances (cavalry) never get 2 hexes ahead of
@@ -416,7 +425,7 @@ Each battle has a **star doctrine** even when it uses a mix:
   Wagon Park prototype promoted, and the prototype fixture retired): the star is **Bring
   the Water**; the second role is **the sluice guard**. Banner initiative under fog on a
   stretch of the Emberwater upstream of Ember Ford. Two objectives: `breakObjective` on the
-  Host's wagon park (integrity 56), and `objectiveLost` on the Covenant's Weir Sluice
+  Host's wagon park (integrity 44), and `objectiveLost` on the Covenant's Weir Sluice
   (integrity 16), which stands in its own race of water with **one dry approach, the
   Sluice Walk**. A kiln-clan ram (siege) crosses the Sallow Weir for the sluice: a pure
   march leaves the walk open and the ram breaks the sluice at its first blow, whatever the
@@ -428,15 +437,18 @@ Each battle has a **star doctrine** even when it uses a mix:
   any holding doctrine the player musters onto the walk (two moves; muster-dependent). The
   standard carries a banner (Rescue Standard: an extra, not a counted role). The sluice
   falls at the ram's first blow (integrity 16, tuned after the warden found that a strong
-  carried force rushing the park with muster beat the ram to it). Gate seeds, recommended
-  call: intended 92.8% (100% with no muster), the pure march 0%, every mono 0% (Hold for
-  Dawn included), Clean Counterstroke 94.0% (94.2%), but 0–43% on calls that put another
-  company on the keepers' post; Shield the Line mustered onto the walk 96.8% (100%), and at
-  least 75.6% (96.8%) on every call. Every plan that leaves the guard or the march unfilled
-  advances at most 7.2% on every call, with no muster, the heuristic muster or the rush
-  (`cinderRoad2.guard.sim.test.ts`, `cinderRoad2.march.sim.test.ts`, `cinderRoad2.rush.sim.test.ts`).
-  Role ablations (gate seeds, no muster and heuristic): every keeper that does not guard,
-  and every assault that does not march, 0% on every call.
+  carried force rushing the park with muster beat the ram to it). **Repaired on C5** (routes
+  planned on what the mover knows): a march that found the four shallows full took the
+  Sallow Weir, met the ram by the walk and guarded by accident, so five shallow fords (the
+  Upper Shallows at (4,3)), the ram waiting on the weir bank at (3,0), and the park at 44.
+  **Signed off on `signoff3`** (300001–300500; the gate and signoff2 had been observed for
+  C2): recommended intended 93.4% (100% with no muster), every gated call at least 87.4%,
+  bad at most 0.2%, every mono 0%; Clean Counterstroke 95.6% (96.4%), 62–99% on the role
+  calls; Shield the Line mustered onto the walk at least 99.0% with no other muster. Every
+  stock combination that leaves the guard unfilled (keepers × standard) advances at most
+  12.6% on any call under no muster, heuristic or the rush; no march-unfilled plan can win
+  (only Bring the Water strikes the park). Role gate: `cinderRoad2.roles.<call>.sim.test.ts`,
+  one per named call.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
 with at least two doctrine families. A role is defined by what it achieves (hold the gate,

@@ -28,7 +28,11 @@ export const SLUICE_WALK = { q: 6, r: 1 };
 
 const special: Record<string, { terrain: TerrainType; label?: string }> = {
   "4,0": { terrain: "ford", label: "Sallow Weir" },
-  // Below the Wainford the river runs shallow: the assault's crossing.
+  // Below the Wainford the river runs shallow: the assault's crossing. Five shallow fords
+  // (C2 on C5): with the Banners' routes planned on what they know, a march that finds the
+  // shallows full takes the next crossing, and the only other one is the Sallow Weir, past
+  // the Sluice Walk; a fifth keeps the assault at the shallows.
+  "4,3": { terrain: "ford", label: "The Upper Shallows" },
   "4,4": { terrain: "ford", label: "The Shallows" },
   "4,5": { terrain: "ford", label: "Wainford" },
   "4,6": { terrain: "ford", label: "The Shallows" },
@@ -97,7 +101,9 @@ export const cinderRoad2: EngineScenario = {
       name: "The Wagon Park",
       description: "Stave the casks, overturn the carts and drown the fire-pots before the day is out.",
       hex: WAGON_PARK,
-      integrity: 56,
+      // 56 until C2 on C5: the ram now comes from the weir bank (below), so the march gets a
+      // shorter task to keep the intended plan's margin.
+      integrity: 44,
       defender: "ashen_host",
     },
     {
@@ -132,8 +138,10 @@ export const cinderRoad2: EngineScenario = {
     // The raid: across the Sallow Weir for the sluice.
     // The ram's escort: it falls on whoever comes within reach.
     { id: "cinderhook_raiders", name: "Cinderhook Raiders", faction: "ashen_host", role: "skirmish", hex: { q: 1, r: 0 }, strength: 46, cohesion: 62, resolve: 0, doctrineId: "iron_tide" },
-    // A kiln-clan ram crew: steady while the engine stands; one blow breaks the sluice.
-    { id: "kiln_ram", name: "Kiln Ram", faction: "ashen_host", role: "siege", hex: { q: 2, r: 0 }, strength: 60, cohesion: 60, resolve: 1, doctrineId: "break_the_gate" },
+    // A kiln-clan ram crew: steady while the engine stands; one blow breaks the sluice. It waits
+    // on the weir bank (3,0; (2,0) until C2 on C5): with honest routes, an unguarded sluice
+    // must fall before a march that missed the shallows can blunder into the ram by the walk.
+    { id: "kiln_ram", name: "Kiln Ram", faction: "ashen_host", role: "siege", hex: { q: 3, r: 0 }, strength: 60, cohesion: 60, resolve: 1, doctrineId: "break_the_gate" },
   ],
   // The Host's intent for each phase: the Chronicle's phase titles.
   hostSchedule: [

@@ -32,7 +32,7 @@ describe("Cinder Road 2 (engine #2's board)", () => {
     // The keepers stand on the Weir Road two steps below the Sluice Walk; the ram starts across the river.
     const at = new Map(dioramaSquads(cinderRoad2.squads).map((s) => [s.id, hexKey(s.hex)]));
     expect(at.get("keepers")).toBe("6,3");
-    expect(at.get("kiln_ram")).toBe("2,0");
+    expect(at.get("kiln_ram")).toBe("3,0"); // on the weir bank since C2 on C5
   });
 
   it("goes from intact to broken in one ram blow; a lesser hit still shows battered", () => {

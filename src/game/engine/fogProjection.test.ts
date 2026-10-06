@@ -6,6 +6,8 @@
 // id, that the projected stream did not legitimately mention in that phase.
 import { describe, expect, it } from "vitest";
 import type { HexCoord } from "../board";
+import { fallBackPlanFor, routeFor } from "./actions";
+import type { EngineContext } from "./context";
 import { doctrineLibrary } from "./doctrines";
 import { eventsFor, factionSees } from "./fog";
 import { prototypeScenarios } from "./fixtures";
@@ -201,10 +203,17 @@ function decisions(state: EngineState, scenario: EngineScenario): string[] {
     const rule = chooseRule(ctx, active, doctrineLibrary[squad.doctrineId]);
     const selector = rule ? selectorOf(rule.then) : null;
     const offensive = [1, 2, 3].map((by) => evaluateCondition(ctx, active, { kind: "aheadOfLine", by }));
+    const target = selector ? resolveTarget(ctx, active, selector) : null;
+    // The route it would take there (C5): planned on what it knows, never through what it cannot see.
+    const route = target ? routeFor(ctx as unknown as EngineContext, active, target).map((hex) => `${hex.q},${hex.r}`).join(">") : "-";
+    // Where it would fall back to, one hex or two (C5): on what it knows, whatever its rule.
+    const withdrawals = [1, 2].map((hexes) => fallBackPlanFor(ctx as unknown as EngineContext, active, hexes).map((hex) => `${hex.q},${hex.r}`).join(">"));
     return [
       squad.id,
       rule?.id ?? "none",
-      selector ? targetKey(resolveTarget(ctx, active, selector)) : "-",
+      selector ? targetKey(target) : "-",
+      route,
+      ...withdrawals,
       targetKey(resolveTarget(ctx, active, { kind: "objective", side: "enemy" })),
       evaluateCondition(ctx, active, { kind: "atObjective" }),
       ...offensive,
@@ -242,7 +251,7 @@ describe("fog decision property (P4)", () => {
 
   for (const scenario of [...registry.scenarios(), ...prototypeScenarios]) {
     for (const [planName, orders] of Object.entries(propertyPlans(scenario))) {
-      it(`${scenario.title} (${planName}): Banner decisions never depend on unseen enemies`, () => {
+      it(`${scenario.title} (${planName}): Banner decisions, routes and withdrawals never depend on unseen enemies`, () => {
         const leaks: string[] = [];
         let checked = 0;
         for (const seed of seeds) {

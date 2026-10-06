@@ -3,12 +3,12 @@
 import { boardNeighbors, getHex, hexDistance, terrainDefenseBonus, type HexCoord, type TerrainType } from "../board";
 import { checkRout, clamp, type EngineContext } from "./context";
 import { firstContact } from "./fortune";
-import { planAdvance, planFallBack } from "./movement";
+import { planAdvance, planFallBack, planRoute, planWithdrawal } from "./movement";
 import { exitHexesFor } from "./outcome";
 import { perceive, perceivedAdjacentEnemies } from "./perception";
 import { resolveTarget, type ResolvedTarget } from "./rules";
 import type { Action, DoctrinePassives, EngineSquad, SquadRole } from "./types";
-import { adjacentEnemies, alliesOf, byDistance, speedOf, type ActiveSquad } from "./world";
+import { adjacentEnemies, alliesOf, byDistance, enemiesOf, speedOf, type ActiveSquad } from "./world";
 
 export type ActionContext = EngineContext;
 
@@ -223,6 +223,23 @@ function hold(ctx: EngineContext, squad: ActiveSquad) {
   squad.braced = bracesOn(getHex(ctx.scenario.board, squad.hex)?.terrain);
 }
 
+/** Where the enemies `squad` cannot see stand (fog): its route is planned through them (C5). */
+function unseenEnemyHexes(ctx: EngineContext, squad: ActiveSquad): HexCoord[] {
+  const seen = new Set(perceive(ctx, squad).enemies.map((enemy) => enemy.id));
+  return enemiesOf(ctx.state, squad).filter((enemy) => !seen.has(enemy.id)).map((enemy) => enemy.hex);
+}
+
+/** The route a squad would take toward a target (the fog path property checks it never depends on unseen enemies). */
+export function routeFor(ctx: EngineContext, squad: ActiveSquad, target: ResolvedTarget): HexCoord[] {
+  return planRoute(ctx.state, ctx.scenario.board, squad, goalsFor(ctx, target), unseenEnemyHexes(ctx, squad));
+}
+
+/** The path a squad would fall back along (the fog path property checks it never depends on unseen enemies). */
+export function fallBackPlanFor(ctx: EngineContext, squad: ActiveSquad, hexes: number): HexCoord[] {
+  const homeward = exitHexesFor(ctx.scenario, squad.faction) ?? [];
+  return planWithdrawal(ctx.state, ctx.scenario.board, squad, hexes, perceive(ctx, squad).enemies, homeward, unseenEnemyHexes(ctx, squad));
+}
+
 /** Moves along the planned path. Returns false if the squad could not move at all. */
 function moveToward(
   ctx: EngineContext,
@@ -231,7 +248,7 @@ function moveToward(
   steps: number,
   reason: "advance" | "charge",
 ): boolean {
-  const path = planAdvance(ctx.state, ctx.scenario.board, squad, goalsFor(ctx, target), steps);
+  const path = planAdvance(ctx.state, ctx.scenario.board, squad, goalsFor(ctx, target), steps, unseenEnemyHexes(ctx, squad));
   if (path.length < 2) {
     return false;
   }
@@ -357,7 +374,7 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
 
     case "fallBack": {
       const homeward = exitHexesFor(ctx.scenario, squad.faction) ?? [];
-      const path = planFallBack(ctx.state, ctx.scenario.board, squad, action.hexes, perceive(ctx, squad).enemies, homeward);
+      const path = planFallBack(ctx.state, ctx.scenario.board, squad, action.hexes, perceive(ctx, squad).enemies, homeward, unseenEnemyHexes(ctx, squad));
       if (path.length < 2) {
         // Cornered: nowhere to go, so the squad stands and braces.
         hold(ctx, squad);
