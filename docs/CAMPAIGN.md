@@ -402,12 +402,31 @@ before they get away.
 - **Still gated:**
   - the intended plan ≥ 75% on **every** gated call (the no-muster floor too);
   - every **non-filler** mono, and every hunt-unfilled combination, below the floor on every
-    call under no muster, the heuristic and the rush, each plan judged on its own (a full
-    census);
+    call under no muster, the heuristic and the interception adversary, each plan judged on
+    its own (a full census). The interception adversary ("close": every company out of
+    contact musters to its legal hex nearest a fleeing company it can see, every phase)
+    replaces the rush, which has nothing to rush toward in a pursuit (no enemy objective, no
+    exits for the player; a unit test proves it makes no moves). The CR5 warden's
+    counterexample is a named regression on every call;
   - the ≥ 15-point role ablation.
 - **Why it is safe:** the loss is structural (escape is a rule, `enemyEscape`), not attrition,
   and there is no roster spread: on the real calls, a striking hunt wins 98–100% and a
   standing or yielding one 0%, on every call (artifact m2-cinder-road/cr5-findings).
+
+**Rule (2026-10-06, the CR5 warden): a role that breaks X needs X's Resolve at least the
+Roll's titled companies'.** Dread on first sight is a structural effect of fame: a company
+loses (the renowned enemy's Resolve − its own) × 5 cohesion the first time it sees each one.
+- **What happened:** CR5's fleeing column (Resolve 1, cohesion 27) was broken by the Roll's
+  titled companies (Resolve 3) standing in view. Everyone on Shield the Line, mustered beside
+  the road, won 40/40 without a blow.
+- **The rule:** any role whose job is breaking an enemy company must give that company Resolve
+  ≥ the highest Resolve a Banner company can bring (RESOLVE_MAX, 3). The battle's test asserts
+  it on every named call.
+- **The audit** of the merged Cinder Road battles (worst-case dread on sight, real calls):
+  - no role target is exposed;
+  - C2's ram escort and the park's garrison can be half-broken on the carried calls, but
+    neither is the ram, and a positional probe kept every unfilled plan at 0/40;
+  - battles 1, 3 and 6 show no exposure.
 
 **Decision (2026-10-05, C3 warden; confirmed by the user 2026-10-06: "if a player can come up with something better, they should"): editor variants are diagnostics,
 not gated.** A doctrine-editor variant that out-thinks a battle is a reward for skill, which
@@ -526,10 +545,13 @@ under the pursuit exception above):
   `gateObjective: false`), the day before battle 5.
 - **The story:** the Host, broken on the roads at Ember Ford, streams down the Gate Road to
   Greyford Gate.
-- **The goal:** break 3 of the 5 fleeing companies (`destroySquads`) before 3 reach the gate's
+- **The goal:** break 2 of the 5 fleeing companies (`destroySquads`) before 3 reach the gate's
   approaches (7,3)/(7,4) (`enemyEscape`); or 3 companies lost; 5 phases.
-- **The Host:** the column runs on Slip the Leash and never stops to fight. Its rearguard
-  holds the River Ford on No Step Back (texture, not a counted role).
+- **The Host:**
+  - the column runs on Slip the Leash and never stops to fight;
+  - it is at Resolve 3 ("they run, but they are not panicked"), so the Roll's famous companies
+    cannot break it by standing in view (the rule above);
+  - its rearguard holds the River Ford on No Step Back (texture, not a counted role).
 - **Posts** (authored labels):
   - the hunt: the Broken Watch Folds and the South Works Folds (cavalry; the latter flex:
     skirmish), and the South Ditch (skirmish), lying on the flank edges ahead;
@@ -548,7 +570,8 @@ under the pursuit exception above):
 - **No standard is called;** the Rearguard (CR4's doctrine) is not offered.
 - **Curated seed 1:** a clean win, no company lost, nobody worn; on the curated path only the
   Brightcrag Riders gain Resolve (0 → 1).
-- **Role gate:** `cinderRoad5.roles.<call>.sim.test.ts`, one per named call.
+- **Role gate:** `cinderRoad5.roles.<call>.sim.test.ts`, one per named call: the census
+  under no muster, the heuristic and the interception adversary, plus the warden's plan.
 **Battle 6, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
 after battle 3 until battles 4 and 5 land, then moved to slot 6 and signed off on the full
 path): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and

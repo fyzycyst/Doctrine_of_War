@@ -3,19 +3,19 @@
 // docs/CAMPAIGN.md, "pursuit battles".
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";
-import type { MusterPolicy } from "../engine/muster";
-import { calls, HUNT, rates, SEEDS, unfilledSlack } from "./cinderRoad5.roles.testkit";
+import { calls, HUNT, PURSUIT_MUSTERS, rates, SEEDS, unfilledSlack } from "./cinderRoad5.roles.testkit";
 import { nonFillers, unfilledCombos } from "./roles.testkit";
-
-const POLICIES: readonly MusterPolicy[] = ["none", "heuristic", "rush"];
 
 /**
  * The role gate for one named call, a full per-plan census: every combination of the stock
  * doctrines that do not fill the hunt over its three posts (4^3 = 64), each on SEEDS gate seeds
- * and judged on its own, never pooled, under no muster, the heuristic and the rush. Each stays
- * below the floor and wins in at most unfilledSlack of its games (every win breaks three
- * fleeing companies, so a win is a hunt by accident). Every non-filler mono stays below the
- * floor too; the fillers' monos are pursuits done right (the pursuit exception).
+ * and judged on its own, never pooled, under no muster, the heuristic and "close" (the
+ * interception adversary, which replaces the rush: the rush has nothing to rush toward here).
+ * Each stays below the floor and wins in at most unfilledSlack of its games (every win breaks
+ * two fleeing companies, so a win is a hunt by accident). Every non-filler mono stays below the
+ * floor too; the fillers' monos are pursuits done right (the pursuit exception). The CR5
+ * warden's counterexample (everyone on Shield the Line, mustered beside the road) is a named
+ * regression on every call.
  */
 export function describeRoleGate(callName: string) {
   const call = calls.find((item) => item.name === callName);
@@ -23,7 +23,7 @@ export function describeRoleGate(callName: string) {
   const scenario = call.scenario;
   const plans = scenario.referencePlans!;
   describe(`Cut the Retreat [${callName}]: no plan that leaves the hunt unfilled reaches the floor`, () => {
-    for (const muster of POLICIES) {
+    for (const muster of PURSUIT_MUSTERS) {
       it(`hunt unfilled (all ${nonFillers(scenario, HUNT).length ** HUNT.posts.length} stock non-hunting combinations on the hunt's posts, ${muster}): judged per plan`, () => {
         const failures: string[] = [];
         for (const { name, orders } of unfilledCombos(scenario, plans.intended, HUNT)) {
@@ -39,12 +39,19 @@ export function describeRoleGate(callName: string) {
       const failures: string[] = [];
       for (const doctrineId of nonFillers(scenario, HUNT)) {
         const mono = Object.fromEntries(Object.keys(plans.intended).map((id) => [id, doctrineId]));
-        for (const muster of POLICIES) {
+        for (const muster of PURSUIT_MUSTERS) {
           const result = rates(scenario, mono, muster);
           if (result.advance >= GUARDRAILS.intendedMin) failures.push(`all ${doctrineId} (${muster}) advances ${result.advance}`);
         }
       }
       expect(failures).toEqual([]);
+    });
+
+    it("the CR5 warden's counterexample stays a loss: everyone on Shield the Line, mustered beside the road in phase 1", () => {
+      const shield = Object.fromEntries(Object.keys(plans.intended).map((id) => [id, "shield_the_line"]));
+      const result = rates(scenario, shield, "warden");
+      expect(result.advance).toBeLessThan(GUARDRAILS.intendedMin);
+      expect(result.wins).toBeLessThanOrEqual(SEEDS * unfilledSlack("warden"));
     });
   });
 }

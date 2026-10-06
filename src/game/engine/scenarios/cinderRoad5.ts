@@ -30,7 +30,7 @@ const board = greyfordGateBoard({
 export const HUNT_POSTS = ["lances", "riders", "bows"];
 /** The foot: over the River Ford behind the column, facing the rearguard. Not a counted role. */
 export const FOOT_POSTS = ["north_van", "road_van", "south_van"];
-/** The fleeing column: break three before three reach the gate. */
+/** The fleeing column: break two before three reach the gate. */
 export const COLUMN = ["cinderwake_spears", "ashpit_wardens", "furnace_pikes", "slag_bearers", "kilnbrand_raiders"];
 
 const CC = "clean_counterstroke";
@@ -42,7 +42,7 @@ export const cinderRoad5: EngineScenario = {
   briefing:
     "The Host broke on the roads at Ember Ford, and what is left of it is running down the Gate Road for Greyford Gate. Every company that gets inside will be on the wall when we come for it. " +
     "Our riders went round in the night and lie in the folds of ground on either side of the road ahead. The foot come over the River Ford behind them, where the Host's rearguard holds the crossing. " +
-    "Do not block the road: a company that only stands beside it lets them by. Strike what runs past. Break three of them before three reach the gate.",
+    "They are running, not panicked, and the sight of our banners will not break them. Do not block the road: a company that only stands beside it lets them by. Strike what runs past. Break two of them before three reach the gate.",
   playerFaction: "free_banners",
   initiativeSide: "free_banners",
   maxPhases: 5,
@@ -69,15 +69,18 @@ export const cinderRoad5: EngineScenario = {
     { id: "ember_guard", name: "Ember Guard", faction: "ashen_host", role: "frontline", hex: { q: 2, r: 3 }, strength: 60, cohesion: 64, resolve: 0, doctrineId: "no_step_back" },
     { id: "chapel_stalkers", name: "Chapel Stalkers", faction: "ashen_host", role: "skirmish", hex: { q: 2, r: 4 }, strength: 56, cohesion: 64, resolve: 0, doctrineId: "no_step_back" },
     // The column: Open a Road's survivors and the companies that came up behind them, broken
-    // and running for the gate (Slip the Leash: they never stop to fight).
-    { id: "cinderwake_spears", name: "Cinderwake Spears", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 1 }, strength: 44, cohesion: 27, resolve: 0, doctrineId: "slip_the_leash" },
-    { id: "ashpit_wardens", name: "Ashpit Wardens", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 2 }, strength: 40, cohesion: 27, resolve: 0, doctrineId: "slip_the_leash" },
-    { id: "furnace_pikes", name: "Furnace Pikes", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 4 }, strength: 48, cohesion: 27, resolve: 0, doctrineId: "slip_the_leash" },
-    { id: "slag_bearers", name: "Slag Bearers", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 5 }, strength: 44, cohesion: 27, resolve: 0, doctrineId: "slip_the_leash" },
-    { id: "kilnbrand_raiders", name: "Kilnbrand Raiders", faction: "ashen_host", role: "skirmish", hex: { q: 2, r: 6 }, strength: 38, cohesion: 27, resolve: 0, doctrineId: "slip_the_leash" },
+    // and running for the gate (Slip the Leash: they never stop to fight). Resolve 3: they run,
+    // but they are not panicked. Dread on sight is (the viewer's Resolve gap to a renowned
+    // enemy) x 5, and no company's Resolve exceeds 3, so the Roll's famous companies cannot
+    // break them by standing in view (the CR5 warden's finding); only a strike does.
+    { id: "cinderwake_spears", name: "Cinderwake Spears", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 1 }, strength: 44, cohesion: 27, resolve: 3, doctrineId: "slip_the_leash" },
+    { id: "ashpit_wardens", name: "Ashpit Wardens", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 2 }, strength: 40, cohesion: 27, resolve: 3, doctrineId: "slip_the_leash" },
+    { id: "furnace_pikes", name: "Furnace Pikes", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 4 }, strength: 48, cohesion: 27, resolve: 3, doctrineId: "slip_the_leash" },
+    { id: "slag_bearers", name: "Slag Bearers", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 5 }, strength: 44, cohesion: 27, resolve: 3, doctrineId: "slip_the_leash" },
+    { id: "kilnbrand_raiders", name: "Kilnbrand Raiders", faction: "ashen_host", role: "skirmish", hex: { q: 2, r: 6 }, strength: 38, cohesion: 27, resolve: 3, doctrineId: "slip_the_leash" },
   ],
   hostSchedule: [{ phase: 1, intent: "The Host streams back down the Gate Road for Greyford Gate; its rearguard holds the River Ford.", orders: {} }],
-  winCondition: { kind: "destroySquads", squadIds: COLUMN, count: 3 },
+  winCondition: { kind: "destroySquads", squadIds: COLUMN, count: 2 },
   defeatConditions: [
     // Three companies inside the gate: the retreat is made good.
     { kind: "enemyEscape", edgeHexes: GATE_APPROACH, count: 3 },
