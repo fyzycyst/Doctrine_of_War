@@ -415,23 +415,27 @@ river runs shallow by the tollhouse (the Tollhouse Shallows, a second crossing).
 company on the Mill Road behind us (`enemyEscape`, count 1), or 4 companies lost. The Host:
 the Cinderwake Spears (No Step Back) and the Ashpit Wardens (Lie in Wait) stand on the two
 road heads; the Chapel Stalkers rise from the Burnt Chapel on Cull the Weak in phase 3; the
-reserve (the Scorchmark Spears, the Kilnbrand Raiders) waits opposite the Mill Ford and
-wades over at the first horn, by the ford or the shallows, on Through the Embers, for the
-Mill Road. Posts (authored labels): the Cinder Ford, the Ferry Road and the North Bank
+outriders (the Scorchmark Spears, the Kilnbrand Raiders) wait opposite the Mill Ford and slip
+over at the first horn, by the ford or the shallows, on Slip the Leash, for the Mill Road:
+they never fight, so a company standing in the water cannot hold them; only one standing on
+the Mill Road stops them. Posts (authored labels): the Cinder Ford, the Ferry Road and the North Bank
 (frontline), Watcher's Rise (the standard, support), the Mill Road (cavalry) and the Mill
 Ford (skirmish, flex: frontline). Roles, by function: **the march** (the column) gets
 companies onto the far-bank roads (Open the Road on the three frontline posts and the
 standard); **the guard** keeps the Mill Road: a company stands on it when the reserve comes
-up beside it, or fights the reserve on our bank before any Host company gets through.
+up beside it, or fights an outrider in the crossings or on our bank before any Host company
+gets through.
 Accepted guards by orders: Shield the Line (intended), Clean Counterstroke (the tracked
-alternative: it waits and strikes the crossers), and Bring the Water and Rescue Standard
-(nothing to march on, no one to rally there: they stand where posted). The guard is left
-unfilled by a watch that leaves the Mill Road (Open the Road, Fighting Withdrawal, mixed
-too) and by the pure march: the reserve is on the road before any column can cut through.
+alternative: it waits and strikes the crossers), and Bring the Water (nothing to march on:
+it stands where posted; roster-dependent). The guard is left unfilled by a watch that leaves
+the Mill Road (Open the Road, Fighting Withdrawal, and Rescue Standard, which goes to rally
+the weakest ally; mixed too) and by the pure march: the outriders are on the road before any
+column can cut through.
 The role gate is `cinderRoad3.roles.<call>.sim.test.ts`, one per named call. Bad plan:
 everyone on Bring the Water (last battle's star misapplied: no objective to march on).
-Curated seed 1: won in phase 3 by daylight, no company lost, the Mill Road guard breaking
-the reserve. Signed off on `signoff2` (the gate range was observed for C3). Numbers are in
+Curated seed 1: won in phase 3 by daylight, no company lost, an outrider broken short of the
+Mill Road. Signed off on `signoff3` (the gate range and `signoff2` were observed for C3; see
+the battle sheet). Numbers are in
 docs/ENGINE.md and on the battle sheet.
 
 ## Saves

@@ -28,12 +28,12 @@ const RESERVE = ["scorchmark_spears", "kilnbrand_raiders"];
  * orders are the doctrines that stand where they are posted, on the Mill Road or beside it
  * at the Mill Ford (zone of control holds the reserve off the road): Shield the Line
  * (intended), Clean Counterstroke (the tracked alternative: it waits, and strikes the
- * crossers), and Bring the Water and Rescue Standard, which have nothing to march on and no
- * one to rally there. Open the Road and Fighting Withdrawal leave for the far-bank roads.
- * The march gets companies onto the far-bank roads: only Open the Road marches on them and
- * cuts down the road heads.
+ * crossers) and Bring the Water (it has nothing to march on, so it stands). Open the Road and
+ * Fighting Withdrawal leave for the far-bank roads; Rescue Standard leaves to rally the
+ * weakest ally. The march gets companies onto the far-bank roads: only Open the Road marches
+ * on them and cuts down the road heads.
  */
-export const GUARD: RoleDeclaration = { posts: ["lances", "bows"], fillers: ["shield_the_line", "clean_counterstroke", "bring_the_water", "rescue_standard"] };
+export const GUARD: RoleDeclaration = { posts: ["lances", "bows"], fillers: ["shield_the_line", "clean_counterstroke", "bring_the_water"] };
 export const MARCH: RoleDeclaration = { posts: ["ford_van", "road_van", "chapel_van", "standard"], fillers: [OTR] };
 
 /**
@@ -59,8 +59,8 @@ interface RoleRun {
   advanced: boolean;
   /**
    * The guard: a Banner company held the Mill Road when the reserve first came up beside it,
-   * or fought a reserve company on our bank (east of the river) before any Host company got
-   * through. Null if the reserve never reached our bank and nobody got through.
+   * or fought a reserve company in the crossings or on our bank before any Host company got
+   * through. Null if the reserve never reached the crossings and nobody got through.
    */
   guard: boolean | null;
   /** The march: a Banner company reached the far-bank roads. */
@@ -76,7 +76,8 @@ function musterFor(state: EngineState, scenario: EngineScenario, orders: Orders,
   return [];
 }
 
-const ourBank = (scenario: EngineScenario, hex: { q: number; r: number } | undefined) => Boolean(hex && hex.q >= 5 && getHex(scenario.board, hex));
+/** Our bank and the crossings (the river column and east of it): a fight with the reserve here keeps it off the road. */
+const ourSide = (scenario: EngineScenario, hex: { q: number; r: number } | undefined) => Boolean(hex && hex.q >= 4 && getHex(scenario.board, hex));
 
 function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muster: Muster): RoleRun {
   let state = createInitialState(scenario, { seed, fortune: "on" });
@@ -97,12 +98,12 @@ function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muste
       if (event.kind === "exit" && RESERVE.concat(["cinderwake_spears", "ashpit_wardens", "chapel_stalkers"]).includes(event.squadId)) through = true;
       if (event.kind === "engagement" && !through) {
         const reserveHex = RESERVE.includes(event.attackerId) ? event.attackerHex : RESERVE.includes(event.defenderId) ? event.defenderHex : undefined;
-        if (ourBank(scenario, reserveHex)) fought = true;
+        if (ourSide(scenario, reserveHex)) fought = true;
       }
     }
     state = result.state;
     const reserve = activeSquads(state).filter((squad) => RESERVE.includes(squad.id));
-    if (reserve.some((squad) => ourBank(scenario, squad.hex))) crossed = true;
+    if (reserve.some((squad) => ourSide(scenario, squad.hex))) crossed = true;
     if (held === null && reserve.some((squad) => hexDistance(squad.hex, millRoad) <= 1)) {
       held = activeSquads(state).some((squad) => squad.faction === "free_banners" && sameHex(squad.hex, millRoad));
     }

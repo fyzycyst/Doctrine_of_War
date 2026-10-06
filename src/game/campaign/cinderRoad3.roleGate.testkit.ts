@@ -14,8 +14,9 @@ const MARCH_POLICIES = ["none", "heuristic", "rush"] as const;
  * stays below the floor with no muster, the heuristic muster and the rush, and the role's
  * observable confirms the plan does not win by filling the role; the intended watch guards.
  * - Guard unfilled: the full cartesian product of the battle's stock non-guard doctrines over
- *   the watch's posts (unfilledCombos: Open the Road and Fighting Withdrawal, mixed orders
- *   included), and the pure march; SEEDS gate seeds each, under every policy.
+ *   the watch's posts (unfilledCombos: Open the Road, Fighting Withdrawal and Rescue
+ *   Standard, mixed orders included: 3^2), and the pure march; SEEDS gate seeds each, under
+ *   every policy.
  * - March unfilled: the full product over the column's posts (5^4 = 625), each played once on
  *   its own gate seed, under no muster, the heuristic and the rush: nobody reaches the
  *   far-bank roads, so no such plan can win (an escape battle is won only on the roads).

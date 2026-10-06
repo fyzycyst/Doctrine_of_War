@@ -35,9 +35,9 @@ describe("Open a Road (Cinder Road, battle 3)", () => {
   });
 
   it("the unfilled plans are the full cartesian product of stock non-fillers over each role's posts", () => {
-    // The guard's fillers by orders stand where they are posted; the two that leave do not.
-    expect(nonFillers(cinderRoad3, GUARD)).toEqual(["open_the_road", "fighting_withdrawal"]);
-    expect(unfilledCombos(cinderRoad3, plans.intended, GUARD)).toHaveLength(4);
+    // The guard's fillers by orders stand where they are posted; the three that leave do not.
+    expect(nonFillers(cinderRoad3, GUARD)).toEqual(["open_the_road", "fighting_withdrawal", "rescue_standard"]);
+    expect(unfilledCombos(cinderRoad3, plans.intended, GUARD)).toHaveLength(9);
     // The C3 warden's stock mixed watch is one of them.
     expect(unfilledCombos(cinderRoad3, plans.intended, GUARD).some(({ orders }) => orders.lances === "fighting_withdrawal" && orders.bows === "open_the_road")).toBe(true);
     const march = unfilledCombos(cinderRoad3, plans.intended, MARCH);
@@ -65,7 +65,7 @@ describe("Open a Road (Cinder Road, battle 3)", () => {
     expect(Object.keys(recommendedForce(cinderRoad, state, cinderRoad3))).toEqual(slots.map((slot) => slot.slotId));
   });
 
-  it("the curated seed is a clean win: no company lost, the Mill Road guard breaks the reserve", () => {
+  it("the curated seed is a clean win: no company lost, an outrider broken short of the Mill Road", () => {
     const final = playBattle(cinderRoad3, plans.intended, cinderRoad3.curatedSeed!, "on");
     expect(final.status).toBe("victory");
     expect(final.phase).toBeLessThanOrEqual(5);
@@ -85,13 +85,14 @@ describe("Open a Road (Cinder Road, battle 3)", () => {
   });
 
   it("fog: an unseen enemy moved elsewhere unseen leaves the Banners' moves unchanged (the C3 warden's seed 100001 case)", () => {
-    // Pure Open the Road, seed 100001. At the start of phases 1 and 3, move every Host company
-    // the Banners cannot see to the free unseen hex farthest from them: their view is
-    // byte-identical, so their first moves must be too (C5: routes are planned on knowledge).
-    const orders = Object.fromEntries(Object.keys(plans.intended).map((id) => [id, "open_the_road"]));
+    // Seed 100001, pure Open the Road (the warden's orders) and the intended plan. At the start
+    // of phases 1 and 3 (while the battle lasts), move every Host company the Banners cannot
+    // see to the free unseen hex farthest from them: their view is byte-identical, so their
+    // moves must be too until something is sighted (C5: routes are planned on knowledge).
+    const pureMarch = Object.fromEntries(Object.keys(plans.intended).map((id) => [id, "open_the_road"]));
     // The Banners' moves until anything is revealed: a sighting (contact on the way) is new
     // information, and what follows it may rightly differ.
-    const movesUnrevealed = (state: EngineState) => {
+    const movesUnrevealed = (state: EngineState, orders: Record<string, string>) => {
       const moves: string[] = [];
       for (const event of resolvePhase(state, orders, cinderRoad3).events as EngineEvent[]) {
         if (event.kind === "sighted" && event.faction === "free_banners") break;
@@ -100,9 +101,10 @@ describe("Open a Road (Cinder Road, battle 3)", () => {
       return moves;
     };
     let checked = 0;
-    for (const phase of [1, 3]) {
+    for (const [orders, phase] of [[pureMarch, 1], [pureMarch, 3], [plans.intended, 1], [plans.intended, 3]] as const) {
       let state = createInitialState(cinderRoad3, { seed: 100001, fortune: "on" });
       while (state.phase < phase && state.status === "command") state = resolvePhase(state, orders, cinderRoad3).state;
+      if (state.status !== "command") continue; // the pure march has lost by phase 3
       const moved = structuredClone(state);
       const ctx = { state: moved, scenario: cinderRoad3 };
       const banners = moved.squads.filter((squad) => squad.faction === "free_banners" && squad.status === "active" && squad.hex);
@@ -121,12 +123,12 @@ describe("Open a Road (Cinder Road, battle 3)", () => {
       }
       expect(JSON.stringify(visibleState(moved, "free_banners"))).toBe(JSON.stringify(visibleState(state, "free_banners")));
       // Up to the first sighting in either world: after it, one side knows more.
-      const truth = movesUnrevealed(state);
-      const blind = movesUnrevealed(moved);
+      const truth = movesUnrevealed(state, orders);
+      const blind = movesUnrevealed(moved, orders);
       const shared = Math.min(truth.length, blind.length);
       expect(shared, `phase ${phase}`).toBeGreaterThan(0);
       expect(blind.slice(0, shared), `phase ${phase}`).toEqual(truth.slice(0, shared));
     }
-    expect(checked).toBeGreaterThan(0);
+    expect(checked).toBeGreaterThan(2);
   });
 });
