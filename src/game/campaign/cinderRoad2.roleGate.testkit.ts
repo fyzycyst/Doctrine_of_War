@@ -36,10 +36,13 @@ export function describeRoleGate(callName: string) {
       for (const muster of UNFILLED_POLICIES) {
         for (const { name, orders } of unguarded) {
           const result = rates(scenario, orders, muster);
-          if (result.advance >= GUARDRAILS.intendedMin) failures.push(`${name} (${muster}) advances ${result.advance}`);
-          // Misclassified if it wins by filling the role: an unfilled plan may touch the role by
-          // accident (since C5 a march can meet the ram on its honest route) but not win by it.
-          if (result.wonGuarded > SEEDS * unfilledSlack(muster)) failures.push(`${name} (${muster}) won ${result.wonGuarded}/${SEEDS} with the guard filled: not an unfilled plan`);
+          const counts = `guarded ${result.guarded}/${SEEDS}, won while guarded ${result.wonGuarded}/${SEEDS}`;
+          // The floor (hard gate): an unfilled plan advances below intendedMin.
+          if (result.advance >= GUARDRAILS.intendedMin) failures.push(`${name} (${muster}) advances ${result.advance} (${counts})`);
+          // Classification uses wonGuarded only: wins through accidental guarding (the guard
+          // observable true in a game the plan won). The raw guarded count (touching the role,
+          // which since C5 an honest route can do and still lose) is reported, not judged.
+          if (result.wonGuarded > SEEDS * unfilledSlack(muster)) failures.push(`${name} (${muster}) wins through accidental guarding (${counts}): not an unfilled plan`);
         }
       }
       expect(failures).toEqual([]);
@@ -68,4 +71,3 @@ export function describeRoleGate(callName: string) {
     }, 60_000);
   });
 }
-

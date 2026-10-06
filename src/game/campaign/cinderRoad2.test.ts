@@ -104,4 +104,3 @@ describe("Strike the Wagon Park: the role gate's coverage (the simulations are i
     expect(cinderRoad2.timeoutOutcome).toBe("defeat");
   });
 });
-
