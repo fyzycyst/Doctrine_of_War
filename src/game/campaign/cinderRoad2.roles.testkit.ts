@@ -1,7 +1,8 @@
 // Cinder Road battle 2 (C2): the roles by function (docs/CAMPAIGN.md, "roles are defined by
-// what they achieve"), observed in a run, and the named calls they are checked on. Used by
-// cinderRoad2.guard.sim.test.ts and cinderRoad2.march.sim.test.ts (two files so vitest spreads the
-// simulations across workers; see guardrails.testkit.ts).
+// what they achieve"), observed in a run, and the named calls they are checked on. The role
+// gate (cinderRoad2.roleGate.testkit.ts) runs one file per named call
+// (cinderRoad2.roles.<call>.sim.test.ts); cinderRoad2.test.ts checks every call has its file.
+// No vitest import here, so scripts can reuse these helpers.
 import { hexDistance, sameHex, type HexCoord } from "../board";
 import { GATE_SEEDS } from "../engine/balance";
 import { heuristicMuster, rushMuster, validateMuster, type MusterMove, type MusterPolicy } from "../engine/muster";
@@ -15,6 +16,7 @@ import { cinderRoad } from "./cinderRoad";
 import { ashAndBanner } from "./definition";
 import { rollCallMatrix } from "./rollCalls";
 import { introCarrySource } from "./rosters";
+import type { RoleDeclaration } from "./roles.testkit";
 
 /** Gate seeds per plan and muster policy (the plans checked here sit near 0%, far below the floor). */
 export const SEEDS = 40;
@@ -104,3 +106,11 @@ export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, 
 
 /** Every named call of battle 2 (rollCallMatrix: ten calls, none not applicable). */
 export const calls = rollCallMatrix(cinderRoad, registry.scenarios(), 1, introCarrySource(ashAndBanner, intro, "first_call")).calls;
+
+/**
+ * The roles, as the battle sheet declares them. The guard's fillers by orders are Hold for
+ * Dawn and Clean Counterstroke; its third accepted filler, any holding doctrine mustered onto
+ * the walk, is muster-dependent and pinned below ("onto the walk"). The standard is an extra.
+ */
+export const GUARD: RoleDeclaration = { posts: ["keepers"], fillers: ["hold_for_dawn", "clean_counterstroke"] };
+export const MARCH: RoleDeclaration = { posts: ["ford_van", "track_van", "sedge_van", "lances"], fillers: [BTW] };

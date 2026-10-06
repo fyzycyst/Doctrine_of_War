@@ -273,10 +273,13 @@ name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`):
 - `balance.<battle>.test.ts`: a battle's guardrail smoke (one per battle, via
   `guardrails.testkit.ts`; `balance.test.ts` checks every battle has one);
 - `*.sim.test.ts`: any other suite that plays many battles: role and unfilled-role sweeps
-  (`cinderRoad2.guard.sim.test.ts`, `.march.sim`, `.rush.sim`), ablations over about 5 s
-  (`holdForDawn.sim.test.ts`, `cinderRoad2.sim.test.ts`). A new battle's role tests follow
-  C2: `cinderRoad<N>.<role>.sim.test.ts`, sharing a `cinderRoad<N>.roles.testkit.ts`
-  (a testkit is not a test file and is not routed).
+  (`cinderRoad2.roles.<call>.sim.test.ts`, one per named call), ablations over about 5 s
+  (`holdForDawn.sim.test.ts`, `cinderRoad2.sim.test.ts`). A new battle's role gate follows
+  C2: one `cinderRoad<N>.roles.<call>.sim.test.ts` per named call, each calling a
+  `describeRoleGate("<call>")` from `cinderRoad<N>.roleGate.testkit.ts`, with the role
+  declarations and observables in `cinderRoad<N>.roles.testkit.ts` (no vitest import, so
+  scripts can use it) and the shared helpers in `roles.testkit.ts`. A fast test checks every
+  call has its file. A testkit is not a test file and is not routed.
 Keep each heavy test under about 10 s at normal load, so it stays under vitest's 60 s worker
 RPC timeout even when the machine is busy. The balance suite yields to the event loop
 before each test (`src/test/setup.balance.ts`), so long files no longer trip "Timeout
@@ -306,11 +309,16 @@ they achieve, declared before the gate, and ablated as roles.**
   never gated. Their per-call results under matched muster policies go on the battle sheet,
   and one of them may be the tracked `referencePlans.alternative` row.
 - **The gate, and what makes the rule falsifiable:** plans where a role is genuinely
-  **unfilled** (each doctrine that does not fill it on the role's posts, with no muster that
-  fills it, and the pure march) are played on **every named call, with no muster, with
-  the heuristic muster, and against the rush** (`rushMuster`, the adversarial policy: every
+  **unfilled** are played on **every named call, with no muster, with the heuristic muster,
+  and against the rush**. The unfilled plans are the **cartesian product of the battle's
+  stock non-filler doctrines over the role's posts** (`unfilledCombos` in `roles.testkit.ts`:
+  mixed orders too, since a mixed watch is still no watch; about 5^posts), with no muster
+  that fills the role, plus the pure march. When the product is too large to simulate in
+  full within about 10 s a file, the suite plays a documented spread sample with fewer seeds,
+  and a static check must cover every combination (battle 2: no stock doctrine but Bring the
+  Water can strike the park, so no march-unfilled plan can win). The rush (`rushMuster`) is the adversarial policy: every
   fighting company, or only the companies on the role that is filled, steps toward the
-  enemy objective each phase, or toward the line of retreat in an escape battle). Strength
+  enemy objective each phase, or toward the line of retreat in an escape battle. Strength
   alone must not skip a role. Each plan must stay **below the floor** (advance < 75%), and
   the role's observable must confirm that the role really was left unfilled (in at least
   95% of games with no muster or the heuristic, and 90% against the rush, whose companies

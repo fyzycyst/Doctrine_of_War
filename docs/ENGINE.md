@@ -443,7 +443,7 @@ Each battle has a **star doctrine** even when it uses a mix:
   company on the keepers' post; Shield the Line mustered onto the walk 96.8% (100%), and at
   least 75.6% (96.8%) on every call. Every plan that leaves the guard or the march unfilled
   advances at most 7.2% on every call, with no muster, the heuristic muster or the rush
-  (`cinderRoad2.guard.sim.test.ts`, `cinderRoad2.march.sim.test.ts`, `cinderRoad2.rush.sim.test.ts`).
+  (`cinderRoad2.roles.<call>.sim.test.ts`, one per named call).
   Role ablations (gate seeds, no muster and heuristic): every keeper that does not guard,
   and every assault that does not march, 0% on every call.
 
