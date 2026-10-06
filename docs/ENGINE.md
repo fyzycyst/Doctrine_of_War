@@ -455,22 +455,26 @@ Each battle has a **star doctrine** even when it uses a mix:
   one per named call.
 - *Open a Road* (*Cinder Road* battle 3, `scenarios/cinderRoad3.ts`, C3, in the First
   Call pack): the star is **Open the Road**. Ember Ford's own ground by daylight, crossed
-  the other way: Banner initiative under fog, `escapeEdge` (2 companies onto the Cinder Road
-  and the Ashpit Lane, the far-bank road heads). The column cannot see the road guard, but
-  the map shows the roads, so it marches on the exits and cuts down what stands on them;
-  Bring the Water has no objective to march on and stands on the bank. The Host's reserve
-  wades the Mill Ford for the Mill Road behind (`enemyEscape`, count 1), so a pure march
-  loses. The roles, by function: the **march** gets companies onto the far-bank roads; the
-  **guard** keeps the Mill Road (the lances and the bows on Shield the Line, or any watch that
-  stays on it). Gate seeds (100001–100500), fortune on, curated path after battles 1–2,
-  recommended call: intended 100.0% (100.0% with no muster), bad (all Bring the Water) 0%,
-  all Open the Road 13.2%, every other mono 0%; strongest alternative (the watch on Clean
-  Counterstroke) 100.0%. Worst gated call: rough (recovery force) 87.6% (89.6%). Every plan
-  that leaves a role unfilled advances at most 16.8% with no muster or the heuristic and at
-  most 56.2% against the rush, on every call (`cinderRoad3.{guard,march,rush}.sim.test.ts`).
-  Role ablations (tuning seeds, no muster): the column on any doctrine that never takes the
-  roads 0%; the watch on one that leaves the Mill Road at most 15%. Every named call is in
-  docs/CAMPAIGN.md.
+  the other way, with a second crossing below the Mill Ford (the Tollhouse Shallows): Banner
+  initiative under fog, `escapeEdge` (2 companies onto the Cinder Road and the Ashpit Lane,
+  the far-bank road heads). The column cannot see the road guard, but the map shows the
+  roads, so it marches on the exits and cuts down what stands on them; Bring the Water has no
+  objective to march on and stands on the bank. The Host's outriders slip over at the first
+  horn for the Mill Road behind (`enemyEscape`, count 1; Slip the Leash: they never fight,
+  so only a company standing on the road stops them), so a watch that leaves, or a pure
+  march, loses. The roles, by function: the **march** gets companies onto the far-bank
+  roads; the **guard** keeps the Mill Road (the watch on Shield the Line, Clean
+  Counterstroke or Bring the Water). **Signed off on `signoff3`** (300001–300500; the gate
+  and `signoff2` were observed for C3), fortune on, curated path after battles 1–2:
+  intended at least 99.6% on every gated call, with no muster too; bad 0%; every mono at
+  most 1.4%; the strongest alternative (the watch on Clean Counterstroke) ties the intended
+  plan; selection spread 0.4 points. Every stock combination that leaves the guard unfilled
+  (3^2 over the watch's posts) and the pure march advance at most 1.6% on any call under no
+  muster, the heuristic, the rush or the rush of the column alone; no march-unfilled
+  combination (5^4) wins more than 3 games in 1,250. The editor variant the C3 warden found
+  (Fighting Withdrawal with fw_rout_guard 90 on the watch) is a diagnostic probe at 0%.
+  Role gate: `cinderRoad3.roles.<call>.sim.test.ts`, one per named call. Every named call is
+  in docs/CAMPAIGN.md.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
 with at least two doctrine families. A role is defined by what it achieves (hold the gate,
