@@ -6,9 +6,9 @@
 // the column marches on the roads themselves (the exits) and cuts down whatever stands on
 // them. Bring the Water, last battle's star, has nothing to march on and stands on the
 // bank. But the fords cut both ways: the Host's reserve waits opposite the Mill Ford and
-// wades over for the Mill Road behind us once we commit, as it did that night. A pure
-// march leaves the road open; companies that stand fast on the Mill Road (Shield the Line)
-// hold it. Registered in the First Call pack (packs/registry.ts), not in the intro's list.
+// wades over at the first horn, by the ford or the Tollhouse Shallows below it, for the
+// Mill Road behind us, as it did that night. A watch that leaves (or a pure march) loses the
+// road before any column can cut through; companies that stand fast on it hold it. Registered in the First Call pack (packs/registry.ts), not in the intro's list.
 import type { BoardHex, BoardLayout, TerrainType } from "../../board";
 import type { EngineScenario } from "../types";
 
@@ -28,6 +28,9 @@ export const NEAR_BANK_ROADS = [{ q: 6, r: 4 }];
 const special: Record<string, { terrain: TerrainType; label?: string }> = {
   "4,1": { terrain: "ford", label: "Cinder Ford" },
   "4,4": { terrain: "ford", label: "Mill Ford" },
+  // Below the Mill Ford the river runs shallow by the tollhouse: a second way over, so one
+  // company standing in the Mill Ford cannot bar the reserve from the Mill Road.
+  "4,5": { terrain: "ford", label: "Tollhouse Shallows" },
   "5,2": { terrain: "ridge", label: "Watcher's Rise" },
   "1,0": { terrain: "ruin", label: "Burnt Chapel" },
   "5,5": { terrain: "ruin", label: "Tollhouse Ruin" },
@@ -69,15 +72,15 @@ export const cinderRoad3: EngineScenario = {
   briefing:
     "Ember Ford by daylight, and this time we cross. The bridges are cold stumps; the Host holds the far bank and stands on its road heads, and from the water we will not see its guard until we are on it. " +
     "There is no barricade to march on, only roads, and we know where they run: send the column and the standard over the Cinder Ford for the Cinder Road and the Ashpit Lane, and cut down whatever stands on them. Two companies on the roads opens the way. " +
-    "But the fords cut both ways. The Host keeps a reserve opposite the Mill Ford, and once we commit it will wade over for the Mill Road behind us, as it did that night. " +
+    "But the fords cut both ways. The Host keeps a reserve opposite the Mill Ford and the Tollhouse Shallows, and at the first horn it will wade over for the Mill Road behind us, as it did that night. " +
     "Leave the Mill Road to companies that stand fast.",
   playerFaction: "free_banners",
   initiativeSide: "free_banners",
   maxPhases: 7,
   timeOfDay: "day",
   // Fortune-on seed for the first playthrough and video capture: a clean win by daylight, no
-  // company lost, the Mill Road guard breaking the Scorchmark Spears as they climb out.
-  curatedSeed: 181,
+  // company lost, the Mill Road guard breaking the reserve as it climbs out.
+  curatedSeed: 1,
   board,
   objectives: [],
   playerDoctrineIds: ["open_the_road", "bring_the_water", "shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke"],
@@ -95,19 +98,15 @@ export const cinderRoad3: EngineScenario = {
     { id: "cinderwake_spears", name: "Cinderwake Spears", faction: "ashen_host", role: "frontline", hex: { q: 0, r: 1 }, strength: 34, cohesion: 46, resolve: 0, doctrineId: "no_step_back" },
     { id: "ashpit_wardens", name: "Ashpit Wardens", faction: "ashen_host", role: "frontline", hex: { q: 0, r: 2 }, strength: 30, cohesion: 44, resolve: 0, doctrineId: "lie_in_wait" },
     { id: "chapel_stalkers", name: "Chapel Stalkers", faction: "ashen_host", role: "skirmish", hex: { q: 1, r: 0 }, strength: 46, cohesion: 60, resolve: 0, doctrineId: "lie_in_wait" },
-    // The reserve at the Mill Ford: it crosses at our back once we commit.
-    { id: "scorchmark_spears", name: "Scorchmark Spears", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 5 }, strength: 54, cohesion: 60, resolve: 1, doctrineId: "no_step_back" },
-    { id: "kilnbrand_raiders", name: "Kilnbrand Raiders", faction: "ashen_host", role: "skirmish", hex: { q: 2, r: 5 }, strength: 46, cohesion: 60, resolve: 0, doctrineId: "no_step_back" },
+    // The reserve opposite the Mill Ford: it wades over at the first horn, by the ford or the
+    // Tollhouse Shallows below it, for the Mill Road at our back.
+    { id: "scorchmark_spears", name: "Scorchmark Spears", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 5 }, strength: 44, cohesion: 54, resolve: 0, doctrineId: "no_step_back" },
+    { id: "kilnbrand_raiders", name: "Kilnbrand Raiders", faction: "ashen_host", role: "skirmish", hex: { q: 2, r: 5 }, strength: 38, cohesion: 54, resolve: 0, doctrineId: "no_step_back" },
   ],
   hostSchedule: [
     {
       phase: 1,
-      intent: "The far bank stands to on its road heads; across the Mill Ford, the reserve waits for you to commit.",
-      orders: {},
-    },
-    {
-      phase: 2,
-      intent: "Horns at the Mill Ford: the reserve wades in for the Mill Road behind you.",
+      intent: "The far bank stands to on its road heads, and at the first horn the reserve wades the Mill Ford for the Mill Road behind you.",
       orders: { scorchmark_spears: "through_the_embers", kilnbrand_raiders: "through_the_embers" },
     },
     {

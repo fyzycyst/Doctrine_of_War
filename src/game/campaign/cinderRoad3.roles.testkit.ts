@@ -1,7 +1,8 @@
 // Cinder Road battle 3 (C3): the roles by function (docs/CAMPAIGN.md, "roles are defined by
-// what they achieve"), observed in a run, and the named calls they are checked on. Used by
-// cinderRoad3.guard.sim.test.ts, cinderRoad3.march.sim.test.ts and cinderRoad3.rush.sim.test.ts (three
-// files so vitest spreads the simulations across workers; see guardrails.testkit.ts).
+// what they achieve"), observed in a run, and the named calls they are checked on. The role
+// gate (cinderRoad3.roleGate.testkit.ts) runs one file per named call
+// (cinderRoad3.roles.<call>.sim.test.ts); cinderRoad3.test.ts checks every call has its file.
+// No vitest import here, so scripts can reuse these helpers.
 import { getHex, hexDistance, sameHex } from "../board";
 import { GATE_SEEDS } from "../engine/balance";
 import { heuristicMuster, rushMuster, type MusterMove, type MusterPolicy } from "../engine/muster";
@@ -15,18 +16,26 @@ import { cinderRoad } from "./cinderRoad";
 import { ashAndBanner } from "./definition";
 import { rollCallMatrix } from "./rollCalls";
 import { introCarrySource } from "./rosters";
+import type { RoleDeclaration } from "./roles.testkit";
 
 /** Gate seeds per plan and muster policy (the plans checked here sit far below the floor). */
 export const SEEDS = 40;
 export const OTR = "open_the_road";
 /** The Host's reserve: it wades the Mill Ford for the Mill Road behind the column. */
 const RESERVE = ["scorchmark_spears", "kilnbrand_raiders"];
-/** The Mill Ford watch's posts (the guard's posts in the intended plan). */
-export const WATCH = ["lances", "bows"];
-/** Doctrines that leave the Mill Road on the watch's posts: the guard unfilled. */
-export const LEAVE = [OTR, "fighting_withdrawal"];
-/** Doctrines that never take the far-bank roads on the column's posts: the march unfilled. */
-export const STAY = ["shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke", "bring_the_water"];
+/**
+ * The roles, as the battle sheet declares them. The guard keeps the Mill Road: its fillers by
+ * orders are the doctrines that stand where they are posted, on the Mill Road or beside it
+ * at the Mill Ford (zone of control holds the reserve off the road): Shield the Line
+ * (intended), Clean Counterstroke (the tracked alternative: it waits, and strikes the
+ * crossers), and Bring the Water and Rescue Standard, which have nothing to march on and no
+ * one to rally there. Open the Road and Fighting Withdrawal leave for the far-bank roads.
+ * The march gets companies onto the far-bank roads: only Open the Road marches on them and
+ * cuts down the road heads.
+ */
+export const GUARD: RoleDeclaration = { posts: ["lances", "bows"], fillers: ["shield_the_line", "clean_counterstroke", "bring_the_water", "rescue_standard"] };
+export const MARCH: RoleDeclaration = { posts: ["ford_van", "road_van", "chapel_van", "standard"], fillers: [OTR] };
+
 /**
  * How the player musters: a harness policy ("none", "heuristic", "rush": every fighting
  * company steps toward the far-bank roads), or "rush the column" (only the companies on Open
@@ -35,9 +44,12 @@ export const STAY = ["shield_the_line", "fighting_withdrawal", "rescue_standard"
 export type Muster = MusterPolicy | "rush the column";
 
 /**
- * The share of an unfilled plan's games that may still touch the role by accident; more than
- * this and the plan is misclassified: it is filling the role, not leaving it. Tight without
- * muster and with the heuristic, looser against the rush (as battle 2's role kit).
+ * The share of an unfilled plan's games it may WIN with the role filled by accident; more
+ * than this and the plan is misclassified: it is winning by filling the role, not without it.
+ * Since C5 (routes planned on what the mover knows) a company can meet the reserve on its
+ * honest route and still lose, so touching the role is reported, not judged; only winning by
+ * it is (as battle 2's role kit). Tight without muster and with the heuristic, looser
+ * against the rush.
  */
 export function unfilledSlack(muster: Muster): number {
   return muster === "rush" || muster === "rush the column" ? 0.1 : 0.05;
@@ -103,19 +115,13 @@ function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muste
   };
 }
 
-/** The plans that leave the guard unfilled on a call: the watch on each leaving doctrine, and the pure march. */
-export function unguarded(intended: Orders): [string, Orders][] {
-  return [
-    ...LEAVE.map((id): [string, Orders] => [`the watch on ${id}`, { ...intended, ...Object.fromEntries(WATCH.map((squadId) => [squadId, id])) }]),
-    ["the pure march", Object.fromEntries(Object.keys(intended).map((squadId) => [squadId, OTR]))],
-  ];
-}
-
 export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, seeds = SEEDS, firstSeed: number = GATE_SEEDS.first) {
   const runs = Array.from({ length: seeds }, (_, index) => playRoles(scenario, orders, firstSeed + index, muster));
   return {
     advance: runs.filter((run) => run.advanced).length / seeds,
     guarded: runs.filter((run) => run.guard === true).length,
+    /** Games advanced while the guard's observable says it was filled (by accident, for an unfilled plan). */
+    wonGuarded: runs.filter((run) => run.advanced && run.guard === true).length,
     marched: runs.filter((run) => run.march).length,
     breached: runs.filter((run) => run.breached).length,
   };
