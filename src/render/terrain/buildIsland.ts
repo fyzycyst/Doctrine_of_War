@@ -9,6 +9,7 @@ import {
   nearestRoadGoal,
   objectiveDressing,
   objectiveHolder,
+  isGatehouse,
   propGeometries,
   roadGoal,
   type ObjectiveProp,
@@ -324,9 +325,12 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
 
   drawRoads(b, layout, hexes, roadColor, T[`field`].top, rand);
   const wb = new GeoBuilder();
+  // The gatehouse whose stages show (an objective), and whoever holds a gatehouse at all
+  // (an objective or a dressed wall, e.g. the pursuit's Greyford Gate: intact only).
   const gate = layout.hexes.find((h) => h.terrain === "wall" && objectiveDressing(h) === "gatehouse");
   const gateKey = gate ? hexKey(gate.coord) : null;
-  const gateHolder: FactionId = (gate && objectiveHolder(layout, gate.coord)) || "free_banners";
+  const anyGate = gate ?? layout.hexes.find(isGatehouse);
+  const gateHolder: FactionId = (anyGate && objectiveHolder(layout, anyGate.coord)) || "free_banners";
   // Intact walls draw from the island's `rand` exactly as before stages existed; the
   // battered and breached builds replay those draws (see drawWalls).
   const draws: number[] = [];
@@ -987,7 +991,7 @@ function ribbon(b: GeoBuilder, x0: number, z0: number, x1: number, z1: number, y
 // --- Walls & gate ------------------------------------------------------------
 
 /**
- * The wall line and its gatehouse. `stage` (CR6: the Host's gate under a
+ * The wall line and its gatehouse. `wallStage` (CR6: the Host's gate under a
  * breakObjective) 0 = intact, 1 = battered (cracked masonry, merlons knocked
  * off, rubble, the doors bowed and split), 2 = breached (a tower top down, the
  * lintel cracked, the doors burst in, the gate banner fallen). The Banners never
@@ -1001,7 +1005,7 @@ function drawWalls(
   hexes: IslandHex[],
   skin: Skin,
   rand: () => number,
-  stage: 0 | 1 | 2 = 0,
+  wallStage: 0 | 1 | 2 = 0,
   dmg: () => number = rand,
   holder: FactionId = "free_banners",
 ) {
@@ -1081,8 +1085,9 @@ function drawWalls(
   for (const { board, hex } of walls) {
     const z0 = hex.z - apothem;
     const z1 = hex.z + apothem;
-    if (objectiveDressing(board) === "gatehouse") {
-      // Gatehouse: two towers flanking an arched gate.
+    if (isGatehouse(board)) {
+      // Gatehouse: two towers flanking an arched gate. Only an objective takes damage.
+      const stage = board.objectiveId ? wallStage : 0;
       const gap = 0.26;
       const knock = stage === 0 ? 0 : stage === 1 ? 3 : 2;
       segment(x, hex.top, z0, hex.z - gap - 0.14, knock);
@@ -1128,8 +1133,8 @@ function drawWalls(
         rubble(x - 0.2, hex.top, hex.z + gap, stage === 1 ? 3 : 6, 0.25);
       }
       gateBanner = { x: x - THICK / 2 - 0.02, y: hex.top + 0.44, z: hex.z, yaw: Math.PI };
-      // The gate's torches go out when it is breached.
-      const douse = { objective: hexKey(board.coord), douse: "broken" as const };
+      // The gate's torches go out when it is breached (an objective gate only).
+      const douse = board.objectiveId ? { objective: hexKey(board.coord), douse: "broken" as const } : {};
       torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z - gap, yaw: 0, kind: "torch", ...douse });
       torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z + gap, yaw: 0, kind: "torch", ...douse });
     } else {

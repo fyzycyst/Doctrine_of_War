@@ -24,6 +24,14 @@ export function objectiveDressing(hex: BoardHex): ObjectiveKind | null {
 }
 
 /**
+ * A wall hex drawn as the gatehouse: an objective dressed so (`objectiveDressing`),
+ * or a wall flagged `gatehouse` though it is no objective (the pursuit's Greyford Gate).
+ */
+export function isGatehouse(hex: BoardHex): boolean {
+  return objectiveDressing(hex) === "gatehouse" || (hex.gatehouse === true && hex.terrain === "wall");
+}
+
+/**
  * Unit world (x, z) direction an objective prop faces: toward its attackers'
  * deployment. The attackers are the side not deployed on the objective hex;
  * when nobody is, the side deployed farther from it. No deployment: toward the

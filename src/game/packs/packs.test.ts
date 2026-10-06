@@ -207,6 +207,14 @@ describe("the registry", () => {
     expect(() => readScenario({ ...scenario, board: { ...scenario.board, fordDressing: "lanterns" } }, "scenario")).toThrow(/fordDressing/);
   });
 
+  it("keeps a hex's render-only gatehouse flag and refuses anything but true", () => {
+    const scenario = structuredClone(scenarios[0]);
+    scenario.board.hexes[0] = { ...scenario.board.hexes[0], gatehouse: true };
+    expect(readScenario(JSON.parse(JSON.stringify(scenario)), "scenario").board.hexes[0].gatehouse).toBe(true);
+    scenario.board.hexes[0] = { ...scenario.board.hexes[0], gatehouse: false as never };
+    expect(() => readScenario(scenario, "scenario")).toThrow(/gatehouse/);
+  });
+
   it("keeps a ford hex's own render-only fordDressing and refuses an unknown one", () => {
     const scenario = structuredClone(scenarios[0]);
     scenario.board.hexes[0] = { ...scenario.board.hexes[0], fordDressing: "none" };

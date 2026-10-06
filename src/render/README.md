@@ -63,6 +63,9 @@ imported (see `fromEngine.ts`); engine logic may not.
   walls are byte-identical to before (the stages replay the same random draws). The walls are still
   drawn north to south with the gate facing west, which is right for every board so far.
   `disposeIsland(island)` frees every geometry an island build owns.
+  `BoardHex.gatehouse?: true` (render-only, accepted by the pack manifest) draws a wall hex as the
+  gatehouse though it is no objective, e.g. the pursuit's Greyford Gate. It gets the holder's banner
+  and torches, and stays intact: no stages, and its torches aren't tied to an objective.
 - **Sides (CR6):** `sides(board)` gives each faction's default facing and the way it flees. The
   convention (the Host from the west) holds unless the Banners deploy clearly west of the Host, and
   then both turn round. The Diorama applies it to squads still on the mapper's default facing, to
