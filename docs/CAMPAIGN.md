@@ -290,7 +290,8 @@ they achieve, declared before the gate, and ablated as roles.**
   enemy objective each phase, or toward the line of retreat in an escape battle). Strength
   alone must not skip a role. Each plan must stay **below the floor** (advance < 75%), and
   the role's observable must confirm that the role really was left unfilled (in at least
-  90% of games: a rushing company can cross the enemy's path by accident). These are
+  95% of games with no muster or the heuristic, and 90% against the rush, whose companies
+  can cross the enemy's path by accident). These are
   scenario tests, and the 500-seed numbers go on the battle sheet.
 - **The ≥ 15-point ablation is by role:** replace every doctrine that fills the role with
   the best doctrine that does not (no muster), and the advance rate must drop by at least 15

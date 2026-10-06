@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";
 import type { Orders } from "../engine/types";
-import { BTW, calls, rates, SEEDS, UNFILLED_SLACK } from "./cinderRoad2.roles.testkit";
+import { BTW, calls, rates, SEEDS, unfilledSlack } from "./cinderRoad2.roles.testkit";
 
 describe("Strike the Wagon Park: no plan that leaves the guard unfilled reaches the floor, on every call", () => {
   for (const call of calls) {
@@ -22,8 +22,8 @@ describe("Strike the Wagon Park: no plan that leaves the guard unfilled reaches 
         for (const [name, orders] of unguarded) {
           const result = rates(call.scenario, orders, muster);
           if (result.advance >= GUARDRAILS.intendedMin) failures.push(`${name} (${muster}) advances ${result.advance}`);
-          // Unfilled means unfilled in nearly every game (see UNFILLED_SLACK).
-          if (result.guarded > SEEDS * UNFILLED_SLACK) failures.push(`${name} (${muster}) guarded in ${result.guarded}/${SEEDS}: not an unfilled plan`);
+          // Unfilled means unfilled in nearly every game (see unfilledSlack).
+          if (result.guarded > SEEDS * unfilledSlack(muster)) failures.push(`${name} (${muster}) guarded in ${result.guarded}/${SEEDS}: not an unfilled plan`);
         }
       }
       expect(failures).toEqual([]);

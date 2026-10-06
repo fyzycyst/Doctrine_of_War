@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";
 import type { Orders } from "../engine/types";
-import { BTW, calls, rates, SEEDS, UNFILLED_SLACK } from "./cinderRoad2.roles.testkit";
+import { BTW, calls, rates, SEEDS, unfilledSlack } from "./cinderRoad2.roles.testkit";
 
 describe("Strike the Wagon Park: an unfilled role loses to the rush too, on every call", () => {
   for (const call of calls) {
@@ -22,7 +22,7 @@ describe("Strike the Wagon Park: an unfilled role loses to the rush too, on ever
         for (const [name, orders] of unguarded) {
           const result = rates(call.scenario, orders, muster);
           if (result.advance >= GUARDRAILS.intendedMin) failures.push(`${name} (${muster}) advances ${result.advance}`);
-          if (result.guarded > SEEDS * UNFILLED_SLACK) failures.push(`${name} (${muster}) guarded in ${result.guarded}/${SEEDS}: not an unfilled plan`);
+          if (result.guarded > SEEDS * unfilledSlack(muster)) failures.push(`${name} (${muster}) guarded in ${result.guarded}/${SEEDS}: not an unfilled plan`);
         }
       }
       for (const id of ["shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke", "hold_for_dawn"]) {
