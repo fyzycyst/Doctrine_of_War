@@ -22,6 +22,11 @@ export interface BoardHex {
    * Absent = the old behaviour (a gatehouse on a wall, no prop on open ground).
    */
   objectiveKind?: ObjectiveKind;
+  /**
+   * A ford's own dressing, over the board's `fordDressing` (render-only): e.g. "none" on
+   * shallows that never had a bridge, on a board whose other fords are burned bridges.
+   */
+  fordDressing?: FordDressing;
   deploymentFaction?: FactionId;
 }
 

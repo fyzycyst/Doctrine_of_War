@@ -138,6 +138,7 @@ export const readScenario: Reader<EngineScenario> = object({
             label: opt(text(60)),
             objectiveId: opt(id),
             objectiveKind: opt(oneOf("gatehouse", "barricade", "wagons", "sluice")),
+            fordDressing: opt(oneOf("bridgeWrecks", "none")),
             deploymentFaction: opt(faction),
           }),
           MAX_BOARD * MAX_BOARD,

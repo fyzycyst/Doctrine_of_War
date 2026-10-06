@@ -58,7 +58,9 @@ imported (see `fromEngine.ts`); engine logic may not.
   only under `nightFires` (`atmosphere/fireRules.ts`; braziers are `island.brazierGeometry`). By day
   the wrecks are cold, charred stumps trailing a thin smoke. `BoardLayout.fordDressing?:
   "bridgeWrecks" | "none"` (render-only, accepted by the pack manifest) drops the wrecks and
-  braziers on a board whose fords were never burned bridges, e.g. Cinder Road 2.
+  braziers on a board whose fords were never burned bridges, e.g. Cinder Road 2. A ford hex's own
+  `BoardHex.fordDressing` overrides the board's for that ford's stumps (e.g. "none" on Open a Road's
+  Tollhouse Shallows, beside Ember Ford's burned bridges); the braziers follow the board.
 - **Weather (T08):** `<LookProvider weather="clear|rain|mist|ashWind">` (use `weatherFor(view.weather)`).
   Each skin owns `weather: Record<WeatherKind, WeatherPreset>` overlays that are layered on the
   time-of-day preset: mist, particles (rain streaks, ash flurries blowing east), wetness (darker,

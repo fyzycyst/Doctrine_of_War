@@ -30,6 +30,19 @@ describe("ford dressing (M2 follow-up)", () => {
     expect(bank.brazierGeometry).toBeNull();
   });
 
+  it("lets one ford opt out of (or into) the wrecks, whatever the board says", () => {
+    // Ember Ford's fords: Cinder Ford (4,1) and Mill Ford (4,4). A shallows that never had a
+    // bridge sets "none" on its own hex; the others keep their stumps.
+    const bridges = (board: BoardLayout) => buildIsland(board, emberDusk).fireAnchors.filter((a) => a.kind === "bridge").length;
+    const perFord = bridges(emberFord.board) / emberFord.board.hexes.filter((h) => h.terrain === "ford").length;
+    const mark = (board: BoardLayout, q: number, r: number, dressing: "bridgeWrecks" | "none"): BoardLayout => ({
+      ...board,
+      hexes: board.hexes.map((h) => (h.coord.q === q && h.coord.r === r ? { ...h, fordDressing: dressing } : h)),
+    });
+    expect(bridges(mark(emberFord.board, 4, 4, "none"))).toBe(bridges(emberFord.board) - perFord);
+    expect(bridges(mark({ ...emberFord.board, fordDressing: "none" }, 4, 1, "bridgeWrecks"))).toBe(perFord);
+  });
+
   it("burns the wrecks and braziers only at night; by day the stumps smoke cold", () => {
     expect(firesBurn("bridge", "nightFires")).toBe(true);
     expect(firesBurn("brazier", "nightFires")).toBe(true);
