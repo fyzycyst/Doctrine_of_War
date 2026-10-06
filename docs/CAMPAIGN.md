@@ -60,12 +60,13 @@ reference, each scenario's internal consistency, and each campaign against its
 scenarios. Nothing is exposed from a set that fails. `registry.compatibility(provenance)`
 says whether a saved run (pack, campaign, content and rules revision) can continue.
 The shipped pack is `first_call` (The First Call), holding the intro and *Cinder Road*
-(in development: battles 1–3 so far, until its length is frozen; see below).
+(five battles, the user's choice of 2026-10-06; see below).
 
-**Editions.** `first_call` is at content revision **3** (`readsContent: [3]`) since
-*Cinder Road* gained battle 3 (C3; revision 2 came with battle 2, C2): an earlier-content
-Cinder Road run (one completed after battle 2 cannot replay against a three-battle
-campaign) is read as **unavailable**, kept as it is, and can be set aside to begin anew; it
+**Editions.** `first_call` is at content revision **5** (`readsContent: [5]`) since
+*Cinder Road* gained battle 4, the pursuit (CR5), before its finale (revision 4 came with
+the finale, CR6, merged after battle 3; 3 with battle 3, C3; 2 with battle 2, C2): an
+earlier-content Cinder Road run (one completed on a shorter or differently ordered campaign
+cannot replay against this one) is read as **unavailable**, kept as it is, and can be set aside to begin anew; it
 is never shown as unreadable. Appending
 a battle to a campaign is such a change, so bump the content revision with it. The
 intro's v1 save is not gated by content revision.
@@ -270,7 +271,7 @@ doctrine, campaign, roster profile or Host schedule):
 
 **Test suites (2026-10-05; the finale's added 2026-10-07).** `npm test` is the fast suite:
 unit, UI and fast engine tests. `npm run test:balance` runs the simulation-heavy files, and
-`npm run test:finale` the finale's (*Cinder Road* battle 6: a 19-squad, 9-phase battle costs
+`npm run test:finale` the finale's (*Cinder Road* battle 5: a 19-squad, 9-phase battle costs
 about four ordinary games, so its sweeps would push test:balance past its ~120 s budget). The
 routing is by **file name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`, which
 also checks every heavy file runs in exactly one of the two heavy suites):
@@ -473,7 +474,7 @@ stair. Numbers are in docs/ENGINE.md.
 **Battle 2, *Strike the Wagon Park*** (`engine/scenarios/cinderRoad2.ts`, C2): upstream of
 Ember Ford, by daylight, Banner initiative, fog, 6 phases. Win: break the Host's wagon
 park (`breakObjective`), escorted by a detachment of the Kept Coal (the renowned main body
-holds Greyford Gate in battle 6). Defeat: the Covenant's Weir Sluice on our bank falls
+holds Greyford Gate in battle 5). Defeat: the Covenant's Weir Sluice on our bank falls
 (`objectiveLost`, new in C2), or 3 companies lost. Posts (authored as the army stands
 after battle 1, so the curated path meets a nil threat): the Wainford, the Wagon Track,
 the Sedge Flank, the Lance Line (flex: cavalry or frontline), Willow Rise, and the Weir
@@ -572,9 +573,8 @@ under the pursuit exception above):
   Brightcrag Riders gain Resolve (0 → 1).
 - **Role gate:** `cinderRoad5.roles.<call>.sim.test.ts`, one per named call: the census
   under no muster, the heuristic and the interception adversary, plus the warden's plan.
-**Battle 6, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
-after battle 3 until battles 4 and 5 land, then moved to slot 6 and signed off on the full
-path): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
+**Battle 5, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
+after battle 3, then moved after the pursuit and signed off on the full path, battles 1–4): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
 the sworn stand before the gate (every Host company is Resolve 3: they do not waver); 9
 Banners against 10 Host (19 squads), by day under ash-wind, 9 phases. Win: break the gate
 (`breakObjective`). Defeat: 3 companies lost, or the timeout. **The whole army takes the
@@ -593,11 +593,15 @@ on either post is an accepted filler (the second banner's post is the stronger a
 tracked alternative; the standard alone is weak on a battered army). A third role, a
 counterstroke screen, was dropped in tuning: Clean Counterstroke hunts the fight into the
 sworn and no stock doctrine escorts the standards (the battle sheet has the numbers). The
-Banners' squads are authored at **fame 17**, not the curated path's 30 (the C2 convention is
-deliberately not used): the Roll's threat then never eases the sworn's Resolve, which let the
-veterans' renown break the Host, and hardens every Host company by +12 strength for a famous
-army. The banners stand in the front row: Rescue Standard only moves when an ally falls below
-50. Curated seed 18: won in phase 6, no company lost, the Kept Coal broken. Numbers are on the
+Banners' squads are authored at **fame 18**, one above the recovery force's 17, not the curated
+path's 31 (the C2 convention is deliberately not used): the Roll's threat then never eases the
+sworn's Resolve, which let the veterans' renown break the Host, eases the recovery force's
+Host by 2 strength a company, and hardens every Host company by +12 strength for a famous
+army. (On the path through the pursuit the Brightcrag Riders reach Resolve 1; the authored
+squad mirrors it, which raised the authored fame from 17 and kept the recovery force's ease:
+with the nil threat it lost, the recovery force fell to 71% with no muster on tuning seeds.) The banners stand in the front row: Rescue Standard only moves when an ally falls below
+50. Curated seed 58 (on the path through the pursuit, where the Brightcrag Riders reach Resolve
+1): won in phase 6, no company lost, the Kept Coal broken. Numbers are on the
 battle sheet.
 
 ## Saves

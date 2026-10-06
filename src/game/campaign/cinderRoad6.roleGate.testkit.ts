@@ -1,4 +1,4 @@
-// Cinder Road battle 6's role gate, one describe per named call: each
+// Cinder Road battle 5's (the finale's) role gate, one describe per named call: each
 // cinderRoad6.roles.<call>.sim.test.ts calls describeRoleGate("<call>"). They run under
 // `npm run test:finale` (src/test/suites.ts): a 19-squad, 9-phase battle costs about four C2
 // games, so the per-call files sample seeds (documented below) and the full per-plan census on

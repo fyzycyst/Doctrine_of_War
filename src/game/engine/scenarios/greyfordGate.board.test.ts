@@ -1,4 +1,4 @@
-// The shared Greyford Gate board (Cinder Road battles 5 and 6): one ground, per-battle zones.
+// The shared Greyford Gate board (Cinder Road battles 4 and 5): one ground, per-battle zones.
 import { describe, expect, it } from "vitest";
 import { cinderRoad6 } from "./cinderRoad6";
 import { GREYFORD_GATE, greyfordGateBoard } from "./greyfordGate.board";
@@ -20,7 +20,11 @@ describe("the Greyford Gate board", () => {
     expect(() => greyfordGateBoard({ bannerZone: ({ q, r }) => q === 2 && r === 2, hostZone: ({ q }) => q === 2 })).toThrow(/2,2 is in both deployment zones/);
     expect(() => greyfordGateBoard({ bannerZone: ({ q }) => q === 0 })).toThrow(/0,0 \(river\) cannot be a deployment hex/);
     expect(() => greyfordGateBoard({ hostZone: ({ q }) => q === 8 })).toThrow(/\(wall\) cannot be a deployment hex/);
-    // A battle with no objective at the gate (the pursuit) leaves the hex untagged.
-    expect(greyfordGateBoard({ gateObjective: false }).hexes.filter((hex) => hex.objectiveId)).toEqual([]);
+    // A battle with no objective at the gate (the pursuit) leaves the hex untagged, and dressed
+    // as the gatehouse (render-only); the finale's gate is the objective, not dressed.
+    const untagged = greyfordGateBoard({ gateObjective: false }).hexes;
+    expect(untagged.filter((hex) => hex.objectiveId)).toEqual([]);
+    expect(untagged.filter((hex) => hex.gatehouse).map((hex) => hex.coord)).toEqual([GREYFORD_GATE]);
+    expect(cinderRoad6.board.hexes.filter((hex) => hex.gatehouse)).toEqual([]);
   });
 });

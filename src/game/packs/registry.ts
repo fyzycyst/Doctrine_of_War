@@ -39,7 +39,7 @@ export const firstCall: PackManifest = {
   // can be set aside. The intro's v1 save is not gated by content revision and is unaffected.
   revision: { pack: 1, content: 5, rules: 1 },
   readsContent: [5],
-  // Cinder Road (Roll) is in development: battles are appended until its length is frozen.
+  // Cinder Road (Roll): five battles, the pursuit (battle 4) before the finale (2026-10-06).
   campaigns: [ashAndBanner, cinderRoad],
   scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn, cinderRoad1, cinderRoad2, cinderRoad3, cinderRoad5, cinderRoad6],
   doctrines: [],

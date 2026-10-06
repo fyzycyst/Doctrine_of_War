@@ -150,13 +150,12 @@ export const cinderRoad: CampaignDefinition = {
       },
     },
     {
-      // The finale (battle 6 in the Roll's order; built after battle 3 until battles 4 and 5
-      // land, then moved to its place and re-gated on the full path).
+      // The finale (battle 5, after the pursuit; re-gated on the full path [1, 2, 3, 4]).
       id: "cr_greyford_gate",
       title: "Break the Strongpoint",
       scenarioId: "cinder_road_greyford_gate",
       // The whole army: every company of the Roll has a post. The authored call is the
-      // recommended force after battle 3 (re-derived when battles 4 and 5 land).
+      // recommended force after battle 4 (the pursuit).
       slots: {
         north_van: "coldwater_shields",
         gate_van: "ferrymoot_pikes",

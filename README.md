@@ -95,7 +95,7 @@ ffmpeg -framerate 30 -i captures/seq-craneInGate/frame_%04d.png -c:v libx264 -pi
 ```bash
 npm test              # fast: unit, UI and engine tests
 npm run test:balance  # simulation-heavy: balance smokes, role sweeps, ablations
-npm run test:finale   # the finale's (Cinder Road battle 6) sweeps
+npm run test:finale   # the finale's (Cinder Road battle 5) sweeps
 npm run build
 ```
 

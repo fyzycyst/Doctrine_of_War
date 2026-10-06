@@ -1,4 +1,4 @@
-// Cinder Road, battle 6, the finale: Break the Strongpoint. The Banners come back to Greyford
+// Cinder Road, battle 5, the finale: Break the Strongpoint. The Banners come back to Greyford
 // Gate, where the intro began, and this time the Host holds it: the Kept Coal's main body, the
 // sworn who carry live coals from the first kiln, stand before the gate, and every Host company
 // here is sworn (Resolve 3: they do not waver). The whole army takes the field.
@@ -11,8 +11,8 @@
 // (a rally restores an assault company, observed when it fires; only Rescue Standard rallies). The intended plan carries two banners;
 // one, on either post, is an accepted filler (the second banner's post is the stronger and the
 // tracked alternative; the standard alone is weak on a battered army).
-// The Banners' squads are authored at fame 17, not the curated path's: the Roll's threat then
-// never eases the sworn's Resolve, and hardens the Host by +12 strength a company for a famous
+// The Banners' squads are authored at fame 18, one above the recovery force's, not the curated
+// path's: the Roll's threat then never eases the sworn's Resolve, and hardens the Host by +12 strength a company for a famous
 // army, which the battle's 10 Host companies turn into a real difference (docs/CAMPAIGN.md).
 // Registered in the First Call pack (packs/registry.ts), not in the intro's scenario list.
 import type { EngineScenario } from "../types";
@@ -43,7 +43,7 @@ export const cinderRoad6: EngineScenario = {
   // The Kept Coal's coals smoke on the wind: ash-wind all day (dread from the Host x1.5; it
   // bites the less famous companies, which are below the sworn's Resolve).
   forecast: { start: "ashWind", shiftChance: 0, shifts: ["ashWind"] },
-  curatedSeed: 18,
+  curatedSeed: 58,
   board,
   objectives: [
     {
@@ -58,9 +58,11 @@ export const cinderRoad6: EngineScenario = {
   playerDoctrineIds: ["bring_the_water", "shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke", "hold_for_dawn"],
   squads: [
     // The posts of the Cinder Road call (squad id = slot id): the whole army.
-    // Authored at fame 17, the recovery ("rough") force's, not the curated path's 30: the
-    // Roll's threat then never eases the sworn's Resolve (it stays 3 on every call: they do not
-    // waver) and hardens the Host for a famous army (+2 strength a fame point, capped at +12).
+    // Authored at fame 18, one above the recovery ("rough") force's 17 on the path through the
+    // pursuit (the Brightcrag Riders as that path leaves them, Resolve 1), not the curated path's
+    // 31: the Roll's threat then never eases the sworn's Resolve (it stays 3 on every call: they
+    // do not waver), eases the recovery force's Host by 2 strength a company, and hardens it for
+    // a famous army (+2 strength a fame point, capped at +12).
     // The Roll replaces these with the companies it fields. The banners stand in the front row
     // with the vans: Rescue Standard only moves when an ally falls below 50, so a banner posted
     // behind the march arrives after the assault has already broken.
@@ -70,7 +72,7 @@ export const cinderRoad6: EngineScenario = {
     { id: "south_van", name: "Thornwick Spears", faction: BANNERS, role: "frontline", hex: { q: 2, r: 5 }, strength: 76, cohesion: 68, resolve: 1, doctrineId: BTW },
     { id: "standard", name: "Wickmere Standard", faction: BANNERS, role: "support", hex: { q: 2, r: 3 }, strength: 52, cohesion: 82, resolve: 3, doctrineId: "rescue_standard" },
     { id: "bows", name: "Morningwall Slingers", faction: BANNERS, role: "skirmish", hex: { q: 2, r: 4 }, strength: 62, cohesion: 68, resolve: 0, doctrineId: "rescue_standard" },
-    { id: "lances", name: "Brightcrag Riders", faction: BANNERS, role: "cavalry", hex: { q: 1, r: 1 }, strength: 68, cohesion: 64, resolve: 0, doctrineId: BTW },
+    { id: "lances", name: "Brightcrag Riders", faction: BANNERS, role: "cavalry", hex: { q: 1, r: 1 }, strength: 68, cohesion: 64, resolve: 1, doctrineId: BTW },
     { id: "riders", name: "Sunward Lances", faction: BANNERS, role: "cavalry", hex: { q: 1, r: 6 }, strength: 72, cohesion: 66, resolve: 2, doctrineId: BTW },
     { id: "slingers", name: "Heronwick Bows", faction: BANNERS, role: "skirmish", hex: { q: 2, r: 6 }, strength: 64, cohesion: 70, resolve: 2, doctrineId: BTW },
 
