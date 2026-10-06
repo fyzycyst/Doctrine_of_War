@@ -15,9 +15,12 @@
 // army, which the battle's 14 Host companies turn into a real difference (docs/CAMPAIGN.md).
 // Registered in the First Call pack (packs/registry.ts), not in the intro's scenario list.
 import type { EngineScenario } from "../types";
-import { GREYFORD_GATE, greyfordGateBoard as board } from "./greyfordGate.board";
+import { GREYFORD_GATE, greyfordGateBoard } from "./greyfordGate.board";
 
 export { GREYFORD_GATE };
+
+// The finale's deployment: the Banners on the bank west of the field, the Host before the wall.
+const board = greyfordGateBoard();
 
 const BANNERS = "free_banners" as const;
 const HOST = "ashen_host" as const;
