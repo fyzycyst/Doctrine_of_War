@@ -1,56 +1,23 @@
 // Cinder Road, battle 6, the finale: Break the Strongpoint. The Banners come back to Greyford
 // Gate, where the intro began, and this time the Host holds it: the Kept Coal's main body, the
-// sworn who carry live coals from the first kiln, stand before the gate. The whole army may
-// take the field. Lesson (combined arms on the attack; the tutorial's three families turned
-// round): the Advance breaks the gate, the banners carry the assault through the Kept Coal's
-// dread and the sworn's blows, and the counterstroke cuts down the sallies from the works. A
-// bare assault breaks on the gate; banners without a screen are cut down by the sallies.
+// sworn who carry live coals from the first kiln, stand before the gate, and every Host company
+// here is sworn (Resolve 3: they do not waver). The whole army takes the field.
+// Lesson (the Advance and the standards; First Breach turned round): the march breaks the gate,
+// and a banner carried with the assault keeps it on its feet. The sworn line and the No Step
+// Back flanks grind the assault at the gate, so without a banner every company falls back
+// (Bring the Water steadies below 30 cohesion) before the gate breaks. The Kept Coal's dread,
+// on the ash-wind, hits the less famous companies hardest. Roles (by function, declared on the
+// battle sheet): the breach (a company strikes the gate; only Bring the Water can) and the banner
+// (a rally near the gate; only Rescue Standard rallies). The intended plan carries two banners;
+// one is an accepted filler (roster-dependent: a veteran army needs only one).
+// The Banners' squads are authored at fame 17, not the curated path's: the Roll's threat then
+// never eases the sworn's Resolve, and hardens the Host by +12 strength a company for a famous
+// army, which the battle's 14 Host companies turn into a real difference (docs/CAMPAIGN.md).
 // Registered in the First Call pack (packs/registry.ts), not in the intro's scenario list.
-import type { BoardHex, BoardLayout, TerrainType } from "../../board";
 import type { EngineScenario } from "../types";
+import { GREYFORD_GATE, greyfordGateBoard as board } from "./greyfordGate.board";
 
-const WIDTH = 9;
-const HEIGHT = 8;
-/** Greyford Wall runs down the eastern edge; the gate is in it, on the Gate Road. */
-const WALL_Q = 8;
-export const GREYFORD_GATE = { q: 8, r: 3 };
-const ROAD_R = 3;
-
-const special: Record<string, { terrain: TerrainType; label?: string }> = {
-  // The Banners' bank of the Grey: First Breach's River Ford, crossed the other way.
-  "0,2": { terrain: "ford", label: "River Ford" },
-  "0,3": { terrain: "ford" },
-  "2,0": { terrain: "ridge", label: "North Ridge" },
-  "3,0": { terrain: "ridge" },
-  // The Host's works before the wall: the sallies wait in them.
-  "7,0": { terrain: "ruin", label: "Broken Watch" },
-  "7,7": { terrain: "ruin", label: "South Works" },
-  "6,3": { terrain: "road", label: "Siege Approach" },
-  "8,3": { terrain: "wall", label: "Greyford Gate" },
-};
-
-function hexAt(q: number, r: number): BoardHex {
-  const key = `${q},${r}`;
-  const override = special[key];
-  const terrain: TerrainType = override?.terrain ?? (q === WALL_Q ? "wall" : q === 0 ? "river" : r === ROAD_R ? "road" : "field");
-  const label = override?.label ?? (q === WALL_Q ? "Greyford Wall" : q === 0 ? "The Grey" : r === ROAD_R && q === 1 ? "Gate Road" : undefined);
-  return {
-    coord: { q, r },
-    terrain,
-    ...(label ? { label } : {}),
-    ...(key === "8,3" ? { objectiveId: "greyford_gate" } : {}),
-    ...(q >= 1 && q <= 2 ? { deploymentFaction: "free_banners" as const } : {}),
-    ...(q >= 5 && q < WALL_Q ? { deploymentFaction: "ashen_host" as const } : {}),
-  };
-}
-
-const board: BoardLayout = {
-  width: WIDTH,
-  height: HEIGHT,
-  // A ford of the Grey by daylight: no burning bridge wrecks.
-  fordDressing: "none",
-  hexes: Array.from({ length: WIDTH }, (_, q) => Array.from({ length: HEIGHT }, (_, r) => hexAt(q, r))).flat(),
-};
+export { GREYFORD_GATE };
 
 const BANNERS = "free_banners" as const;
 const HOST = "ashen_host" as const;
@@ -60,17 +27,19 @@ export const cinderRoad6: EngineScenario = {
   id: "cinder_road_greyford_gate",
   title: "Break the Strongpoint",
   briefing:
-    "We are back where it began: Greyford Gate. This time the Host holds it, and the Kept Coal stand before it, " +
-    "the sworn who carry coals from the first kiln. Every company that first sees them will feel it. " +
-    "Bring the whole army. Break the gate, keep the banners up with the assault, and cut down whatever comes out of the works at it. " +
-    "Lose three companies and the attack breaks.",
+    "We are back where it began: Greyford Gate. This time the Host holds it. The Kept Coal stand before the gate with coals from the first kiln, " +
+    "and every company on that wall is sworn: they do not waver, and they do not step back. " +
+    "An assault that reaches the gate will be ground down there; only the standards keep a broken assault on its feet, so carry the banners with it. " +
+    "Their coals smoke on the wind all day, and the companies that have seen least will feel the Kept Coal most. " +
+    "Bring the whole army, break the gate, and do not lose three companies.",
   playerFaction: BANNERS,
   initiativeSide: BANNERS,
   maxPhases: 9,
   timeOfDay: "day",
-  // The Kept Coal's coals smoke on the wind: ash-wind all day (dread from the Host x1.5).
+  // The Kept Coal's coals smoke on the wind: ash-wind all day (dread from the Host x1.5; it
+  // bites the less famous companies, which are below the sworn's Resolve).
   forecast: { start: "ashWind", shiftChance: 0, shifts: ["ashWind"] },
-  curatedSeed: 1,
+  curatedSeed: 18,
   board,
   objectives: [
     {
@@ -85,10 +54,12 @@ export const cinderRoad6: EngineScenario = {
   playerDoctrineIds: ["bring_the_water", "shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke", "hold_for_dawn"],
   squads: [
     // The posts of the Cinder Road call (squad id = slot id): the whole army.
-    // Authored at fame 16, the recovery ("rough") force's, not the curated path's 30: the
-    // Roll's threat then never eases the Host (the sworn's Resolve stays 3 on every call, as
-    // the lore has it: they do not waver) and hardens it for a famous army (+2 strength a
-    // fame point, capped at +12). The Roll replaces these with the companies it fields.
+    // Authored at fame 17, the recovery ("rough") force's, not the curated path's 30: the
+    // Roll's threat then never eases the sworn's Resolve (it stays 3 on every call: they do not
+    // waver) and hardens the Host for a famous army (+2 strength a fame point, capped at +12).
+    // The Roll replaces these with the companies it fields. The banners stand in the front row
+    // with the vans: Rescue Standard only moves when an ally falls below 50, so a banner posted
+    // behind the march arrives after the assault has already broken.
     { id: "north_van", name: "Coldwater Shields", faction: BANNERS, role: "frontline", hex: { q: 2, r: 2 }, strength: 84, cohesion: 74, resolve: 3, doctrineId: BTW },
     { id: "gate_van", name: "Ferrymoot Pikes", faction: BANNERS, role: "frontline", hex: { q: 1, r: 3 }, strength: 80, cohesion: 70, resolve: 3, doctrineId: BTW },
     { id: "road_van", name: "Sedgewick Levy", faction: BANNERS, role: "frontline", hex: { q: 1, r: 4 }, strength: 72, cohesion: 64, resolve: 3, doctrineId: BTW },
@@ -106,8 +77,8 @@ export const cinderRoad6: EngineScenario = {
     { id: "north_wardens", name: "Coalward North", faction: HOST, role: "frontline", hex: { q: 7, r: 1 }, strength: 14, cohesion: 56, resolve: 3, doctrineId: "no_step_back" },
     { id: "south_wardens", name: "Coalward South", faction: HOST, role: "frontline", hex: { q: 7, r: 6 }, strength: 14, cohesion: 56, resolve: 3, doctrineId: "no_step_back" },
     // The sworn line before the gate: the assault must break it, then the gate.
-    { id: "gate_ward", name: "Coal-Bearers", faction: HOST, role: "frontline", hex: { q: 6, r: 3 }, strength: 14, cohesion: 60, resolve: 3, doctrineId: "no_step_back" },
-    { id: "coal_bearers", name: "Kiln Sworn", faction: HOST, role: "frontline", hex: { q: 6, r: 4 }, strength: 14, cohesion: 60, resolve: 3, doctrineId: "no_step_back" },
+    { id: "gate_ward", name: "Ashbound Gate-Ward", faction: HOST, role: "frontline", hex: { q: 6, r: 3 }, strength: 14, cohesion: 60, resolve: 3, doctrineId: "no_step_back" },
+    { id: "coal_bearers", name: "Coal-Bearers", faction: HOST, role: "frontline", hex: { q: 6, r: 4 }, strength: 14, cohesion: 60, resolve: 3, doctrineId: "no_step_back" },
     // The sallies: out of the works at whoever reaches the wall.
     { id: "pyre_sworn", name: "Pyre-Sworn", faction: HOST, role: "frontline", hex: { q: 7, r: 0 }, strength: 24, cohesion: 60, resolve: 3, doctrineId: "terror_push" },
     { id: "cindermaw_thralls", name: "Cinder-Born", faction: HOST, role: "frontline", hex: { q: 7, r: 7 }, strength: 20, cohesion: 54, resolve: 3, doctrineId: "terror_push" },
@@ -130,7 +101,7 @@ export const cinderRoad6: EngineScenario = {
   defeatConditions: [{ kind: "squadsLost", count: 3 }],
   timeoutOutcome: "defeat",
   referencePlans: {
-    // The march breaks the gate; two banners carry it through the dread and the sworn's blows.
+    // The march breaks the gate; two banners keep it on its feet at the gate.
     intended: {
       north_van: BTW,
       gate_van: BTW,
@@ -142,7 +113,19 @@ export const cinderRoad6: EngineScenario = {
       riders: BTW,
       slingers: BTW,
     },
-    // The bare assault: everyone at the gate.
+    // The accepted filler (tracked, never gated): one banner, the standard, with the march.
+    alternative: {
+      north_van: BTW,
+      gate_van: BTW,
+      road_van: BTW,
+      south_van: BTW,
+      standard: "rescue_standard",
+      bows: BTW,
+      lances: BTW,
+      riders: BTW,
+      slingers: BTW,
+    },
+    // The bare assault: everyone at the gate, no banner.
     bad: {
       north_van: BTW,
       gate_van: BTW,
