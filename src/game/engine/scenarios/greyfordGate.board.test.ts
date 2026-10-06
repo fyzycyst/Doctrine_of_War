@@ -20,5 +20,7 @@ describe("the Greyford Gate board", () => {
     expect(() => greyfordGateBoard({ bannerZone: ({ q, r }) => q === 2 && r === 2, hostZone: ({ q }) => q === 2 })).toThrow(/2,2 is in both deployment zones/);
     expect(() => greyfordGateBoard({ bannerZone: ({ q }) => q === 0 })).toThrow(/0,0 \(river\) cannot be a deployment hex/);
     expect(() => greyfordGateBoard({ hostZone: ({ q }) => q === 8 })).toThrow(/\(wall\) cannot be a deployment hex/);
+    // A battle with no objective at the gate (the pursuit) leaves the hex untagged.
+    expect(greyfordGateBoard({ gateObjective: false }).hexes.filter((hex) => hex.objectiveId)).toEqual([]);
   });
 });

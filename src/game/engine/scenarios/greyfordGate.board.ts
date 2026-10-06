@@ -32,6 +32,13 @@ export interface GreyfordGateZones {
   bannerZone?: DeploymentZone;
   /** Default (the finale): q 5-7, before the wall. */
   hostZone?: DeploymentZone;
+  /**
+   * Default true: (8,3) carries `objectiveId: "greyford_gate"` (the finale's target). A battle
+   * that declares no objective there (the pursuit) passes false, or pack lint rejects the
+   * unknown id. Render draws the gatehouse and its banner only on an objective hex, so without
+   * it the gate is plain wall.
+   */
+  gateObjective?: boolean;
 }
 
 const FINALE_BANNERS: DeploymentZone = ({ q }) => q >= 1 && q <= 2;
@@ -65,7 +72,7 @@ export function greyfordGateBoard(zones: GreyfordGateZones = {}): BoardLayout {
         coord,
         terrain,
         ...(label ? { label } : {}),
-        ...(q === GREYFORD_GATE.q && r === GREYFORD_GATE.r ? { objectiveId: "greyford_gate" } : {}),
+        ...(zones.gateObjective !== false && q === GREYFORD_GATE.q && r === GREYFORD_GATE.r ? { objectiveId: "greyford_gate" } : {}),
         ...(side ? { deploymentFaction: side } : {}),
       });
     }
