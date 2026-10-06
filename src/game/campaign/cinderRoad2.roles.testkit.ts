@@ -21,11 +21,15 @@ export const SEEDS = 40;
 const RAM = "kiln_ram";
 export const BTW = "bring_the_water";
 /**
- * The share of an unfilled plan's games that may still touch the role by accident (a stray
- * engagement with the ram, e.g. rushing cavalry crossing its path: up to 5.5% on one call).
- * More than this and the plan is misclassified: it is filling the role, not leaving it.
+ * The share of an unfilled plan's games that may still touch the role by accident; more
+ * than this and the plan is misclassified: it is filling the role, not leaving it. Tight
+ * without muster and with the heuristic (at most 1 stray game in 500 on the gate seeds), so
+ * a regression still shows; looser against the rush, whose cavalry can run into the ram
+ * (7.2% on one call).
  */
-export const UNFILLED_SLACK = 0.1;
+export function unfilledSlack(muster: Muster): number {
+  return muster === "rush" || muster === "rush the march" ? 0.1 : 0.05;
+}
 
 /** The player's two-step muster that puts the keepers on the Sluice Walk (phase 1, then 2). */
 const ONTO_THE_WALK: Record<number, HexCoord> = { 1: { q: 6, r: 2 }, 2: SLUICE_WALK };
