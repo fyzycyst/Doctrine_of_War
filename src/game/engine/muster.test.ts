@@ -345,6 +345,27 @@ describe("the harness's muster", () => {
     expect(moves).toEqual([{ squadId: "fresh", relieve: "worn" }]);
   });
 
+  it("in an escape battle whose column has already got out, still steps idle companies for the line of retreat (unchanged)", () => {
+    // The Saltmarsh Column after the column escapes: the old behaviour stands (no-column posts are only for attacks on the roads).
+    const exit = { q: 0, r: 2 };
+    const scen = scenario({
+      maxPhases: 2,
+      board: openBoard(9, 5),
+      winCondition: { kind: "escapeEdge", edgeHexes: [exit], count: 1 },
+      squads: [
+        squad("column", FB, { q: 1, r: 1 }, { noncombatant: true, doctrineId: "keep_the_column_moving" }),
+        squad("idle", FB, { q: 8, r: 4 }),
+        squad("h", AH, { q: 2, r: 4 }),
+      ],
+    });
+    const state = createInitialState(scen, { fortune: "off" });
+    const column = state.squads.find((item) => item.id === "column")!;
+    column.status = "escaped";
+    column.hex = null;
+    const idle = heuristicMuster(state, scen).find((move) => move.squadId === "idle");
+    expect(idle && "to" in idle && hexDistance(idle.to, exit)).toBeLessThan(hexDistance({ q: 8, r: 4 }, exit));
+  });
+
   it("is a legal muster in every battle, every phase (it reads only the player's view)", () => {
     for (const seed of [1, 2, 3]) {
       expect(() => playBattle(saltmarshColumn, saltmarshColumn.referencePlans!.intended, seed, "on", "heuristic")).not.toThrow();
