@@ -1,7 +1,7 @@
 // Dev-only URL boot for the scenario picker and screenshot capture. Production always
 // starts at the title screen (flowStore); `?screen=campaign|ending` opens those in dev.
 //
-//   ?scenario=emberFord    pick a scenario (id or camelCase name)
+//   ?scenario=emberFord    pick a scenario: any registry id (any case), or cinderRoad2 = a campaign's battle 2
 //   &fortune=off &seed=7   battle setup
 //   &stage=deploy|command|resolving|report|outcome   fast-forward (orders: &plan=intended|bad)
 //   &phase=2               which phase to stop in (command, resolving, report)
@@ -12,7 +12,8 @@
 //   &guide=reset | &coach=select|read|assign|seal|watch|chronicle | &howto=1   guidance
 //   &help=play|doctrines|companies|call|modes|editor|controls   the Field Manual on a page (T26)
 //   &callHelp=seen|open    Call the Banners' "How the call works" (T25)
-import { scenarios, type EngineScenario } from "../game/engine";
+import type { EngineScenario } from "../game/engine";
+import { registry } from "../game/packs";
 import { campaignAfter } from "./flow/devCampaign";
 import { useFlow } from "./flow/flowStore";
 import { COACH_STEPS, useGuide, type CoachStep } from "./guide/guideStore";
@@ -31,8 +32,24 @@ export interface BootOptions {
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-function findScenario(key: string | null): EngineScenario | undefined {
-  return key ? scenarios.find((item) => normalize(item.id) === normalize(key)) : undefined;
+/**
+ * `?scenario=`: any scenario in the packs registry, by id (any case or punctuation:
+ * `emberFord`, `cinder_road_wagon_park`), or a campaign battle by number (`cinderRoad2`).
+ */
+export function findScenario(key: string | null): EngineScenario | undefined {
+  if (!key) return undefined;
+  const wanted = normalize(key);
+  const byId = registry.scenarios().find((item) => normalize(item.id) === wanted);
+  if (byId) return byId;
+  for (const pack of registry.packs) {
+    for (const campaign of pack.campaigns) {
+      const match = wanted.match(/^(.*?)(\d+)$/);
+      if (!match || match[1] !== normalize(campaign.id)) continue;
+      const battle = campaign.battles[Number(match[2]) - 1];
+      if (battle && !battle.placeholder) return registry.scenario(battle.scenarioId);
+    }
+  }
+  return undefined;
 }
 
 const ORDER: Stage[] = ["briefing", "deploy", "command", "resolving", "report", "outcome"];
