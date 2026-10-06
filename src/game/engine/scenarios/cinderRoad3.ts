@@ -75,9 +75,9 @@ export const cinderRoad3: EngineScenario = {
   initiativeSide: "free_banners",
   maxPhases: 7,
   timeOfDay: "day",
-  // Fortune-on seed for the first playthrough and video capture: a clean win in the rain,
-  // no company lost, the Mill Road guard breaking the Scorchmark Spears as they climb out.
-  curatedSeed: 50,
+  // Fortune-on seed for the first playthrough and video capture: a clean win by daylight, no
+  // company lost, the Mill Road guard breaking the Scorchmark Spears as they climb out.
+  curatedSeed: 181,
   board,
   objectives: [],
   playerDoctrineIds: ["open_the_road", "bring_the_water", "shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke"],
@@ -92,7 +92,7 @@ export const cinderRoad3: EngineScenario = {
 
     // The road heads: the Host stands where the far-bank roads leave the ford's ground. The
     // Ashpit Wardens only bar the lane (Lie in Wait): a worn column must still get through.
-    { id: "cinderwake_spears", name: "Cinderwake Spears", faction: "ashen_host", role: "frontline", hex: { q: 0, r: 1 }, strength: 40, cohesion: 50, resolve: 0, doctrineId: "no_step_back" },
+    { id: "cinderwake_spears", name: "Cinderwake Spears", faction: "ashen_host", role: "frontline", hex: { q: 0, r: 1 }, strength: 34, cohesion: 46, resolve: 0, doctrineId: "no_step_back" },
     { id: "ashpit_wardens", name: "Ashpit Wardens", faction: "ashen_host", role: "frontline", hex: { q: 0, r: 2 }, strength: 30, cohesion: 44, resolve: 0, doctrineId: "lie_in_wait" },
     { id: "chapel_stalkers", name: "Chapel Stalkers", faction: "ashen_host", role: "skirmish", hex: { q: 1, r: 0 }, strength: 46, cohesion: 60, resolve: 0, doctrineId: "lie_in_wait" },
     // The reserve at the Mill Ford: it crosses at our back once we commit.

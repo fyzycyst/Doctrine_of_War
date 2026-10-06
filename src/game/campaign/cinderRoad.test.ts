@@ -5,6 +5,7 @@ import { scenarios as introScenarios } from "../engine/scenarios";
 import { hexDistance } from "../board";
 import { cinderRoad1, HERON_STAIR } from "../engine/scenarios/cinderRoad1";
 import { cinderRoad3, FAR_BANK_ROADS, NEAR_BANK_ROADS } from "../engine/scenarios/cinderRoad3";
+import { LEAVE, STAY, WATCH } from "./cinderRoad3.roles.testkit";
 import { advanceRate } from "../engine/testKit";
 import { registry } from "../packs/registry";
 import { HOST_RESOLVE_CAP, HOST_STRENGTH_CAP, recordBattle, startCampaign } from "./campaign";
@@ -138,25 +139,26 @@ describe("Open a Road (Cinder Road, battle 3)", () => {
     }
   });
 
-  it("calls six named posts with two flex posts on the Mill Ford watch, from the army as battle 1 left it", () => {
+  it("calls six named posts, one flex (the Mill Ford), from the army as battles 1-2 left it", () => {
     const state = curatedRollState(cinderRoad, scenarios, index);
     expect(state.history.map((entry) => entry.battleId)).toEqual(cinderRoad.battles.slice(0, index).map((battle) => battle.id));
     const slots = rollSlots(cinderRoad, state, cinderRoad3);
     expect(slots.map((slot) => slot.label)).toEqual(["The Cinder Ford", "The Ferry Road", "The North Bank", "Watcher's Rise", "The Mill Road", "The Mill Ford"]);
-    expect(slots.filter((slot) => slot.flex).map((slot) => slot.slotId)).toEqual(["lances", "bows"]);
+    expect(slots.filter((slot) => slot.flex).map((slot) => slot.slotId)).toEqual(["bows"]);
     expect(Object.keys(recommendedForce(cinderRoad, state, cinderRoad3))).toEqual(slots.map((slot) => slot.slotId));
   });
 
-  it("each doctrine family earns its place in the intended plan (ablation >= 15 points, no muster)", () => {
+  it("each role earns its place: replacing its doctrine with the best one that leaves it unfilled costs >= 15 points (no muster)", () => {
     const base = advanceRate(cinderRoad3, plans.intended);
     expect(base).toBeGreaterThanOrEqual(0.75);
-    // The Advance: no other doctrine takes the roads. Fighting Withdrawal gives ground from
-    // every guard; Bring the Water has no objective to march on; Counterstroke waits.
-    for (const doctrineId of ["fighting_withdrawal", "bring_the_water", "clean_counterstroke"]) {
-      expect(base - advanceRate(cinderRoad3, columnOn(doctrineId)), doctrineId).toBeGreaterThanOrEqual(0.15);
-    }
-    // The wall: a Mill Ford watch that marches too leaves the Mill Road to the reserve.
-    expect(base - advanceRate(cinderRoad3, { ...plans.intended, lances: "open_the_road", bows: "open_the_road" })).toBeGreaterThanOrEqual(0.15);
+    // The march (the column takes the far-bank roads): no other doctrine takes them. Fighting
+    // Withdrawal gives ground from every guard; Bring the Water has no objective to march on;
+    // the others wait.
+    const march = Math.max(...STAY.map((doctrineId) => advanceRate(cinderRoad3, columnOn(doctrineId))));
+    expect(base - march).toBeGreaterThanOrEqual(0.15);
+    // The guard (the Mill Road kept): a watch that leaves it lets the reserve through.
+    const guard = Math.max(...LEAVE.map((doctrineId) => advanceRate(cinderRoad3, { ...plans.intended, ...Object.fromEntries(WATCH.map((id) => [id, doctrineId])) })));
+    expect(base - guard).toBeGreaterThanOrEqual(0.15);
     expect(advanceRate(cinderRoad3, plans.bad)).toBeLessThanOrEqual(0.1);
     // The pure march, however strong, leaves the Mill Road open behind it.
     const allMarch = Object.fromEntries(Object.keys(plans.intended).map((id) => [id, "open_the_road"]));

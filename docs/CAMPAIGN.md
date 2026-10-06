@@ -406,7 +406,7 @@ waits on the weir bank (3,0) and the park's integrity is 44, so a march that mis
 shallows cannot reach the ram by the walk before it strikes. Signed off on `signoff3`
 (300001–300500); the battle sheet has the numbers and why the earlier ranges are burned.
 
-**Battle 3, *Open a Road*** (`engine/scenarios/cinderRoad3.ts`, M2 C3): Ember Ford's own
+**Battle 3, *Open a Road*** (`engine/scenarios/cinderRoad3.ts`, C3): Ember Ford's own
 ground by daylight, crossed the other way. The Banners deploy on the same east bank as on
 the night of the burning bridges and cross west; the far-bank road now runs on to the west
 edge, where it forks into the Cinder Road and the Ashpit Lane. Goal: `escapeEdge`, 2
@@ -417,14 +417,20 @@ Chapel Stalkers rise from the Burnt Chapel on Cull the Weak in phase 3; the rese
 Scorchmark Spears, the Kilnbrand Raiders) waits opposite the Mill Ford and wades over on
 Through the Embers in phase 2 for the Mill Road. Posts (authored labels): the Cinder Ford,
 the Ferry Road and the North Bank (frontline), Watcher's Rise (the standard, support), the
-Mill Road (cavalry, flex: frontline) and the Mill Ford (skirmish, flex: frontline).
-Intended plan: **Open the Road** (the Advance, the star; a new data-only doctrine that
-marches on the exits) on the three frontline posts and the standard; Shield the Line on
-the Mill Road and the Mill Ford. The bad plan is last battle's star misapplied: everyone on
-Bring the Water, which has no objective to march on and stands on the bank. The pure march
-(everyone on Open the Road) leaves the Mill Road open and loses to the reserve. Curated
-seed 50: won in phase 5 in the rain with no company lost, the Mill Road guard breaking the
-Scorchmark Spears. Numbers are in docs/ENGINE.md.
+Mill Road (cavalry) and the Mill Ford (skirmish, flex: frontline). The Mill Road is not
+flex: a sturdy frontline company there, rushed west with the column, wades the Mill Ford and
+pins the reserve in the water by accident, and the pure march would then skip the guard.
+Roles, by function: **the march** (the column) gets companies onto the far-bank roads (Open
+the Road on the three frontline posts and the standard); **the guard** keeps the Mill Road:
+a company stands on it when the reserve comes up beside it, or fights the reserve on our
+bank before any Host company gets through. Accepted guards: Shield the Line (intended);
+Clean Counterstroke (the tracked alternative), which waits and strikes the crossers; and
+any doctrine that stays where it was posted (Bring the Water, with nothing to march on;
+Rescue Standard, with no one to rally), position-dependent. The guard is left unfilled by
+a watch that leaves the Mill Road (Open the Road, Fighting Withdrawal) and by the pure
+march. Bad plan: everyone on Bring the Water (last battle's star misapplied: no objective to
+march on). Curated seed 181: won in phase 3, no company lost, the Mill Road guard breaking
+the Scorchmark Spears. Numbers are in docs/ENGINE.md and on the battle sheet.
 
 ## Saves
 

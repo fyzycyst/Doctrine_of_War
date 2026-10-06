@@ -111,9 +111,11 @@ export const cinderRoad: CampaignDefinition = {
           lances: "The Mill Road",
           bows: "The Mill Ford",
         },
-        // Two flex posts, both on the Mill Ford watch: a frontline company may hold either.
+        // One flex post on the Mill Ford watch: a frontline company may hold the Mill Ford. The
+        // Mill Road stays cavalry: a sturdy frontline there, rushed west with the column, wades
+        // the Mill Ford and pins the reserve in the water by accident (the pure march then
+        // skips the guard; docs/CAMPAIGN.md, the role rule).
         flex: {
-          lances: { roles: ["cavalry", "frontline"], doctrines: { cavalry: "shield_the_line", frontline: "shield_the_line" } },
           bows: { roles: ["skirmish", "frontline"], doctrines: { skirmish: "shield_the_line", frontline: "shield_the_line" } },
         },
       },
