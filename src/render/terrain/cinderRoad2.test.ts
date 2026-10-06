@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { hexKey, type BoardLayout, type HexCoord } from "../../game/board";
 import { closeShotOn, wideShotFor, type CameraShot } from "../camera/shots";
 import { boardCenter, hexToWorld } from "../hexWorld";
-import { C2_SLUICE, C2_SLUICE_WALK, C2_WAGON_PARK, cinderRoad2LabBoard as board } from "../lab/cinderRoad2Lab";
+import { cinderRoad2, SLUICE_WALK as C2_SLUICE_WALK, WAGON_PARK as C2_WAGON_PARK, WEIR_SLUICE as C2_SLUICE } from "../../game/engine/scenarios/cinderRoad2";
+import { dioramaSquads, objectiveStagesFor } from "../fromEngine";
 import { emberDusk } from "../skins";
 import { buildIsland } from "./buildIsland";
 import { nearestRoadGoal, roadGoal } from "./objectiveProps";
@@ -20,7 +21,31 @@ function ndc(shot: CameraShot, b: BoardLayout, hex: HexCoord, aspect = 1.6) {
 }
 const inFrame = (p: THREE.Vector3, margin = 0.9) => Math.abs(p.x) < margin && Math.abs(p.y) < margin;
 
-describe("Cinder Road 2 (lab copy of engine #2's board)", () => {
+const board = cinderRoad2.board;
+
+describe("Cinder Road 2 (engine #2's board)", () => {
+  it("deploys the Banners east of the river below the race and the Host west of it", () => {
+    for (const hex of board.hexes) {
+      const banners = hex.coord.q >= 5 && hex.coord.r >= 2 && hex.terrain !== "river";
+      expect(hex.deploymentFaction, hexKey(hex.coord)).toBe(banners ? "free_banners" : hex.coord.q <= 3 ? "ashen_host" : undefined);
+    }
+    // The keepers stand on the Weir Road two steps below the Sluice Walk; the ram starts across the river.
+    const at = new Map(dioramaSquads(cinderRoad2.squads).map((s) => [s.id, hexKey(s.hex)]));
+    expect(at.get("keepers")).toBe("6,3");
+    expect(at.get("kiln_ram")).toBe("2,0");
+  });
+
+  it("goes from intact to broken in one ram blow; a lesser hit still shows battered", () => {
+    // Sluice integrity 16: the ram's blow takes all of it, so the battered stage is skipped
+    // there (the hit's spray and stone chips play, then it is breached).
+    const setups = cinderRoad2.objectives;
+    const sluice = (integrity: number) => objectiveStagesFor([{ id: "weir_sluice", hex: C2_SLUICE, integrity }], setups);
+    expect(setups.find((o) => o.id === "weir_sluice")?.integrity).toBe(16);
+    expect(sluice(16)).toEqual([]);
+    expect(sluice(0)).toEqual([{ hex: C2_SLUICE, stage: "broken" }]);
+    expect(sluice(10)).toEqual([{ hex: C2_SLUICE, stage: "battered" }]);
+  });
+
   it("leads the roads to the Host's wagon park, each track to its nearest objective", () => {
     expect(hexKey(roadGoal(board)!)).toBe(hexKey(C2_WAGON_PARK));
     // The Wagon Track runs to the park; the Weir Road to the sluice.
