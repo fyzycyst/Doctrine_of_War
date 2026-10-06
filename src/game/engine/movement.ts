@@ -159,11 +159,13 @@ function fallBackScore(threats: ActiveSquad[], hex: HexCoord, homeward: HexCoord
 }
 
 /**
- * Path (including the start hex) for falling back up to `hexes` steps. Each step goes
- * to the neighbor that most increases distance from the enemy (nearest enemy first,
- * then total distance). Zones of control do not apply; disengaging is the point.
+ * The withdrawal (including the start hex, not cut short) a squad would plan, up to `hexes`
+ * steps. Each step goes to the neighbor that most increases distance from the enemy
+ * (nearest enemy first, then total distance). Zones of control do not apply; disengaging
+ * is the point. Planned on what the squad knows (C5): the hexes of enemies it cannot see
+ * (`unseen`) count as open ground; meeting one is planFallBack's business.
  */
-export function planFallBack(
+export function planWithdrawal(
   state: EngineState,
   board: BoardLayout,
   squad: ActiveSquad,
@@ -172,11 +174,14 @@ export function planFallBack(
   threats: ActiveSquad[],
   /** The side's line of retreat (its exit hexes, if it has any): a withdrawal leans toward it. */
   homeward: HexCoord[] = [],
+  unseen: HexCoord[] = [],
 ): HexCoord[] {
   const path: HexCoord[] = [{ ...squad.hex }];
   if (threats.length === 0) {
     return path;
   }
+  const hidden = new Set(unseen.map(hexKey));
+  const plannable = (hex: HexCoord) => canEnter(state, board, hex) || (hidden.has(hexKey(hex)) && canStandOn(state, board, hex));
 
   for (let step = 0; step < hexes; step += 1) {
     const current = path[path.length - 1];
@@ -185,7 +190,7 @@ export function planFallBack(
 
     for (const neighbor of boardNeighbors(board, current)) {
       const visitedAlready = path.some((hex) => sameHex(hex, neighbor.coord));
-      if (visitedAlready || !canEnter(state, board, neighbor.coord)) {
+      if (visitedAlready || !plannable(neighbor.coord)) {
         continue;
       }
       const score = fallBackScore(threats, neighbor.coord, homeward);
@@ -202,6 +207,27 @@ export function planFallBack(
     if (slowedByWeather(state, board, best)) {
       break;
     }
+  }
+  return path;
+}
+
+/**
+ * Path (including the start hex) for falling back up to `hexes` steps along planWithdrawal,
+ * stopping short of a hex an unseen enemy stands on (contact: it was planned through).
+ */
+export function planFallBack(
+  state: EngineState,
+  board: BoardLayout,
+  squad: ActiveSquad,
+  hexes: number,
+  threats: ActiveSquad[],
+  homeward: HexCoord[] = [],
+  unseen: HexCoord[] = [],
+): HexCoord[] {
+  const path: HexCoord[] = [{ ...squad.hex }];
+  for (const hex of planWithdrawal(state, board, squad, hexes, threats, homeward, unseen).slice(1)) {
+    if (squadAt(state, hex)) break;
+    path.push(hex);
   }
   return path;
 }

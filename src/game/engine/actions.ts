@@ -3,7 +3,7 @@
 import { boardNeighbors, getHex, hexDistance, terrainDefenseBonus, type HexCoord, type TerrainType } from "../board";
 import { checkRout, clamp, type EngineContext } from "./context";
 import { firstContact } from "./fortune";
-import { planAdvance, planFallBack, planRoute } from "./movement";
+import { planAdvance, planFallBack, planRoute, planWithdrawal } from "./movement";
 import { exitHexesFor } from "./outcome";
 import { perceive, perceivedAdjacentEnemies } from "./perception";
 import { resolveTarget, type ResolvedTarget } from "./rules";
@@ -234,6 +234,12 @@ export function routeFor(ctx: EngineContext, squad: ActiveSquad, target: Resolve
   return planRoute(ctx.state, ctx.scenario.board, squad, goalsFor(ctx, target), unseenEnemyHexes(ctx, squad));
 }
 
+/** The path a squad would fall back along (the fog path property checks it never depends on unseen enemies). */
+export function fallBackPlanFor(ctx: EngineContext, squad: ActiveSquad, hexes: number): HexCoord[] {
+  const homeward = exitHexesFor(ctx.scenario, squad.faction) ?? [];
+  return planWithdrawal(ctx.state, ctx.scenario.board, squad, hexes, perceive(ctx, squad).enemies, homeward, unseenEnemyHexes(ctx, squad));
+}
+
 /** Moves along the planned path. Returns false if the squad could not move at all. */
 function moveToward(
   ctx: EngineContext,
@@ -368,7 +374,7 @@ export function executeAction(ctx: EngineContext, squad: ActiveSquad, action: Ac
 
     case "fallBack": {
       const homeward = exitHexesFor(ctx.scenario, squad.faction) ?? [];
-      const path = planFallBack(ctx.state, ctx.scenario.board, squad, action.hexes, perceive(ctx, squad).enemies, homeward);
+      const path = planFallBack(ctx.state, ctx.scenario.board, squad, action.hexes, perceive(ctx, squad).enemies, homeward, unseenEnemyHexes(ctx, squad));
       if (path.length < 2) {
         // Cornered: nowhere to go, so the squad stands and braces.
         hold(ctx, squad);

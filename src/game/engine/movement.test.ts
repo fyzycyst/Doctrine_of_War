@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { executeAction } from "./actions";
-import { canEnter, planAdvance, planFallBack, planRoute } from "./movement";
+import { canEnter, planAdvance, planFallBack, planRoute, planWithdrawal } from "./movement";
 import { actionContext, kinds, openBoard, scenario, squad } from "./testKit";
 
 const FB = "free_banners" as const;
@@ -131,5 +131,21 @@ describe("movement", () => {
     expect(planRoute(hidden.state, board, hidden.get("a"), [goal])).not.toEqual(route);
     // Walking it, the mover runs into the enemy: it stops on entering its zone of control.
     expect(planAdvance(hidden.state, board, hidden.get("a"), [goal], 5, [unseen]).at(-1)).toEqual({ q: 2, r: 1 });
+  });
+
+  it("plans a two-hex fallback through an unseen enemy as open ground (C5 fog), and stops short on contact", () => {
+    // The warden's case in miniature: an enemy the squad cannot see stands on its best second step.
+    const board = openBoard(7, 5);
+    const unseen = { q: 5, r: 2 };
+    const clear = actionContext(scenario({ board, squads: [squad("fw", FB, { q: 3, r: 2 }), squad("t", AH, { q: 1, r: 2 })] }));
+    const hidden = actionContext(scenario({ board, squads: [squad("fw", FB, { q: 3, r: 2 }), squad("t", AH, { q: 1, r: 2 }), squad("h", AH, unseen)] }));
+    const threats = [clear.get("t")];
+    const plan = planWithdrawal(clear.state, board, clear.get("fw"), 2, threats);
+    expect(plan).toEqual([{ q: 3, r: 2 }, { q: 4, r: 2 }, unseen]);
+    // Told the enemy is unseen, the plan is the empty-field one; the true-state plan (the old leak) turns aside.
+    expect(planWithdrawal(hidden.state, board, hidden.get("fw"), 2, [hidden.get("t")], [], [unseen])).toEqual(plan);
+    expect(planWithdrawal(hidden.state, board, hidden.get("fw"), 2, [hidden.get("t")])).not.toEqual(plan);
+    // Falling back along it, the squad runs into the enemy and stops a hex short.
+    expect(planFallBack(hidden.state, board, hidden.get("fw"), 2, [hidden.get("t")], [], [unseen])).toEqual([{ q: 3, r: 2 }, { q: 4, r: 2 }]);
   });
 });
