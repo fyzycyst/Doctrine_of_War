@@ -7,7 +7,7 @@ import { holdForDawn } from "../game/engine/scenarios/holdForDawn";
 import { saltmarshColumn } from "../game/engine/scenarios/saltmarshColumn";
 import { facingFor } from "./fromEngine";
 import { cinderRoad6LabBoard } from "./lab/cinderRoad6Lab";
-import { sides } from "./sides";
+import { lightAzimuth, sides } from "./sides";
 
 describe("which way each side faces and flees (CR6: the Banners attack east)", () => {
   it("keeps today's convention on every shipped board: Banners face west and flee east", () => {
@@ -26,5 +26,14 @@ describe("which way each side faces and flees (CR6: the Banners attack east)", (
     expect(d.ashen_host.facing).toBe(Math.PI);
     expect(d.free_banners.home).toEqual([-1, 0]);
     expect(d.ashen_host.home).toEqual([1, 0]);
+  });
+
+  it("lights from the Banners' side: the key and fill mirror east-west when the sides turn round", () => {
+    // The rig's rule: warm key from the Banners' side, cool fill from the Host's.
+    expect(sides(firstBreach.board).reversed).toBe(false);
+    expect(sides(cinderRoad6LabBoard).reversed).toBe(true);
+    expect(lightAzimuth(-30, false)).toBe(-30);
+    expect(lightAzimuth(-30, true)).toBe(210);
+    expect(lightAzimuth(200, true)).toBe(-20);
   });
 });

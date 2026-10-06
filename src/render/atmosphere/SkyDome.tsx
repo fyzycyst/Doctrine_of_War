@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useMemo } from "react";
 import * as THREE from "three";
 import { sunDirection } from "../lighting/LightRig";
+import { lightAzimuth } from "../sides";
 import { useLook } from "../look/LookContext";
 import { applyBackdrop, BACKDROP_GLSL, BACKDROP_UNIFORMS } from "../shaders/backdrop";
 import { NOISE_GLSL } from "../shaders/noise";
@@ -11,7 +12,8 @@ import { useDisposable } from "../dispose";
  * Diorama backdrop (screen-space dusk gradient, stars at night) plus a thin
  * sea of cloud far below the island so the cliffs appear to hang in the air.
  */
-export function SkyDome() {
+/** `mirror`: the sun's glow mirrored east-west, with the LightRig (`sides(board).reversed`). */
+export function SkyDome({ mirror = false }: { mirror?: boolean } = {}) {
   const { preset, atmosphere, motion } = useLook();
 
   const sky = useDisposable(
@@ -89,14 +91,14 @@ export function SkyDome() {
   );
 
   useMemo(() => {
-    applyBackdrop(preset, sunDirection(preset.sun.azimuth, preset.sun.elevation));
+    applyBackdrop(preset, sunDirection(lightAzimuth(preset.sun.azimuth, mirror), preset.sun.elevation));
     const zenith = new THREE.Color(preset.sky.zenith);
     sky.uniforms.uStars.value = Math.max(0, 1 - (zenith.r + zenith.g + zenith.b) * 40);
     clouds.uniforms.uLit.value.set(preset.sky.horizon).lerp(new THREE.Color(preset.sun.color), 0.25);
     clouds.uniforms.uShade.value.set(preset.sky.mid).lerp(new THREE.Color(preset.sky.below), 0.4);
-  }, [preset, sky, clouds]);
+  }, [preset, sky, clouds, mirror]);
 
-  const sunDir = useMemo(() => sunDirection(preset.sun.azimuth, preset.sun.elevation), [preset]);
+  const sunDir = useMemo(() => sunDirection(lightAzimuth(preset.sun.azimuth, mirror), preset.sun.elevation), [preset, mirror]);
   useFrame((state, dt) => {
     clouds.uniforms.uTime.value += dt * motion;
     const m = atmosphere.mix;
