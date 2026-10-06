@@ -194,15 +194,16 @@ describe("v2 runs", () => {
   });
 });
 
-describe("pack editions (C2, C3: Cinder Road battles 2 and 3)", () => {
-  it("this build is content 3 and reads only content 3", () => {
-    expect(firstCall.revision.content).toBe(3);
-    expect(firstCall.readsContent).toEqual([3]);
+describe("pack editions (C2, C3, CR6: Cinder Road battles 2, 3 and the finale)", () => {
+  it("this build is content 4 and reads only content 4", () => {
+    expect(firstCall.revision.content).toBe(4);
+    expect(firstCall.readsContent).toEqual([4]);
   });
 
   // A Cinder Road run as an earlier build wrote it: the campaign as it stood then (content 1:
-  // battle 1 only, e553746; content 2: battles 1-2, 44ed9d4), won to the end, so complete.
-  for (const edition of [1, 2]) {
+  // battle 1 only, e553746; content 2: battles 1-2, 44ed9d4; content 3: battles 1-3, f0ac610),
+  // won to the end, so complete.
+  for (const edition of [1, 2, 3]) {
     const earlier = { ...cinderRoad, battles: cinderRoad.battles.slice(0, edition) };
     const earlierBuild = createRegistry([{ ...firstCall, revision: { ...firstCall.revision, content: edition }, readsContent: [edition], campaigns: [ashAndBanner, earlier] }]);
     const complete = curatedRollState(earlier, registry.scenarios(), edition);

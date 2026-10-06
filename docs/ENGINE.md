@@ -382,7 +382,8 @@ if a guardrail fails:
 - the bad plan wins ≤ 35%;
 - no mono plan **advances** (wins plus stalemates) ≥ 60%.
 
-The same check runs with 60 seeds on every `npm run test:balance`, one file per battle
+The same check runs with 60 seeds on every `npm run test:balance` (the finale's on
+`npm run test:finale`), one file per battle
 (`balance.<battle>.test.ts` via `guardrails.testkit.ts`; Roll battles one test per named
 call). Every pack scenario (`registry.scenarios()`) must pass, and so must any engine prototype in
 `fixtures/` (test fixtures, never offered to the player; run one by name with
@@ -481,6 +482,24 @@ Each battle has a **star doctrine** even when it uses a mix:
   (Fighting Withdrawal with fw_rout_guard 90 on the watch) is a diagnostic probe at 0%.
   Role gate: `cinderRoad3.roles.<call>.sim.test.ts`, one per named call. Every named call is
   in docs/CAMPAIGN.md.
+- *Break the Strongpoint* (*Cinder Road* battle 6, the finale, `scenarios/cinderRoad6.ts`, CR6;
+  built after battle 3 until battles 4 and 5 land): the star is **Bring the Water**; the second
+  role is **the banner**. Greyford Gate, held by the Host, on the shared Greyford Gate board
+  (`scenarios/greyfordGate.board.ts`, also battle 5's: one ground, per-battle deployment zones).
+  Day, ash-wind all day, Banner initiative, 9 phases; 9 Banners (the whole army) against 10
+  Host (19 squads), every Host company sworn (Resolve 3). `breakObjective` on the gate (integrity 12),
+  whose only standable approaches are (7,3) and (7,4): the sworn line and the No Step Back
+  flanks grind the assault on the way in and at the wall, so it falls back below 30 cohesion
+  unless a banner (Rescue Standard: the only rally) keeps rallying it (observed at event time:
+  most rallies land 3-5 hexes from the gate, few at it); the Kept Coal's dread on the ash-wind
+  hits the less famous companies hardest. Roles: the breach (only Bring the Water strikes the
+  gate) and the banner (two in the intended plan; one, on either post, is an accepted filler). Authored at fame
+  17, so the Roll's threat never eases the sworn and hardens the Host by +12 a company for a
+  famous army. Preliminary sign-off on `signoff2` (the gate range was observed in development):
+  intended 93.4% (94.2% heuristic) on the recommended call, at least 84.2% (93.2%) on every
+  gated call; the bare assault at most 1.8%; every stock combination with no banner at most
+  32.2% on any gated call under no muster, heuristic or the rush (weakest legal, diagnostic:
+  72.2%); no breach-unfilled plan strikes the gate. Its suites run under `npm run test:finale`.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
 with at least two doctrine families. A role is defined by what it achieves (hold the gate,

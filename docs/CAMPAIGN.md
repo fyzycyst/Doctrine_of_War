@@ -251,9 +251,9 @@ gross regressions without flaking on a 60-seed window; it is not the sign-off.
 
 **Balance merge checklist** (required before any content merge: a new or changed battle,
 doctrine, campaign, roster profile or Host schedule):
-1. `npm test` **and** `npm run test:balance` pass (the second runs every
-   `balance.<battle>.test.ts` smoke suite and every `*.sim.test.ts` suite; see "Two test
-   suites" below).
+1. `npm test`, `npm run test:balance` **and** `npm run test:finale` pass (the second runs
+   every `balance.<battle>.test.ts` smoke suite and every `*.sim.test.ts` suite, the third the
+   finale's; see "Test suites" below).
 2. **`npm run balance -- --seeds 500` on the battle's sign-off range exits 0: the sign-off.**
    Every gated call meets GUARDRAILS exactly on held-out seeds. The sign-off range is the
    gate (100001–100500, the default) unless that range was **observed while tuning the
@@ -268,9 +268,12 @@ doctrine, campaign, roster profile or Host schedule):
 5. Tuning happened on `--range tuning` (never on a sign-off range), and curated seeds stay
    outside every reserved sign-off block (pack lint).
 
-**Two test suites (2026-10-05).** `npm test` is the fast suite: unit, UI and fast engine
-tests. `npm run test:balance` runs the simulation-heavy files. The routing is by **file
-name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`):
+**Test suites (2026-10-05; the finale's added 2026-10-07).** `npm test` is the fast suite:
+unit, UI and fast engine tests. `npm run test:balance` runs the simulation-heavy files, and
+`npm run test:finale` the finale's (*Cinder Road* battle 6: a 19-squad, 9-phase battle costs
+about four ordinary games, so its sweeps would push test:balance past its ~120 s budget). The
+routing is by **file name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`, which
+also checks every heavy file runs in exactly one of the two heavy suites):
 - `balance.<battle>.test.ts`: a battle's guardrail smoke (one per battle, via
   `guardrails.testkit.ts`; `balance.test.ts` checks every battle has one);
 - `*.sim.test.ts`: any other suite that plays many battles: role and unfilled-role sweeps
@@ -281,6 +284,10 @@ name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`):
   declarations and observables in `cinderRoad<N>.roles.testkit.ts` (no vitest import, so
   scripts can use it) and the shared helpers in `roles.testkit.ts`. A fast test checks every
   call has its file. A testkit is not a test file and is not routed.
+- The finale's files go to `npm run test:finale` instead: `cinderRoad6.sim.test.ts`,
+  `cinderRoad6.<anything>.sim.test.ts` and `balance.cinderRoad6.test.ts`. Its role gate
+  samples seeds (16 a plan and policy) and the full per-plan census on the sign-off range is on
+  its battle sheet.
 Keep each heavy test under about 10 s at normal load, so it stays under vitest's 60 s worker
 RPC timeout even when the machine is busy. The balance suite yields to the event loop
 before each test (`src/test/setup.balance.ts`), so long files no longer trip "Timeout
@@ -495,6 +502,34 @@ Curated seed 1: won in phase 3 by daylight, no company lost, an outrider broken 
 Mill Road. Signed off on `signoff3` (the gate range and `signoff2` were observed for C3; see
 the battle sheet). Numbers are in
 docs/ENGINE.md and on the battle sheet.
+
+**Battle 6, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
+after battle 3 until battles 4 and 5 land, then moved to slot 6 and signed off on the full
+path): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
+the sworn stand before the gate (every Host company is Resolve 3: they do not waver); 9
+Banners against 10 Host (19 squads), by day under ash-wind, 9 phases. Win: break the gate
+(`breakObjective`). Defeat: 3 companies lost, or the timeout. **The whole army takes the
+field**: nine posts, one per Roll company (two flex: the second banner may be a frontline
+company, the Upper Gate Road may take one); carried veterans (at most two) take posts in
+place of Worn companies. "Choose who to bring" is expressed through who holds which post, not
+optional posts (a candidate mechanic for after the hackathon). Lesson (the Advance and the
+standards; First Breach turned round): the march breaks the gate, and **a banner carried with
+the assault** keeps it on its feet on the way in and at the wall, against the sworn line and
+the No Step Back flanks; the Kept
+Coal's dread on the ash-wind hits the less famous companies hardest. Roles, by function: **the
+breach** (a Banner company strikes the gate; only Bring the Water can) and **the banner** (a
+rally restores an assault company, observed when it fires: the standards keep the assault on
+its feet on the way in and at the sworn line; only Rescue Standard rallies). The intended plan carries two banners; one
+on either post is an accepted filler (the second banner's post is the stronger and the
+tracked alternative; the standard alone is weak on a battered army). A third role, a
+counterstroke screen, was dropped in tuning: Clean Counterstroke hunts the fight into the
+sworn and no stock doctrine escorts the standards (the battle sheet has the numbers). The
+Banners' squads are authored at **fame 17**, not the curated path's 30 (the C2 convention is
+deliberately not used): the Roll's threat then never eases the sworn's Resolve, which let the
+veterans' renown break the Host, and hardens every Host company by +12 strength for a famous
+army. The banners stand in the front row: Rescue Standard only moves when an ally falls below
+50. Curated seed 18: won in phase 6, no company lost, the Kept Coal broken. Numbers are on the
+battle sheet.
 
 ## Saves
 
