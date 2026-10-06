@@ -241,8 +241,9 @@ export function Diorama({
       <AtmosphereTicker />
       <AnimatorTicker animator={animator} />
       <DofFocusWriter placed={placed} animator={animator} />
-      <SkyDome />
-      <LightRig shadowRadius={island.radius * 0.8} fogOffset={fogOffsetFor(board)} />
+      {/* Lit from the Banners' side: mirrored on a board whose sides are turned round (CR6). */}
+      <SkyDome mirror={side.reversed} />
+      <LightRig shadowRadius={island.radius * 0.8} fogOffset={fogOffsetFor(board)} mirror={side.reversed} />
       <mesh
         geometry={island.geometry}
         material={material}

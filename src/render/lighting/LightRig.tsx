@@ -2,6 +2,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useLook } from "../look/LookContext";
+import { lightAzimuth } from "../sides";
 
 /** Azimuth 0 = east (+x), 90 = north (-z); elevation above the horizon. */
 export function sunDirection(azimuthDeg: number, elevationDeg: number): THREE.Vector3 {
@@ -20,14 +21,23 @@ export function sunDirection(azimuthDeg: number, elevationDeg: number): THREE.Ve
  * boards (Saltmarsh, Hold for Dawn) put the camera further out, which would
  * otherwise bury the island in fog.
  */
-export function LightRig({ shadowRadius = 9, fogOffset = 0 }: { shadowRadius?: number; fogOffset?: number }) {
+export function LightRig({
+  shadowRadius = 9,
+  fogOffset = 0,
+  mirror = false,
+}: {
+  shadowRadius?: number;
+  fogOffset?: number;
+  /** Mirror key and fill east-west (a board whose sides are turned round: `sides(board).reversed`). */
+  mirror?: boolean;
+}) {
   const { preset, quality, atmosphere } = useLook();
   const sun = useRef<THREE.DirectionalLight>(null);
   const fill = useRef<THREE.DirectionalLight>(null);
   const hemi = useRef<THREE.HemisphereLight>(null);
   const scene = useThree((state) => state.scene);
-  const sunPos = useMemo(() => sunDirection(preset.sun.azimuth, preset.sun.elevation).multiplyScalar(22), [preset]);
-  const fillPos = useMemo(() => sunDirection(preset.fill.azimuth, preset.fill.elevation).multiplyScalar(20), [preset]);
+  const sunPos = useMemo(() => sunDirection(lightAzimuth(preset.sun.azimuth, mirror), preset.sun.elevation).multiplyScalar(22), [preset, mirror]);
+  const fillPos = useMemo(() => sunDirection(lightAzimuth(preset.fill.azimuth, mirror), preset.fill.elevation).multiplyScalar(20), [preset, mirror]);
   const mapSize = quality === "high" ? 2048 : 1024;
 
   useEffect(() => {

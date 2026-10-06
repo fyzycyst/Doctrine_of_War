@@ -7,7 +7,7 @@ import { cinderRoad1 } from "../../game/engine/scenarios/cinderRoad1";
 import { stressScenario } from "./stressScenario";
 import { twoObjectivesBoard, twoObjectivesSquads } from "./twoObjectives";
 import { cinderRoad2 } from "../../game/engine/scenarios/cinderRoad2";
-import { cinderRoad6LabBoard, cinderRoad6LabSquads } from "./cinderRoad6Lab";
+import { cinderRoad6LabBoard, cinderRoad6LabSquadSetups } from "./cinderRoad6Lab";
 import type { DioramaVisibility } from "../Diorama";
 import type { DioramaSquad } from "../figures/types";
 import { dioramaSquads, lightingFor } from "../fromEngine";
@@ -68,8 +68,8 @@ export const LAB_SCENES = {
   twoObjectives: toScene(twoObjectivesBoard, twoObjectivesSquads, "dusk"),
   // Cinder Road 2, Strike the Wagon Park, by day.
   cinderRoad2: toScene(cinderRoad2.board, dioramaSquads(cinderRoad2.squads), lightingFor(cinderRoad2.timeOfDay)),
-  // Cinder Road 6, the finale (lab stand-in until engine #2's board lands): the Host's gate.
-  cinderRoad6: toScene(cinderRoad6LabBoard, cinderRoad6LabSquads, "dusk"),
+  // Cinder Road 6, Break the Strongpoint (lab copy of engine #2's board until it lands).
+  cinderRoad6: toScene(cinderRoad6LabBoard, dioramaSquads(cinderRoad6LabSquadSetups), lightingFor("day")),
 } as const;
 
 export type LabSceneId = keyof typeof LAB_SCENES;

@@ -177,15 +177,18 @@ jobs.push(
 // intact, battered, breached, hit and breached under reduced motion, from the approach;
 // and First Breach's (the Banners') gate for comparison, intact and battered.
 {
-  const cr6 = "scenario=cinderRoad6&preset=dusk&figures=a";
+  // Day under ash-wind, as the scenario plays.
+  const cr6 = "scenario=cinderRoad6&preset=dusk&figures=a&weather=ashWind";
   // The finale beat from the attackers' side (south-west), so the gate's west face shows.
-  const beat = `${cr6}&closeOn=5,3;6,3&az=-55`;
+  const beat = `${cr6}&closeOn=7,3;8,3&az=-55`;
   jobs.push(
     { name: "cr6-wide", query: cr6 },
+    { name: "cr6-wide-clear", query: cr6.replace("&weather=ashWind", "") },
+    { name: "cr6-river", query: `${cr6}&cam=close&focusHex=0,2` },
     { name: "cr6-gate-intact", query: beat },
     { name: "cr6-gate-battered", query: `${beat}&objective=battered` },
     { name: "cr6-gate-breached", query: `${beat}&objective=broken` },
-    { name: "cr6-gate-hit", query: `${beat}&objective=battered&anim=shake&shakeAt=6,3&animFreeze=0.3` },
+    { name: "cr6-gate-hit", query: `${beat}&objective=battered&anim=shake&shakeAt=8,3&animFreeze=0.3` },
     { name: "cr6-gate-breached-reduced", query: `${beat}&objective=broken&motion=reduce` },
     { name: "cr6-gate-night", query: `${beat.replace("preset=dusk", "preset=nightFires")}` },
     { name: "cr6-fb-gate", query: "scenario=firstBreach&preset=dusk&figures=a&cam=close&focusHex=4,2" },
