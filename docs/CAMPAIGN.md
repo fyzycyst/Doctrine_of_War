@@ -322,7 +322,12 @@ they achieve, declared before the gate, and ablated as roles.**
   march): every combination is screened on a few gate seeds, then every combination that won
   or touched the role in the screen, and the most dangerous few besides, are re-run on the
   full gate seeds against the per-plan limits. A pooled sample of one seed per plan is not a
-  gate: the C3 warden found it hid a plan winning 15.8%. The rush (`rushMuster`) is the adversarial policy: every
+  gate: the C3 warden found it hid a plan winning 15.8%. The screen is sampling, not proof:
+  at a 5% touch rate, 8 independent screen seeds miss a plan about 66% of the time, and
+  "most dangerous" ranking has no proven bound. So when a battle's content changes, its
+  sign-off must rest on a **full per-plan census on the full gate seeds** (every combination,
+  40+ seeds each) or a **structural proof** that covers every combination; the two-stage
+  screen is the fast regression check between content changes. The rush (`rushMuster`) is the adversarial policy: every
   fighting company, or only the companies on the role that is filled, steps toward the
   enemy objective each phase, or toward the line of retreat in an escape battle. Strength
   alone must not skip a role. Each plan must stay **below the floor** (advance < 75%), and
