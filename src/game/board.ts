@@ -23,6 +23,11 @@ export interface BoardHex {
    */
   objectiveKind?: ObjectiveKind;
   /**
+   * Dress this wall hex as a gatehouse though it is no objective (render-only): e.g.
+   * Greyford Gate in the pursuit, where the gate is not a target. Intact only.
+   */
+  gatehouse?: true;
+  /**
    * A ford's own dressing, over the board's `fordDressing` (render-only): e.g. "none" on
    * shallows that never had a bridge, on a board whose other fords are burned bridges.
    */
