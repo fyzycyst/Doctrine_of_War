@@ -425,7 +425,7 @@ Each battle has a **star doctrine** even when it uses a mix:
   Wagon Park prototype promoted, and the prototype fixture retired): the star is **Bring
   the Water**; the second role is **the sluice guard**. Banner initiative under fog on a
   stretch of the Emberwater upstream of Ember Ford. Two objectives: `breakObjective` on the
-  Host's wagon park (integrity 56), and `objectiveLost` on the Covenant's Weir Sluice
+  Host's wagon park (integrity 44), and `objectiveLost` on the Covenant's Weir Sluice
   (integrity 16), which stands in its own race of water with **one dry approach, the
   Sluice Walk**. A kiln-clan ram (siege) crosses the Sallow Weir for the sluice: a pure
   march leaves the walk open and the ram breaks the sluice at its first blow, whatever the
@@ -437,15 +437,18 @@ Each battle has a **star doctrine** even when it uses a mix:
   any holding doctrine the player musters onto the walk (two moves; muster-dependent). The
   standard carries a banner (Rescue Standard: an extra, not a counted role). The sluice
   falls at the ram's first blow (integrity 16, tuned after the warden found that a strong
-  carried force rushing the park with muster beat the ram to it). Gate seeds, recommended
-  call: intended 92.8% (100% with no muster), the pure march 0%, every mono 0% (Hold for
-  Dawn included), Clean Counterstroke 94.0% (94.2%), but 0–43% on calls that put another
-  company on the keepers' post; Shield the Line mustered onto the walk 96.8% (100%), and at
-  least 75.6% (96.8%) on every call. Every plan that leaves the guard or the march unfilled
-  advances at most 7.2% on every call, with no muster, the heuristic muster or the rush
-  (`cinderRoad2.roles.<call>.sim.test.ts`, one per named call).
-  Role ablations (gate seeds, no muster and heuristic): every keeper that does not guard,
-  and every assault that does not march, 0% on every call.
+  carried force rushing the park with muster beat the ram to it). **Repaired on C5** (routes
+  planned on what the mover knows): a march that found the four shallows full took the
+  Sallow Weir, met the ram by the walk and guarded by accident, so five shallow fords (the
+  Upper Shallows at (4,3)), the ram waiting on the weir bank at (3,0), and the park at 44.
+  **Signed off on `signoff3`** (300001–300500; the gate and signoff2 had been observed for
+  C2): recommended intended 93.4% (100% with no muster), every gated call at least 87.4%,
+  bad at most 0.2%, every mono 0%; Clean Counterstroke 95.6% (96.4%), 62–99% on the role
+  calls; Shield the Line mustered onto the walk at least 99.0% with no other muster. Every
+  stock combination that leaves the guard unfilled (keepers × standard) advances at most
+  12.6% on any call under no muster, heuristic or the rush; no march-unfilled plan can win
+  (only Bring the Water strikes the park). Role gate: `cinderRoad2.roles.<call>.sim.test.ts`,
+  one per named call.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
 with at least two doctrine families. A role is defined by what it achieves (hold the gate,

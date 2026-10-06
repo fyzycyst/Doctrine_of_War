@@ -23,11 +23,12 @@ export const SEEDS = 40;
 const RAM = "kiln_ram";
 export const BTW = "bring_the_water";
 /**
- * The share of an unfilled plan's games that may still touch the role by accident; more
- * than this and the plan is misclassified: it is filling the role, not leaving it. Tight
- * without muster and with the heuristic (at most 1 stray game in 500 on the gate seeds), so
- * a regression still shows; looser against the rush, whose cavalry can run into the ram
- * (7.2% on one call).
+ * The share of an unfilled plan's games it may WIN with the role filled by accident; more
+ * than this and the plan is misclassified: it is winning by filling the role, not without
+ * it. Since C5 (routes planned on what the mover knows) a company can meet the ram or stand
+ * on the walk on its honest route and still lose, so touching the role is not counted, only
+ * winning by it. Tight without muster and with the heuristic; looser against the rush,
+ * whose cavalry can run into the ram.
  */
 export function unfilledSlack(muster: Muster): number {
   return muster === "rush" || muster === "rush the march" ? 0.1 : 0.05;
@@ -99,6 +100,8 @@ export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, 
   return {
     advance: runs.filter((run) => run.advanced).length / seeds,
     guarded: runs.filter((run) => run.guard === true).length,
+    /** Games advanced while the role's observable says the guard was filled (by accident, for an unfilled plan). */
+    wonGuarded: runs.filter((run) => run.advanced && run.guard === true).length,
     marched: runs.filter((run) => run.march).length,
     invalid: runs.flatMap((run) => run.invalidMusters),
   };

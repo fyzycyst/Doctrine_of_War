@@ -37,7 +37,9 @@ export function describeRoleGate(callName: string) {
         for (const { name, orders } of unguarded) {
           const result = rates(scenario, orders, muster);
           if (result.advance >= GUARDRAILS.intendedMin) failures.push(`${name} (${muster}) advances ${result.advance}`);
-          if (result.guarded > SEEDS * unfilledSlack(muster)) failures.push(`${name} (${muster}) guarded in ${result.guarded}/${SEEDS}: not an unfilled plan`);
+          // Misclassified if it wins by filling the role: an unfilled plan may touch the role by
+          // accident (since C5 a march can meet the ram on its honest route) but not win by it.
+          if (result.wonGuarded > SEEDS * unfilledSlack(muster)) failures.push(`${name} (${muster}) won ${result.wonGuarded}/${SEEDS} with the guard filled: not an unfilled plan`);
         }
       }
       expect(failures).toEqual([]);

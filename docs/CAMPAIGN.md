@@ -320,10 +320,13 @@ they achieve, declared before the gate, and ablated as roles.**
   fighting company, or only the companies on the role that is filled, steps toward the
   enemy objective each phase, or toward the line of retreat in an escape battle. Strength
   alone must not skip a role. Each plan must stay **below the floor** (advance < 75%), and
-  the role's observable must confirm that the role really was left unfilled (in at least
-  95% of games with no muster or the heuristic, and 90% against the rush, whose companies
-  can cross the enemy's path by accident). These are
-  scenario tests, and the 500-seed numbers go on the battle sheet.
+  the role's observable must confirm the plan does not win by filling the role: it may win
+  with the role filled in at most 5% of games with no muster or the heuristic, and 10%
+  against the rush. (Since C5, routes are planned on what the mover knows, so a company can
+  meet the enemy or stand on the guarded ground on its honest route and still lose: touching
+  the role by accident is reported, not failed. Until C5 the check counted every game that
+  touched the role.) These are scenario tests, and the 500-seed numbers go on the battle
+  sheet.
 - **The ≥ 15-point ablation is by role:** replace every doctrine that fills the role with
   the best doctrine that does not (no muster), and the advance rate must drop by at least 15
   points.
@@ -395,8 +398,12 @@ orchestrator after the warden's re-review; numbers and the dominance review are 
 battle sheet). The standard carries a banner with the assault
 (Rescue Standard: an extra, not a counted role). The briefing names the role ("someone
 must keep the Sluice Walk"), not a doctrine. Bad plan: the pure march. Curated seed 64:
-won in phase 4, no company lost, the sluice untouched. The sluice falls at the ram's first
+won in phase 3, no company lost, the sluice untouched. The sluice falls at the ram's first
 blow (integrity 16), so even a strong force rushing the park cannot beat the ram to it.
+Repaired on C5 (honest routes): five shallow fords (the Upper Shallows, (4,3)), the ram
+waits on the weir bank (3,0) and the park's integrity is 44, so a march that misses the
+shallows cannot reach the ram by the walk before it strikes. Signed off on `signoff3`
+(300001–300500); the battle sheet has the numbers and why the earlier ranges are burned.
 
 ## Saves
 
