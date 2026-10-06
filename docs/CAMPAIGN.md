@@ -350,7 +350,7 @@ they achieve, declared before the gate, and ablated as roles.**
   ablation requirement.
 - Unchanged: every mono plan, the named bad plan and the pure march stay gated.
 
-**Decision (2026-10-05, C3 warden; for the user's review): editor variants are diagnostics,
+**Decision (2026-10-05, C3 warden; confirmed by the user 2026-10-06: "if a player can come up with something better, they should"): editor variants are diagnostics,
 not gated.** A doctrine-editor variant that out-thinks a battle is a reward for skill, which
 is what Test in the field is for. The gate guarantees the lesson for **stock doctrines plus
 legal musters** (the unfilled-role product above, under every muster policy). Variants a
