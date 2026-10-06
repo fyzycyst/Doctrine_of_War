@@ -1,6 +1,6 @@
 // Cinder Road battle 2 (C2): the guard role on every named call. A plan that leaves the
 // guard unfilled stays below the floor with no muster and with the heuristic muster, and the
-// observable confirms nobody guarded (the rush adversary is in cinderRoad2.rush.test.ts). The accepted fillers are not gated; Hold for Dawn and
+// observable confirms nobody guarded (the rush adversary is in cinderRoad2.rush.sim.test.ts). The accepted fillers are not gated; Hold for Dawn and
 // the muster-dependent one (Shield the Line mustered onto the walk) are pinned as fillers.
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";

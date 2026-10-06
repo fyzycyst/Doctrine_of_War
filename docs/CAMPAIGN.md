@@ -226,7 +226,7 @@ run balance` with and without muster (`rollDiagnostics`):
 
 | Where | Calls | Plans | Muster | Seeds |
 | --- | --- | --- | --- | --- |
-| `balance.<battle>.test.ts` (every `npm test`, one test per call: a **smoke test**) | every named call | heuristic: intended, bad, alternative, every mono; none: intended, bad, alternative | as listed | gate seeds 100001–100060, fortune on; thresholds relaxed by 2 binomial SE (`smokeGuardrails`) |
+| `balance.<battle>.test.ts` (every `npm run test:balance`, one test per call: a **smoke test**) | every named call | heuristic: intended, bad, alternative, every mono; none: intended, bad, alternative | as listed | gate seeds 100001–100060, fortune on; thresholds relaxed by 2 binomial SE (`smokeGuardrails`) |
 | `npm run balance` (the gate; every content merge) | every named call, plus the census | the same | as listed, plus the diagnostics | gate seeds 100001–100500 (`--range gate`, default), fortune on |
 | `campaign/cinderRoad.test.ts` | the authored call | intended and its ablations | none (the banner ablation: heuristic) | tuning seeds 1–60 |
 | `fogProjection.test.ts` | the authored call | intended, bad, all Counterstroke, all Bring the Water | none | 10 (projection), 6 (decisions), random |
@@ -250,7 +250,9 @@ gross regressions without flaking on a 60-seed window; it is not the sign-off.
 
 **Balance merge checklist** (required before any content merge: a new or changed battle,
 doctrine, campaign, roster profile or Host schedule):
-1. `npm test` passes, including every `balance.<battle>.test.ts` smoke suite.
+1. `npm test` **and** `npm run test:balance` pass (the second runs every
+   `balance.<battle>.test.ts` smoke suite and every `*.sim.test.ts` suite; see "Two test
+   suites" below).
 2. **`npm run balance -- --seeds 500` (the gate range, the default) exits 0: the sign-off.**
    Every gated call meets GUARDRAILS exactly on the held-out seeds 100001–100500.
 3. The census shows every documented call, and any *not applicable* entry has a reason.
@@ -258,6 +260,21 @@ doctrine, campaign, roster profile or Host schedule):
    and any change is noted in the merge description; they are not gates.
 5. Tuning happened on `--range tuning` (never on the gate range), and curated seeds stay
    outside the gate range (pack lint).
+
+**Two test suites (2026-10-05).** `npm test` is the fast suite: unit, UI and fast engine
+tests. `npm run test:balance` runs the simulation-heavy files. The routing is by **file
+name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`):
+- `balance.<battle>.test.ts`: a battle's guardrail smoke (one per battle, via
+  `guardrails.testkit.ts`; `balance.test.ts` checks every battle has one);
+- `*.sim.test.ts`: any other suite that plays many battles: role and unfilled-role sweeps
+  (`cinderRoad2.guard.sim.test.ts`, `.march.sim`, `.rush.sim`), ablations over about 5 s
+  (`holdForDawn.sim.test.ts`, `cinderRoad2.sim.test.ts`). A new battle's role tests follow
+  C2: `cinderRoad<N>.<role>.sim.test.ts`, sharing a `cinderRoad<N>.roles.testkit.ts`
+  (a testkit is not a test file and is not routed).
+Keep each heavy test under about 10 s at normal load, so it stays under vitest's 60 s worker
+RPC timeout even when the machine is busy. The balance suite yields to the event loop
+before each test (`src/test/setup.balance.ts`), so long files no longer trip "Timeout
+calling onTaskUpdate". Anything over about 5 s that simulates belongs in `*.sim.test.ts`.
 
 **Decision (2026-10-02, P7): roster- and muster-dependent best plans are accepted.**
 On *Cinder Road* battle 1, the strongest alternative (the stair held, everyone else

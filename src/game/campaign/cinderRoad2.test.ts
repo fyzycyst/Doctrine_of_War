@@ -4,7 +4,6 @@ import { hexDistance } from "../board";
 import { playBattle, TUNING_SEEDS } from "../engine/balance";
 import { createInitialState, resolvePhase } from "../engine/resolvePhase";
 import { cinderRoad2, SLUICE_WALK, WEIR_SLUICE } from "../engine/scenarios/cinderRoad2";
-import { advanceRate } from "../engine/testKit";
 import type { EngineEvent } from "../engine/types";
 import { registry } from "../packs/registry";
 import { cinderRoad } from "./cinderRoad";
@@ -51,34 +50,6 @@ describe("Strike the Wagon Park: the battle", () => {
     expect(cinderRoad2.board.hexes.find((hex) => hex.objectiveId === "wagon_park")?.objectiveKind).toBe("wagons");
     expect(cinderRoad2.board.hexes.find((hex) => hex.objectiveId === "weir_sluice")?.objectiveKind).toBe("sluice");
   });
-
-  // Role ablation (docs/CAMPAIGN.md): replace every doctrine that fills a role with the best
-  // doctrine that does not; with no muster it must cost >= 15 points. The roles, by function:
-  // the march strikes the park (Bring the Water); the guard holds the Sluice Walk or fights
-  // the ram (by orders: Hold for Dawn, or Clean Counterstroke; the muster-dependent filler,
-  // a holding doctrine mustered onto the walk, is in cinderRoad2.guard.test.ts, with every
-  // unfilled plan on every call). The standard's banner (Rescue Standard) is an extra.
-  const OTHERS = ["bring_the_water", "shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke", "hold_for_dawn"];
-  const GUARDS_BY_ORDERS = ["hold_for_dawn", "clean_counterstroke"];
-
-  it("each role earns its place (role ablation >= 15 points, no muster)", () => {
-    const base = advanceRate(cinderRoad2, intended);
-    expect(base).toBeGreaterThanOrEqual(0.75);
-    // The sluice guard: the best keeper that does not guard.
-    const unguarded = OTHERS.filter((doctrineId) => !GUARDS_BY_ORDERS.includes(doctrineId)).map((doctrineId) => advanceRate(cinderRoad2, { ...intended, keepers: doctrineId }));
-    expect(base - Math.max(...unguarded)).toBeGreaterThanOrEqual(0.15);
-    for (const rate of unguarded) expect(rate).toBeLessThan(0.75);
-    // The march: every Bring the Water post on the best doctrine that does not march.
-    const unmarched = OTHERS.filter((doctrineId) => doctrineId !== BTW).map((doctrineId) =>
-      advanceRate(cinderRoad2, Object.fromEntries(Object.entries(intended).map(([id, plan]) => [id, plan === BTW ? doctrineId : plan]))),
-    );
-    expect(base - Math.max(...unmarched)).toBeGreaterThanOrEqual(0.15);
-    // The pure march (the bad plan) loses whatever the force: the ram breaks the sluice.
-    expect(advanceRate(cinderRoad2, cinderRoad2.referencePlans!.bad)).toBeLessThanOrEqual(0.1);
-    // The accepted alternative for the keepers' post wins too, and is the tracked alternative row.
-    expect(cinderRoad2.referencePlans!.alternative).toEqual({ ...intended, keepers: "clean_counterstroke" });
-    expect(advanceRate(cinderRoad2, cinderRoad2.referencePlans!.alternative!)).toBeGreaterThanOrEqual(0.75);
-  }, 90_000);
 
   it("the march always has a target under fog", () => {
     const blocked: string[] = [];

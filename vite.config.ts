@@ -3,9 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import electron from "vite-plugin-electron/simple";
 import { PRODUCTION_CSP } from "./electron/security";
+import { BALANCE_TEST_GLOBS } from "./src/test/suites";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const enableElectron = process.env.ELECTRON === "1";
@@ -86,5 +87,11 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./src/test/setup.ts",
+    // Two suites (src/test/suites.ts): `npm test` runs "unit", `npm run test:balance` runs
+    // "balance" (the simulation-heavy files); a bare `vitest run` runs both.
+    projects: [
+      { extends: true, test: { name: "unit", exclude: [...configDefaults.exclude, ...BALANCE_TEST_GLOBS] } },
+      { extends: true, test: { name: "balance", include: BALANCE_TEST_GLOBS, setupFiles: ["./src/test/setup.balance.ts"] } },
+    ],
   },
 });

@@ -1,6 +1,6 @@
 // Cinder Road battle 2 (C2): the roles by function (docs/CAMPAIGN.md, "roles are defined by
 // what they achieve"), observed in a run, and the named calls they are checked on. Used by
-// cinderRoad2.guard.test.ts and cinderRoad2.march.test.ts (two files so vitest spreads the
+// cinderRoad2.guard.sim.test.ts and cinderRoad2.march.sim.test.ts (two files so vitest spreads the
 // simulations across workers; see guardrails.testkit.ts).
 import { hexDistance, sameHex, type HexCoord } from "../board";
 import { GATE_SEEDS } from "../engine/balance";

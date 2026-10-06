@@ -370,7 +370,7 @@ if a guardrail fails:
 - the bad plan wins ≤ 35%;
 - no mono plan **advances** (wins plus stalemates) ≥ 60%.
 
-The same check runs with 60 seeds on every `npm test`, one file per battle
+The same check runs with 60 seeds on every `npm run test:balance`, one file per battle
 (`balance.<battle>.test.ts` via `guardrails.testkit.ts`; Roll battles one test per named
 call). Every pack scenario (`registry.scenarios()`) must pass, and so must any engine prototype in
 `fixtures/` (test fixtures, never offered to the player; run one by name with
@@ -434,7 +434,7 @@ Each battle has a **star doctrine** even when it uses a mix:
   company on the keepers' post; Shield the Line mustered onto the walk 96.8% (100%), and at
   least 75.6% (96.8%) on every call. Every plan that leaves the guard or the march unfilled
   advances at most 7.2% on every call, with no muster, the heuristic muster or the rush
-  (`cinderRoad2.guard.test.ts`, `cinderRoad2.march.test.ts`, `cinderRoad2.rush.test.ts`).
+  (`cinderRoad2.guard.sim.test.ts`, `cinderRoad2.march.sim.test.ts`, `cinderRoad2.rush.sim.test.ts`).
   Role ablations (gate seeds, no muster and heuristic): every keeper that does not guard,
   and every assault that does not march, 0% on every call.
 

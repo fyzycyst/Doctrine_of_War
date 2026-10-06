@@ -93,9 +93,13 @@ ffmpeg -framerate 30 -i captures/seq-craneInGate/frame_%04d.png -c:v libx264 -pi
 ## Checks
 
 ```bash
-npm test
+npm test              # fast: unit, UI and engine tests
+npm run test:balance  # simulation-heavy: balance smokes, role sweeps, ablations
 npm run build
 ```
+
+A test file runs under `npm run test:balance` when it is named `balance.<battle>.test.ts` or
+`*.sim.test.ts` (`src/test/suites.ts`); see "Two test suites" in docs/CAMPAIGN.md.
 
 ## Project Shape
 
