@@ -1,0 +1,4 @@
+// The finale's role gate on the "carried: recommended" call (cinderRoad6.roleGate.testkit.ts).
+import { describeRoleGate } from "./cinderRoad6.roleGate.testkit";
+
+describeRoleGate("carried: recommended");

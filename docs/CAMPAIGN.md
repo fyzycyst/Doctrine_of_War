@@ -461,6 +461,31 @@ Mill Road. Signed off on `signoff3` (the gate range and `signoff2` were observed
 the battle sheet). Numbers are in
 docs/ENGINE.md and on the battle sheet.
 
+**Battle 6, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
+after battle 3 until battles 4 and 5 land, then moved to slot 6 and signed off on the full
+path): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
+the sworn stand before the gate (every Host company is Resolve 3: they do not waver); 9
+Banners against 14 Host, by day under ash-wind, 9 phases. Win: break the gate
+(`breakObjective`). Defeat: 3 companies lost, or the timeout. **The whole army takes the
+field**: nine posts, one per Roll company (two flex: the second banner may be a frontline
+company, the Upper Gate Road may take one); carried veterans (at most two) take posts in
+place of Worn companies. "Choose who to bring" is expressed through who holds which post, not
+optional posts (a candidate mechanic for after the hackathon). Lesson (the Advance and the
+standards; First Breach turned round): the march breaks the gate, and **a banner carried with
+the assault** keeps it on its feet against the sworn line and the No Step Back flanks; the Kept
+Coal's dread on the ash-wind hits the less famous companies hardest. Roles, by function: **the
+breach** (a Banner company strikes the gate; only Bring the Water can) and **the banner** (a
+rally near the gate; only Rescue Standard rallies). The intended plan carries two banners; one
+is an accepted filler (roster-dependent: a veteran army needs only one). A third role, a
+counterstroke screen, was dropped in tuning: Clean Counterstroke hunts the fight into the
+sworn and no stock doctrine escorts the standards (the battle sheet has the numbers). The
+Banners' squads are authored at **fame 17**, not the curated path's 30 (the C2 convention is
+deliberately not used): the Roll's threat then never eases the sworn's Resolve, which let the
+veterans' renown break the Host, and hardens every Host company by +12 strength for a famous
+army. The banners stand in the front row: Rescue Standard only moves when an ally falls below
+50. Curated seed 18: won in phase 6, no company lost, the Kept Coal broken. Numbers are on the
+battle sheet.
+
 ## Saves
 
 - `saveCampaign(state)` writes `{"version": 1, "campaign": …}`, capped at 256 KiB.
