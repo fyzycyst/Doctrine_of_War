@@ -15,7 +15,7 @@ import { PostFX } from "../post/PostFX";
 import { useCanvasDpr } from "../quality";
 import { emberDusk } from "../skins";
 import type { TimeOfDay } from "../skins/types";
-import { buildIsland, type IslandBuild } from "../terrain/buildIsland";
+import { buildIsland, disposeIsland, type IslandBuild } from "../terrain/buildIsland";
 import { Reeds } from "../terrain/Reeds";
 import { Water } from "../terrain/Water";
 import { archipelagoBounds, ISLAND_RADIUS, islandPlacement, overviewFrame } from "./archipelagoLayout";
@@ -245,9 +245,7 @@ function Archipelago({
   useEffect(
     () => () =>
       islands.forEach((i) => {
-        i.island.geometry.dispose();
-        i.island.wallGeometry?.dispose();
-        i.island.reedGeometry?.dispose();
+        disposeIsland(i.island);
       }),
     [islands],
   );

@@ -3,7 +3,17 @@ import { hexKey, hexNeighbors, hexDistance, type BoardHex, type BoardLayout, typ
 import { GeoBuilder, color, jitterColor, trs } from "../geo/GeoBuilder";
 import { boardCenter, hexCorner, hexRandom, hexToWorld, islandShore, mulberry32 } from "../hexWorld";
 import type { Skin } from "../skins/types";
-import { buildObjectiveProps, nearestRoadGoal, objectiveDressing, roadGoal, type ObjectiveProp, type ObjectiveStage } from "./objectiveProps";
+import type { FactionId } from "../../game/engine/types";
+import {
+  buildObjectiveProps,
+  nearestRoadGoal,
+  objectiveDressing,
+  objectiveHolder,
+  propGeometries,
+  roadGoal,
+  type ObjectiveProp,
+  type ObjectiveStage,
+} from "./objectiveProps";
 
 /**
  * Builds the floating-island diorama from a BoardLayout: extruded hex columns
@@ -56,6 +66,15 @@ export interface IslandBuild {
   geometry: THREE.BufferGeometry;
   /** Walls, towers and gatehouse as their own mesh (so an objective hit can jolt them); null if none. */
   wallGeometry: THREE.BufferGeometry | null;
+  /**
+   * The wall mesh per stage of its gatehouse objective (`intact` is `wallGeometry`):
+   * battered masonry, then the gate breached. Null without a gatehouse objective.
+   */
+  wallStages: Record<ObjectiveStage, THREE.BufferGeometry> | null;
+  /** The gatehouse objective's hex key, or null. */
+  gateKey: string | null;
+  /** Who holds the gatehouse (whose banner hangs over it): read from the deployment. */
+  gateHolder: FactionId;
   /** The Host's braziers as their own mesh (shown only under nightFires); null if none. */
   brazierGeometry: THREE.BufferGeometry | null;
   /** Reed banks as their own mesh (a wind-sway material); `glow` = sway weight, 0 at the root. */
@@ -104,6 +123,19 @@ const PRIM = {
     return g;
   })(),
 };
+
+/** Disposes every geometry an island build owns (the stages and props included). */
+export function disposeIsland(island: IslandBuild) {
+  const all = new Set<THREE.BufferGeometry | null>([
+    island.geometry,
+    island.wallGeometry,
+    ...(island.wallStages ? Object.values(island.wallStages) : []),
+    island.reedGeometry,
+    island.brazierGeometry,
+    ...island.objectiveProps.flatMap(propGeometries),
+  ]);
+  all.forEach((g) => g?.dispose());
+}
 
 export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   const center = boardCenter(layout);
@@ -292,7 +324,23 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
 
   drawRoads(b, layout, hexes, roadColor, T[`field`].top, rand);
   const wb = new GeoBuilder();
-  const wall = drawWalls(wb, layout, hexes, skin, rand);
+  const gate = layout.hexes.find((h) => h.terrain === "wall" && objectiveDressing(h) === "gatehouse");
+  const gateKey = gate ? hexKey(gate.coord) : null;
+  const gateHolder: FactionId = (gate && objectiveHolder(layout, gate.coord)) || "free_banners";
+  // Intact walls draw from the island's `rand` exactly as before stages existed; the
+  // battered and breached builds replay those draws (see drawWalls).
+  const draws: number[] = [];
+  const wall = drawWalls(wb, layout, hexes, skin, () => {
+    const v = rand();
+    draws.push(v);
+    return v;
+  }, 0, rand, gateHolder);
+  const stageWalls = (stage: 1 | 2) => {
+    const sb = new GeoBuilder();
+    let i = 0;
+    drawWalls(sb, layout, hexes, skin, () => draws[i++] ?? 0.5, stage, mulberry32(9157 + stage * 31), gateHolder);
+    return sb.build();
+  };
   gateBanner = wall.gateBanner;
   fireAnchors.push(...wall.torches);
   drawTown(b, hexes, skin, rand);
@@ -349,9 +397,13 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
     for (const h of picks) fireAnchors.push(drawBrazier(bb, h, mulberry32(h.coord.q * 31 + h.coord.r * 7 + 9)));
   }
 
+  const wallGeometry = wb.vertexCount > 0 ? wb.build() : null;
   return {
     geometry: b.build(),
-    wallGeometry: wb.vertexCount > 0 ? wb.build() : null,
+    wallGeometry,
+    wallStages: wallGeometry && gateKey ? { intact: wallGeometry, battered: stageWalls(1), broken: stageWalls(2) } : null,
+    gateKey,
+    gateHolder,
     brazierGeometry: bb.vertexCount > 0 ? bb.build() : null,
     reedGeometry: rb.vertexCount > 0 ? rb.build() : null,
     hexes,
@@ -934,7 +986,25 @@ function ribbon(b: GeoBuilder, x0: number, z0: number, x1: number, z1: number, y
 
 // --- Walls & gate ------------------------------------------------------------
 
-function drawWalls(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], skin: Skin, rand: () => number) {
+/**
+ * The wall line and its gatehouse. `stage` (CR6: the Host's gate under a
+ * breakObjective) 0 = intact, 1 = battered (cracked masonry, merlons knocked
+ * off, rubble, the doors bowed and split), 2 = breached (a tower top down, the
+ * lintel cracked, the doors burst in, the gate banner fallen). The Banners never
+ * use fire: nothing burns. Base parts draw from `rand` in the same order at every
+ * stage (parts a stage removes go into `gone`, a throwaway builder), so the
+ * intact walls are exactly the pre-stage ones; damage draws from `dmg`.
+ */
+function drawWalls(
+  b: GeoBuilder,
+  layout: BoardLayout,
+  hexes: IslandHex[],
+  skin: Skin,
+  rand: () => number,
+  stage: 0 | 1 | 2 = 0,
+  dmg: () => number = rand,
+  holder: FactionId = "free_banners",
+) {
   const byKey = new Map(hexes.map((h) => [hexKey(h.coord), h]));
   const walls = layout.hexes
     .filter((h) => h.terrain === "wall")
@@ -943,16 +1013,19 @@ function drawWalls(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], skin:
   const torches: Anchor[] = [];
   let gateBanner: Anchor | undefined;
   if (walls.length === 0) return { torches, gateBanner };
+  const gone = new GeoBuilder();
 
   const masonry = color(skin.terrain.wall.accent ?? "#a8a296");
   const masonryDark = masonry.clone().multiplyScalar(0.78);
   const roof = color(skin.factions.ashen_host.secondary).lerp(color("#3a3230"), 0.35);
   const wood = color("#2a1c12");
+  const crack = color("#2a2622");
   const H = 0.46;
   const THICK = 0.2;
   const apothem = Math.sqrt(3) / 2;
 
-  const segment = (x: number, y: number, z0: number, z1: number) => {
+  /** `knock`: drop every n-th merlon (0 = keep all). */
+  const segment = (x: number, y: number, z0: number, z1: number, knock = 0) => {
     const len = z1 - z0;
     if (len <= 0.01) return;
     b.add(PRIM.box, trs(x, y + H / 2, (z0 + z1) / 2, 0, 0, 0, THICK, H, len), masonry, 0.06, rand);
@@ -962,15 +1035,46 @@ function drawWalls(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], skin:
     const n = Math.max(1, Math.floor(len / 0.14));
     for (let i = 0; i < n; i += 1) {
       const z = z0 + ((i + 0.5) / n) * len;
-      b.add(PRIM.box, trs(x, y + H + 0.045, z, 0, 0, 0, THICK, 0.09, 0.075), masonry, 0.1, rand);
+      (knock && i % knock === 1 ? gone : b).add(PRIM.box, trs(x, y + H + 0.045, z, 0, 0, 0, THICK, 0.09, 0.075), masonry, 0.1, rand);
     }
   };
-  const tower = (x: number, y: number, z: number, r: number, h: number) => {
-    b.add(PRIM.cyl8, trs(x, y + h / 2, z, 0, Math.PI / 8, 0, r, h, r), masonry, 0.06, rand);
-    b.add(PRIM.cyl8, trs(x, y + h + 0.03, z, 0, Math.PI / 8, 0, r * 1.12, 0.06, r * 1.12), masonryDark);
-    b.add(PRIM.cone8, trs(x, y + h + 0.06 + r * 0.8, z, 0, Math.PI / 8, 0, r * 1.2, r * 1.6, r * 1.2), roof, 0.08, rand);
+  /** `topple`: the tower's top half and roof are down (breached). */
+  const tower = (x: number, y: number, z: number, r: number, h: number, topple = false) => {
+    const into = topple ? gone : b;
+    into.add(PRIM.cyl8, trs(x, y + h / 2, z, 0, Math.PI / 8, 0, r, h, r), masonry, 0.06, rand);
+    into.add(PRIM.cyl8, trs(x, y + h + 0.03, z, 0, Math.PI / 8, 0, r * 1.12, 0.06, r * 1.12), masonryDark);
+    into.add(PRIM.cone8, trs(x, y + h + 0.06 + r * 0.8, z, 0, Math.PI / 8, 0, r * 1.2, r * 1.6, r * 1.2), roof, 0.08, rand);
     // Arrow slit.
     b.add(PRIM.box, trs(x - r * 0.98, y + h * 0.6, z, 0, 0, 0, 0.02, 0.1, 0.03), wood);
+    if (topple) {
+      // A broken stump with a jagged crown, its stones spilled west.
+      const hs = h * 0.58;
+      b.add(PRIM.cyl8, trs(x, y + hs / 2, z, 0, Math.PI / 8, 0, r, hs, r), masonry, 0.06, dmg);
+      for (let i = 0; i < 5; i += 1) {
+        const a = (i / 5) * Math.PI * 2 + dmg();
+        b.add(PRIM.box, trs(x + Math.cos(a) * r * 0.75, y + hs + 0.02 + dmg() * 0.05, z + Math.sin(a) * r * 0.75, dmg(), a, dmg() * 0.4, 0.06, 0.07 + dmg() * 0.05, 0.05), masonry, 0.1, dmg);
+      }
+      rubble(x - 0.25, y, z, 9, 0.3);
+    }
+  };
+  const rubble = (x: number, y: number, z: number, n: number, spread: number) => {
+    for (let i = 0; i < n; i += 1) {
+      const s = 0.03 + dmg() * 0.035;
+      b.add(PRIM.rock, trs(x - dmg() * spread, y + s * 0.6, z + (dmg() - 0.5) * spread * 1.4, dmg(), dmg(), dmg(), s * 1.3, s, s), masonry, 0.15, dmg);
+    }
+  };
+  /** A zigzag of dark seams down a west face at (x, z), from height y1 to y0. */
+  const seam = (x: number, y0: number, y1: number, z: number) => {
+    let y = y1;
+    let zz = z;
+    while (y > y0 + 0.04) {
+      const dy = 0.05 + dmg() * 0.04;
+      const dz = (dmg() - 0.5) * 0.07;
+      const l = Math.hypot(dy, dz);
+      b.add(PRIM.box, trs(x, y - dy / 2, zz + dz / 2, Math.atan2(dz, dy), 0, 0, 0.008, l, 0.012), crack, 0);
+      y -= dy;
+      zz += dz;
+    }
   };
 
   const x = walls[0].hex.x;
@@ -980,19 +1084,54 @@ function drawWalls(b: GeoBuilder, layout: BoardLayout, hexes: IslandHex[], skin:
     if (objectiveDressing(board) === "gatehouse") {
       // Gatehouse: two towers flanking an arched gate.
       const gap = 0.26;
-      segment(x, hex.top, z0, hex.z - gap - 0.14);
-      segment(x, hex.top, hex.z + gap + 0.14, z1);
-      tower(x, hex.top, hex.z - gap, 0.16, 0.74);
+      const knock = stage === 0 ? 0 : stage === 1 ? 3 : 2;
+      segment(x, hex.top, z0, hex.z - gap - 0.14, knock);
+      segment(x, hex.top, hex.z + gap + 0.14, z1, knock);
+      tower(x, hex.top, hex.z - gap, 0.16, 0.74, stage === 2);
       tower(x, hex.top, hex.z + gap, 0.16, 0.74);
       // Lintel + arch.
-      b.add(PRIM.box, trs(x, hex.top + 0.5, hex.z, 0, 0, 0, THICK + 0.04, 0.16, gap * 2 - 0.08), masonry);
+      (stage === 2 ? gone : b).add(PRIM.box, trs(x, hex.top + 0.5, hex.z, 0, 0, 0, THICK + 0.04, 0.16, gap * 2 - 0.08), masonry);
       b.add(PRIM.cyl8, trs(x, hex.top + 0.36, hex.z, Math.PI / 2, 0, Math.PI / 2, 0.17, THICK + 0.02, 0.1), masonryDark);
       // Doors (dark wood) recessed in the opening.
-      b.add(PRIM.box, trs(x + 0.02, hex.top + 0.18, hex.z, 0, 0, 0, 0.06, 0.36, gap * 2 - 0.14), wood);
-      b.add(PRIM.box, trs(x - 0.02, hex.top + 0.18, hex.z, 0, 0, 0, 0.012, 0.3, 0.02), color("#4a3020"));
+      (stage > 0 ? gone : b).add(PRIM.box, trs(x + 0.02, hex.top + 0.18, hex.z, 0, 0, 0, 0.06, 0.36, gap * 2 - 0.14), wood);
+      (stage > 0 ? gone : b).add(PRIM.box, trs(x - 0.02, hex.top + 0.18, hex.z, 0, 0, 0, 0.012, 0.3, 0.02), color("#4a3020"));
+      const leaf = (gap * 2 - 0.14) / 2;
+      if (stage === 1) {
+        // Bowed and split: the two leaves pushed in at the meeting edge, a plank sprung.
+        for (const side of [-1, 1]) {
+          b.add(PRIM.box, trs(x + 0.035, hex.top + 0.18, hex.z + side * leaf * 0.5, 0, side * 0.16, 0, 0.06, 0.36, leaf * 0.98), wood);
+        }
+        b.add(PRIM.box, trs(x - 0.04, hex.top + 0.12, hex.z + 0.04, 0.5, 0.3, 0.2, 0.012, 0.18, 0.02), color("#4a3020"));
+        seam(x - 0.006, hex.top + 0.05, hex.top + 0.34, hex.z - 0.01);
+      } else if (stage === 2) {
+        // Burst in: one leaf hanging off its hinge, the other flat inside, splinters.
+        b.add(PRIM.box, trs(x + 0.1, hex.top + 0.2, hex.z + leaf, 0.35, 0.9, 0.12, 0.05, 0.34, leaf * 0.95), wood);
+        b.add(PRIM.box, trs(x + 0.32, hex.top + 0.03, hex.z - leaf * 0.3, 0, 0.4, Math.PI / 2, 0.05, 0.34, leaf * 0.95), wood);
+        for (let i = 0; i < 6; i += 1) {
+          b.add(PRIM.box, trs(x + (dmg() - 0.3) * 0.5, hex.top + 0.01, hex.z + (dmg() - 0.5) * 0.4, 0, dmg() * Math.PI, 0, 0.1, 0.012, 0.018), color("#6a4a30"), 0.2, dmg);
+        }
+        // The lintel cracked in two, sagging into the opening.
+        for (const side of [-1, 1]) {
+          b.add(PRIM.box, trs(x, hex.top + 0.47, hex.z + side * (gap * 0.5 - 0.02), side * 0.22, 0, 0, THICK + 0.04, 0.15, gap - 0.06), masonry, 0.08, dmg);
+        }
+        rubble(x + 0.05, hex.top, hex.z, 7, 0.2);
+        // The holder's gate banner, torn down onto the rubble.
+        const cloth = color(skin.factions[holder].bannerCloth);
+        b.add(PRIM.box, trs(x - 0.24, hex.top + 0.03, hex.z + 0.08, 0.08, 0.5, 0.04, 0.12, 0.012, 0.22), cloth, 0.06, dmg);
+        b.add(PRIM.box, trs(x - 0.18, hex.top + 0.05, hex.z + 0.18, 0, 0.3, 0.5, 0.012, 0.012, 0.3), wood);
+      }
+      if (stage > 0) {
+        // Cracked masonry on the west faces, and stones at the foot.
+        for (const dz of [-gap, gap]) seam(x - 0.161, hex.top + 0.05, hex.top + 0.66, hex.z + dz + (dmg() - 0.5) * 0.06);
+        for (const dz of [-gap - 0.3, gap + 0.34]) seam(x - THICK / 2 - 0.002, hex.top + 0.08, hex.top + H - 0.02, hex.z + dz);
+        rubble(x - 0.2, hex.top, hex.z - gap, stage === 1 ? 4 : 6, 0.25);
+        rubble(x - 0.2, hex.top, hex.z + gap, stage === 1 ? 3 : 6, 0.25);
+      }
       gateBanner = { x: x - THICK / 2 - 0.02, y: hex.top + 0.44, z: hex.z, yaw: Math.PI };
-      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z - gap, yaw: 0, kind: "torch" });
-      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z + gap, yaw: 0, kind: "torch" });
+      // The gate's torches go out when it is breached.
+      const douse = { objective: hexKey(board.coord), douse: "broken" as const };
+      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z - gap, yaw: 0, kind: "torch", ...douse });
+      torches.push({ x: x - 0.2, y: hex.top + 0.5, z: hex.z + gap, yaw: 0, kind: "torch", ...douse });
     } else {
       segment(x, hex.top, z0, z1);
     }

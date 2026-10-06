@@ -95,7 +95,8 @@ export function WallsAndObjectiveFX({
       {island.wallGeometry && (
         <mesh
           ref={wall}
-          geometry={island.wallGeometry}
+          // The gatehouse's stage (CR6: the Host's gate battered, then breached).
+          geometry={island.wallStages?.[objectiveStages?.get(island.gateKey ?? "") ?? "intact"] ?? island.wallGeometry}
           material={material}
           castShadow
           receiveShadow

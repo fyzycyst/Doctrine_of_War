@@ -54,6 +54,19 @@ imported (see `fromEngine.ts`); engine logic may not.
   `nearestRoadGoal`), whatever the order of the hex list. In a channel the sluice turns with the
   water through its own hex (`localFlow`), and its house stands on the dry bank. `closeShotOn(board,
   hexes)` (shots.ts) is a close beat on a few hexes, e.g. Cinder Road 2's Sluice Walk and sluice.
+- **Gatehouse (CR6):** the gate's holder is read from the deployment (`objectiveHolder`; First Breach
+  and Hold for Dawn: the Banners, Cinder Road 6: the Host), and the gate banner hangs in the holder's
+  colours (`island.gateHolder`). The wall line is built per stage of its gatehouse objective
+  (`island.wallStages`, keyed by `island.gateKey`). Battered: cracked masonry, merlons knocked off,
+  rubble, the doors bowed and split. Breached: a tower top down, the lintel cracked, the doors burst
+  in, the banner torn down onto the rubble, and the gate's torches out. Nothing burns. The intact
+  walls are byte-identical to before (the stages replay the same random draws). The walls are still
+  drawn north to south with the gate facing west, which is right for every board so far.
+  `disposeIsland(island)` frees every geometry an island build owns.
+- **Sides (CR6):** `sides(board)` gives each faction's default facing and the way it flees. The
+  convention (the Host from the west) holds unless the Banners deploy clearly west of the Host, and
+  then both turn round. The Diorama applies it to squads still on the mapper's default facing, to
+  ghosts and to routs.
 - **River dressing (M2):** Ember Ford's burning bridge wrecks and the Host's bank braziers appear
   only under `nightFires` (`atmosphere/fireRules.ts`; braziers are `island.brazierGeometry`). By day
   the wrecks are cold, charred stumps trailing a thin smoke. `BoardLayout.fordDressing?:

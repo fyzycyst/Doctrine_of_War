@@ -3,6 +3,7 @@ import { hexDistance, hexKey, hexNeighbors, type BoardHex, type BoardLayout, typ
 import { GeoBuilder, color, trs } from "../geo/GeoBuilder";
 import { boardCenter, hexToWorld, mulberry32 } from "../hexWorld";
 import type { Skin } from "../skins/types";
+import type { FactionId } from "../../game/engine/types";
 
 /**
  * Objectives on open ground (M2): the Host's barricade and wagon park, and the
@@ -46,6 +47,29 @@ export function objectiveFacing(board: BoardLayout, at: HexCoord): [number, numb
   const dz = target[1] - oz;
   const len = Math.hypot(dx, dz);
   return len < 1e-6 ? [-1, 0] : [dx / len, dz / len];
+}
+
+/**
+ * Who holds an objective, from the board alone: the side deployed on its hex, else
+ * the side deployed nearer it (First Breach and Hold for Dawn: the Banners; Cinder
+ * Road 6: the Host). Null when the board has no deployment.
+ */
+export function objectiveHolder(board: BoardLayout, at: HexCoord): FactionId | null {
+  const here = board.hexes.find((h) => hexKey(h.coord) === hexKey(at))?.deploymentFaction;
+  if (here) return here;
+  const center = boardCenter(board);
+  const [ox, oz] = hexToWorld(at, center);
+  const near = (["free_banners", "ashen_host"] as const)
+    .map((f) => {
+      const pts = board.hexes.filter((h) => h.deploymentFaction === f).map((h) => hexToWorld(h.coord, center));
+      if (pts.length === 0) return null;
+      const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+      const cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+      return { f, d: Math.hypot(cx - ox, cz - oz) };
+    })
+    .filter((s): s is { f: "free_banners" | "ashen_host"; d: number } => s !== null)
+    .sort((a, b) => a.d - b.d);
+  return near[0]?.f ?? null;
 }
 
 /**
