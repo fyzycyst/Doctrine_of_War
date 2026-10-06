@@ -350,6 +350,41 @@ they achieve, declared before the gate, and ablated as roles.**
   ablation requirement.
 - Unchanged: every mono plan, the named bad plan and the pure march stay gated.
 
+**Design principle (2026-10-06, CR4 and CR5): strength skips any role that is filled by
+fighting.**
+- **What happened:** the Roll fields very different armies for one battle. At battle 4, for
+  example, the curated path's titled companies carry +3 Resolve, and the rough recovery force
+  fields worn companies at −1.
+- **The mechanism:** a role whose job is done by fighting is done by *any* doctrine that
+  fights, once the army is strong enough. That covers:
+  - breaking a rearguard;
+  - grinding down an assault;
+  - cutting down a column.
+  
+  So mono plans of striking doctrines (Clean Counterstroke, Bring the Water, Open the Road)
+  fill every such role at once and pass the mono cap on strong rosters. Meanwhile a weak
+  roster fails the intended plan.
+- **Battles 2 and 3 survived** because one of their roles was filled by *standing on a post
+  before the enemy reaches it*: holding the Sluice Walk, standing on the Mill Road. Striking
+  doctrines do not go to an empty post and wait there on their own, and those battles'
+  unfilled roles lose by a rule (the ram strikes the sluice; an outrider steps on the road),
+  not by attrition.
+- **Pinning an enemy that is already adjacent is not standing.** CR5's trials showed that
+  every fighter fills that role too: a striker answers an adjacent enemy where it stands, as
+  surely as Shield the Line braces there. Only doctrines that give ground (Fighting
+  Withdrawal, Rescue Standard) let it go.
+- **The rule for a new battle:**
+  - give it at least one role filled by standing on a post *before contact*, which a striker
+    does not do by itself;
+  - make its unfilled roles lose structurally;
+  - check the roster spread on the real calls early, before deep tuning.
+  
+  Evidence: the CR4 and CR5 findings pages.
+  - **CR4 (attrition-only depth):** no Host configuration kept the rough call ≥ 75% with
+    unfilled plans below the floor on the recommended call.
+  - **CR5 (a pursuit):** the hunt has no roster spread, but a second role made of fighting
+    (breaking or pinning the rearguard) let mono Counterstroke pass on the strong calls.
+
 **Decision (2026-10-05, C3 warden; confirmed by the user 2026-10-06: "if a player can come up with something better, they should"): editor variants are diagnostics,
 not gated.** A doctrine-editor variant that out-thinks a battle is a reward for skill, which
 is what Test in the field is for. The gate guarantees the lesson for **stock doctrines plus
