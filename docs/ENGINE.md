@@ -460,18 +460,24 @@ Each battle has a **star doctrine** even when it uses a mix:
   the far-bank road heads). The column cannot see the road guard, but the map shows the
   roads, so it marches on the exits and cuts down what stands on them; Bring the Water has no
   objective to march on and stands on the bank. The Host's outriders slip over at the first
-  horn for the Mill Road behind (`enemyEscape`, count 1; Slip the Leash: they never fight,
-  so only a company standing on the road stops them), so a watch that leaves, or a pure
-  march, loses. The roles, by function: the **march** gets companies onto the far-bank
-  roads; the **guard** keeps the Mill Road (the watch on Shield the Line, Clean
-  Counterstroke or Bring the Water). **Signed off on `signoff3`** (300001–300500; the gate
+  horn for the Mill Road behind (`enemyEscape`, count 1; Slip the Leash: they never stop to
+  fight, so someone must stop them before they reach the Mill Road), so a watch that leaves,
+  or a pure march, loses. The roles, by function: the **march** gets companies onto the far-bank
+  roads (Open the Road; Fighting Withdrawal is a declared weak filler); the **guard** keeps
+  the Mill Road (the watch on Shield the Line, Clean Counterstroke or Bring the Water, or the
+  lances on Open the Road mustered into the Tollhouse Shallows; the weak marcher and the
+  muster were declared late, with the orchestrator's sign-off). **Signed off on `signoff3`** (300001–300500; the gate
   and `signoff2` were observed for C3), fortune on, curated path after battles 1–2:
   intended at least 99.6% on every gated call, with no muster too; bad 0%; every mono at
   most 1.4%; the strongest alternative (the watch on Clean Counterstroke) ties the intended
   plan; selection spread 0.4 points. Every stock combination that leaves the guard unfilled
   (3^2 over the watch's posts) and the pure march advance at most 1.6% on any call under no
-  muster, the heuristic, the rush or the rush of the column alone; no march-unfilled
-  combination (5^4) wins more than 3 games in 1,250. The editor variant the C3 warden found
+  muster, the heuristic, the rush or the rush of the column alone. The march is gated in two
+  stages, per plan: every march-unfilled combination (4^4) is screened on 8 gate seeds, and
+  every one that won or reached the roads, plus the ten most dangerous, is judged on 40
+  (with Fighting Withdrawal struck from the fillers, the gate fails on the C3 warden's mix,
+  7/40). Fighting Withdrawal's best mix wins at most 16.8% on `signoff3`; the shallows
+  muster, 78–93% on the gated calls. The editor variant the C3 warden found
   (Fighting Withdrawal with fw_rout_guard 90 on the watch) is a diagnostic probe at 0%.
   Role gate: `cinderRoad3.roles.<call>.sim.test.ts`, one per named call. Every named call is
   in docs/CAMPAIGN.md.

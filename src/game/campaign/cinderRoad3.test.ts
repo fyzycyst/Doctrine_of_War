@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import { hexDistance } from "../board";
 import { playBattle } from "../engine/balance";
 import { factionSees, visibleState } from "../engine/fog";
+import { decisionLeaks } from "../engine/fogDecisions.testkit";
 import { createInitialState, resolvePhase } from "../engine/resolvePhase";
+import { createRng } from "../engine/rng";
 import type { EngineEvent, EngineState } from "../engine/types";
 import { cinderRoad3, FAR_BANK_ROADS, NEAR_BANK_ROADS } from "../engine/scenarios/cinderRoad3";
 import { registry } from "../packs/registry";
@@ -40,9 +42,12 @@ describe("Open a Road (Cinder Road, battle 3)", () => {
     expect(unfilledCombos(cinderRoad3, plans.intended, GUARD)).toHaveLength(9);
     // The C3 warden's stock mixed watch is one of them.
     expect(unfilledCombos(cinderRoad3, plans.intended, GUARD).some(({ orders }) => orders.lances === "fighting_withdrawal" && orders.bows === "open_the_road")).toBe(true);
+    // The march's fillers: Open the Road, and Fighting Withdrawal (weak; declared after the C3
+    // warden's re-review, with the orchestrator's sign-off).
+    expect(nonFillers(cinderRoad3, MARCH)).toEqual(["bring_the_water", "shield_the_line", "rescue_standard", "clean_counterstroke"]);
     const march = unfilledCombos(cinderRoad3, plans.intended, MARCH);
-    expect(march).toHaveLength(5 ** 4);
-    expect(new Set(march.map(({ orders }) => JSON.stringify(orders))).size).toBe(5 ** 4);
+    expect(march).toHaveLength(4 ** 4);
+    expect(new Set(march.map(({ orders }) => JSON.stringify(orders))).size).toBe(4 ** 4);
   });
 
   it("is Ember Ford's own ground by daylight, crossed the other way: an exit win on the far-bank roads", () => {
@@ -89,6 +94,8 @@ describe("Open a Road (Cinder Road, battle 3)", () => {
     // of phases 1 and 3 (while the battle lasts), move every Host company the Banners cannot
     // see to the free unseen hex farthest from them: their view is byte-identical, so their
     // moves must be too until something is sighted (C5: routes are planned on knowledge).
+    // The player-visible witness only: the leak regression is the step-level test below (this
+    // one still passes with the old leak, as the C3 warden showed).
     const pureMarch = Object.fromEntries(Object.keys(plans.intended).map((id) => [id, "open_the_road"]));
     // The Banners' moves until anything is revealed: a sighting (contact on the way) is new
     // information, and what follows it may rightly differ.
@@ -131,4 +138,20 @@ describe("Open a Road (Cinder Road, battle 3)", () => {
     }
     expect(checked).toBeGreaterThan(2);
   });
+
+  it("fog: no Banner decision, route or withdrawal on this ground depends on an unseen enemy, at every step (C5 leak regression)", () => {
+    // P4's step-level check (fogDecisions.testkit.ts) on this battle's own plans: the intended
+    // plan, the pure march (the warden's seed 100001 orders) and the warden's Fighting
+    // Withdrawal mix, which falls back across the river. Proven against the old leak: with
+    // planRoute treating unseen-occupied hexes as blocked again, every plan leaks on every seed.
+    const pureMarch = Object.fromEntries(Object.keys(plans.intended).map((id) => [id, "open_the_road"]));
+    const fwMix = { ...plans.intended, ford_van: "fighting_withdrawal", road_van: "rescue_standard", chapel_van: "clean_counterstroke", standard: "clean_counterstroke" };
+    const seeds = Array.from({ length: 10 }, (_, index) => 100001 + index);
+    const pick = createRng(20261006);
+    for (const [name, orders] of Object.entries({ intended: plans.intended, pureMarch, fwMix })) {
+      const { checked, leaks } = decisionLeaks(cinderRoad3, orders, seeds, () => pick.next());
+      expect(checked, name).toBeGreaterThan(1000);
+      expect(leaks.slice(0, 3), name).toEqual([]);
+    }
+  }, 30_000);
 });

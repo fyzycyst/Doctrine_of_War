@@ -7,9 +7,10 @@
 // them. Bring the Water, last battle's star, has nothing to march on and stands on the
 // bank. But the fords cut both ways: the Host's outriders wait opposite the Mill Ford and
 // slip over at the first horn, by the ford or the Tollhouse Shallows below it, for the Mill
-// Road behind us, as they did that night. They never fight: a company standing in the water
-// cannot hold them, and only one that stands on the Mill Road stops them. A watch that
-// leaves (or a pure march) loses the road before any column can cut through. Registered in the First Call pack (packs/registry.ts), not in the intro's list.
+// Road behind us, as they did that night. They never stop to fight, so someone must stop
+// them before they reach the Mill Road: a watch that stands on it, or a company sent to meet
+// them in the crossings. A watch that leaves (or a pure march) loses the road before any
+// column can cut through. Registered in the First Call pack (packs/registry.ts), not in the intro's list.
 import type { BoardHex, BoardLayout, TerrainType } from "../../board";
 import type { EngineScenario } from "../types";
 
@@ -75,7 +76,7 @@ export const cinderRoad3: EngineScenario = {
   briefing:
     "Ember Ford by daylight, and this time we cross. The bridges are cold stumps; the Host holds the far bank and stands on its road heads, and from the water we will not see its guard until we are on it. " +
     "There is no barricade to march on, only roads, and we know where they run: send the column and the standard over the Cinder Ford for the Cinder Road and the Ashpit Lane, and cut down whatever stands on them. Two companies on the roads opens the way. " +
-    "But the fords cut both ways. The Host's outriders wait opposite the Mill Ford and the Tollhouse Shallows, and at the first horn they will slip over for the Mill Road behind us, as they did that night. They never stop to fight: only a company standing on the road stops them. " +
+    "But the fords cut both ways. The Host's outriders wait opposite the Mill Ford and the Tollhouse Shallows, and at the first horn they will slip over for the Mill Road behind us, as they did that night. They never stop to fight: someone must stop them before they reach the Mill Road. " +
     "Leave the Mill Road to companies that stand fast.",
   playerFaction: "free_banners",
   initiativeSide: "free_banners",
@@ -103,7 +104,7 @@ export const cinderRoad3: EngineScenario = {
     { id: "chapel_stalkers", name: "Chapel Stalkers", faction: "ashen_host", role: "skirmish", hex: { q: 1, r: 0 }, strength: 46, cohesion: 60, resolve: 0, doctrineId: "lie_in_wait" },
     // The outriders opposite the Mill Ford: at the first horn they slip over, by the ford or the
     // Tollhouse Shallows below it, for the Mill Road at our back (Slip the Leash: they never
-    // fight, so they cannot be held in the water; only a company on the Mill Road stops them).
+    // stop to fight: someone must stop them before they reach the Mill Road, on it or in the crossings).
     { id: "scorchmark_spears", name: "Scorchmark Spears", faction: "ashen_host", role: "frontline", hex: { q: 3, r: 5 }, strength: 44, cohesion: 54, resolve: 0, doctrineId: "no_step_back" },
     { id: "kilnbrand_raiders", name: "Kilnbrand Raiders", faction: "ashen_host", role: "skirmish", hex: { q: 2, r: 5 }, strength: 38, cohesion: 54, resolve: 0, doctrineId: "no_step_back" },
   ],

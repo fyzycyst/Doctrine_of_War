@@ -5,7 +5,7 @@
 // No vitest import here, so scripts can reuse these helpers.
 import { getHex, hexDistance, sameHex } from "../board";
 import { GATE_SEEDS } from "../engine/balance";
-import { heuristicMuster, rushMuster, type MusterMove, type MusterPolicy } from "../engine/muster";
+import { heuristicMuster, rushMuster, validateMuster, type MusterMove, type MusterPolicy } from "../engine/muster";
 import { createInitialState, resolvePhase } from "../engine/resolvePhase";
 import { scenarios as intro } from "../engine/scenarios";
 import { FAR_BANK_ROADS, NEAR_BANK_ROADS } from "../engine/scenarios/cinderRoad3";
@@ -30,18 +30,30 @@ const RESERVE = ["scorchmark_spears", "kilnbrand_raiders"];
  * (intended), Clean Counterstroke (the tracked alternative: it waits, and strikes the
  * crossers) and Bring the Water (it has nothing to march on, so it stands). Open the Road and
  * Fighting Withdrawal leave for the far-bank roads; Rescue Standard leaves to rally the
- * weakest ally. The march gets companies onto the far-bank roads: only Open the Road marches
- * on them and cuts down the road heads.
+ * weakest ally. The march gets companies onto the far-bank roads: Open the Road marches on
+ * them and cuts down the road heads (intended). Fighting Withdrawal is a declared WEAK march
+ * filler: it falls back toward the exits and reaches the roads in some games (at most 16.8%
+ * wins on any call on signoff3, against the intended plan's 99.6-100%; the dominance review
+ * is on the battle sheet). It was declared late, after the C3 warden's re-review, with the
+ * orchestrator's sign-off (docs/CAMPAIGN.md: a late filler needs it).
+ * The guard has one accepted muster-dependent filler too (as battle 2's Shield onto the walk):
+ * the lances on Open the Road mustered into the Tollhouse Shallows in phase 1 ("into the
+ * shallows"), where they meet the outriders before the Mill Road; declared with the
+ * orchestrator's sign-off. (The same muster with the intended watch on Shield the Line wins
+ * 0% on signoff3, the road lost every game: it guards with lances that go for the outriders.)
  */
 export const GUARD: RoleDeclaration = { posts: ["lances", "bows"], fillers: ["shield_the_line", "clean_counterstroke", "bring_the_water"] };
-export const MARCH: RoleDeclaration = { posts: ["ford_van", "road_van", "chapel_van", "standard"], fillers: [OTR] };
+export const MARCH: RoleDeclaration = { posts: ["ford_van", "road_van", "chapel_van", "standard"], fillers: [OTR, "fighting_withdrawal"] };
+/** The southern crossing beside the Mill Ford: one cavalry muster move from the lances' post. */
+export const TOLLHOUSE_SHALLOWS = { q: 4, r: 5 };
 
 /**
  * How the player musters: a harness policy ("none", "heuristic", "rush": every fighting
  * company steps toward the far-bank roads), or "rush the column" (only the companies on Open
- * the Road rush, leaving the watch where it was posted).
+ * the Road rush, leaving the watch where it was posted), or "into the shallows" (one move in
+ * phase 1: the lances into the Tollhouse Shallows, the accepted muster-dependent guard).
  */
-export type Muster = MusterPolicy | "rush the column";
+export type Muster = MusterPolicy | "rush the column" | "into the shallows";
 
 /**
  * The share of an unfilled plan's games it may WIN with the role filled by accident; more
@@ -65,11 +77,21 @@ interface RoleRun {
   guard: boolean | null;
   /** The march: a Banner company reached the far-bank roads. */
   march: boolean;
+  /** How close any Banner company came to the far-bank roads (0 once one is on them): the march screen's tiebreak. */
+  closest: number;
   /** A Host company got through onto the Mill Road behind the column. */
   breached: boolean;
+  /** Muster moves the game refused (validateMuster), as "phase: reason". */
+  invalidMusters: string[];
 }
 
-function musterFor(state: EngineState, scenario: EngineScenario, orders: Orders, muster: Muster): MusterMove[] {
+function musterFor(state: EngineState, scenario: EngineScenario, orders: Orders, muster: Muster, invalid: string[]): MusterMove[] {
+  if (muster === "into the shallows") {
+    if (state.phase !== 1) return [];
+    const moves = [{ squadId: "lances", to: TOLLHOUSE_SHALLOWS }];
+    for (const reason of Object.values(validateMuster(state, scenario, moves))) invalid.push(`${state.phase}: ${reason}`);
+    return moves;
+  }
   if (muster === "heuristic") return heuristicMuster(state, scenario);
   if (muster === "rush") return rushMuster(state, scenario);
   if (muster === "rush the column") return rushMuster(state, scenario, Object.keys(orders).filter((id) => orders[id] === OTR));
@@ -87,9 +109,17 @@ function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muste
   let through = false;
   let crossed = false;
   let march = false;
+  let closest = Number.POSITIVE_INFINITY;
+  const invalidMusters: string[] = [];
+  const approach = (current: EngineState) => {
+    for (const squad of activeSquads(current).filter((item) => item.faction === "free_banners")) {
+      closest = Math.min(closest, ...FAR_BANK_ROADS.map((road) => hexDistance(squad.hex, road)));
+    }
+  };
+  approach(state);
   while (state.status === "command") {
     const before = state;
-    const result = resolvePhase(state, orders, scenario, { muster: musterFor(state, scenario, orders, muster) });
+    const result = resolvePhase(state, orders, scenario, { muster: musterFor(state, scenario, orders, muster, invalidMusters) });
     for (const event of result.events as EngineEvent[]) {
       if (event.kind === "exit" && FAR_BANK_ROADS.some((road) => sameHex(road, event.hex))) {
         const squad = before.squads.find((item) => item.id === event.squadId);
@@ -102,6 +132,7 @@ function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muste
       }
     }
     state = result.state;
+    approach(state);
     const reserve = activeSquads(state).filter((squad) => RESERVE.includes(squad.id));
     if (reserve.some((squad) => ourSide(scenario, squad.hex))) crossed = true;
     if (held === null && reserve.some((squad) => hexDistance(squad.hex, millRoad) <= 1)) {
@@ -112,7 +143,9 @@ function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muste
     advanced: state.status === "victory" || state.status === "stalemate",
     guard: fought || held === true ? true : crossed || through ? false : null,
     march,
+    closest: march ? 0 : closest,
     breached: through,
+    invalidMusters,
   };
 }
 
@@ -125,6 +158,9 @@ export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, 
     wonGuarded: runs.filter((run) => run.advanced && run.guard === true).length,
     marched: runs.filter((run) => run.march).length,
     breached: runs.filter((run) => run.breached).length,
+    /** Mean closest approach of any Banner company to the far-bank roads (0 = on them). */
+    closest: runs.reduce((sum, run) => sum + run.closest, 0) / seeds,
+    invalid: runs.flatMap((run) => run.invalidMusters),
   };
 }
 
