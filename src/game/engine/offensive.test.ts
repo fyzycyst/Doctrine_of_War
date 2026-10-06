@@ -2,7 +2,6 @@
 // Bring the Water, and the Wagon Park fixture (Banner initiative under fog).
 import { describe, expect, it } from "vitest";
 import { doctrineLibrary } from "./doctrines";
-import { wagonPark } from "./fixtures/wagonPark";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { chooseRule, evaluateCondition, resolveTarget } from "./rules";
 import { actionContext, advanceRate, library, scenario, squad } from "./testKit";
@@ -127,39 +126,6 @@ describe("Bring the Water", () => {
     ]);
     expect(doctrine.rules.at(-1)?.then).toEqual({ kind: "attack", target: { kind: "objective", side: "enemy" } });
   });
-});
-
-describe("The Wagon Park (prototype, Banner initiative under fog)", () => {
-  const intended = wagonPark.referencePlans!.intended;
-
-  it("the assault always has a goal under fog: never blocked for want of a target", () => {
-    const blocked: string[] = [];
-    for (let seed = 1; seed <= 20; seed += 1) {
-      let state = createInitialState(wagonPark, { seed, fortune: "on" });
-      while (state.status === "command") {
-        const result = resolvePhase(state, intended, wagonPark);
-        for (const event of result.events as EngineEvent[]) {
-          if (event.kind === "blocked" && intended[event.squadId] === BTW && event.reason === "no target") blocked.push(`#${seed} ${event.squadId}`);
-        }
-        state = result.state;
-      }
-    }
-    expect(blocked).toEqual([]);
-  });
-
-  it("wins with fortune off, and every family in the intended plan earns its place (ablation >= 15 points)", () => {
-    let state = createInitialState(wagonPark);
-    while (state.status === "command") state = resolvePhase(state, intended, wagonPark).state;
-    expect(state.status).toBe("victory");
-
-    const base = advanceRate(wagonPark, intended);
-    expect(base).toBeGreaterThanOrEqual(0.75);
-    // A storm without a standard breaks on the Kept Coal.
-    expect(base - advanceRate(wagonPark, { ...intended, lanternbearers: BTW })).toBeGreaterThanOrEqual(0.15);
-    // Without the march, nothing reaches the park.
-    const noMarch = Object.fromEntries(Object.entries(intended).map(([id, doctrineId]) => [id, doctrineId === BTW ? "clean_counterstroke" : doctrineId]));
-    expect(base - advanceRate(wagonPark, noMarch)).toBeGreaterThanOrEqual(0.15);
-  }, 60_000);
 });
 
 describe("objectiveLost (C2): break theirs before they break ours", () => {

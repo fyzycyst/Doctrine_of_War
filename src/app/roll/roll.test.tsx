@@ -98,7 +98,8 @@ describe("choose a campaign", () => {
   it("shows a run this build cannot continue honestly, keeps it, and restores the backup on request", async () => {
     const user = userEvent.setup();
     const good = serializeCampaignSave(registry, startCampaign(cinderRoadPreview));
-    const stale = JSON.stringify({ ...JSON.parse(good), provenance: { ...JSON.parse(good).provenance, contentRevision: 2 } });
+    // A run from an older edition of the pack (content 1, before Cinder Road battle 2).
+    const stale = JSON.stringify({ ...JSON.parse(good), provenance: { ...JSON.parse(good).provenance, contentRevision: 1 } });
     launch({ run: stale, backup: good });
     const cinder = await card(/Cinder Road/);
     await waitFor(() => expect(cinder).toHaveTextContent("different edition"));

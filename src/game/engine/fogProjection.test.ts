@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import type { HexCoord } from "../board";
 import { doctrineLibrary } from "./doctrines";
 import { eventsFor, factionSees } from "./fog";
-import { prototypeScenarios } from "./fixtures/wagonPark";
+import { prototypeScenarios } from "./fixtures";
 import { chooseRule, evaluateCondition, resolveTarget, type ResolvedTarget } from "./rules";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { createRng } from "./rng";

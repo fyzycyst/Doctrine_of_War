@@ -25,6 +25,7 @@ export {
   applyMuster,
   heuristicMuster,
   musterOptions,
+  rushMuster,
   validateMuster,
   MUSTER_HALTED,
   type MusterMove,

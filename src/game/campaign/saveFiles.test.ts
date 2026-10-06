@@ -5,11 +5,13 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createRegistry, firstCall, registry } from "../packs/registry";
 import { RULES_REVISION } from "../packs/types";
-import { startCampaign } from "./campaign";
+import { playBattle } from "../engine/balance";
+import { recordBattle, startCampaign } from "./campaign";
+import { cinderRoad } from "./cinderRoad";
 import { ashAndBanner } from "./definition";
-import { snapshotCarryOver } from "./roll";
+import { assembleBattle, recommendedForce, snapshotCarryOver } from "./roll";
 import { fightRoll, longRoad, testRegistry, testRoad } from "./rollTestKit";
-import { loadCampaign, MAX_SAVE_BYTES } from "./save";
+import { loadCampaign, MAX_SAVE_BYTES, saveCampaign } from "./save";
 import {
   asideKey,
   CAMPAIGN_SAVE_FILES,
@@ -73,7 +75,7 @@ describe("the v1 save corpus (written by v1.0-intro)", () => {
       expect(read.kind, name).toBe("ok");
       if (read.kind !== "ok") continue;
       expect(read.state).toEqual(loadCampaign(payload, ashAndBanner));
-      expect(read.provenance).toEqual({ packId: "first_call", packRevision: 1, campaignId: INTRO_CAMPAIGN_ID, contentRevision: 1, rulesRevision: RULES_REVISION });
+      expect(read.provenance).toEqual({ packId: "first_call", packRevision: 1, campaignId: INTRO_CAMPAIGN_ID, contentRevision: firstCall.revision.content, rulesRevision: RULES_REVISION });
       expect(serializeCampaignSave(registry, read.state), name).toBe(payload);
     }
     expect(localStorageKeyFor(INTRO_CAMPAIGN_ID)).toBe(LOCAL_STORAGE_KEY);
@@ -98,7 +100,7 @@ describe("v2 runs", () => {
     const state = rollRun();
     expect(state.companies.find((company) => company.id === "dawnwatch_archers")).toMatchObject({ condition: "worn", carriedFrom: { campaignId: "ash_and_banner" } });
     const json = serializeCampaignSave(testRegistry, state);
-    expect(JSON.parse(json)).toMatchObject({ version: 2, provenance: { packId: "first_call", packRevision: 1, campaignId: "cinder_road", contentRevision: 1, rulesRevision: RULES_REVISION } });
+    expect(JSON.parse(json)).toMatchObject({ version: 2, provenance: { packId: "first_call", packRevision: 1, campaignId: "cinder_road", contentRevision: firstCall.revision.content, rulesRevision: RULES_REVISION } });
     const read = readCampaignSave(testRegistry, "cinder_road", json);
     expect(read).toMatchObject({ kind: "ok" });
     expect(read.kind === "ok" && read.state).toEqual(state);
@@ -188,6 +190,48 @@ describe("v2 runs", () => {
     // A build without the run's campaign keeps it unavailable too.
     const withoutRoad = { ...firstCall, campaigns: firstCall.campaigns.filter((item) => item.id !== "cinder_road") };
     expect(readCampaignSave(createRegistry([withoutRoad]), "cinder_road", serializeCampaignSave(testRegistry, state))).toMatchObject({ kind: "unavailable" });
+  });
+});
+
+describe("pack editions (C2: Cinder Road battle 2)", () => {
+  // A Cinder Road run as the content-1 build (e553746) wrote it: battle 1 only, won, so complete.
+  const oneBattle = { ...cinderRoad, battles: [cinderRoad.battles[0]] };
+  const contentOne = createRegistry([{ ...firstCall, revision: { ...firstCall.revision, content: 1 }, readsContent: [1], campaigns: [ashAndBanner, oneBattle] }]);
+  const start = startCampaign(oneBattle);
+  const scenario = registry.scenario("cinder_road_saltmarsh")!;
+  const assignment = recommendedForce(oneBattle, start, scenario);
+  const final = playBattle(assembleBattle(oneBattle, start, scenario, assignment), scenario.referencePlans!.intended, scenario.curatedSeed!, "on");
+  const complete = recordBattle(oneBattle, start, final, { assignment });
+  const payload = serializeCampaignSave(contentOne, complete);
+
+  it("this build is content 2 and reads only content 2", () => {
+    expect(firstCall.revision.content).toBe(2);
+    expect(firstCall.readsContent).toEqual([2]);
+    expect(complete.status).toBe("complete");
+    expect(JSON.parse(payload).provenance.contentRevision).toBe(1);
+  });
+
+  it("a content-1 run completed after battle 1 is preserved as unavailable, never shown as an error, and can be set aside", async () => {
+    // Without the bump it could not be read at all: it no longer replays against two battles.
+    const unbumped = createRegistry([{ ...firstCall, readsContent: [1, 2] }]);
+    expect(readCampaignSave(unbumped, "cinder_road", payload)).toMatchObject({ kind: "unreadable" });
+    // With it: unavailable, with the edition named, and kept as it is.
+    expect(readCampaignSave(registry, "cinder_road", payload)).toMatchObject({ kind: "unavailable", reason: expect.stringMatching(/different edition/) });
+    const { data, storage } = memory();
+    const intro = saveCampaign(startCampaign(ashAndBanner));
+    data.set(localStorageKeyFor("cinder_road"), payload);
+    data.set(LOCAL_STORAGE_KEY, intro);
+    const store = localStorageCampaignStore(storage);
+    await expect(saveCampaignRun(store, registry, startCampaign(cinderRoad))).rejects.toThrow(PRESERVED_RUN);
+    expect(data.get(localStorageKeyFor("cinder_road"))).toBe(payload);
+    // Set aside: kept under its own key, and a new run of this edition can begin.
+    await store.setAside("cinder_road");
+    expect(data.get(asideKey(localStorageKeyFor("cinder_road"), 1))).toBe(payload);
+    await saveCampaignRun(store, registry, startCampaign(cinderRoad));
+    expect((await loadCampaignRun(store, registry, "cinder_road")).kind).toBe("ok");
+    // The intro's save is untouched and still reads (it is not gated by content revision).
+    expect(data.get(LOCAL_STORAGE_KEY)).toBe(intro);
+    expect(readCampaignSave(registry, INTRO_CAMPAIGN_ID, intro).kind).toBe("ok");
   });
 });
 

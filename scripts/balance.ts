@@ -7,7 +7,7 @@
 // missing reference plans or any guardrail failure all exit non-zero.
 import { formatTable, GATE_SEEDS, GUARDRAILS, guardrailFailures, runBalance, TUNING_SEEDS, type BalanceRow } from "../src/game/engine/balance";
 import { scenarios as introScenarios } from "../src/game/engine/scenarios";
-import { prototypeScenarios } from "../src/game/engine/fixtures/wagonPark";
+import { prototypeScenarios } from "../src/game/engine/fixtures";
 import { ashAndBanner } from "../src/game/campaign/definition";
 import { balanceMatrixIn, introCarrySource } from "../src/game/campaign/rosters";
 import { rollDiagnostics } from "../src/game/campaign/rollCalls";
@@ -50,7 +50,7 @@ if (seeds > span.size) {
 }
 const firstSeed = span.first;
 // Every pack scenario (the intro, then Cinder Road); engine prototypes (test fixtures, not
-// shipped) run only when named: --scenario proto_wagon_park.
+// shipped) run only when named: --scenario <id>.
 const scenarios = registry.scenarios();
 const campaigns = registry.packs.flatMap((pack) => pack.campaigns);
 const selected = only ? [...scenarios, ...prototypeScenarios].filter((item) => item.id === only) : scenarios;

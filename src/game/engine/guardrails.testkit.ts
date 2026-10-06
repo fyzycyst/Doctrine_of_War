@@ -4,7 +4,7 @@ import { ashAndBanner } from "../campaign/definition";
 import { balanceVariantsIn, introCarrySource, type BalanceVariant } from "../campaign/rosters";
 import { rollDiagnostics } from "../campaign/rollCalls";
 import { registry } from "../packs/registry";
-import { prototypeScenarios } from "./fixtures/wagonPark";
+import { prototypeScenarios } from "./fixtures";
 import { scenarios } from "./scenarios";
 
 const campaigns = registry.packs.flatMap((pack) => pack.campaigns);

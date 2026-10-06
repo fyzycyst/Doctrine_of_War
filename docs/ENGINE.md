@@ -357,7 +357,11 @@ seed ranges in docs/CAMPAIGN.md). Plans are played with a
 **muster policy**: `"heuristic"` (`heuristicMuster`: relieve an engaged company below 35
 cohesion with a fresh neighbour of 60+, then step idle fighting companies, those with
 no seen enemy within 3, toward the fight or the line of retreat; standards stay put;
-it reads only the player's view) or `"none"`. The guardrails are judged with the
+it reads only the player's view) or `"none"`. A third policy, `"rush"` (`rushMuster`:
+every fighting company, or a named set, steps as far as it can toward the enemy objective,
+or the line of retreat in an escape battle), is the adversary for role tests: strength
+alone must not skip a role (docs/CAMPAIGN.md); it is not used for the guardrails. The
+guardrails are judged with the
 heuristic, the player-realistic one; with `"none"` the intended plan must still pass
 the winnability floor. It prints win rates and the mean objective integrity, and exits 1
 if a guardrail fails:
@@ -368,9 +372,10 @@ if a guardrail fails:
 
 The same check runs with 60 seeds on every `npm test`, one file per battle
 (`balance.<battle>.test.ts` via `guardrails.testkit.ts`; Roll battles one test per named
-call). Every pack scenario (`registry.scenarios()`) must pass, and so must the engine prototypes in
+call). Every pack scenario (`registry.scenarios()`) must pass, and so must any engine prototype in
 `fixtures/` (test fixtures, never offered to the player; run one by name with
-`npm run balance -- --scenario proto_wagon_park`). The scenarios so far:
+`npm run balance -- --scenario <id>`; none since the Wagon Park was promoted into
+*Cinder Road* battle 2). The scenarios so far:
 Each battle has a **star doctrine** even when it uses a mix:
 - *The First Breach*: the tutorial; the star is the wall. Shields hold the gate, the
   standard rallies them, and the riders (Counterstroke) pounce on whatever comes alone.
@@ -407,21 +412,41 @@ Each battle has a **star doctrine** even when it uses a mix:
   forces (weakest legal: 81% with it, 41% without). **Keep step is inert here:** the Sunward Lances (cavalry) never get 2 hexes ahead of
   every other company (they move after the infantry, and lead by at most 1), so Bring the
   Water without `btw_step` scores the same. Every named call is in docs/CAMPAIGN.md.
-- *The Wagon Park* (prototype, `fixtures/wagonPark.ts`, P4): the first battle with
-  **Banner initiative**, `breakObjective` and fog. The Banners cannot see the park's guard
-  from their start, so the assault is anchored to the objective: Bring the Water marches
-  four companies on the wagon park (integrity 48) while a Rescue Standard keeps them
-  standing against the Kept Coal's dread and the thralls' Terror Push charge. Everyone on
-  Bring the Water, standard included, is a storm without a standard and breaks on the
-  guard. Gate range (seeds 100001–100500), fortune on: intended 90.8% (91.2% with no
-  muster), bad 0%, all Bring the Water 16.6%, every other mono 0%. (Tuning-range figures
-  from authoring were 93% / 91.8% / 23%.) `btw_step` (keep step) does not fire in this
-  fixture's intended plan (the line starts and moves together); it is the guard against
-  a fast or forward company arriving alone, covered by `offensive.test.ts`.
+- *Strike the Wagon Park* (*Cinder Road* battle 2, `scenarios/cinderRoad2.ts`, C2; the M1
+  Wagon Park prototype promoted, and the prototype fixture retired): the star is **Bring
+  the Water**; the second role is **the sluice guard**. Banner initiative under fog on a
+  stretch of the Emberwater upstream of Ember Ford. Two objectives: `breakObjective` on the
+  Host's wagon park (integrity 56), and `objectiveLost` on the Covenant's Weir Sluice
+  (integrity 16), which stands in its own race of water with **one dry approach, the
+  Sluice Walk**. A kiln-clan ram (siege) crosses the Sallow Weir for the sluice: a pure
+  march leaves the walk open and the ram breaks the sluice at its first blow, whatever the
+  force. The roles are defined by function: the **guard** holds the walk when the ram
+  comes up, or fights the ram before it strikes the sluice; the **march** strikes the park.
+  Accepted guards: Hold for Dawn (intended) takes its stand on the walk (its own
+  objective's only standable neighbour) and the ram fights it there (C4); Clean
+  Counterstroke waits and strikes the ram when it comes up alone (roster-dependent); and
+  any holding doctrine the player musters onto the walk (two moves; muster-dependent). The
+  standard carries a banner (Rescue Standard: an extra, not a counted role). The sluice
+  falls at the ram's first blow (integrity 16, tuned after the warden found that a strong
+  carried force rushing the park with muster beat the ram to it). Gate seeds, recommended
+  call: intended 92.8% (100% with no muster), the pure march 0%, every mono 0% (Hold for
+  Dawn included), Clean Counterstroke 94.0% (94.2%), but 0–43% on calls that put another
+  company on the keepers' post; Shield the Line mustered onto the walk 96.8% (100%), and at
+  least 75.6% (96.8%) on every call. Every plan that leaves the guard or the march unfilled
+  advances at most 7.2% on every call, with no muster, the heuristic muster or the rush
+  (`cinderRoad2.guard.test.ts`, `cinderRoad2.march.test.ts`, `cinderRoad2.rush.test.ts`).
+  Role ablations (gate seeds, no muster and heuristic): every keeper that does not guard,
+  and every assault that does not march, 0% on every call.
 
-**Scenario design principle.** Every battle's intended plan uses at least two doctrine
-families in meaningful roles. Its scenario test ablates each family (swapping it for
-another doctrine) and requires each swap to cost at least 15 points of advance rate.
+**Scenario design principle.** Every battle's intended plan fills at least two **roles**
+with at least two doctrine families. A role is defined by what it achieves (hold the gate,
+keep the boats, march on the barricade), not by the doctrine that fills it; the rule is in
+docs/CAMPAIGN.md. Its scenario test ablates each **role**: every doctrine that fills it is
+replaced by the best doctrine that does not, and the swap must cost at least 15 points of
+advance rate. The earlier battles' tests ablate doctrine families; where one family is the
+only thing that fills a role, the two ablations are the same. A battle may declare accepted fillers for a
+role (another doctrine, or a muster); plans that leave a role unfilled must stay below the
+floor on every named call, with no muster, with the heuristic muster and against the rush.
 
 **Doctrine identity matrix** (`identityKit.ts`, `identity.test.ts`). Canonical
 micro-battles against Iron Tide marching on a gate (30 seeds, fortune on) assert that

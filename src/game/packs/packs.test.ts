@@ -185,10 +185,10 @@ describe("the registry", () => {
     expect(registry.campaign("ash_and_banner")).toMatchObject({ pack: { id: "first_call" }, campaign: { id: ashAndBanner.id } });
     expect(registry.campaign("ash_and_banner")?.campaign).toEqual(ashAndBanner);
     expect(registry.campaign("cinder_road")?.campaign).toEqual(cinderRoad);
-    expect(registry.scenarios().map((item) => item.id)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh"]);
+    expect(registry.scenarios().map((item) => item.id)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh", "cinder_road_wagon_park"]);
     expect(registry.scenario("hold_for_dawn")).toEqual(scenarios.find((item) => item.id === "hold_for_dawn"));
     // Every campaign battle, in campaign order: the intro's four, then Cinder Road's first.
-    expect(registry.skirmishes().map(({ skirmish }) => skirmish.scenarioId)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh"]);
+    expect(registry.skirmishes().map(({ skirmish }) => skirmish.scenarioId)).toEqual([...scenarios.map((item) => item.id), "cinder_road_saltmarsh", "cinder_road_wagon_park"]);
     expect(registry.campaign("nowhere")).toBeUndefined();
   });
 
@@ -213,7 +213,7 @@ describe("the registry", () => {
   });
 
   it("says why a saved run cannot continue on this build", () => {
-    const run = { packId: "first_call", packRevision: 1, campaignId: "ash_and_banner", contentRevision: 1, rulesRevision: RULES_REVISION };
+    const run = { packId: "first_call", packRevision: 1, campaignId: "ash_and_banner", contentRevision: firstCall.revision.content, rulesRevision: RULES_REVISION };
     expect(registry.compatibility(run)).toEqual({ ok: true });
     expect(registry.compatibility({ ...run, packId: "shoal_towns" })).toMatchObject({ ok: false, reason: expect.stringMatching(/pack this build does not have/) });
     expect(registry.compatibility({ ...run, campaignId: "sluice_line" })).toMatchObject({ ok: false });

@@ -60,7 +60,14 @@ reference, each scenario's internal consistency, and each campaign against its
 scenarios. Nothing is exposed from a set that fails. `registry.compatibility(provenance)`
 says whether a saved run (pack, campaign, content and rules revision) can continue.
 The shipped pack is `first_call` (The First Call), holding the intro and *Cinder Road*
-(in development: battle 1 only until its length is frozen; see below).
+(in development: battles 1–2 so far, until its length is frozen; see below).
+
+**Editions.** `first_call` is at content revision **2** (`readsContent: [2]`) since
+*Cinder Road* gained battle 2 (C2): a content-1 Cinder Road run (one completed after
+battle 1 cannot replay against a two-battle campaign) is read as **unavailable**, kept
+as it is, and can be set aside to begin anew; it is never shown as unreadable. Appending
+a battle to a campaign is such a change, so bump the content revision with it. The
+intro's v1 save is not gated by content revision.
 
 Adding an engine condition, action, selector, win or defeat kind means adding it to
 `packs/manifest.ts` too; the shipped-pack round-trip test fails until you do.
@@ -261,6 +268,42 @@ musters (relief and rallies) and about 0 when nobody does, while "keep the boats
 "march" are essential either way. That is a feature of the Roll, not a defect: the
 alternative stays a tracked diagnostic, and the briefing hints at the banner's role.
 
+**Rule (2026-10-05, C2; tightened after the warden's re-review): roles are defined by what
+they achieve, declared before the gate, and ablated as roles.**
+- A battle's intended plan fills **roles**, and each role is defined by **function**, as
+  something a run can observe, not by the doctrine that fills it (*Cinder Road* battle 2:
+  the **guard** is a company holding the Sluice Walk when the ram comes up to it, or
+  fighting the ram before it strikes the sluice; the **march** is companies striking the
+  wagon park).
+- The battle sheet **declares the roles and their accepted fillers before the gate run**.
+  An accepted filler is a way of filling the role that the design accepts, with what it
+  depends on: fixed orders, the roster, or the player's muster (battle 2's guard: Hold for
+  Dawn, intended; Clean Counterstroke, roster-dependent; any holding doctrine, Shield the
+  Line or an edited variant, mustered onto the walk, muster-dependent). Accepted fillers are
+  never gated. Their per-call results under matched muster policies go on the battle sheet,
+  and one of them may be the tracked `referencePlans.alternative` row.
+- **The gate, and what makes the rule falsifiable:** plans where a role is genuinely
+  **unfilled** (each doctrine that does not fill it on the role's posts, with no muster that
+  fills it, and the pure march) are played on **every named call, with no muster, with
+  the heuristic muster, and against the rush** (`rushMuster`, the adversarial policy: every
+  fighting company, or only the companies on the role that is filled, steps toward the
+  enemy objective each phase, or toward the line of retreat in an escape battle). Strength
+  alone must not skip a role. Each plan must stay **below the floor** (advance < 75%), and
+  the role's observable must confirm that the role really was left unfilled (in at least
+  90% of games: a rushing company can cross the enemy's path by accident). These are
+  scenario tests, and the 500-seed numbers go on the battle sheet.
+- **The ≥ 15-point ablation is by role:** replace every doctrine that fills the role with
+  the best doctrine that does not (no muster), and the advance rate must drop by at least 15
+  points.
+- **Adding an accepted filler after the gate run** needs the orchestrator's sign-off,
+  recorded on the battle sheet with a **dominance review**: does it beat the intended plan
+  anywhere, by how much, and at what cost (command effort, roster, muster)? There is no fixed
+  numerical cap: a two-click muster and a self-positioning doctrine cost the player
+  different things, and the Roll changes their performance by roster.
+- An extra that is not a counted role (battle 2's standard on Rescue Standard) carries no
+  ablation requirement.
+- Unchanged: every mono plan, the named bad plan and the pure march stay gated.
+
 **Carry-over and doctrine dominance.** Veterans make blunt plans stronger, and no
 threat adjustment fixes that without also wrecking the intended plan (with two carried
 veterans fielded, all Bring the Water still advanced about 78% on the first version of
@@ -293,6 +336,26 @@ pass); the bows carry a banner with the assault (Rescue Standard). The bad plan 
 pure march (everyone on Bring the Water): the stair is left empty, and it loses whatever
 the force. Curated seed 91: won in phase 5 with no company lost, the Hounds held at the
 stair. Numbers are in docs/ENGINE.md.
+
+**Battle 2, *Strike the Wagon Park*** (`engine/scenarios/cinderRoad2.ts`, C2): upstream of
+Ember Ford, by daylight, Banner initiative, fog, 6 phases. Win: break the Host's wagon
+park (`breakObjective`), escorted by a detachment of the Kept Coal (the renowned main body
+holds Greyford Gate in battle 6). Defeat: the Covenant's Weir Sluice on our bank falls
+(`objectiveLost`, new in C2), or 3 companies lost. Posts (authored as the army stands
+after battle 1, so the curated path meets a nil threat): the Wainford, the Wagon Track,
+the Sedge Flank, the Lance Line (flex: cavalry or frontline), Willow Rise, and the Weir
+Sluice keepers (flex: skirmish or cavalry). Roles, by function: **the march** strikes the
+park (Bring the Water on the four assault posts); **the guard** holds the Sluice Walk when
+the ram comes up, or fights the ram before it strikes the sluice. Accepted guards: Hold for
+Dawn on the keepers (intended), who take their stand on the walk; Clean Counterstroke
+(roster-dependent), which waits and strikes the ram when it comes up alone; and any holding
+doctrine the player musters onto the walk (muster-dependent, signed off by the
+orchestrator after the warden's re-review; numbers and the dominance review are on the
+battle sheet). The standard carries a banner with the assault
+(Rescue Standard: an extra, not a counted role). The briefing names the role ("someone
+must keep the Sluice Walk"), not a doctrine. Bad plan: the pure march. Curated seed 64:
+won in phase 4, no company lost, the sluice untouched. The sluice falls at the ram's first
+blow (integrity 16), so even a strong force rushing the park cannot beat the ram to it.
 
 ## Saves
 

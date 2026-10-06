@@ -5,7 +5,7 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ashAndBanner, assembleBattle, cinderRoad, recommendedForce, startCampaign } from "../../game/campaign";
-import { prototypeScenarios } from "../../game/engine/fixtures/wagonPark";
+import { prototypeScenarios } from "../../game/engine/fixtures";
 import { registry } from "../../game/packs";
 import { useGame } from "../game/gameStore";
 import { installRollApi, type RunStore } from "../roll/api";
@@ -70,7 +70,8 @@ describe("skirmish", () => {
     // Grouped by campaign, in campaign order.
     expect(screen.getByRole("region", { name: "Ash & Banner" })).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Cinder Road" })).getByRole("button", { name: "Fight: The Saltmarsh, Northbound" })).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Cinder Road" })).getByText("Default force: the recommended call.")).toBeInTheDocument();
+    // Every Cinder Road battle says so (one line per battle).
+    expect(within(screen.getByRole("region", { name: "Cinder Road" })).getAllByText("Default force: the recommended call.").length).toBeGreaterThanOrEqual(2);
     expect(within(screen.getByRole("region", { name: "Ash & Banner" })).queryByText("Default force: the recommended call.")).not.toBeInTheDocument();
     expect(offered.length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /^Fight: / }).map((button) => button.getAttribute("aria-label"))).toEqual(offered.map((title) => `Fight: ${title}`));
@@ -148,8 +149,23 @@ describe("every battle is a skirmish", () => {
     expect(battles.length).toBeGreaterThan(4);
     expect(offered.slice(0, battles.length)).toEqual(battles);
     expect(offered).toContain("cinder_road_saltmarsh");
+    expect(offered).toContain("cinder_road_wagon_park");
     for (const prototype of prototypeScenarios) expect(offered).not.toContain(prototype.id);
     expect(new Set(registry.skirmishes().map(({ skirmish }) => skirmish.id)).size).toBe(offered.length);
+  });
+
+  it("fights a later Roll battle (Cinder Road battle 2) on the starting army's recommended force at that battle", async () => {
+    const user = userEvent.setup();
+    launch();
+    await user.click(screen.getByRole("button", { name: "Fight: Strike the Wagon Park" }));
+    const scenario = registry.scenario("cinder_road_wagon_park")!;
+    const at = { ...startCampaign(cinderRoad), battleIndex: 1 };
+    const expected = assembleBattle(cinderRoad, at, scenario, recommendedForce(cinderRoad, at, scenario));
+    expect(useFlow.getState().screen).toBe("battle");
+    expect(useGame.getState().campaign).toBeNull();
+    expect(useGame.getState().scenario.squads).toEqual(expected.squads);
+    fightOpenBattle("intended");
+    expect(useGame.getState().stage).toBe("outcome");
   });
 
   it("fights Cinder Road battle 1 on the starting army's recommended force, all fresh, no veterans, to an outcome; nothing saved", async () => {
