@@ -7,7 +7,7 @@
 // weakest, role, carried-recommended, carried-greedy (Roll campaigns' named calls).
 // Prints win rates for each plan. Fails closed: bad arguments, an unknown scenario,
 // missing reference plans or any guardrail failure all exit non-zero.
-import { formatTable, GUARDRAILS, guardrailFailures, runBalance, runVariantProbe, seedRange, SIGNOFF_BLOCKS, type BalanceRow } from "../src/game/engine/balance";
+import { formatTable, GUARDRAILS, guardrailFailures, PURSUIT_FILLERS, runBalance, runVariantProbe, seedRange, SIGNOFF_BLOCKS, type BalanceRow } from "../src/game/engine/balance";
 import { variantProbes } from "../src/game/engine/variantProbes";
 import { scenarios as introScenarios } from "../src/game/engine/scenarios";
 import { prototypeScenarios } from "../src/game/engine/fixtures";
@@ -83,7 +83,9 @@ for (const scenario of selected) {
       const label = { ...variant.scenario, title: `${scenario.title} [${name}${policy}]` };
       console.log(formatTable(label, rows));
       if (variant.roster) console.log(`  roster: ${variant.roster}`);
-      const failures = variant.policy === "diagnostic" ? [] : guardrailFailures(rows, variant.policy);
+      const capExempt = PURSUIT_FILLERS[scenario.id] ?? [];
+      if (capExempt.length > 0) console.log(`  pursuit exception: monos of the hunt's fillers (${capExempt.join(", ")}) are not capped (docs/CAMPAIGN.md)`);
+      const failures = variant.policy === "diagnostic" ? [] : guardrailFailures(rows, variant.policy, GUARDRAILS, capExempt);
       // A player who never musters must still be able to win (a winnability floor).
       const still = runBalance(variant.scenario, seeds, fortune as FortuneMode, "none", ["intended", "bad", "alternative"], firstSeed);
       playedNone.push({ name, rows: still });

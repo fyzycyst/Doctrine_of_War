@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { balancePlans, GATE_SEEDS, runVariantProbe, guardrailFailures, isGateSeed, playBattle, reservedRangeOf, runBalance, seedRange, SIGNOFF_BLOCKS, signoffRange, smokeGuardrails, TUNING_SEEDS, type BalanceRow } from "./balance";
+import { balancePlans, GATE_SEEDS, runVariantProbe, guardrailFailures, isGateSeed, playBattle, PURSUIT_FILLERS, reservedRangeOf, runBalance, seedRange, SIGNOFF_BLOCKS, signoffRange, smokeGuardrails, TUNING_SEEDS, type BalanceRow } from "./balance";
 import { doctrineLibrary } from "./doctrines";
 import { prototypeScenarios } from "./fixtures";
 import { GUARDRAIL_SCENARIO_IDS } from "./guardrails.testkit";
@@ -124,6 +124,21 @@ describe("balance guardrails (small-N version of npm run balance)", () => {
     // Mono plans are judged on advancing: wins plus stalemates.
     const stalling: BalanceRow = { ...row("mono", 0.3), stalemates: 30, stalemateRate: 0.3 };
     expect(guardrailFailures([row("intended", 0.8), row("bad", 0.1), stalling])).toEqual(["mono advances 60% (>= 60%)"]);
+  });
+
+  it("the pursuit exception: a pursuit's filler monos skip the mono cap; every other mono is still capped", () => {
+    const mono = (doctrineId: string, winRate: number): BalanceRow => ({
+      name: `all ${doctrineId}`, kind: "mono", orders: { a: doctrineId, b: doctrineId }, games: 100, wins: winRate * 100, winRate, stalemates: 0, stalemateRate: 0, meanObjective: null,
+    });
+    const base = [{ ...mono("x", 0.9), name: "intended", kind: "intended" as const }, { ...mono("y", 0), name: "bad", kind: "bad" as const }];
+    const exempt = PURSUIT_FILLERS.cinder_road_gate_road;
+    expect(exempt).toEqual(["clean_counterstroke", "bring_the_water", "open_the_road"]);
+    expect(guardrailFailures([...base, mono("clean_counterstroke", 1)], "full", undefined, exempt)).toEqual([]);
+    expect(guardrailFailures([...base, mono("shield_the_line", 0.6)], "full", undefined, exempt)).toEqual(["all shield_the_line advances 60% (>= 60%)"]);
+    // Without the exception (every other battle), the same filler mono is capped.
+    expect(guardrailFailures([...base, mono("clean_counterstroke", 1)])).toEqual(["all clean_counterstroke advances 100% (>= 60%)"]);
+    // Only pursuits are listed.
+    expect(Object.keys(PURSUIT_FILLERS)).toEqual(["cinder_road_gate_road"]);
   });
 
   it("plays editor-variant probes as diagnostic rows, never gated, and fails closed on a variant the editor would refuse", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatTable, guardrailFailures, runBalance, smokeGuardrails, SMOKE_STANDARD_ERRORS, type BalanceRow } from "./balance";
+import { formatTable, guardrailFailures, PURSUIT_FILLERS, runBalance, smokeGuardrails, SMOKE_STANDARD_ERRORS, type BalanceRow } from "./balance";
 import { ashAndBanner } from "../campaign/definition";
 import { balanceVariantsIn, introCarrySource, type BalanceVariant } from "../campaign/rosters";
 import { rollDiagnostics } from "../campaign/rollCalls";
@@ -42,7 +42,7 @@ export function describeGuardrails(scenarioId: string) {
         // ...and still winnable by a player who never musters.
         const still = runBalance(variant.scenario, SMOKE_SEEDS, "on", "none", ["intended", "bad", "alternative"]);
         if (variant.policy === "diagnostic") return; // reported only: its recovery force is the recommended call
-        expect(guardrailFailures(rows, variant.policy, SMOKE), `${TOLERANCE}\n${formatTable(variant.scenario, rows)}`).toEqual([]);
+        expect(guardrailFailures(rows, variant.policy, SMOKE, PURSUIT_FILLERS[scenario.id] ?? []), `${TOLERANCE}\n${formatTable(variant.scenario, rows)}`).toEqual([]);
         expect(guardrailFailures(still, "floor", SMOKE), `${TOLERANCE}\n${formatTable(variant.scenario, still)}`).toEqual([]);
       }, 90_000); // hundreds of simulated battles; the 5 s default times out under full-suite load
     }

@@ -260,8 +260,27 @@ export function runVariantProbe(
  */
 export type GuardrailPolicy = "full" | "floor";
 
-/** Human-readable guardrail failures; empty only when the scenario is provably in balance (fails closed). */
-export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = "full", limits: Guardrails = GUARDRAILS): string[] {
+/**
+ * The pursuit exception (docs/CAMPAIGN.md, "pursuit battles"): a pursuit has one counted role,
+ * the hunt, and the monos of its filler doctrines are pursuits done right, so they are not
+ * held to the mono cap. Every other mono, and every plan that leaves the hunt unfilled, is
+ * still gated. Keyed by scenario id; a battle not listed here is unaffected.
+ */
+export const PURSUIT_FILLERS: Readonly<Record<string, readonly string[]>> = {
+  cinder_road_gate_road: ["clean_counterstroke", "bring_the_water", "open_the_road"],
+};
+
+/** The doctrine a mono row plays (every post on the same doctrine), or null. */
+function monoDoctrine(row: BalanceRow): string | null {
+  const doctrines = new Set(Object.values(row.orders));
+  return row.kind === "mono" && doctrines.size === 1 ? [...doctrines][0] : null;
+}
+
+/**
+ * Human-readable guardrail failures; empty only when the scenario is provably in balance
+ * (fails closed). `capExempt`: doctrines whose monos the mono cap skips (PURSUIT_FILLERS).
+ */
+export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = "full", limits: Guardrails = GUARDRAILS, capExempt: readonly string[] = []): string[] {
   const pct = (value: number) => `${Math.round(value * 100)}%`;
   const missing = (["intended", "bad"] as const)
     .filter((kind) => !rows.some((row) => row.kind === kind))
@@ -286,7 +305,7 @@ export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = 
     if (row.kind === "bad" && row.winRate > limits.badMax) {
       return [`bad plan wins ${pct(row.winRate)} (> ${pct(limits.badMax)})`];
     }
-    if (row.kind === "mono" && row.winRate + row.stalemateRate >= limits.monoMax) {
+    if (row.kind === "mono" && row.winRate + row.stalemateRate >= limits.monoMax && !capExempt.includes(monoDoctrine(row) ?? "")) {
       return [`${row.name} advances ${pct(row.winRate + row.stalemateRate)} (>= ${pct(limits.monoMax)})`];
     }
     return [];
