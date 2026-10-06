@@ -12,6 +12,7 @@ import { kinds, library, openBoard, scenario, squad } from "./testKit";
 import type { EngineScenario, EngineState } from "./types";
 import type { EventBody } from "./context";
 import type { MusterMove } from "./muster";
+import { activeSquads } from "./world";
 
 const FB = "free_banners" as const;
 const AH = "ashen_host" as const;
@@ -367,8 +368,10 @@ describe("the harness's rush (adversarial)", () => {
     const exits = saltmarshColumn.winCondition.kind === "escapeEdge" ? saltmarshColumn.winCondition.edgeHexes : [];
     const near = (hex: { q: number; r: number }) => Math.min(...exits.map((exit) => hexDistance(exit, hex)));
     for (const move of rushMuster(state, saltmarshColumn)) {
-      const from = state.squads.find((item) => item.id === move.squadId)!.hex;
-      expect("to" in move && near(move.to)).toBeLessThan(near(from));
+      // rushMuster only moves companies on the field, so the mover is active and has a hex.
+      const mover = activeSquads(state).find((item) => item.id === move.squadId);
+      if (!mover || !("to" in move)) throw new Error(`rush moved ${move.squadId}, which is not an active company moving to a hex`);
+      expect(near(move.to)).toBeLessThan(near(mover.hex));
     }
     for (const battle of scenarios) {
       for (const seed of [1, 2]) {

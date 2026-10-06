@@ -9,6 +9,7 @@ import { createInitialState, resolvePhase } from "../engine/resolvePhase";
 import { scenarios as intro } from "../engine/scenarios";
 import { SLUICE_WALK } from "../engine/scenarios/cinderRoad2";
 import type { EngineEvent, EngineScenario, EngineState, Orders } from "../engine/types";
+import { activeSquads } from "../engine/world";
 import { registry } from "../packs/registry";
 import { cinderRoad } from "./cinderRoad";
 import { ashAndBanner } from "./definition";
@@ -72,9 +73,10 @@ function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muste
     }
     state = result.state;
     if (walkHeld === null) {
-      const ram = state.squads.find((squad) => squad.id === RAM);
-      if (struck || (ram?.status === "active" && hexDistance(ram.hex, SLUICE_WALK) <= 1)) {
-        walkHeld = state.squads.some((squad) => squad.faction === "free_banners" && squad.status === "active" && sameHex(squad.hex, SLUICE_WALK));
+      // Only companies still on the field (active, with a hex) count: a routed ram has come no closer.
+      const ram = activeSquads(state).find((squad) => squad.id === RAM);
+      if (struck || (ram && hexDistance(ram.hex, SLUICE_WALK) <= 1)) {
+        walkHeld = activeSquads(state).some((squad) => squad.faction === "free_banners" && sameHex(squad.hex, SLUICE_WALK));
       }
     }
   }
