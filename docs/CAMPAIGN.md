@@ -253,13 +253,19 @@ doctrine, campaign, roster profile or Host schedule):
 1. `npm test` **and** `npm run test:balance` pass (the second runs every
    `balance.<battle>.test.ts` smoke suite and every `*.sim.test.ts` suite; see "Two test
    suites" below).
-2. **`npm run balance -- --seeds 500` (the gate range, the default) exits 0: the sign-off.**
-   Every gated call meets GUARDRAILS exactly on the held-out seeds 100001–100500.
+2. **`npm run balance -- --seeds 500` on the battle's sign-off range exits 0: the sign-off.**
+   Every gated call meets GUARDRAILS exactly on held-out seeds. The sign-off range is the
+   gate (100001–100500, the default) unless that range was **observed while tuning the
+   battle** (a gate run read before a retune, or an adversarial search on it): then it is
+   burned for that battle, and the sign-off uses the next reserved block nobody has observed
+   for it, `--range signoff2` (200001–200500), then `signoff3` (300001–300500), … up to
+   `signoff9`. The battle sheet records which range signed it off, and why a range was
+   burned. Never tune to a sign-off range's outcomes.
 3. The census shows every documented call, and any *not applicable* entry has a reason.
 4. The diagnostics (selection spread, plan beats roster, strongest alternative) are read
    and any change is noted in the merge description; they are not gates.
-5. Tuning happened on `--range tuning` (never on the gate range), and curated seeds stay
-   outside the gate range (pack lint).
+5. Tuning happened on `--range tuning` (never on a sign-off range), and curated seeds stay
+   outside every reserved sign-off block (pack lint).
 
 **Two test suites (2026-10-05).** `npm test` is the fast suite: unit, UI and fast engine
 tests. `npm run test:balance` runs the simulation-heavy files. The routing is by **file
@@ -321,6 +327,15 @@ they achieve, declared before the gate, and ablated as roles.**
 - An extra that is not a counted role (battle 2's standard on Rescue Standard) carries no
   ablation requirement.
 - Unchanged: every mono plan, the named bad plan and the pure march stay gated.
+
+**Decision (2026-10-05, C3 warden; for the user's review): editor variants are diagnostics,
+not gated.** A doctrine-editor variant that out-thinks a battle is a reward for skill, which
+is what Test in the field is for. The gate guarantees the lesson for **stock doctrines plus
+legal musters** (the unfilled-role product above, under every muster policy). Variants a
+review finds worth tracking are recorded per battle in `engine/variantProbes.ts`; `npm run
+balance` plays each on every named call and prints it as an "editor variant (diagnostic)"
+row (`runVariantProbe`, fails closed on a variant the editor would refuse). They are never
+gated, and the battle sheet lists them.
 
 **Carry-over and doctrine dominance.** Veterans make blunt plans stronger, and no
 threat adjustment fixes that without also wrecking the intended plan (with two carried

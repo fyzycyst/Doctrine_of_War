@@ -354,11 +354,14 @@ chance outcome is an event with its own callout.
 
 ## Balance harness
 
-`npm run balance -- [--seeds 500] [--range gate|tuning] [--fortune on|off] [--scenario id]`
+`npm run balance -- [--seeds 500] [--range gate|tuning|signoff2..signoff9] [--fortune on|off] [--scenario id]`
 (run via `vite-node`) plays each scenario's reference plans (`intended`, `bad`, and the
 optional diagnostic `alternative`) and every mono-doctrine plan (all player squads on
-doctrine X) on the held-out gate seeds 100001..100000+N (`--range tuning`: 1..N; see the
-seed ranges in docs/CAMPAIGN.md). Plans are played with a
+doctrine X) on the held-out gate seeds 100001..100000+N (`--range tuning`: 1..N;
+`--range signoff<k>`: the reserved sign-off block k*100000+1..+500, for a battle whose gate
+range was observed while tuning it; `seedRange`, `reservedRangeOf`; see the seed ranges in
+docs/CAMPAIGN.md). It also plays each battle's editor-variant probes (`variantProbes.ts`,
+`runVariantProbe`) and prints them as diagnostic rows, never gated. Plans are played with a
 **muster policy**: `"heuristic"` (`heuristicMuster`: relieve an engaged company below 35
 cohesion with a fresh neighbour of 60+, then step idle fighting companies, those with
 no seen enemy within 3, toward the fight or the line of retreat; standards stay put;

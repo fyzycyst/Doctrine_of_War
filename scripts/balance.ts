@@ -1,11 +1,14 @@
-// npm run balance -- [--seeds 500] [--range gate|tuning] [--fortune on|off] [--scenario first_breach] [--roster all|<kind>]
+// npm run balance -- [--seeds 500] [--range gate|tuning|signoff2..signoff9] [--fortune on|off] [--scenario first_breach] [--roster all|<kind>]
 // --range: "gate" (default) plays the held-out gate seeds (GATE_SEEDS, 100001..100500), the
 // merge gate; "tuning" plays TUNING_SEEDS from 1, for iterating. Never tune on the gate range.
+// "signoff<k>" plays reserved sign-off block k (k*100000+1..+500): a battle whose gate range
+// was observed during its tuning signs off on the next unobserved block (docs/CAMPAIGN.md).
 // Kinds: baseline, strong, rough (fixed campaigns); recommended, curated, rough, greedy,
 // weakest, role, carried-recommended, carried-greedy (Roll campaigns' named calls).
 // Prints win rates for each plan. Fails closed: bad arguments, an unknown scenario,
 // missing reference plans or any guardrail failure all exit non-zero.
-import { formatTable, GATE_SEEDS, GUARDRAILS, guardrailFailures, runBalance, TUNING_SEEDS, type BalanceRow } from "../src/game/engine/balance";
+import { formatTable, GUARDRAILS, guardrailFailures, runBalance, runVariantProbe, seedRange, SIGNOFF_BLOCKS, type BalanceRow } from "../src/game/engine/balance";
+import { variantProbes } from "../src/game/engine/variantProbes";
 import { scenarios as introScenarios } from "../src/game/engine/scenarios";
 import { prototypeScenarios } from "../src/game/engine/fixtures";
 import { ashAndBanner } from "../src/game/campaign/definition";
@@ -41,10 +44,7 @@ if (fortune !== "on" && fortune !== "off") {
   fail(`--fortune must be "on" or "off" (got "${fortune}")`);
 }
 const range = arg("range", "gate");
-if (range !== "gate" && range !== "tuning") {
-  fail(`--range must be "gate" or "tuning" (got "${range}")`);
-}
-const span = range === "gate" ? GATE_SEEDS : TUNING_SEEDS;
+const span = seedRange(range) ?? fail(`--range must be "gate", "tuning" or "signoff2".."signoff${SIGNOFF_BLOCKS}" (got "${range}")`);
 if (seeds > span.size) {
   fail(`the ${range} range holds ${span.size} seeds (got --seeds ${seeds})`);
 }
@@ -91,6 +91,13 @@ for (const scenario of selected) {
       const alternativeNone = still.find((row) => row.kind === "alternative");
       console.log(`  no muster: intended ${pct(still[0])}, bad ${pct(still[1])}${alternativeNone ? `, strongest alternative ${pct(alternativeNone)} (diagnostic)` : ""}`);
       if (variant.policy !== "diagnostic") failures.push(...guardrailFailures(still, "floor").map((failure) => `no muster: ${failure}`));
+      // Editor-variant probes (variantProbes.ts): reported, never gated (docs/CAMPAIGN.md).
+      for (const probe of variantProbes[scenario.id] ?? []) {
+        for (const muster of probe.musters ?? ["none", "heuristic"]) {
+          const row = runVariantProbe(variant.scenario, probe, seeds, fortune as FortuneMode, muster, firstSeed);
+          console.log(`  editor variant (diagnostic): ${row.name}: ${(row.winRate * 100).toFixed(1)}% wins + ${(row.stalemateRate * 100).toFixed(1)}% stalemates`);
+        }
+      }
       const verdict = variant.policy === "diagnostic" ? "  DIAGNOSTIC (not gated)\n" : "  PASS\n";
       console.log(failures.length === 0 ? verdict : failures.map((failure) => `  FAIL ${failure}`).join("\n") + "\n");
       failed ||= failures.length > 0;

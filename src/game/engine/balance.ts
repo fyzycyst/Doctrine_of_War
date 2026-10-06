@@ -1,9 +1,11 @@
 // Monte Carlo balance harness (tech plan §4a). Plays every reference plan and
 // every mono-doctrine plan across many seeds and checks the guardrails:
 // doctrine decides the odds; fortune decides the moment.
+import { doctrineLibrary } from "./doctrines";
+import { validateVariant, withVariants } from "./editor";
 import { heuristicMuster, rushMuster, type MusterPolicy } from "./muster";
 import { createInitialState, resolvePhase } from "./resolvePhase";
-import type { EngineScenario, EngineState, FortuneMode, Orders } from "./types";
+import type { DoctrineLibrary, EngineScenario, EngineState, FortuneMode, Orders } from "./types";
 
 export const GUARDRAILS = {
   /** The intended plan must win at least this often. */
@@ -35,8 +37,11 @@ export function smokeGuardrails(seeds: number): Guardrails {
   };
 }
 
-/** "alternative": the scenario's strongest known alternative plan, a diagnostic row (never gated). */
-export type PlanKind = "intended" | "bad" | "mono" | "alternative";
+/**
+ * "alternative": the scenario's strongest known alternative plan, a diagnostic row (never gated).
+ * "variant": an editor-variant probe (variantProbes.ts), a diagnostic row (never gated).
+ */
+export type PlanKind = "intended" | "bad" | "mono" | "alternative" | "variant";
 
 export interface BalancePlan {
   name: string;
@@ -62,11 +67,18 @@ export interface BalanceRow extends BalancePlan {
  * enemy objective, the adversarial check that strength alone cannot skip a role). Each
  * reads only the player's view.
  */
-export function playBattle(scenario: EngineScenario, orders: Orders, seed: number, fortune: FortuneMode, muster: MusterPolicy = "none"): EngineState {
+export function playBattle(
+  scenario: EngineScenario,
+  orders: Orders,
+  seed: number,
+  fortune: FortuneMode,
+  muster: MusterPolicy = "none",
+  doctrines: DoctrineLibrary = doctrineLibrary,
+): EngineState {
   let state = createInitialState(scenario, { seed, fortune });
   while (state.status === "command") {
     const moves = muster === "heuristic" ? heuristicMuster(state, scenario) : muster === "rush" ? rushMuster(state, scenario) : [];
-    state = resolvePhase(state, orders, scenario, { muster: moves }).state;
+    state = resolvePhase(state, orders, scenario, { muster: moves, doctrines }).state;
   }
   return state;
 }
@@ -98,14 +110,52 @@ export function balancePlans(scenario: EngineScenario): BalancePlan[] {
  *   curated seeds). Anything goes.
  * - GATE_SEEDS: only the balance gate reads these (`npm run balance`, the per-battle
  *   guardrail tests). Never tune on them; curated seeds must stay out (pack lint).
+ * - Sign-off blocks (C3 warden): a battle's sign-off must use a range nobody observed while
+ *   tuning it. Block k holds k*100000+1 .. k*100000+500; block 1 is the gate. When a range is
+ *   burned for a battle (looked at during its tuning or an adversarial search), its next
+ *   sign-off uses the next block (`--range signoff2`, …), and the battle sheet records which
+ *   block signed it off (docs/CAMPAIGN.md). Every block is reserved: no curated seed in any.
  * Every plan in a run plays the same seeds, so comparisons between plans stay paired.
  */
 export const TUNING_SEEDS = { first: 1, size: 1000 } as const;
 export const GATE_SEEDS = { first: 100_001, size: 500 } as const;
+/** How many sign-off blocks are reserved (signoff1 = the gate .. signoff9). */
+export const SIGNOFF_BLOCKS = 9;
 
-/** Whether `seed` is one of the held-out gate seeds. */
+export interface SeedRange {
+  /** "tuning", "gate" (sign-off block 1) or "signoff<k>". */
+  name: string;
+  first: number;
+  size: number;
+}
+
+/** Sign-off block `block` (1 = the gate). Throws outside 1..SIGNOFF_BLOCKS. */
+export function signoffRange(block: number): SeedRange {
+  if (!Number.isInteger(block) || block < 1 || block > SIGNOFF_BLOCKS) {
+    throw new Error(`Sign-off blocks are 1..${SIGNOFF_BLOCKS}, got ${block}`);
+  }
+  return { name: block === 1 ? "gate" : `signoff${block}`, first: block * 100_000 + 1, size: GATE_SEEDS.size };
+}
+
+/** The seed range a `--range` name selects: "tuning", "gate" (= "signoff1") or "signoff2".."signoff9"; null if unknown. */
+export function seedRange(name: string): SeedRange | null {
+  if (name === "tuning") return { name, ...TUNING_SEEDS };
+  if (name === "gate") return signoffRange(1);
+  const block = /^signoff([1-9])$/.exec(name);
+  return block && Number(block[1]) <= SIGNOFF_BLOCKS ? signoffRange(Number(block[1])) : null;
+}
+
+/** Whether `seed` is one of the held-out gate seeds (sign-off block 1). */
 export function isGateSeed(seed: number): boolean {
   return seed >= GATE_SEEDS.first && seed < GATE_SEEDS.first + GATE_SEEDS.size;
+}
+
+/** The reserved sign-off range holding `seed`, or null (curated seeds must be in none). */
+export function reservedRangeOf(seed: number): SeedRange | null {
+  const block = Math.floor((seed - 1) / 100_000);
+  if (block < 1 || block > SIGNOFF_BLOCKS) return null;
+  const range = signoffRange(block);
+  return seed >= range.first && seed < range.first + range.size ? range : null;
 }
 
 /**
@@ -127,8 +177,9 @@ export function runBalance(
   if (!Number.isInteger(firstSeed) || firstSeed < 1) {
     throw new Error(`First seed must be a positive integer, got ${firstSeed}`);
   }
-  if (firstSeed === GATE_SEEDS.first && seeds > GATE_SEEDS.size) {
-    throw new Error(`The gate range holds ${GATE_SEEDS.size} seeds, not ${seeds}`);
+  const reserved = reservedRangeOf(firstSeed);
+  if (reserved && reserved.first === firstSeed && seeds > reserved.size) {
+    throw new Error(`The ${reserved.name} range holds ${reserved.size} seeds, not ${seeds}`);
   }
   return balancePlans(scenario).filter((plan) => kinds.includes(plan.kind)).map((plan) => {
     let wins = 0;
@@ -151,6 +202,55 @@ export function runBalance(
       meanObjective: hold ? objectiveSum / seeds : null,
     };
   });
+}
+
+/**
+ * An editor-variant probe (docs/CAMPAIGN.md, "editor variants are diagnostics"): variants a
+ * player could cut in the doctrine editor, and orders that use them. Variants that out-think
+ * a battle are a reward for skill (what Test in the field is for), so a probe is reported as a
+ * diagnostic row and never gated; the gate guarantees the lesson for stock doctrines and
+ * legal musters. Recorded per battle in variantProbes.ts.
+ */
+export interface VariantProbe {
+  name: string;
+  /** The variants exactly as the editor saves them; validated like any loaded variant. */
+  variants: unknown[];
+  /** Every player company's orders; may name the variants' ids. */
+  orders: Orders;
+  /** The muster policies to play it with (default: none and heuristic). */
+  musters?: MusterPolicy[];
+}
+
+/**
+ * Plays an editor-variant probe on `scenario` (a named call's assembled battle works too).
+ * Fails closed: a variant the editor would refuse, or one whose base this battle does not
+ * offer, throws, as do orders naming an unknown doctrine.
+ */
+export function runVariantProbe(
+  scenario: EngineScenario,
+  probe: VariantProbe,
+  seeds: number,
+  fortune: FortuneMode = "on",
+  muster: MusterPolicy = "none",
+  firstSeed: number = GATE_SEEDS.first,
+): BalanceRow {
+  const checked = probe.variants.map((raw) => {
+    const result = validateVariant(raw, doctrineLibrary, scenario.playerDoctrineIds);
+    if (!result.ok) throw new Error(`Probe "${probe.name}": invalid variant (${result.errors.join("; ")})`);
+    return result;
+  });
+  const played = withVariants(scenario, checked, doctrineLibrary);
+  for (const [squadId, doctrineId] of Object.entries(probe.orders)) {
+    if (!played.scenario.playerDoctrineIds.includes(doctrineId)) throw new Error(`Probe "${probe.name}": ${squadId} is ordered to ${doctrineId}, not offered here`);
+  }
+  let wins = 0;
+  let stalemates = 0;
+  for (let seed = firstSeed; seed < firstSeed + seeds; seed += 1) {
+    const final = playBattle(played.scenario, probe.orders, seed, fortune, muster, played.doctrines);
+    wins += final.status === "victory" ? 1 : 0;
+    stalemates += final.status === "stalemate" ? 1 : 0;
+  }
+  return { name: `${probe.name} (${muster} muster)`, kind: "variant", orders: probe.orders, games: seeds, wins, winRate: wins / seeds, stalemates, stalemateRate: stalemates / seeds, meanObjective: null };
 }
 
 /**
