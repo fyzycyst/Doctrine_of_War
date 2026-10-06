@@ -57,6 +57,8 @@ const STAGES = [
   { name: "t25-skirmish-cinder-outcome", query: "skirmish=skirmish_cinder_road_cr_saltmarsh&seed=7&stage=outcome&plan=intended", settleMs: 2500 },
   // M2: Cinder Road 1's barricade battered in a real battle (phase 5: 14 of 30 integrity).
   { name: "m2f-ingame-battered", query: "skirmish=skirmish_cinder_road_cr_saltmarsh&seed=7&stage=command&phase=5&plan=intended&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
+  // M2: Cinder Road 2 mid-battle: the Kiln Ram (5,1) facing the keepers on the Sluice Walk (6,1).
+  { name: "m2f-c2-ingame-ram", query: "scenario=cinderRoad2&stage=command&phase=3&plan=intended&select=keepers&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
   { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },
