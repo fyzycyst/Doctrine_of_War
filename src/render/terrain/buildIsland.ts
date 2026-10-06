@@ -325,13 +325,18 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   }
 
   const bb = new GeoBuilder();
-  if (hasRiver && (layout.fordDressing ?? "bridgeWrecks") === "bridgeWrecks") {
-    // Ember Ford: the Host fired its own bridges. Charred wreckage at every
-    // ford is the key light at night (cold stumps by day); braziers mark the
-    // Host's bank, in their own mesh so they only stand at night.
+  const boardDressing = layout.fordDressing ?? "bridgeWrecks";
+  if (hasRiver) {
+    // Ember Ford: the Host fired its own bridges. Charred wreckage at a ford is
+    // the key light at night (cold stumps by day). A ford's own `fordDressing`
+    // overrides the board's (shallows that never had a bridge).
     for (const ford of hexes.filter((h) => h.terrain === "ford")) {
+      if ((boardByKey.get(hexKey(ford.coord))?.fordDressing ?? boardDressing) !== "bridgeWrecks") continue;
       fireAnchors.push(...drawBridgeWreck(b, ford, waterLevel, mulberry32(ford.coord.q * 97 + ford.coord.r * 13 + 3)));
     }
+  }
+  if (hasRiver && boardDressing === "bridgeWrecks") {
+    // Braziers mark the Host's bank, in their own mesh so they only stand at night.
     const hostBank = layout.hexes
       .filter((h) => h.deploymentFaction === "ashen_host")
       .filter((h) => hexNeighbors(h.coord).some((n) => {
