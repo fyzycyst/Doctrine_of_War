@@ -251,9 +251,9 @@ gross regressions without flaking on a 60-seed window; it is not the sign-off.
 
 **Balance merge checklist** (required before any content merge: a new or changed battle,
 doctrine, campaign, roster profile or Host schedule):
-1. `npm test` **and** `npm run test:balance` pass (the second runs every
-   `balance.<battle>.test.ts` smoke suite and every `*.sim.test.ts` suite; see "Two test
-   suites" below).
+1. `npm test`, `npm run test:balance` **and** `npm run test:finale` pass (the second runs
+   every `balance.<battle>.test.ts` smoke suite and every `*.sim.test.ts` suite, the third the
+   finale's; see "Test suites" below).
 2. **`npm run balance -- --seeds 500` on the battle's sign-off range exits 0: the sign-off.**
    Every gated call meets GUARDRAILS exactly on held-out seeds. The sign-off range is the
    gate (100001–100500, the default) unless that range was **observed while tuning the
@@ -268,9 +268,12 @@ doctrine, campaign, roster profile or Host schedule):
 5. Tuning happened on `--range tuning` (never on a sign-off range), and curated seeds stay
    outside every reserved sign-off block (pack lint).
 
-**Two test suites (2026-10-05).** `npm test` is the fast suite: unit, UI and fast engine
-tests. `npm run test:balance` runs the simulation-heavy files. The routing is by **file
-name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`):
+**Test suites (2026-10-05; the finale's added 2026-10-07).** `npm test` is the fast suite:
+unit, UI and fast engine tests. `npm run test:balance` runs the simulation-heavy files, and
+`npm run test:finale` the finale's (*Cinder Road* battle 6: a 23-squad, 9-phase battle costs
+about four ordinary games, so its sweeps would push test:balance past its ~120 s budget). The
+routing is by **file name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`, which
+also checks every heavy file runs in exactly one of the two heavy suites):
 - `balance.<battle>.test.ts`: a battle's guardrail smoke (one per battle, via
   `guardrails.testkit.ts`; `balance.test.ts` checks every battle has one);
 - `*.sim.test.ts`: any other suite that plays many battles: role and unfilled-role sweeps
@@ -281,6 +284,10 @@ name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`):
   declarations and observables in `cinderRoad<N>.roles.testkit.ts` (no vitest import, so
   scripts can use it) and the shared helpers in `roles.testkit.ts`. A fast test checks every
   call has its file. A testkit is not a test file and is not routed.
+- The finale's files go to `npm run test:finale` instead: `cinderRoad6.sim.test.ts`,
+  `cinderRoad6.<anything>.sim.test.ts` and `balance.cinderRoad6.test.ts`. Its role gate
+  samples seeds (16 a plan and policy) and the full per-plan census on the sign-off range is on
+  its battle sheet.
 Keep each heavy test under about 10 s at normal load, so it stays under vitest's 60 s worker
 RPC timeout even when the machine is busy. The balance suite yields to the event loop
 before each test (`src/test/setup.balance.ts`), so long files no longer trip "Timeout

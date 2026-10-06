@@ -95,11 +95,14 @@ ffmpeg -framerate 30 -i captures/seq-craneInGate/frame_%04d.png -c:v libx264 -pi
 ```bash
 npm test              # fast: unit, UI and engine tests
 npm run test:balance  # simulation-heavy: balance smokes, role sweeps, ablations
+npm run test:finale   # the finale's (Cinder Road battle 6) sweeps
 npm run build
 ```
 
 A test file runs under `npm run test:balance` when it is named `balance.<battle>.test.ts` or
-`*.sim.test.ts` (`src/test/suites.ts`); see "Two test suites" in docs/CAMPAIGN.md.
+`*.sim.test.ts`, and under `npm run test:finale` when it is the finale's
+(`cinderRoad6[.*].sim.test.ts`, `balance.cinderRoad6.test.ts`; `src/test/suites.ts`); see
+"Test suites" in docs/CAMPAIGN.md.
 
 ## Project Shape
 
