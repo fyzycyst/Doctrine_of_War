@@ -1,7 +1,7 @@
 // Cinder Road battle 3 (C3): the march role (the column) on every named call. A plan that
 // leaves the march unfilled (every Open the Road post on a doctrine that never takes the
 // far-bank roads) stays below the floor with no muster and with the heuristic muster, and the
-// observable confirms nobody reached the roads (the rush adversary is in cinderRoad3.rush.test.ts).
+// observable confirms nobody reached the roads (the rush adversary is in cinderRoad3.rush.sim.test.ts).
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";
 import { calls, OTR, rates, SEEDS, STAY } from "./cinderRoad3.roles.testkit";

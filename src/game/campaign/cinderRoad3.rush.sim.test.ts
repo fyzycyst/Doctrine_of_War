@@ -5,7 +5,7 @@
 // unfilled stays below the floor too, and never reaches the roads.
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";
-import { calls, OTR, rates, SEEDS, STAY, unguarded, UNFILLED_SLACK } from "./cinderRoad3.roles.testkit";
+import { calls, OTR, rates, SEEDS, STAY, unguarded, unfilledSlack } from "./cinderRoad3.roles.testkit";
 
 describe("Open a Road: an unfilled role loses to the rush too, on every call", () => {
   for (const call of calls) {
@@ -17,7 +17,7 @@ describe("Open a Road: an unfilled role loses to the rush too, on every call", (
         for (const [name, orders] of unguarded(intended)) {
           const result = rates(call.scenario, orders, muster);
           if (result.advance >= GUARDRAILS.intendedMin) failures.push(`${name} (${muster}) advances ${result.advance}`);
-          if (result.guarded > SEEDS * UNFILLED_SLACK) failures.push(`${name} (${muster}) guarded in ${result.guarded}/${SEEDS}: not an unfilled plan`);
+          if (result.guarded > SEEDS * unfilledSlack(muster)) failures.push(`${name} (${muster}) guarded in ${result.guarded}/${SEEDS}: not an unfilled plan`);
         }
       }
       for (const id of STAY) {

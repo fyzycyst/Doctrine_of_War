@@ -1,6 +1,6 @@
 // Cinder Road battle 3 (C3): the roles by function (docs/CAMPAIGN.md, "roles are defined by
 // what they achieve"), observed in a run, and the named calls they are checked on. Used by
-// cinderRoad3.guard.test.ts, cinderRoad3.march.test.ts and cinderRoad3.rush.test.ts (three
+// cinderRoad3.guard.sim.test.ts, cinderRoad3.march.sim.test.ts and cinderRoad3.rush.sim.test.ts (three
 // files so vitest spreads the simulations across workers; see guardrails.testkit.ts).
 import { getHex, hexDistance, sameHex } from "../board";
 import { GATE_SEEDS } from "../engine/balance";
@@ -28,17 +28,20 @@ export const LEAVE = [OTR, "fighting_withdrawal"];
 /** Doctrines that never take the far-bank roads on the column's posts: the march unfilled. */
 export const STAY = ["shield_the_line", "fighting_withdrawal", "rescue_standard", "clean_counterstroke", "bring_the_water"];
 /**
- * The share of an unfilled plan's games that may still touch the role by accident. More than
- * this and the plan is misclassified: it is filling the role, not leaving it.
- */
-export const UNFILLED_SLACK = 0.1;
-
-/**
  * How the player musters: a harness policy ("none", "heuristic", "rush": every fighting
  * company steps toward the far-bank roads), or "rush the column" (only the companies on Open
  * the Road rush, leaving the watch where it was posted).
  */
 export type Muster = MusterPolicy | "rush the column";
+
+/**
+ * The share of an unfilled plan's games that may still touch the role by accident; more than
+ * this and the plan is misclassified: it is filling the role, not leaving it. Tight without
+ * muster and with the heuristic, looser against the rush (as battle 2's role kit).
+ */
+export function unfilledSlack(muster: Muster): number {
+  return muster === "rush" || muster === "rush the column" ? 0.1 : 0.05;
+}
 
 interface RoleRun {
   advanced: boolean;

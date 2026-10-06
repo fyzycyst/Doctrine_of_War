@@ -1,11 +1,11 @@
 // Cinder Road battle 3 (C3): the Mill Road guard on every named call. A plan that leaves the
 // guard unfilled (the watch on a doctrine that leaves the Mill Road, or the pure march) stays
 // below the floor with no muster and with the heuristic muster, and the observable confirms
-// nobody guarded (the rush adversary is in cinderRoad3.rush.test.ts). The accepted fillers
+// nobody guarded (the rush adversary is in cinderRoad3.rush.sim.test.ts). The accepted fillers
 // are not gated; the intended watch (Shield the Line) is pinned as one.
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";
-import { calls, rates, SEEDS, unguarded, UNFILLED_SLACK } from "./cinderRoad3.roles.testkit";
+import { calls, rates, SEEDS, unguarded, unfilledSlack } from "./cinderRoad3.roles.testkit";
 
 describe("Open a Road: no plan that leaves the guard unfilled reaches the floor, on every call", () => {
   for (const call of calls) {
@@ -15,8 +15,8 @@ describe("Open a Road: no plan that leaves the guard unfilled reaches the floor,
         for (const [name, orders] of unguarded(call.scenario.referencePlans!.intended)) {
           const result = rates(call.scenario, orders, muster);
           if (result.advance >= GUARDRAILS.intendedMin) failures.push(`${name} (${muster}) advances ${result.advance}`);
-          // Unfilled means unfilled in nearly every game (see UNFILLED_SLACK).
-          if (result.guarded > SEEDS * UNFILLED_SLACK) failures.push(`${name} (${muster}) guarded in ${result.guarded}/${SEEDS}: not an unfilled plan`);
+          // Unfilled means unfilled in nearly every game (see unfilledSlack).
+          if (result.guarded > SEEDS * unfilledSlack(muster)) failures.push(`${name} (${muster}) guarded in ${result.guarded}/${SEEDS}: not an unfilled plan`);
         }
       }
       expect(failures).toEqual([]);
