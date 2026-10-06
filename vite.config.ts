@@ -91,7 +91,12 @@ export default defineConfig({
     // "balance" (the simulation-heavy files); a bare `vitest run` runs both.
     projects: [
       { extends: true, test: { name: "unit", exclude: [...configDefaults.exclude, ...BALANCE_TEST_GLOBS] } },
-      { extends: true, test: { name: "balance", include: BALANCE_TEST_GLOBS, setupFiles: ["./src/test/setup.balance.ts"] } },
+      // Heavy simulations: a generous per-test limit, so a busy machine (other agents' gates)
+      // slows them rather than failing them. Keep each test well under it at normal load.
+      {
+        extends: true,
+        test: { name: "balance", include: BALANCE_TEST_GLOBS, setupFiles: ["./src/test/setup.balance.ts"], testTimeout: 240_000 },
+      },
     ],
   },
 });

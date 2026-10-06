@@ -21,14 +21,14 @@ describe("Open a Road: the roles (simulation)", () => {
     const base = advanceRate(cinderRoad3, plans.intended);
     expect(base).toBeGreaterThanOrEqual(0.75);
     expect(base - bestUnfilled(MARCH)).toBeGreaterThanOrEqual(0.15);
-  }, 30_000);
+  });
 
   it("the guard earns its place: a watch that leaves the Mill Road loses it to the reserve", () => {
     expect(advanceRate(cinderRoad3, plans.intended) - bestUnfilled(GUARD)).toBeGreaterThanOrEqual(0.15);
-  }, 30_000);
+  });
 
   it("the bad plan (everyone on Bring the Water) and the pure march stay near zero", () => {
     expect(advanceRate(cinderRoad3, plans.bad)).toBeLessThanOrEqual(0.1);
     expect(advanceRate(cinderRoad3, Object.fromEntries(Object.keys(plans.intended).map((id) => [id, OTR])))).toBeLessThanOrEqual(0.1);
-  }, 30_000);
+  });
 });

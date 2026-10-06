@@ -60,7 +60,7 @@ export function describeRoleGate(callName: string) {
         }
       }
       expect(failures).toEqual([]);
-    }, 30_000);
+    });
 
     for (const muster of MARCH_POLICIES) {
       it(`march unfilled (all ${nonFillers(scenario, MARCH).length ** MARCH.posts.length} stock non-march combinations on the column's posts, ${muster}): screened, then the dangerous judged per plan`, () => {
@@ -75,7 +75,7 @@ export function describeRoleGate(callName: string) {
           if (wins > SEEDS * unfilledSlack(muster)) failures.push(`${name} (${muster}) wins ${wins}/${SEEDS} by reaching the roads (reached them in ${result.marched}/${SEEDS}): not a march-unfilled plan`);
         }
         expect(failures).toEqual([]);
-      }, 30_000);
+      });
     }
 
     it("the accepted guards guard: the intended watch keeps the Mill Road; the lances mustered into the Tollhouse Shallows (one legal move) meet the outriders there", () => {
@@ -89,6 +89,6 @@ export function describeRoleGate(callName: string) {
       const mustered = rates(scenario, pureMarch, "into the shallows");
       expect(mustered.invalid).toEqual([]);
       expect(mustered.guarded).toBeGreaterThanOrEqual(SEEDS * 0.9);
-    }, 30_000);
+    });
   });
 }
