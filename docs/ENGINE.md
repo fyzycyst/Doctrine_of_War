@@ -519,11 +519,14 @@ Each battle has a **star doctrine** even when it uses a mix:
   hits the less famous companies hardest. Roles: the breach (only Bring the Water strikes the
   gate) and the banner (two in the intended plan; one, on either post, is an accepted filler). Authored at fame
   18 (one above the recovery force's), so the Roll's threat never eases the sworn and hardens
-  the Host by +12 a company for a famous army. Preliminary sign-off on `signoff2` (the gate range was observed in development):
-  intended 93.4% (94.2% heuristic) on the recommended call, at least 84.2% (93.2%) on every
-  gated call; the bare assault at most 1.8%; every stock combination with no banner at most
-  32.2% on any gated call under no muster, heuristic or the rush (weakest legal, diagnostic:
-  72.2%); no breach-unfilled plan strikes the gate. Its suites run under `npm run test:finale`.
+  the Host by +12 a company for a famous army. Signed off on `signoff3`
+  (300001–300500; the gate range and `signoff2` were observed for CR6 in development), fortune
+  on, as battle 5 on the path through battles 1–4: intended 94.6% (96.4% heuristic) on the
+  recommended call, at least 87.8% (95.8%) on every gated call; the bare assault at most 8.0%
+  (10.8% under the rush, carried greedy); every stock combination with no banner at most 54.2%
+  on any gated call under no muster, heuristic or the rush (carried greedy, rushed; weakest
+  legal, diagnostic: 74.4%), and none rallies the assault; no breach-unfilled plan strikes the
+  gate. Its suites run under `npm run test:finale`.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
 with at least two doctrine families. A role is defined by what it achieves (hold the gate,
