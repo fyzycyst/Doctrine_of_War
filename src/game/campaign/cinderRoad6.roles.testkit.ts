@@ -43,13 +43,48 @@ export const BANNER: RoleDeclaration = { posts: ["standard", "bows"], fillers: [
  */
 export const NEAR_GATE = 2;
 
-/** How the player musters: a harness policy, or "rush the march" (only the companies on Bring the Water rush). */
-export type Muster = MusterPolicy | "rush the march";
+/**
+ * A partial rush: only the companies on these posts rush (`rushMuster` with their ids) every
+ * phase; the rest are left to their doctrines. The CR6 warden's adversary: holding the banner
+ * posts back lets the strong companies break the sworn line first, then the held-back ones
+ * follow as a fresh second wave (docs/CAMPAIGN.md, battle 5).
+ */
+export interface PartialRush {
+  name: string;
+  posts: readonly string[];
+}
+
+/** How the player musters: a harness policy, "rush the march" (only the companies on Bring the Water rush), or a partial rush. */
+export type Muster = MusterPolicy | "rush the march" | PartialRush;
+
+/** Every post of the finale's call: the march's and the banners'. */
+export const ALL_POSTS: readonly string[] = [...BREACH.posts, ...BANNER.posts];
+const VANS = ["north_van", "gate_van", "road_van", "south_van"];
+
+/**
+ * The gate's partial rushes (11): the breach posts only (the warden's: both banner posts held
+ * back), the vans only, and every post but one (9). The sign-off census adds every post but
+ * two (36). A rush that changes its subset from phase to phase is not enumerated.
+ */
+export const PARTIAL_RUSHES: readonly PartialRush[] = [
+  { name: "rush the breach posts only", posts: BREACH.posts },
+  { name: "rush the vans only", posts: VANS },
+  ...ALL_POSTS.map((held) => ({ name: `rush all but ${held}`, posts: ALL_POSTS.filter((post) => post !== held) })),
+];
+
+/** Every post but two (36): the census's wider screen. */
+export const ALL_BUT_TWO: readonly PartialRush[] = ALL_POSTS.flatMap((first, index) =>
+  ALL_POSTS.slice(index + 1).map((second) => ({ name: `rush all but ${first} and ${second}`, posts: ALL_POSTS.filter((post) => post !== first && post !== second) })),
+);
+
+/** A muster's name, for reports. */
+export const musterName = (muster: Muster) => (typeof muster === "string" ? muster : muster.name);
 
 function musterFor(state: EngineState, scenario: EngineScenario, orders: Orders, muster: Muster, doctrines: DoctrineLibrary): MusterMove[] {
   if (muster === "heuristic") return heuristicMuster(state, scenario);
   if (muster === "rush") return rushMuster(state, scenario);
   if (muster === "rush the march") return rushMuster(state, scenario, assaultCompanies(state, scenario, orders, doctrines));
+  if (typeof muster === "object") return rushMuster(state, scenario, muster.posts);
   return [];
 }
 

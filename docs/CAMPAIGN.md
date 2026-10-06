@@ -271,7 +271,7 @@ doctrine, campaign, roster profile or Host schedule):
 
 **Test suites (2026-10-05; the finale's added 2026-10-07).** `npm test` is the fast suite:
 unit, UI and fast engine tests. `npm run test:balance` runs the simulation-heavy files, and
-`npm run test:finale` the finale's (*Cinder Road* battle 5: a 19-squad, 9-phase battle costs
+`npm run test:finale` the finale's (*Cinder Road* battle 5: a 19-squad, 12-phase battle costs
 about four ordinary games, so its sweeps would push test:balance past its ~120 s budget). The
 routing is by **file name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`, which
 also checks every heavy file runs in exactly one of the two heavy suites):
@@ -576,8 +576,8 @@ under the pursuit exception above):
 **Battle 5, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
 after battle 3, then moved after the pursuit and signed off on the full path, battles 1–4): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
 the sworn stand before the gate (every Host company is Resolve 3: they do not waver); 9
-Banners against 10 Host (19 squads), by day under ash-wind, 9 phases. Win: break the gate
-(`breakObjective`). Defeat: 3 companies lost, or the timeout. **The whole army takes the
+Banners against 10 Host (19 squads), by day under ash-wind, a long day of 12 phases. Win: break
+the gate (`breakObjective`, integrity 18). Defeat: 3 companies lost, or the timeout. **The whole army takes the
 field**: nine posts, one per Roll company (two flex: the second banner may be a frontline
 company, the Upper Gate Road may take one); carried veterans (at most two) take posts in
 place of Worn companies. "Choose who to bring" is expressed through who holds which post, not
@@ -590,7 +590,16 @@ breach** (a Banner company strikes the gate; only Bring the Water can) and **the
 rally restores an assault company, observed when it fires: the standards keep the assault on
 its feet on the way in and at the sworn line; only Rescue Standard rallies). The intended plan carries two banners; one
 on either post is an accepted filler (the second banner's post is the stronger and the
-tracked alternative; the standard alone is weak on a battered army). A third role, a
+tracked alternative; but on a battered army neither one banner clears the floor with no
+muster, so two banners are what the recovery force should carry). **The partial rush (the CR6
+warden):** the banner posts stand centre-front, so in a bare assault their weak companies
+lead into the sworn line and it holds; rushing only the strong posts (holding the banner
+posts back) breaks the sworn line with the strong companies and sends the held-back ones in as
+a fresh second wave, which carried the bare assault to 78% on a famous army. The gate is
+therefore 18 blows deep (12 before), which a second wave cannot finish alone, and the day 12
+phases long (9 before), which the battered recovery force's assault needs and the partial
+rush does not; the role gate rushes partial subsets of posts too (the breach posts only, the
+vans only, every post but one; the census every post but two). A third role, a
 counterstroke screen, was dropped in tuning: Clean Counterstroke hunts the fight into the
 sworn and no stock doctrine escorts the standards (the battle sheet has the numbers). The
 Banners' squads are authored at **fame 18**, one above the recovery force's 17, not the curated
@@ -601,7 +610,7 @@ army. (On the path through the pursuit the Brightcrag Riders reach Resolve 1; th
 squad mirrors it, which raised the authored fame from 17 and kept the recovery force's ease:
 with the nil threat it lost, the recovery force fell to 71% with no muster on tuning seeds.) The banners stand in the front row: Rescue Standard only moves when an ally falls below
 50. Curated seed 58 (on the path through the pursuit, where the Brightcrag Riders reach Resolve
-1): won in phase 6, no company lost, the Kept Coal broken. Numbers are on the
+1): won in phase 7, no company lost, the Kept Coal broken. Numbers are on the
 battle sheet.
 
 ## Saves

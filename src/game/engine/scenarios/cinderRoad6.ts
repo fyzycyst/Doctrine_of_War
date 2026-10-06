@@ -38,7 +38,10 @@ export const cinderRoad6: EngineScenario = {
     "Bring the whole army, break the gate, and do not lose three companies.",
   playerFaction: BANNERS,
   initiativeSide: BANNERS,
-  maxPhases: 9,
+  // A long day (12 phases): the battered recovery force's assault needs the hours (its losses
+  // are partly the timeout), while an assault that sequences its strong companies to break the
+  // sworn line without the standards gains nothing from them (the CR6 warden's partial rush).
+  maxPhases: 12,
   timeOfDay: "day",
   // The Kept Coal's coals smoke on the wind: ash-wind all day (dread from the Host x1.5; it
   // bites the less famous companies, which are below the sworn's Resolve).
@@ -51,7 +54,9 @@ export const cinderRoad6: EngineScenario = {
       name: "Greyford Gate",
       description: "The Host holds our gate. Break it.",
       hex: GREYFORD_GATE,
-      integrity: 12,
+      // 18 blows' worth: a fresh second wave cannot finish the gate alone; banners keep the
+      // assault on it (the partial rush: docs/CAMPAIGN.md, battle 5).
+      integrity: 18,
       defender: HOST,
     },
   ],
@@ -97,11 +102,14 @@ export const cinderRoad6: EngineScenario = {
     { phase: 2, intent: "The works empty at whoever reaches the wall.", orders: {} },
     { phase: 3, intent: "The hunters slip out of the flank works and go for the banners.", orders: { ember_hunters: "cull_the_weak", ash_harriers: "cull_the_weak" } },
     { phase: 4, intent: "No step back: the sworn hold the gate while the coals still burn.", orders: {} },
-    { phase: 5, intent: "The day is going.", orders: {} },
-    { phase: 6, intent: "The coals still burn.", orders: {} },
-    { phase: 7, intent: "The sun is on Greyford Wall.", orders: {} },
-    { phase: 8, intent: "The light goes.", orders: {} },
-    { phase: 9, intent: "Whatever still stands at nightfall, the Host keeps.", orders: {} },
+    { phase: 5, intent: "The coals still burn; the ash-wind carries their smoke over the field.", orders: {} },
+    { phase: 6, intent: "Noon over Greyford Wall, and the sworn have not given a step.", orders: {} },
+    { phase: 7, intent: "The day is going.", orders: {} },
+    { phase: 8, intent: "The coals still burn.", orders: {} },
+    { phase: 9, intent: "The sun is on Greyford Wall.", orders: {} },
+    { phase: 10, intent: "The shadows of the wall reach the siege field.", orders: {} },
+    { phase: 11, intent: "The light goes.", orders: {} },
+    { phase: 12, intent: "Whatever still stands at nightfall, the Host keeps.", orders: {} },
   ],
   winCondition: { kind: "breakObjective", objectiveId: "greyford_gate" },
   defeatConditions: [{ kind: "squadsLost", count: 3 }],

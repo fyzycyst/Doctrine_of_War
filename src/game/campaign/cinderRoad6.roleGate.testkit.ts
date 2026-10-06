@@ -1,18 +1,31 @@
 // Cinder Road battle 5's (the finale's) role gate, one describe per named call: each
 // cinderRoad6.roles.<call>.sim.test.ts calls describeRoleGate("<call>"). They run under
-// `npm run test:finale` (src/test/suites.ts): a 19-squad, 9-phase battle costs about four C2
+// `npm run test:finale` (src/test/suites.ts): a 19-squad, 12-phase battle costs about four C2
 // games, so the per-call files sample seeds (documented below) and the full per-plan census on
 // the sign-off range is on the battle sheet. Rule: docs/CAMPAIGN.md, "roles are defined by what
 // they achieve".
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";
-import { BANNER, BREACH, calls, rates } from "./cinderRoad6.roles.testkit";
+import { BANNER, BREACH, calls, PARTIAL_RUSHES, rates } from "./cinderRoad6.roles.testkit";
 import { unfilledCombos, type NamedPlan } from "./roles.testkit";
 
 /** Gate seeds per banner-unfilled combo and policy (25 combos x 3 policies a call). */
 export const BANNER_SEEDS = 16;
 /** Gate seeds per uniform breach-unfilled plan and policy (the static check covers every combination). */
 export const BREACH_SEEDS = 4;
+/**
+ * Gate seeds per banner-unfilled combo and partial rush (25 combos x 11 rushes a call): a
+ * regression screen; the proof is the sign-off census (500 seeds each, plus every post but two).
+ */
+export const PARTIAL_RUSH_SEEDS = 8;
+/**
+ * The screen's tolerance: a combo fails at 7 or more wins of 8. At 8 seeds a plan that truly
+ * wins 55% shows 6 of 8 a quarter of the time, so "below 75%" cannot be read off 8 games; 7 of
+ * 8 is about one standard error above the floor (the guardrails' smoke uses the same idea).
+ */
+export const PARTIAL_RUSH_MAX_WINS = 6;
+/** Gate seeds for the CR6 warden's named partial rush (the bare assault, the breach posts only). */
+export const WARDEN_RUSH_SEEDS = 40;
 
 const POLICIES = ["none", "heuristic", "rush"] as const;
 
@@ -26,6 +39,10 @@ const POLICIES = ["none", "heuristic", "rush"] as const;
  * - Breach unfilled: each uniform non-march doctrine over the march's posts (the product is
  *   5^7; no stock doctrine but Bring the Water strikes the gate, the static check in
  *   cinderRoad6.test.ts, so none can win).
+ * - Banner unfilled, partially rushed (the CR6 warden): the same 25 under each of the gate's 11
+ *   partial rushes (PARTIAL_RUSHES: the breach posts only, the vans only, every post but one), a
+ *   screen at 8 seeds with a tolerance (the sign-off census at 500 seeds is the proof); and the
+ *   warden's own partial rush (the bare assault, the breach posts only) at 40 seeds, below the floor.
  * A diagnostic call (weakest legal, the roster where the lesson is weakest) is reported, not
  * failed, as it is in the guardrails: its recovery force (rough) is gated instead.
  */
@@ -52,6 +69,33 @@ export function describeRoleGate(callName: string) {
         return;
       }
       expect(failures).toEqual([]);
+    });
+
+    it("banner unfilled, partially rushed (the breach posts only, the vans only, every post but one): a screen, at most 6 of 8 wins", () => {
+      const failures: string[] = [];
+      for (const rush of PARTIAL_RUSHES) {
+        for (const { name, orders } of unfilledCombos(scenario, plans.intended, BANNER)) {
+          const result = rates(scenario, orders, rush, PARTIAL_RUSH_SEEDS);
+          const wins = Math.round(result.advance * PARTIAL_RUSH_SEEDS);
+          if (wins > PARTIAL_RUSH_MAX_WINS) failures.push(`${name} (${rush.name}) wins ${wins}/${PARTIAL_RUSH_SEEDS} (bannered ${result.bannered}/${PARTIAL_RUSH_SEEDS})`);
+          if (result.bannered > 0) failures.push(`${name} (${rush.name}) rallied the march in ${result.bannered}/${PARTIAL_RUSH_SEEDS}: not an unfilled plan`);
+        }
+      }
+      if (call.policy === "diagnostic") {
+        if (failures.length > 0) console.info(`[diagnostic: ${callName}, partial rushes] ${failures.join("; ")}`);
+        return;
+      }
+      expect(failures).toEqual([]);
+    });
+
+    it("the CR6 warden's partial rush (the bare assault, only the breach posts rushing): below the floor", () => {
+      const result = rates(scenario, plans.bad, PARTIAL_RUSHES[0], WARDEN_RUSH_SEEDS);
+      expect(result.bannered).toBe(0);
+      if (call.policy === "diagnostic") {
+        console.info(`[diagnostic: ${callName}, the warden's partial rush] advances ${result.advance}`);
+        return;
+      }
+      expect(result.advance).toBeLessThan(GUARDRAILS.intendedMin);
     });
 
     it("breach unfilled (each stock non-march doctrine on every march post): no muster, heuristic, rush; nobody strikes the gate", () => {
