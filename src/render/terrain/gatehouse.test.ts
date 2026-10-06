@@ -6,7 +6,7 @@ import { holdForDawn } from "../../game/engine/scenarios/holdForDawn";
 import { isDoused } from "../atmosphere/Fires";
 import { closeShotOn, wideShotFor, type CameraShot } from "../camera/shots";
 import { boardCenter, hexToWorld } from "../hexWorld";
-import { CR6_GATE, CR6_SIEGE_APPROACH, cinderRoad6LabBoard as cr6 } from "../lab/cinderRoad6Lab";
+import { CR6_GATE, CR6_GATE_FRONT, CR6_SIEGE_APPROACH, cinderRoad6LabBoard as cr6 } from "../lab/cinderRoad6Lab";
 import { emberDusk } from "../skins";
 import { buildIsland } from "./buildIsland";
 import { objectiveFacing, objectiveHolder, OBJECTIVE_STAGES } from "./objectiveProps";
@@ -78,18 +78,20 @@ describe("gatehouse stages (CR6: breakObjective on a wall)", () => {
 });
 
 describe("CR6 framing", () => {
-  it("holds the Banners' deployment, the approach and the gate in the wide shot", () => {
+  it("holds the Banners' deployment, the approach, the gate and the whole Greyford Wall in the wide shot", () => {
     const shot = wideShotFor(cr6);
-    const hexes = [...cr6.hexes.filter((h) => h.deploymentFaction === "free_banners").map((h) => h.coord), CR6_SIEGE_APPROACH, CR6_GATE];
+    const wall = cr6.hexes.filter((h) => h.terrain === "wall").map((h) => h.coord);
+    expect(wall).toHaveLength(8);
+    const hexes = [...cr6.hexes.filter((h) => h.deploymentFaction === "free_banners").map((h) => h.coord), CR6_SIEGE_APPROACH, ...wall];
     for (const hex of hexes) {
       const p = ndc(shot, cr6, hex);
       expect(Math.abs(p.x) < 0.95 && Math.abs(p.y) < 0.95, hexKey(hex)).toBe(true);
     }
   });
 
-  it("has a close beat on the gate and its approach for the finale", () => {
-    const shot = closeShotOn(cr6, [CR6_SIEGE_APPROACH, CR6_GATE]);
-    for (const hex of [CR6_SIEGE_APPROACH, CR6_GATE]) {
+  it("has a close beat on the gate and the hex before it, from the attackers' side, for the finale", () => {
+    const shot = closeShotOn(cr6, [CR6_GATE_FRONT, CR6_GATE], -55);
+    for (const hex of [CR6_GATE_FRONT, CR6_GATE]) {
       const p = ndc(shot, cr6, hex);
       expect(Math.abs(p.x) < 0.75 && Math.abs(p.y) < 0.75, hexKey(hex)).toBe(true);
     }
