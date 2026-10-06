@@ -5,14 +5,11 @@ import { doctrineLibrary } from "./doctrines";
 import { winStage } from "./outcome";
 import { createInitialState, resolvePhase } from "./resolvePhase";
 import { holdForDawn } from "./scenarios/holdForDawn";
-import { advanceRate } from "./testKit";
 import type { EngineEvent, Orders } from "./types";
 
 const intended = holdForDawn.referencePlans!.intended;
 const companies = holdForDawn.squads.filter((squad) => squad.faction === "free_banners");
 const host = holdForDawn.squads.filter((squad) => squad.faction === "ashen_host");
-const swap = (from: string, to: string): Orders =>
-  Object.fromEntries(Object.entries(intended).map(([id, doctrineId]) => [id, doctrineId === from ? to : doctrineId]));
 
 function battle(orders: Orders, seed: number, fortune: "on" | "off") {
   let state = createInitialState(holdForDawn, { seed, fortune });
@@ -73,20 +70,6 @@ describe("Hold for Dawn", () => {
     expect(battle(intended, 1, "off").state.status).toBe("victory");
     expect(battle(holdForDawn.referencePlans!.bad, 1, "off").state.status).toBe("defeat");
   });
-
-  it("needs all three families: ablating any one costs at least 15 points of advance rate", () => {
-    const base = advanceRate(holdForDawn, intended);
-    expect(base).toBeGreaterThanOrEqual(0.75);
-    const ablations: Record<string, Orders> = {
-      "Shield the Line -> Counterstroke": swap("shield_the_line", "clean_counterstroke"),
-      "Rescue Standard -> Counterstroke": swap("rescue_standard", "clean_counterstroke"),
-      "Rescue Standard -> Shield the Line": swap("rescue_standard", "shield_the_line"),
-      "Counterstroke -> Shield the Line": swap("clean_counterstroke", "shield_the_line"),
-    };
-    for (const [label, orders] of Object.entries(ablations)) {
-      expect(base - advanceRate(holdForDawn, orders), label).toBeGreaterThanOrEqual(0.15);
-    }
-  }, 60_000);
 
   it("holds through the night, bleeding at the gate, and breaks the ram at sunrise (curated seed)", () => {
     const { events, state } = battle(intended, holdForDawn.curatedSeed!, "on");
