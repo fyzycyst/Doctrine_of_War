@@ -161,7 +161,12 @@ could stand on it: passable, not an objective, and connected to the mover by pas
 ground (squads are ignored, since they move). So a deep-water neighbour of a target is no
 goal, and an attacker beside one still closes on the real approach (C4). A target walled
 in entirely keeps every neighbour as a goal. If no goal hex is reachable, the squad moves
-to the reachable hex closest to the goal, and never further away. **Zone of control:** a move
+to the reachable hex closest to the goal, and never further away. **Paths are planned on
+knowledge (C5, fog):** a route (`planRoute`) and a withdrawal (`planWithdrawal`) treat
+the hexes of enemies the mover cannot see as open ground, so the path never depends on
+them; walking it, a squad stops short of an unseen enemy it meets (contact). The fog
+decision property in `fogProjection.test.ts` checks every Banner company's route and its
+one- and two-hex withdrawal under erased and moved unseen enemies. **Zone of control:** a move
 stops after entering a hex adjacent to an enemy.
 
 **Combat.** Battles turn on cohesion (morale), which only a rally restores.
@@ -401,12 +406,13 @@ Each battle has a **star doctrine** even when it uses a mix:
   it. The Host's outriders (the Drowned Hounds, the Ash Harriers) never fight: they run
   for the boats at the Heron Stair (`enemyEscape`, count 1), so a pure march loses
   whatever the force; the Wickmere Standard holds the stair on Shield the Line, and the
-  bows carry a banner with the assault. Gate seeds (100001–100500), fortune on,
-  recommended call: intended 95.6% (90.8% with no muster), bad (the pure march, played
-  as authored since P7) 1.4% (2.0%), all Bring the Water 1.4%, every other mono 0%; the
-  strongest alternative (the stair held, no banner) 63.2% (90.0%). With no muster that
-  alternative beats the intended plan on two calls (docs/CAMPAIGN.md). Ablations (tuning
-  seeds, heuristic / no muster): the standard leaving the stair 0% / 0–1%; no banner
+  bows carry a banner with the assault. Gate seeds (100001–100500), fortune on, after C5's
+  fog-correct pathing, recommended call: intended 95.2% (90.6% with no muster), bad (the
+  pure march, played as authored since P7) 1.4% (2.0%), all Bring the Water 1.4%, every
+  other mono 0%; the strongest alternative (the stair held, no banner) 60.0% (90.2%).
+  (Before C5: 95.6% (90.8%), alternative 63.2% (90.0%).) With no muster that alternative
+  beats the intended plan on two calls (docs/CAMPAIGN.md). Ablations (tuning seeds,
+  heuristic / no muster; measured before C5): the standard leaving the stair 0% / 0–1%; no banner
   with the assault (bows on Bring the Water) 72.2% / 87.4%; the march on Clean
   Counterstroke 0% / 0%. The banner matters with the player-realistic muster and on weak
   forces (weakest legal: 81% with it, 41% without). **Keep step is inert here:** the Sunward Lances (cavalry) never get 2 hexes ahead of
