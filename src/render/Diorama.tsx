@@ -10,6 +10,8 @@ import { SkyDome } from "./atmosphere/SkyDome";
 import { SquadAnimator, type AnimatorScene, type SquadAnimationApi } from "./figures/squadAnimation";
 import { SquadMarkers } from "./figures/SquadMarkers";
 import { ToySoldierSquads } from "./figures/ToySoldierSquads";
+import { facingFor } from "./fromEngine";
+import { sides } from "./sides";
 import { placeSquads, type DioramaSquad, type FigureApproach, type PlacedSquad } from "./figures/types";
 import { wideShotFor } from "./camera/shots";
 import { boardRadius, hexToWorld } from "./hexWorld";
@@ -20,10 +22,10 @@ import { createIslandMaterial, createOutlineMaterial } from "./materials";
 import { pickBoardHex, resolveClick } from "./picking";
 import { BoardHighlights, type ZoneStyle } from "./terrain/BoardHighlights";
 import { ExitMarkers } from "./terrain/ExitMarkers";
-import { buildIsland } from "./terrain/buildIsland";
+import { buildIsland, disposeIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
 import { WallsAndObjectiveFX } from "./terrain/ObjectiveFX";
-import { propGeometries, type ObjectiveStage } from "./terrain/objectiveProps";
+import type { ObjectiveStage } from "./terrain/objectiveProps";
 import { Reeds } from "./terrain/Reeds";
 import { Water } from "./terrain/Water";
 import { useDisposable } from "./dispose";
@@ -115,16 +117,7 @@ export function Diorama({
     () => (skin.material.outline ? createOutlineMaterial(skin.material.outlineColor, 0.012) : null),
     [skin.material.outline, skin.material.outlineColor],
   );
-  useEffect(
-    () => () => {
-      island.geometry.dispose();
-      island.wallGeometry?.dispose();
-      island.reedGeometry?.dispose();
-      island.brazierGeometry?.dispose();
-      island.objectiveProps.flatMap(propGeometries).forEach((g) => g.dispose());
-    },
-    [island],
-  );
+  useEffect(() => () => disposeIsland(island), [island]);
   useEffect(() => () => material.dispose(), [material]);
 
   useMemo(() => {
@@ -134,8 +127,12 @@ export function Diorama({
   // Last-known enemies join the draw list as silhouettes (unless also visible).
   // Squads may already carry `lastKnown` (from `dioramaSquads(view.squads)`);
   // `visibility.lastKnown` adds any ghost not already in the list.
+  // Which way each side faces and flees on this board (CR6: the Banners attack east).
+  // A squad on the mapper's default facing turns to its side's; explicit facings stay.
+  const side = useMemo(() => sides(board), [board]);
   const drawn = useMemo<DioramaSquad[]>(() => {
-    if (!visibility) return squads;
+    const own = squads.map((s) => (s.facing === facingFor(s.faction) && s.facing !== side[s.faction].facing ? { ...s, facing: side[s.faction].facing } : s));
+    if (!visibility) return own;
     const live = new Set(squads.map((s) => s.id));
     const ghosts = visibility.lastKnown
       .filter((g) => !live.has(g.squadId))
@@ -145,11 +142,11 @@ export function Diorama({
         hex: g.hex,
         strength: g.strength ?? 66,
         cohesion: g.cohesion ?? 60,
-        facing: g.faction === "free_banners" ? Math.PI : 0,
+        facing: side[g.faction].facing,
         lastKnown: true,
       }));
-    return [...squads, ...ghosts];
-  }, [squads, visibility]);
+    return [...own, ...ghosts];
+  }, [squads, visibility, side]);
 
   const stages = useMemo(
     () => new Map<string, ObjectiveStage>((objectiveStates ?? []).map((o) => [hexKey(o.hex), o.stage])),
@@ -165,8 +162,8 @@ export function Diorama({
       squad: (id) => {
         const p = byId.get(id);
         if (!p) return undefined;
-        // Routing heads for the faction's home edge: Host west, Banners east.
-        const home: [number, number] = p.squad.faction === "ashen_host" ? [-1, 0] : [1, 0];
+        // Routing heads for the faction's home edge (usually Host west, Banners east).
+        const home = side[p.squad.faction].home;
         return { anchor: { x: p.x, y: p.y, z: p.z }, facing: p.squad.facing, alive: p.alive, home };
       },
       hexWorld: (hex) => {
@@ -176,7 +173,7 @@ export function Diorama({
         return { x, y, z };
       },
     };
-  }, [placed, island]);
+  }, [placed, island, side]);
   const animator = useMemo(() => new SquadAnimator(scene), []); // eslint-disable-line react-hooks/exhaustive-deps
   animator.setScene(scene);
   useImperativeHandle(animationRef, () => animator, [animator]);
@@ -278,7 +275,8 @@ export function Diorama({
       <Water island={island} />
       <Reeds island={island} />
       <Fires island={island} objectiveStages={stages} />
-      {island.gateBanner && <GateBanner anchor={island.gateBanner} />}
+      {/* The holder's banner over the gate; it is down once the gate is breached. */}
+      {island.gateBanner && stages.get(island.gateKey ?? "") !== "broken" && <GateBanner anchor={island.gateBanner} faction={island.gateHolder} />}
       <BoardHighlights island={island} deploymentHexes={deploymentHexes} zoneStyle={zoneStyle} marchFrom={marchFrom} emphasisHex={emphasisHex} />
       {exitHexes && exitHexes.length > 0 && <ExitMarkers board={board} island={island} hexes={exitHexes} />}
       <SquadMarkers placed={placed} animator={animator} waterLevel={island.waterLevel} />

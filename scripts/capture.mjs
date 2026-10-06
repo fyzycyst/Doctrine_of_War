@@ -173,6 +173,26 @@ jobs.push(
   { name: "m2f-c2-wagons", query: "scenario=cinderRoad2&preset=dusk&figures=a&cam=close&focusHex=1,6" },
 );
 
+// CR6 (lab stand-in): Greyford Gate held by the Host, attacked from the west. The gate
+// intact, battered, breached, hit and breached under reduced motion, from the approach;
+// and First Breach's (the Banners') gate for comparison, intact and battered.
+{
+  const cr6 = "scenario=cinderRoad6&preset=dusk&figures=a";
+  // The finale beat from the attackers' side (south-west), so the gate's west face shows.
+  const beat = `${cr6}&closeOn=5,3;6,3&az=-55`;
+  jobs.push(
+    { name: "cr6-wide", query: cr6 },
+    { name: "cr6-gate-intact", query: beat },
+    { name: "cr6-gate-battered", query: `${beat}&objective=battered` },
+    { name: "cr6-gate-breached", query: `${beat}&objective=broken` },
+    { name: "cr6-gate-hit", query: `${beat}&objective=battered&anim=shake&shakeAt=6,3&animFreeze=0.3` },
+    { name: "cr6-gate-breached-reduced", query: `${beat}&objective=broken&motion=reduce` },
+    { name: "cr6-gate-night", query: `${beat.replace("preset=dusk", "preset=nightFires")}` },
+    { name: "cr6-fb-gate", query: "scenario=firstBreach&preset=dusk&figures=a&cam=close&focusHex=4,2" },
+    { name: "cr6-fb-gate-battered", query: "scenario=firstBreach&preset=dusk&figures=a&cam=close&focusHex=4,2&objective=battered" },
+  );
+}
+
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 ? process.argv[i + 1] : fallback;

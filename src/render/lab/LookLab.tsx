@@ -84,7 +84,8 @@ function readParams() {
           scenarioParam === "holdForDawn" ||
           scenarioParam === "cinderRoad1" ||
           scenarioParam === "twoObjectives" ||
-          scenarioParam === "cinderRoad2"
+          scenarioParam === "cinderRoad2" ||
+          scenarioParam === "cinderRoad6"
         ? scenarioParam
         : "firstBreach";
   return {

@@ -15,7 +15,7 @@ import { PostFX } from "../post/PostFX";
 import { useCanvasDpr } from "../quality";
 import { emberDusk } from "../skins";
 import { NOISE_GLSL } from "../shaders/noise";
-import { buildIsland, type IslandBuild } from "../terrain/buildIsland";
+import { buildIsland, disposeIsland, type IslandBuild } from "../terrain/buildIsland";
 import { Water } from "../terrain/Water";
 
 /**
@@ -247,9 +247,7 @@ function Cluster({
   useEffect(
     () => () =>
       islands.forEach(({ island }) => {
-        island.geometry.dispose();
-        island.wallGeometry?.dispose();
-        island.reedGeometry?.dispose();
+        disposeIsland(island);
       }),
     [islands],
   );
