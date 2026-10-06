@@ -460,13 +460,16 @@ Each battle has a **star doctrine** even when it uses a mix:
   the map shows the roads, so it marches on the exits and cuts down what stands on them;
   Bring the Water has no objective to march on and stands on the bank. The Host's reserve
   wades the Mill Ford for the Mill Road behind (`enemyEscape`, count 1), so a pure march
-  loses; the lances and the bows hold the Mill Road on Shield the Line. Gate seeds
-  (100001–100500), fortune on, recommended call: intended 100.0% (100.0% with no muster),
-  bad (all Bring the Water) 0%, all Open the Road 1.6%, every other mono 0%; strongest
-  alternative (the Mill Ford watch on Clean Counterstroke) 99.6%. Worst gated call: rough
-  (recovery force) 86.8% (90.4%). Ablations (tuning seeds 1–200, no muster): the column on
-  Fighting Withdrawal, Keep the Column Moving, Bring the Water or Clean Counterstroke 0%
-  (intended 100%); the Mill Ford watch marching too 3%. Every named call is in
+  loses. The roles, by function: the **march** gets companies onto the far-bank roads; the
+  **guard** keeps the Mill Road (the lances and the bows on Shield the Line, or any watch that
+  stays on it). Gate seeds (100001–100500), fortune on, curated path after battles 1–2,
+  recommended call: intended 100.0% (100.0% with no muster), bad (all Bring the Water) 0%,
+  all Open the Road 13.2%, every other mono 0%; strongest alternative (the watch on Clean
+  Counterstroke) 100.0%. Worst gated call: rough (recovery force) 87.6% (89.6%). Every plan
+  that leaves a role unfilled advances at most 16.8% with no muster or the heuristic and at
+  most 56.2% against the rush, on every call (`cinderRoad3.{guard,march,rush}.sim.test.ts`).
+  Role ablations (tuning seeds, no muster): the column on any doctrine that never takes the
+  roads 0%; the watch on one that leaves the Mill Road at most 15%. Every named call is in
   docs/CAMPAIGN.md.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
