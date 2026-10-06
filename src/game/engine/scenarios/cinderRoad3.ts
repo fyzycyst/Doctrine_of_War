@@ -58,6 +58,8 @@ function hexAt(q: number, r: number): BoardHex {
     ...(override?.label ? { label: override.label } : {}),
     ...(q <= 2 ? { deploymentFaction: "ashen_host" as const } : {}),
     ...(q >= 5 ? { deploymentFaction: "free_banners" as const } : {}),
+    // Render only: the Tollhouse Shallows never had a bridge (no burnt stumps there).
+    ...(key === "4,5" ? { fordDressing: "none" as const } : {}),
   };
 }
 
