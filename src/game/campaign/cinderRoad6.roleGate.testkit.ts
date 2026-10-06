@@ -42,7 +42,7 @@ export function describeRoleGate(callName: string) {
         for (const { name, orders } of unbannered) {
           const result = rates(scenario, orders, muster, BANNER_SEEDS);
           if (result.advance >= GUARDRAILS.intendedMin) failures.push(`${name} (${muster}) advances ${result.advance} (bannered ${result.bannered}/${BANNER_SEEDS})`);
-          if (result.bannered > 0) failures.push(`${name} (${muster}) rallied at the gate in ${result.bannered}/${BANNER_SEEDS}: not an unfilled plan`);
+          if (result.bannered > 0) failures.push(`${name} (${muster}) rallied the march in ${result.bannered}/${BANNER_SEEDS}: not an unfilled plan`);
         }
       }
       const pure = rates(scenario, plans.bad, "rush the march", BANNER_SEEDS);
@@ -67,11 +67,13 @@ export function describeRoleGate(callName: string) {
       expect(failures).toEqual([]);
     });
 
-    it("the accepted fillers fill the banner role: two banners (intended) and one (the standard)", () => {
-      for (const [name, orders] of [["two banners", plans.intended], ["one banner", plans.alternative!]] as const) {
+    it("the accepted fillers fill the banner role: two banners (intended), one on either banner post", () => {
+      // The standard alone: the second banner's post marches (as in the bare assault).
+      const standardOnly = { ...plans.intended, bows: plans.bad.bows };
+      for (const [name, orders] of [["two banners", plans.intended], ["one banner, the second banner's post", plans.alternative!], ["one banner, the standard", standardOnly]] as const) {
         const result = rates(scenario, orders, "none", BANNER_SEEDS);
-        // A banner rallies at the gate in most games (not all: some assaults break it first).
-        expect(result.bannered, name).toBeGreaterThanOrEqual(BANNER_SEEDS / 2);
+        // A banner rallies the march on its approach in (nearly) every game.
+        expect(result.bannered, name).toBeGreaterThanOrEqual(BANNER_SEEDS * 0.9);
         expect(result.breached, name).toBeGreaterThan(0);
       }
     });

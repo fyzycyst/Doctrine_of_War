@@ -489,10 +489,11 @@ Each battle has a **star doctrine** even when it uses a mix:
   Day, ash-wind all day, Banner initiative, 9 phases; 9 Banners (the whole army) against 10
   Host (19 squads), every Host company sworn (Resolve 3). `breakObjective` on the gate (integrity 12),
   whose only standable approaches are (7,3) and (7,4): the sworn line and the No Step Back
-  flanks grind whoever reaches them, so the assault falls back below 30 cohesion unless a
-  banner (Rescue Standard: the only rally) is with it; the Kept Coal's dread on the ash-wind
+  flanks grind the assault on the way in and at the wall, so it falls back below 30 cohesion
+  unless a banner (Rescue Standard: the only rally) keeps rallying it (observed at event time:
+  most rallies land 3-5 hexes from the gate, few at it); the Kept Coal's dread on the ash-wind
   hits the less famous companies hardest. Roles: the breach (only Bring the Water strikes the
-  gate) and the banner (two in the intended plan; one is an accepted filler). Authored at fame
+  gate) and the banner (two in the intended plan; one, on either post, is an accepted filler). Authored at fame
   17, so the Roll's threat never eases the sworn and hardens the Host by +12 a company for a
   famous army. Preliminary sign-off on `signoff2` (the gate range was observed in development):
   intended 93.4% (94.2% heuristic) on the recommended call, at least 84.2% (93.2%) on every

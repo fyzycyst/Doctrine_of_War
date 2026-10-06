@@ -479,11 +479,14 @@ company, the Upper Gate Road may take one); carried veterans (at most two) take 
 place of Worn companies. "Choose who to bring" is expressed through who holds which post, not
 optional posts (a candidate mechanic for after the hackathon). Lesson (the Advance and the
 standards; First Breach turned round): the march breaks the gate, and **a banner carried with
-the assault** keeps it on its feet against the sworn line and the No Step Back flanks; the Kept
+the assault** keeps it on its feet on the way in and at the wall, against the sworn line and
+the No Step Back flanks; the Kept
 Coal's dread on the ash-wind hits the less famous companies hardest. Roles, by function: **the
 breach** (a Banner company strikes the gate; only Bring the Water can) and **the banner** (a
-rally near the gate; only Rescue Standard rallies). The intended plan carries two banners; one
-is an accepted filler (roster-dependent: a veteran army needs only one). A third role, a
+rally restores an assault company, observed when it fires: the standards keep the assault on
+its feet on the way in and at the sworn line; only Rescue Standard rallies). The intended plan carries two banners; one
+on either post is an accepted filler (the second banner's post is the stronger and the
+tracked alternative; the standard alone is weak on a battered army). A third role, a
 counterstroke screen, was dropped in tuning: Clean Counterstroke hunts the fight into the
 sworn and no stock doctrine escorts the standards (the battle sheet has the numbers). The
 Banners' squads are authored at **fame 17**, not the curated path's 30 (the C2 convention is

@@ -5,11 +5,13 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { hexDistance } from "../board";
 import { playBattle } from "../engine/balance";
+import { createInitialState } from "../engine/resolvePhase";
 import { doctrineLibrary } from "../engine/doctrines";
+import { validateVariant, withVariants } from "../engine/editor";
 import { cinderRoad6, GREYFORD_GATE } from "../engine/scenarios/cinderRoad6";
 import { registry } from "../packs/registry";
 import { cinderRoad } from "./cinderRoad";
-import { BANNER, BREACH, BTW, calls, CR6_INDEX, matrix, RS } from "./cinderRoad6.roles.testkit";
+import { assaultCompanies, BANNER, BREACH, BTW, calls, CR6_INDEX, isAssaultDoctrine, matrix, rates, RS } from "./cinderRoad6.roles.testkit";
 import { assembleBattle, battleThreat, lintRollCampaign, MAX_FLEX_SLOTS, recommendedForce, rollSlots } from "./roll";
 import { curatedRollState, templatePlan } from "./rollCalls";
 import { callSlug, nonFillers, objectiveStrikers, unfilledCombos } from "./roles.testkit";
@@ -92,5 +94,25 @@ describe("Break the Strongpoint (Cinder Road, the finale)", () => {
     expect(final.status).toBe("victory");
     expect(final.squads.filter((squad) => squad.faction === "free_banners" && squad.status !== "active")).toEqual([]);
     expect(final.squads.find((squad) => squad.id === "slagwall_oathguard")?.status).not.toBe("active");
+  });
+
+  it("the banner observable classifies the assault by the doctrine in force: an editor variant of Bring the Water, an omitted order", () => {
+    // The CR6 warden: identifying the assault by the submitted order id would report a variant's
+    // or a default's rallies as no banner. The observable reads the live doctrine at the rally.
+    const checked = validateVariant(
+      { id: "v-btw-steady", baseId: BTW, name: "Bring the Water (steadier)", order: doctrineLibrary[BTW].rules.map((rule) => rule.id), params: { btw_steady: { value: 20 } } },
+      doctrineLibrary,
+      cinderRoad6.playerDoctrineIds,
+    );
+    if (!checked.ok) throw new Error(checked.errors.join("; "));
+    const played = withVariants(cinderRoad6, [checked], doctrineLibrary);
+    expect(isAssaultDoctrine(played.doctrines, "v-btw-steady")).toBe(true);
+    for (const id of [RS, "shield_the_line", "fighting_withdrawal", "clean_counterstroke", "hold_for_dawn"]) expect(isAssaultDoctrine(doctrineLibrary, id), id).toBe(false);
+    // The march on the variant, with one marcher's order left out (it keeps its default, Bring the Water).
+    const orders = Object.fromEntries(Object.entries(plans.intended).filter(([id]) => id !== "riders").map(([id, doctrineId]) => [id, doctrineId === BTW ? "v-btw-steady" : doctrineId]));
+    expect(rates(played.scenario, orders, "none", 3, 1, played.doctrines).bannered).toBe(3);
+    // The named rush ("rush the march") picks its companies by the same predicate.
+    const start = createInitialState(played.scenario, { seed: 1, fortune: "on" });
+    expect(assaultCompanies(start, played.scenario, orders, played.doctrines).sort()).toEqual(BREACH.posts.slice().sort());
   });
 });

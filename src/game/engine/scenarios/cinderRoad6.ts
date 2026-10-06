@@ -4,12 +4,13 @@
 // here is sworn (Resolve 3: they do not waver). The whole army takes the field.
 // Lesson (the Advance and the standards; First Breach turned round): the march breaks the gate,
 // and a banner carried with the assault keeps it on its feet. The sworn line and the No Step
-// Back flanks grind the assault at the gate, so without a banner every company falls back
-// (Bring the Water steadies below 30 cohesion) before the gate breaks. The Kept Coal's dread,
+// Back flanks grind the assault on the way in and at the wall, so without a banner every company
+// falls back (Bring the Water steadies below 30 cohesion) before the gate breaks. The Kept Coal's dread,
 // on the ash-wind, hits the less famous companies hardest. Roles (by function, declared on the
 // battle sheet): the breach (a company strikes the gate; only Bring the Water can) and the banner
-// (a rally near the gate; only Rescue Standard rallies). The intended plan carries two banners;
-// one is an accepted filler (roster-dependent: a veteran army needs only one).
+// (a rally restores an assault company, observed when it fires; only Rescue Standard rallies). The intended plan carries two banners;
+// one, on either post, is an accepted filler (the second banner's post is the stronger and the
+// tracked alternative; the standard alone is weak on a battered army).
 // The Banners' squads are authored at fame 17, not the curated path's: the Roll's threat then
 // never eases the sworn's Resolve, and hardens the Host by +12 strength a company for a famous
 // army, which the battle's 10 Host companies turn into a real difference (docs/CAMPAIGN.md).
@@ -32,7 +33,7 @@ export const cinderRoad6: EngineScenario = {
   briefing:
     "We are back where it began: Greyford Gate. This time the Host holds it. The Kept Coal stand before the gate with coals from the first kiln, " +
     "and every company on that wall is sworn: they do not waver, and they do not step back. " +
-    "An assault that reaches the gate will be ground down there; only the standards keep a broken assault on its feet, so carry the banners with it. " +
+    "They will grind down any assault on the way in and at the wall; only the standards keep it on its feet, so carry the banners with it. " +
     "Their coals smoke on the wind all day, and the companies that have seen least will feel the Kept Coal most. " +
     "Bring the whole army, break the gate, and do not lose three companies.",
   playerFaction: BANNERS,
@@ -104,7 +105,7 @@ export const cinderRoad6: EngineScenario = {
   defeatConditions: [{ kind: "squadsLost", count: 3 }],
   timeoutOutcome: "defeat",
   referencePlans: {
-    // The march breaks the gate; two banners keep it on its feet at the gate.
+    // The march breaks the gate; two banners keep it on its feet on the way in and at the wall.
     intended: {
       north_van: BTW,
       gate_van: BTW,
@@ -116,14 +117,16 @@ export const cinderRoad6: EngineScenario = {
       riders: BTW,
       slingers: BTW,
     },
-    // The accepted filler (tracked, never gated): one banner, the standard, with the march.
+    // The strongest accepted filler (tracked, never gated): one banner, on the second banner's
+    // post (the standard marches). The standard alone is the other one-banner filler, weaker on
+    // a battered army; both are on the battle sheet.
     alternative: {
       north_van: BTW,
       gate_van: BTW,
       road_van: BTW,
       south_van: BTW,
-      standard: "rescue_standard",
-      bows: BTW,
+      standard: BTW,
+      bows: "rescue_standard",
       lances: BTW,
       riders: BTW,
       slingers: BTW,

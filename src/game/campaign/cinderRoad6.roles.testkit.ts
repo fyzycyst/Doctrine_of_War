@@ -9,14 +9,15 @@ import { heuristicMuster, rushMuster, type MusterMove, type MusterPolicy } from 
 import { createInitialState, resolvePhase } from "../engine/resolvePhase";
 import { scenarios as intro } from "../engine/scenarios";
 import { GREYFORD_GATE } from "../engine/scenarios/cinderRoad6";
-import type { EngineEvent, EngineScenario, EngineState, Orders } from "../engine/types";
+import { doctrineLibrary } from "../engine/doctrines";
+import type { DoctrineLibrary, EngineEvent, EngineScenario, EngineState, Orders } from "../engine/types";
 import { activeSquads } from "../engine/world";
 import { registry } from "../packs/registry";
 import { cinderRoad } from "./cinderRoad";
 import { ashAndBanner } from "./definition";
 import { rollCallMatrix } from "./rollCalls";
 import { introCarrySource } from "./rosters";
-import type { RoleDeclaration } from "./roles.testkit";
+import { canStrikeEnemyObjective, type RoleDeclaration } from "./roles.testkit";
 
 export const BTW = "bring_the_water";
 export const RS = "rescue_standard";
@@ -26,59 +27,94 @@ export const CR6_INDEX = cinderRoad.battles.findIndex((battle) => battle.scenari
 /**
  * The roles, as the battle sheet declares them. The breach: Bring the Water on the march's
  * posts (only it strikes an objective). The banner: Rescue Standard on either banner post
- * (only it rallies); the intended plan carries two, one is an accepted filler.
+ * (only it rallies); the intended plan carries two, one on either post is an accepted filler.
  */
 export const BREACH: RoleDeclaration = { posts: ["north_van", "gate_van", "road_van", "south_van", "lances", "riders", "slingers"], fillers: [BTW] };
 export const BANNER: RoleDeclaration = { posts: ["standard", "bows"], fillers: [RS] };
 
-/** A rally counts for the banner role when its target stands this close to the gate. */
-export const BANNER_REACH = 2;
+/**
+ * The banner role's observable: a rally restores cohesion to an assault company, wherever it
+ * stands, observed when the rally fires. An assault company is one whose doctrine in force at
+ * that moment (the live state's, so an omitted order's default counts) can strike the gate:
+ * Bring the Water, or an editor variant cut from it (variants keep their base's actions). The CR6 warden's finding:
+ * the standards keep the assault on its feet on the way in and at the sworn line (most rallies
+ * land 3-5 hexes out), rarely at the gate itself. A rally to a company this close to the gate
+ * is still counted, separately, as `nearGate`, for the battle sheet; it is not the role.
+ */
+export const NEAR_GATE = 2;
 
 /** How the player musters: a harness policy, or "rush the march" (only the companies on Bring the Water rush). */
 export type Muster = MusterPolicy | "rush the march";
 
-function musterFor(state: EngineState, scenario: EngineScenario, orders: Orders, muster: Muster): MusterMove[] {
+function musterFor(state: EngineState, scenario: EngineScenario, orders: Orders, muster: Muster, doctrines: DoctrineLibrary): MusterMove[] {
   if (muster === "heuristic") return heuristicMuster(state, scenario);
   if (muster === "rush") return rushMuster(state, scenario);
-  if (muster === "rush the march") return rushMuster(state, scenario, Object.keys(orders).filter((id) => orders[id] === BTW));
+  if (muster === "rush the march") return rushMuster(state, scenario, assaultCompanies(state, scenario, orders, doctrines));
   return [];
+}
+
+/**
+ * The assault companies this phase, by the same predicate as the banner observable: the
+ * doctrine the phase puts in force (its order, else the one it already has) can strike the
+ * gate, so editor variants of Bring the Water and omitted orders' defaults count.
+ */
+export function assaultCompanies(state: EngineState, scenario: EngineScenario, orders: Orders, doctrines: DoctrineLibrary = doctrineLibrary): string[] {
+  return activeSquads(state)
+    .filter((squad) => squad.faction === scenario.playerFaction && isAssaultDoctrine(doctrines, orders[squad.id] ?? squad.doctrineId))
+    .map((squad) => squad.id);
 }
 
 interface RoleRun {
   advanced: boolean;
   /** The breach: a Banner company struck the gate. */
   breach: boolean;
-  /** The banner: a rally restored cohesion to a company within BANNER_REACH of the gate. */
+  /** The banner: a rally restored cohesion to an assault company (on Bring the Water), when it fired. */
   banner: boolean;
+  /** Reported, not the role: such a rally to a company within NEAR_GATE of the gate. */
+  nearGate: boolean;
 }
 
-function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muster: Muster): RoleRun {
+/** Whether a doctrine is an assault doctrine (it can strike an enemy objective). */
+export function isAssaultDoctrine(doctrines: DoctrineLibrary, doctrineId: string): boolean {
+  const doctrine = doctrines[doctrineId];
+  return Boolean(doctrine && canStrikeEnemyObjective(doctrine));
+}
+
+function playRoles(scenario: EngineScenario, orders: Orders, seed: number, muster: Muster, doctrines: DoctrineLibrary): RoleRun {
   let state = createInitialState(scenario, { seed, fortune: "on" });
   let breach = false;
   let banner = false;
-  while (state.status === "command") {
-    const result = resolvePhase(state, orders, scenario, { muster: musterFor(state, scenario, orders, muster) });
-    const after = new Map(activeSquads(result.state).map((squad) => [squad.id, squad.hex]));
-    for (const event of result.events as EngineEvent[]) {
-      if (event.kind === "objectiveDamage" && event.objectiveId === "greyford_gate") breach = true;
-      if (event.kind === "rally" && event.targetId) {
-        const hex = after.get(event.targetId);
-        if (hex && hexDistance(hex, GREYFORD_GATE) <= BANNER_REACH) banner = true;
+  let nearGate = false;
+  // Observed at event time (onEmit gives the live state as each event fires), never from the
+  // positions at the end of the phase.
+  const onEmit = (event: EngineEvent, live: EngineState) => {
+    if (event.kind === "objectiveDamage" && event.objectiveId === "greyford_gate") breach = true;
+    if (event.kind === "rally" && event.targetId) {
+      const target = activeSquads(live).find((squad) => squad.id === event.targetId);
+      if (target && target.faction === scenario.playerFaction && isAssaultDoctrine(doctrines, target.doctrineId)) {
+        banner = true;
+        if (hexDistance(target.hex, GREYFORD_GATE) <= NEAR_GATE) nearGate = true;
       }
     }
-    state = result.state;
+  };
+  while (state.status === "command") {
+    state = resolvePhase(state, orders, scenario, { muster: musterFor(state, scenario, orders, muster, doctrines), onEmit, doctrines }).state;
   }
-  return { advanced: state.status === "victory" || state.status === "stalemate", breach, banner };
+  return { advanced: state.status === "victory" || state.status === "stalemate", breach, banner, nearGate };
 }
 
-export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, seeds: number, firstSeed: number = GATE_SEEDS.first) {
-  const runs = Array.from({ length: seeds }, (_, index) => playRoles(scenario, orders, firstSeed + index, muster));
+/** `doctrines`: the library in play (an editor variant's, via withVariants); default the stock one. */
+export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, seeds: number, firstSeed: number = GATE_SEEDS.first, doctrines: DoctrineLibrary = doctrineLibrary) {
+  const runs = Array.from({ length: seeds }, (_, index) => playRoles(scenario, orders, firstSeed + index, muster, doctrines));
   return {
     advance: runs.filter((run) => run.advanced).length / seeds,
     breached: runs.filter((run) => run.breach).length,
     bannered: runs.filter((run) => run.banner).length,
-    /** Games advanced with a banner's rally near the gate (for an unfilled plan: by accident). */
+    /** Games advanced with a banner's rally on the march (for an unfilled plan: by accident). */
     wonBannered: runs.filter((run) => run.advanced && run.banner).length,
+    /** Games with a rally to an assault company within NEAR_GATE of the gate (reported, not the role). */
+    nearGate: runs.filter((run) => run.nearGate).length,
+    wonNearGate: runs.filter((run) => run.advanced && run.nearGate).length,
   };
 }
 
