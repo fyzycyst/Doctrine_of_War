@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { executeAction } from "./actions";
-import { canEnter, planAdvance, planFallBack } from "./movement";
+import { canEnter, planAdvance, planFallBack, planRoute } from "./movement";
 import { actionContext, kinds, openBoard, scenario, squad } from "./testKit";
 
 const FB = "free_banners" as const;
@@ -116,5 +116,20 @@ describe("movement", () => {
     expect(kit.get("a").hex).toEqual({ q: 2, r: 0 });
     expect(kit.get("a").braced).toBe(true);
     expect(kit.events).toEqual([{ kind: "blocked", squadId: "a", reason: "cornered, bracing instead" }]);
+  });
+
+  it("plans a route through an unseen enemy as open ground (C5 fog), and the walk stops on contact", () => {
+    const board = openBoard(5, 3);
+    const goal = { q: 4, r: 1 };
+    const unseen = { q: 3, r: 1 };
+    const clear = actionContext(scenario({ board, squads: [squad("a", FB, { q: 0, r: 1 })] }));
+    const hidden = actionContext(scenario({ board, squads: [squad("a", FB, { q: 0, r: 1 }), squad("h", AH, unseen)] }));
+    const route = planRoute(clear.state, board, clear.get("a"), [goal]);
+    // Told the enemy is unseen, the route is the one it would take on an empty field...
+    expect(planRoute(hidden.state, board, hidden.get("a"), [goal], [unseen])).toEqual(route);
+    // ...where the true-state route (the old leak) bends around it.
+    expect(planRoute(hidden.state, board, hidden.get("a"), [goal])).not.toEqual(route);
+    // Walking it, the mover runs into the enemy: it stops on entering its zone of control.
+    expect(planAdvance(hidden.state, board, hidden.get("a"), [goal], 5, [unseen]).at(-1)).toEqual({ q: 2, r: 1 });
   });
 });

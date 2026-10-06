@@ -26,6 +26,12 @@ export function canEnter(state: EngineState, board: BoardLayout, hex: HexCoord):
   );
 }
 
+/** Passable, not an objective: ground a squad could stand on if it were empty. */
+function canStandOn(state: EngineState, board: BoardLayout, hex: HexCoord): boolean {
+  const boardHex = getHex(board, hex);
+  return Boolean(boardHex && isPassableTerrain(boardHex.terrain) && !state.objectives.some((objective) => sameHex(objective.hex, hex)));
+}
+
 /** Entering marsh ends the move; so does entering a ford in rain. (Exported for the UI's terrain readout.) */
 export function endsMove(terrain: TerrainType | undefined, weather: Weather): boolean {
   return terrain === "marsh" || (weather === "rain" && terrain === "ford");
@@ -60,21 +66,18 @@ function groundReachable(state: EngineState, board: BoardLayout, start: HexCoord
 }
 
 /**
- * Path (including the start hex) for moving up to `maxSteps` toward any of `goals` (the
- * targets the mover could stand on; see groundReachable).
+ * The route (including the start hex, not cut short) a squad would take toward any of
+ * `targets` (the targets it could stand on; see groundReachable).
  * - Already on a goal: no move.
- * - A goal is reachable: follow the shortest path to it.
- * - Otherwise: move to the reachable hex that gets closest to the goals (never further).
- * Movement stops after entering a hex adjacent to an enemy (zone of control).
+ * - A goal is reachable: the shortest path to it.
+ * - Otherwise: to the reachable hex that gets closest to the goals (never further).
+ * Planned on what the mover knows (C5): the hexes of enemies it cannot see (`unseen`) count
+ * as open ground, so the route never depends on them; meeting one is the walk's business.
  */
-export function planAdvance(
-  state: EngineState,
-  board: BoardLayout,
-  squad: ActiveSquad,
-  targets: HexCoord[],
-  maxSteps: number,
-): HexCoord[] {
+export function planRoute(state: EngineState, board: BoardLayout, squad: ActiveSquad, targets: HexCoord[], unseen: HexCoord[] = []): HexCoord[] {
   const start = squad.hex;
+  const hidden = new Set(unseen.map(hexKey));
+  const plannable = (hex: HexCoord) => canEnter(state, board, hex) || (hidden.has(hexKey(hex)) && canStandOn(state, board, hex));
   // A goal must be ground the mover could stand on (C4): a deep-water or walled neighbour
   // of the target is no goal, or a mover already beside it would never close on the real
   // approach. A target walled in entirely keeps every goal (the old nearest approach).
@@ -94,7 +97,7 @@ export function planAdvance(
     const current = visited[index];
     for (const neighbor of boardNeighbors(board, current.hex)) {
       const key = hexKey(neighbor.coord);
-      if (parent.has(key) || !canEnter(state, board, neighbor.coord)) {
+      if (parent.has(key) || !plannable(neighbor.coord)) {
         continue;
       }
       parent.set(key, current.hex);
@@ -115,13 +118,29 @@ export function planAdvance(
     destination = best.hex;
   }
 
-  const fullPath: HexCoord[] = [];
+  const route: HexCoord[] = [];
   for (let step: HexCoord | null = destination; step; step = parent.get(hexKey(step)) ?? null) {
-    fullPath.unshift(step);
+    route.unshift(step);
   }
+  return route;
+}
 
-  const path: HexCoord[] = [{ ...start }];
-  for (const hex of fullPath.slice(1, maxSteps + 1)) {
+/**
+ * Path (including the start hex) for moving up to `maxSteps` along planRoute toward any of
+ * `targets`. Movement stops after entering a hex adjacent to an enemy (zone of control), and
+ * short of a hex an unseen enemy stands on (contact: the route was planned through it).
+ */
+export function planAdvance(
+  state: EngineState,
+  board: BoardLayout,
+  squad: ActiveSquad,
+  targets: HexCoord[],
+  maxSteps: number,
+  unseen: HexCoord[] = [],
+): HexCoord[] {
+  const path: HexCoord[] = [{ ...squad.hex }];
+  for (const hex of planRoute(state, board, squad, targets, unseen).slice(1, maxSteps + 1)) {
+    if (squadAt(state, hex)) break;
     path.push(hex);
     if (inEnemyZone(state, squad, hex) || slowedByWeather(state, board, hex)) {
       break;
