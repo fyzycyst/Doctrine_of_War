@@ -12,6 +12,7 @@ import { holdForDawn } from "../engine/scenarios/holdForDawn";
 import { cinderRoad1 } from "../engine/scenarios/cinderRoad1";
 import { cinderRoad2 } from "../engine/scenarios/cinderRoad2";
 import { cinderRoad3 } from "../engine/scenarios/cinderRoad3";
+import { cinderRoad5 } from "../engine/scenarios/cinderRoad5";
 import { cinderRoad6 } from "../engine/scenarios/cinderRoad6";
 import type { DoctrineLibrary } from "../engine/types";
 import { lintPacks } from "./lint";
@@ -31,16 +32,16 @@ import {
 export const firstCall: PackManifest = {
   id: "first_call",
   title: "The First Call",
-  // Content 4 (CR6): Cinder Road gained its finale (content 2 came with battle 2, C2; content
-  // 3 with battle 3, C3), so an earlier run (one completed after battle 1, 2 or 3 cannot replay
-  // against a longer campaign) is no longer read: it is preserved as unavailable and can be set
-  // aside. The intro's v1 save is not gated by content revision and is unaffected. (The number
-  // is renumbered at merge if battle 5 lands first.)
-  revision: { pack: 1, content: 4, rules: 1 },
-  readsContent: [4],
-  // Cinder Road (Roll) is in development: battles are appended until its length is frozen.
+  // Content 5 (CR5): Cinder Road gained battle 4, the pursuit, before its finale (content 4
+  // came with the finale, CR6, at slot 4; content 2 and 3 with battles 2 and 3), so an earlier
+  // run (one completed after battles 1-3, or after battles 1-3 and the finale at slot 4, cannot
+  // replay against the longer campaign) is no longer read: it is preserved as unavailable and
+  // can be set aside. The intro's v1 save is not gated by content revision and is unaffected.
+  revision: { pack: 1, content: 5, rules: 1 },
+  readsContent: [5],
+  // Cinder Road (Roll): five battles, the pursuit (battle 4) before the finale (2026-10-06).
   campaigns: [ashAndBanner, cinderRoad],
-  scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn, cinderRoad1, cinderRoad2, cinderRoad3, cinderRoad6],
+  scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn, cinderRoad1, cinderRoad2, cinderRoad3, cinderRoad5, cinderRoad6],
   doctrines: [],
   // Skirmish offers every campaign battle (derived in the registry); this lists standalone extras only.
   skirmishes: [],

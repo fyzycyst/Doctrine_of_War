@@ -194,17 +194,18 @@ describe("v2 runs", () => {
   });
 });
 
-describe("pack editions (C2, C3, CR6: Cinder Road battles 2, 3 and the finale)", () => {
-  it("this build is content 4 and reads only content 4", () => {
-    expect(firstCall.revision.content).toBe(4);
-    expect(firstCall.readsContent).toEqual([4]);
+describe("pack editions (C2, C3, CR6, CR5: Cinder Road battles 2 and 3, the finale, then the pursuit before it)", () => {
+  it("this build is content 5 and reads only content 5", () => {
+    expect(firstCall.revision.content).toBe(5);
+    expect(firstCall.readsContent).toEqual([5]);
   });
 
   // A Cinder Road run as an earlier build wrote it: the campaign as it stood then (content 1:
-  // battle 1 only, e553746; content 2: battles 1-2, 44ed9d4; content 3: battles 1-3, f0ac610),
-  // won to the end, so complete.
-  for (const edition of [1, 2, 3]) {
-    const earlier = { ...cinderRoad, battles: cinderRoad.battles.slice(0, edition) };
+  // battle 1 only, e553746; content 2: battles 1-2, 44ed9d4; content 3: battles 1-3, f0ac610;
+  // content 4: battles 1-3 and the finale at slot 4, 4c5cf88), won to the end, so complete.
+  const finale = cinderRoad.battles.find((battle) => battle.id === "cr_greyford_gate")!;
+  for (const edition of [1, 2, 3, 4]) {
+    const earlier = { ...cinderRoad, battles: edition === 4 ? [...cinderRoad.battles.slice(0, 3), finale] : cinderRoad.battles.slice(0, edition) };
     const earlierBuild = createRegistry([{ ...firstCall, revision: { ...firstCall.revision, content: edition }, readsContent: [edition], campaigns: [ashAndBanner, earlier] }]);
     const complete = curatedRollState(earlier, registry.scenarios(), edition);
     const payload = serializeCampaignSave(earlierBuild, complete);

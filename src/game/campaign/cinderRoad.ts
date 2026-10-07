@@ -121,13 +121,41 @@ export const cinderRoad: CampaignDefinition = {
       },
     },
     {
-      // The finale (battle 6 in the Roll's order; built after battle 3 until battles 4 and 5
-      // land, then moved to its place and re-gated on the full path).
+      id: "cr_gate_road",
+      title: "Cut the Retreat",
+      scenarioId: "cinder_road_gate_road",
+      slots: {
+        lances: "sunward_lances",
+        riders: "brightcrag_riders",
+        bows: "heronwick_bows",
+        north_van: "coldwater_shields",
+        road_van: "ferrymoot_pikes",
+        south_van: "thornwick_spears",
+      },
+      call: {
+        // Where each post lies: the riders in the folds of ground on either side of the Gate
+        // Road ahead, the foot over the River Ford behind the column.
+        labels: {
+          lances: "The Broken Watch Folds",
+          riders: "The South Works Folds",
+          bows: "The South Ditch",
+          north_van: "The North Bank",
+          road_van: "The River Ford",
+          south_van: "The South Bank",
+        },
+        // One flex post on the hunt: skirmishers may lie in the south folds.
+        flex: {
+          riders: { roles: ["cavalry", "skirmish"], doctrines: { cavalry: "clean_counterstroke", skirmish: "clean_counterstroke" } },
+        },
+      },
+    },
+    {
+      // The finale (battle 5, after the pursuit; re-gated on the full path [1, 2, 3, 4]).
       id: "cr_greyford_gate",
       title: "Break the Strongpoint",
       scenarioId: "cinder_road_greyford_gate",
       // The whole army: every company of the Roll has a post. The authored call is the
-      // recommended force after battle 3 (re-derived when battles 4 and 5 land).
+      // recommended force after battle 4 (the pursuit).
       slots: {
         north_van: "coldwater_shields",
         gate_van: "ferrymoot_pikes",

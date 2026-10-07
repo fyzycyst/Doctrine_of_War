@@ -60,12 +60,13 @@ reference, each scenario's internal consistency, and each campaign against its
 scenarios. Nothing is exposed from a set that fails. `registry.compatibility(provenance)`
 says whether a saved run (pack, campaign, content and rules revision) can continue.
 The shipped pack is `first_call` (The First Call), holding the intro and *Cinder Road*
-(in development: battles 1–3 so far, until its length is frozen; see below).
+(five battles, the user's choice of 2026-10-06; see below).
 
-**Editions.** `first_call` is at content revision **3** (`readsContent: [3]`) since
-*Cinder Road* gained battle 3 (C3; revision 2 came with battle 2, C2): an earlier-content
-Cinder Road run (one completed after battle 2 cannot replay against a three-battle
-campaign) is read as **unavailable**, kept as it is, and can be set aside to begin anew; it
+**Editions.** `first_call` is at content revision **5** (`readsContent: [5]`) since
+*Cinder Road* gained battle 4, the pursuit (CR5), before its finale (revision 4 came with
+the finale, CR6, merged after battle 3; 3 with battle 3, C3; 2 with battle 2, C2): an
+earlier-content Cinder Road run (one completed on a shorter or differently ordered campaign
+cannot replay against this one) is read as **unavailable**, kept as it is, and can be set aside to begin anew; it
 is never shown as unreadable. Appending
 a battle to a campaign is such a change, so bump the content revision with it. The
 intro's v1 save is not gated by content revision.
@@ -270,7 +271,7 @@ doctrine, campaign, roster profile or Host schedule):
 
 **Test suites (2026-10-05; the finale's added 2026-10-07).** `npm test` is the fast suite:
 unit, UI and fast engine tests. `npm run test:balance` runs the simulation-heavy files, and
-`npm run test:finale` the finale's (*Cinder Road* battle 6: a 19-squad, 9-phase battle costs
+`npm run test:finale` the finale's (*Cinder Road* battle 5: a 19-squad, 14-phase battle costs
 about four ordinary games, so its sweeps would push test:balance past its ~120 s budget). The
 routing is by **file name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`, which
 also checks every heavy file runs in exactly one of the two heavy suites):
@@ -392,6 +393,42 @@ fighting.**
   - **CR5 (a pursuit):** the hunt has no roster spread, but a second role made of fighting
     (breaking or pinning the rearguard) let mono Counterstroke pass on the strong calls.
 
+**Exception (2026-10-06, the user's option A): pursuit battles.** A pursuit (Cinder Road
+battle 4, *Cut the Retreat*) has **one counted role, the hunt**: break fleeing companies
+before they get away.
+- **Waived for a pursuit:** the "at least two roles in two families" rule, and the mono cap
+  for the hunt's **filler** doctrines. Monos of strikers are pursuits done right. The harness
+  lists them in `PURSUIT_FILLERS` (`engine/balance.ts`), keyed by scenario id; the balance
+  script prints the exception.
+- **Still gated:**
+  - the intended plan ≥ 75% on **every** gated call (the no-muster floor too);
+  - every **non-filler** mono, and every hunt-unfilled combination, below the floor on every
+    call under no muster, the heuristic and the interception adversary, each plan judged on
+    its own (a full census). The interception adversary ("close": every company out of
+    contact musters to its legal hex nearest a fleeing company it can see, every phase)
+    replaces the rush, which has nothing to rush toward in a pursuit (no enemy objective, no
+    exits for the player; a unit test proves it makes no moves). The CR5 warden's
+    counterexample is a named regression on every call;
+  - the ≥ 15-point role ablation.
+- **Why it is safe:** the loss is structural (escape is a rule, `enemyEscape`), not attrition,
+  and there is no roster spread: on the real calls, a striking hunt wins 98–100% and a
+  standing or yielding one 0%, on every call (artifact m2-cinder-road/cr5-findings).
+
+**Rule (2026-10-06, the CR5 warden): a role that breaks X needs X's Resolve at least the
+Roll's titled companies'.** Dread on first sight is a structural effect of fame: a company
+loses (the renowned enemy's Resolve − its own) × 5 cohesion the first time it sees each one.
+- **What happened:** CR5's fleeing column (Resolve 1, cohesion 27) was broken by the Roll's
+  titled companies (Resolve 3) standing in view. Everyone on Shield the Line, mustered beside
+  the road, won 40/40 without a blow.
+- **The rule:** any role whose job is breaking an enemy company must give that company Resolve
+  ≥ the highest Resolve a Banner company can bring (RESOLVE_MAX, 3). The battle's test asserts
+  it on every named call.
+- **The audit** of the merged Cinder Road battles (worst-case dread on sight, real calls):
+  - no role target is exposed;
+  - C2's ram escort and the park's garrison can be half-broken on the carried calls, but
+    neither is the ram, and a positional probe kept every unfilled plan at 0/40;
+  - battles 1, 3 and 6 show no exposure.
+
 **Decision (2026-10-05, C3 warden; confirmed by the user 2026-10-06: "if a player can come up with something better, they should"): editor variants are diagnostics,
 not gated.** A doctrine-editor variant that out-thinks a battle is a reward for skill, which
 is what Test in the field is for. The gate guarantees the lesson for **stock doctrines plus
@@ -437,7 +474,7 @@ stair. Numbers are in docs/ENGINE.md.
 **Battle 2, *Strike the Wagon Park*** (`engine/scenarios/cinderRoad2.ts`, C2): upstream of
 Ember Ford, by daylight, Banner initiative, fog, 6 phases. Win: break the Host's wagon
 park (`breakObjective`), escorted by a detachment of the Kept Coal (the renowned main body
-holds Greyford Gate in battle 6). Defeat: the Covenant's Weir Sluice on our bank falls
+holds Greyford Gate in battle 5). Defeat: the Covenant's Weir Sluice on our bank falls
 (`objectiveLost`, new in C2), or 3 companies lost. Posts (authored as the army stands
 after battle 1, so the curated path meets a nil threat): the Wainford, the Wagon Track,
 the Sedge Flank, the Lance Line (flex: cavalry or frontline), Willow Rise, and the Weir
@@ -503,12 +540,44 @@ Mill Road. Signed off on `signoff3` (the gate range and `signoff2` were observed
 the battle sheet). Numbers are in
 docs/ENGINE.md and on the battle sheet.
 
-**Battle 6, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
-after battle 3 until battles 4 and 5 land, then moved to slot 6 and signed off on the full
-path): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
+*Cinder Road* battle 4, **Cut the Retreat** (`scenarios/cinderRoad5.ts`, CR5; the pursuit,
+under the pursuit exception above):
+- **Ground:** the shared Greyford Gate board (`greyfordGate.board.ts`, engine #2's, with
+  `gateObjective: false`), the day before battle 5.
+- **The story:** the Host, broken on the roads at Ember Ford, streams down the Gate Road to
+  Greyford Gate.
+- **The goal:** break 2 of the 5 fleeing companies (`destroySquads`) before 3 reach the gate's
+  approaches (7,3)/(7,4) (`enemyEscape`); or 3 companies lost; 5 phases.
+- **The Host:**
+  - the column runs on Slip the Leash and never stops to fight;
+  - it is at Resolve 3 ("they run, but they are not panicked"), so the Roll's famous companies
+    cannot break it by standing in view (the rule above);
+  - its rearguard holds the River Ford on No Step Back (texture, not a counted role).
+- **Posts** (authored labels):
+  - the hunt: the Broken Watch Folds and the South Works Folds (cavalry; the latter flex:
+    skirmish), and the South Ditch (skirmish), lying on the flank edges ahead;
+  - the foot: the North Bank, the River Ford and the South Bank, behind.
+- **The hunt, by function:** break fleeing companies before they reach the gate.
+  - Fillers: **Clean Counterstroke** (intended: it waits, then charges a company that has
+    fallen out of the column), Bring the Water and Open the Road (each strikes whatever comes
+    beside it).
+  - Unfilled by Shield the Line and Hold for Dawn, which stand beside the road and let them
+    by, and Fighting Withdrawal and Rescue Standard, which give ground: all 4^3 combinations
+    are gated.
+- **The lesson:** "strike, don't block", the inverse of Open a Road's guard. The briefing
+  says so.
+- **Plans:** bad, everyone on Shield the Line (Open a Road's guard misapplied); alternative
+  (diagnostic), the hunt on Bring the Water.
+- **No standard is called;** the Rearguard (CR4's doctrine) is not offered.
+- **Curated seed 1:** a clean win, no company lost, nobody worn; on the curated path only the
+  Brightcrag Riders gain Resolve (0 → 1).
+- **Role gate:** `cinderRoad5.roles.<call>.sim.test.ts`, one per named call: the census
+  under no muster, the heuristic and the interception adversary, plus the warden's plan.
+**Battle 5, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
+after battle 3, then moved after the pursuit and signed off on the full path, battles 1–4): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
 the sworn stand before the gate (every Host company is Resolve 3: they do not waver); 9
-Banners against 10 Host (19 squads), by day under ash-wind, 9 phases. Win: break the gate
-(`breakObjective`). Defeat: 3 companies lost, or the timeout. **The whole army takes the
+Banners against 10 Host (19 squads), by day under ash-wind, a long day of 14 phases. Win: break
+the gate (`breakObjective`, integrity 25). Defeat: 4 companies lost, or the timeout. **The whole army takes the
 field**: nine posts, one per Roll company (two flex: the second banner may be a frontline
 company, the Upper Gate Road may take one); carried veterans (at most two) take posts in
 place of Worn companies. "Choose who to bring" is expressed through who holds which post, not
@@ -520,15 +589,35 @@ Coal's dread on the ash-wind hits the less famous companies hardest. Roles, by f
 breach** (a Banner company strikes the gate; only Bring the Water can) and **the banner** (a
 rally restores an assault company, observed when it fires: the standards keep the assault on
 its feet on the way in and at the sworn line; only Rescue Standard rallies). The intended plan carries two banners; one
-on either post is an accepted filler (the second banner's post is the stronger and the
-tracked alternative; the standard alone is weak on a battered army). A third role, a
+on either post is an accepted filler, by the role (it rallies the assault), but since the
+partial-rush fix one banner rarely clears the floor: the standard alone (the tracked
+alternative, the strongest) is 77–90% with no muster on the famous calls but 23% on the
+recovery force, and the second banner's post alone 61–73% on every call, so two banners are
+what every army should carry (`signoff5`; the battle sheet has the numbers). **The partial rush (the CR6
+warden):** the banner posts stand centre-front, so in a bare assault their weak companies
+lead into the sworn line and it holds; rushing only the strong posts (holding the banner
+posts back) breaks the sworn line with the strong companies and sends the held-back ones in as
+a fresh second wave, which carried the bare assault to 78% on a famous army; and holding the north flank back
+(the warden's signoff4 case, 74.6%) decoyed the north sally, which charged from phase 1, onto
+the standard. So the north sally (Pyre-Sworn) waits in the Broken Watch until phase 3; the gate
+is 25 blows deep (12 at first), which a second wave cannot finish alone; the day is 14 phases
+long (9 at first) and the line breaks at 4 companies lost (3 at first), both of which the
+battered recovery force's assault needs far more than any assault without banners. The role
+gate rushes partial subsets of posts too (the breach posts only, the vans only, every post but
+one, the worst every-post-but-two; and the warden's timed rider hold as a smoke check; at
+sign-off, every post but two is screened on tuning seeds and the rows at 50% or more are
+played on 500 sign-off seeds). A third role, a
 counterstroke screen, was dropped in tuning: Clean Counterstroke hunts the fight into the
 sworn and no stock doctrine escorts the standards (the battle sheet has the numbers). The
-Banners' squads are authored at **fame 17**, not the curated path's 30 (the C2 convention is
-deliberately not used): the Roll's threat then never eases the sworn's Resolve, which let the
-veterans' renown break the Host, and hardens every Host company by +12 strength for a famous
-army. The banners stand in the front row: Rescue Standard only moves when an ally falls below
-50. Curated seed 18: won in phase 6, no company lost, the Kept Coal broken. Numbers are on the
+Banners' squads are authored at **fame 18**, one above the recovery force's 17, not the curated
+path's 31 (the C2 convention is deliberately not used): the Roll's threat then never eases the
+sworn's Resolve, which let the veterans' renown break the Host, eases the recovery force's
+Host by 2 strength a company, and hardens every Host company by +12 strength for a famous
+army. (On the path through the pursuit the Brightcrag Riders reach Resolve 1; the authored
+squad mirrors it, which raised the authored fame from 17 and kept the recovery force's ease:
+with the nil threat it lost, the recovery force fell to 71% with no muster on tuning seeds.) The banners stand in the front row: Rescue Standard only moves when an ally falls below
+50. Curated seed 58 (on the path through the pursuit, where the Brightcrag Riders reach Resolve
+1): won in phase 7, no company lost, the Kept Coal broken. Numbers are on the
 battle sheet.
 
 ## Saves

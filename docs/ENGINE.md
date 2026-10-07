@@ -482,24 +482,52 @@ Each battle has a **star doctrine** even when it uses a mix:
   (Fighting Withdrawal with fw_rout_guard 90 on the watch) is a diagnostic probe at 0%.
   Role gate: `cinderRoad3.roles.<call>.sim.test.ts`, one per named call. Every named call is
   in docs/CAMPAIGN.md.
-- *Break the Strongpoint* (*Cinder Road* battle 6, the finale, `scenarios/cinderRoad6.ts`, CR6;
-  built after battle 3 until battles 4 and 5 land): the star is **Bring the Water**; the second
+- *Cut the Retreat* (*Cinder Road* battle 4, the pursuit, `scenarios/cinderRoad5.ts`, CR5,
+  in the First Call pack): the star is **Clean Counterstroke**. Engine #2's shared Greyford
+  Gate board (`greyfordGate.board.ts`, `gateObjective: false`; the gate is dressed as the
+  gatehouse, render-only).
+  - **The Host:** the column (5 companies, Slip the Leash, Resolve 3: no dread on sight) runs
+    down the Gate Road for Greyford Gate; the rearguard holds the River Ford (No Step Back,
+    texture).
+  - **The goal:** break 2 of the column (`destroySquads`) before 3 reach the gate's approaches
+    (`enemyEscape`); 5 phases.
+  - **One counted role, the hunt,** under the pursuit exception (docs/CAMPAIGN.md): the
+    harness's `PURSUIT_FILLERS` spares the monos of its fillers (Clean Counterstroke, Bring the
+    Water, Open the Road) from the mono cap; every other mono and every hunt-unfilled
+    combination are still gated.
+  - **Signed off on `signoff3`** (300001–300500; `signoff2` was read before the CR5 warden's
+    repair, and the gate range is observed by the census), fortune on, curated path after
+    battles 1–3:
+    - intended 99.4% on every gated call, 99.2% with no muster;
+    - the bad plan and every non-filler mono 0%;
+    - selection spread 0.6 points.
+  - **Role gate** (`cinderRoad5.roles.<call>.sim.test.ts`, one per named call): a full
+    per-plan census of all 4^3 hunt-unfilled combinations on 40 gate seeds under no muster,
+    the heuristic and the interception adversary ("close", which replaces the rush: the rush
+    makes no moves here), plus the CR5 warden's counterexample as a named regression; each
+    one below the floor and within the slack (≤ 2/40 wins; ≤ 4/40 under the adversaries).
+- *Break the Strongpoint* (*Cinder Road* battle 5, the finale, `scenarios/cinderRoad6.ts`, CR6,
+  after the pursuit): the star is **Bring the Water**; the second
   role is **the banner**. Greyford Gate, held by the Host, on the shared Greyford Gate board
-  (`scenarios/greyfordGate.board.ts`, also battle 5's: one ground, per-battle deployment zones).
-  Day, ash-wind all day, Banner initiative, 9 phases; 9 Banners (the whole army) against 10
-  Host (19 squads), every Host company sworn (Resolve 3). `breakObjective` on the gate (integrity 12),
+  (`scenarios/greyfordGate.board.ts`, also battle 4's: one ground, per-battle deployment zones).
+  Day, ash-wind all day, Banner initiative, 14 phases; 9 Banners (the whole army) against 10
+  Host (19 squads), every Host company sworn (Resolve 3). `breakObjective` on the gate (integrity 25), defeat at 4 companies lost, the north sally released at phase 3,
   whose only standable approaches are (7,3) and (7,4): the sworn line and the No Step Back
   flanks grind the assault on the way in and at the wall, so it falls back below 30 cohesion
   unless a banner (Rescue Standard: the only rally) keeps rallying it (observed at event time:
   most rallies land 3-5 hexes from the gate, few at it); the Kept Coal's dread on the ash-wind
   hits the less famous companies hardest. Roles: the breach (only Bring the Water strikes the
   gate) and the banner (two in the intended plan; one, on either post, is an accepted filler). Authored at fame
-  17, so the Roll's threat never eases the sworn and hardens the Host by +12 a company for a
-  famous army. Preliminary sign-off on `signoff2` (the gate range was observed in development):
-  intended 93.4% (94.2% heuristic) on the recommended call, at least 84.2% (93.2%) on every
-  gated call; the bare assault at most 1.8%; every stock combination with no banner at most
-  32.2% on any gated call under no muster, heuristic or the rush (weakest legal, diagnostic:
-  72.2%); no breach-unfilled plan strikes the gate. Its suites run under `npm run test:finale`.
+  18 (one above the recovery force's), so the Roll's threat never eases the sworn and hardens
+  the Host by +12 a company for a famous army. Signed off on `signoff5`
+  (500001–500500; the gate range and `signoff2`–`signoff4` were observed for CR6 in
+  development), fortune on, as battle 5 on the path through battles 1–4: intended 97.8% (98.6%
+  heuristic) on the recommended call, at least 87.0% (94.4%) on every gated call; the bare
+  assault at most 1.6%; every stock combination with no banner at most 45.4% on any gated call
+  under no muster, heuristic or the rush, and at most 68.6% under any enumerated partial rush
+  (carried recommended, every post but the riders; the 15 gate rushes at 500 seeds, and every
+  post but two screened on tuning seeds with the 12 rows at 50% or more promoted to 500),
+  none rallying the assault; no breach-unfilled plan strikes the gate. Its suites run under `npm run test:finale`.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
 with at least two doctrine families. A role is defined by what it achieves (hold the gate,

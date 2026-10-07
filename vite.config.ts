@@ -97,7 +97,7 @@ export default defineConfig({
         extends: true,
         test: { name: "balance", include: BALANCE_TEST_GLOBS, exclude: [...configDefaults.exclude, ...FINALE_TEST_GLOBS], setupFiles: ["./src/test/setup.balance.ts"], testTimeout: 240_000 },
       },
-      // The finale (Cinder Road battle 6): the same rules, its own run (src/test/suites.ts).
+      // The finale (Cinder Road battle 5): the same rules, its own run (src/test/suites.ts).
       {
         extends: true,
         test: { name: "finale", include: FINALE_TEST_GLOBS, setupFiles: ["./src/test/setup.balance.ts"], testTimeout: 240_000 },

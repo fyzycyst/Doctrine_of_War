@@ -1,5 +1,5 @@
-// Greyford Gate, held by the Host: the board Cinder Road's last two battles share (battle 5,
-// the pursuit: the broken Host streams back down the Gate Road to the gate; battle 6, the
+// Greyford Gate, held by the Host: the board Cinder Road's last two battles share (battle 4,
+// the pursuit: the broken Host streams back down the Gate Road to the gate; battle 5, the
 // finale: the assault on the gate the next day). First Breach's ground, reversed and enlarged
 // to 9x8. Agree any change with both battles' authors: it moves both battles' balance.
 import type { BoardHex, BoardLayout, HexCoord, TerrainType } from "../../board";
@@ -35,8 +35,8 @@ export interface GreyfordGateZones {
   /**
    * Default true: (8,3) carries `objectiveId: "greyford_gate"` (the finale's target). A battle
    * that declares no objective there (the pursuit) passes false, or pack lint rejects the
-   * unknown id. Render draws the gatehouse and its banner only on an objective hex, so without
-   * it the gate is plain wall.
+   * unknown id; the gate hex then carries `gatehouse: true` instead (render-only: the intact
+   * gatehouse with the Host's banner, no damage stages), so the gate is not plain wall.
    */
   gateObjective?: boolean;
 }
@@ -52,7 +52,7 @@ function terrainAt(q: number, r: number): { terrain: TerrainType; label?: string
 }
 
 /**
- * The Greyford Gate board (Cinder Road battles 5 and 6): the same ground every time; only the
+ * The Greyford Gate board (Cinder Road battles 4 and 5): the same ground every time; only the
  * deployment zones vary by battle. Fails closed: a hex in both zones, or a zone on the wall or
  * in the river (fords are fine), throws.
  */
@@ -72,7 +72,7 @@ export function greyfordGateBoard(zones: GreyfordGateZones = {}): BoardLayout {
         coord,
         terrain,
         ...(label ? { label } : {}),
-        ...(zones.gateObjective !== false && q === GREYFORD_GATE.q && r === GREYFORD_GATE.r ? { objectiveId: "greyford_gate" } : {}),
+        ...(q === GREYFORD_GATE.q && r === GREYFORD_GATE.r ? (zones.gateObjective !== false ? { objectiveId: "greyford_gate" } : { gatehouse: true as const }) : {}),
         ...(side ? { deploymentFaction: side } : {}),
       });
     }

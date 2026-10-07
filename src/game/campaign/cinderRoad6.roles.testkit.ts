@@ -1,4 +1,4 @@
-// Cinder Road battle 6 (CR6, the finale): the roles by function (docs/CAMPAIGN.md, "roles are
+// Cinder Road battle 5 (CR6, the finale): the roles by function (docs/CAMPAIGN.md, "roles are
 // defined by what they achieve"), observed in a run, and the named calls they are checked on.
 // The role gate (cinderRoad6.roleGate.testkit.ts) runs one file per named call
 // (cinderRoad6.roles.<call>.sim.test.ts, in `npm run test:finale`); cinderRoad6.test.ts checks
@@ -21,7 +21,7 @@ import { canStrikeEnemyObjective, type RoleDeclaration } from "./roles.testkit";
 
 export const BTW = "bring_the_water";
 export const RS = "rescue_standard";
-/** Where CR6 stands in Cinder Road for now: after battle 3 (moved to slot 6 when battles 4 and 5 land). */
+/** Where CR6 stands in Cinder Road: the last battle (battle 5), after the pursuit. */
 export const CR6_INDEX = cinderRoad.battles.findIndex((battle) => battle.scenarioId === "cinder_road_greyford_gate");
 
 /**
@@ -43,13 +43,64 @@ export const BANNER: RoleDeclaration = { posts: ["standard", "bows"], fillers: [
  */
 export const NEAR_GATE = 2;
 
-/** How the player musters: a harness policy, or "rush the march" (only the companies on Bring the Water rush). */
-export type Muster = MusterPolicy | "rush the march";
+/**
+ * A partial rush: only the companies on these posts rush (`rushMuster` with their ids) every
+ * phase; the rest are left to their doctrines. The CR6 warden's adversary: holding the banner
+ * posts back lets the strong companies break the sworn line first, then the held-back ones
+ * follow as a fresh second wave (docs/CAMPAIGN.md, battle 5).
+ */
+export interface PartialRush {
+  name: string;
+  posts: readonly string[];
+  /** A timed rush: from this phase on, these posts rush instead. */
+  from?: { phase: number; posts: readonly string[] };
+}
+
+/** How the player musters: a harness policy, "rush the march" (only the companies on Bring the Water rush), or a partial rush. */
+export type Muster = MusterPolicy | "rush the march" | PartialRush;
+
+/** Every post of the finale's call: the march's and the banners'. */
+export const ALL_POSTS: readonly string[] = [...BREACH.posts, ...BANNER.posts];
+const VANS = ["north_van", "gate_van", "road_van", "south_van"];
+
+const allBut = (...held: string[]): PartialRush => ({ name: `rush all but ${held.join(" and ")}`, posts: ALL_POSTS.filter((post) => !held.includes(post)) });
+
+/**
+ * The gate's partial rushes (15): the breach posts only (the warden's: both banner posts held
+ * back), the vans only, every post but one (9), and the worst every-post-but-two found in tuning
+ * (4: the north flank held back, the warden's signoff4 case, and the riders or lances with
+ * another). The sign-off screens every post but two (36) on tuning seeds and promotes the rows at
+ * 50% or more to 500 sign-off seeds. A rush that changes its subset
+ * from phase to phase is not enumerated.
+ */
+export const PARTIAL_RUSHES: readonly PartialRush[] = [
+  { name: "rush the breach posts only", posts: BREACH.posts },
+  { name: "rush the vans only", posts: VANS },
+  ...ALL_POSTS.map((held) => allBut(held)),
+  allBut("north_van", "riders"),
+  allBut("road_van", "riders"),
+  allBut("lances", "riders"),
+  allBut("north_van", "lances"),
+];
+
+/**
+ * The CR6 warden's timed rush (signoff5): hold the riders back in phase 1 only, then rush
+ * everyone. With the standard on Shield the Line and the bows on Clean Counterstroke it is the
+ * worst stock plan the warden found, about 70% on the famous calls (the battle sheet).
+ */
+export const RIDER_HOLD: PartialRush = { name: "rush all but riders in phase 1, then all", posts: allBut("riders").posts, from: { phase: 2, posts: ALL_POSTS } };
+
+/** Every post but two (36): the census's wider screen. */
+export const ALL_BUT_TWO: readonly PartialRush[] = ALL_POSTS.flatMap((first, index) => ALL_POSTS.slice(index + 1).map((second) => allBut(first, second)));
+
+/** A muster's name, for reports. */
+export const musterName = (muster: Muster) => (typeof muster === "string" ? muster : muster.name);
 
 function musterFor(state: EngineState, scenario: EngineScenario, orders: Orders, muster: Muster, doctrines: DoctrineLibrary): MusterMove[] {
   if (muster === "heuristic") return heuristicMuster(state, scenario);
   if (muster === "rush") return rushMuster(state, scenario);
   if (muster === "rush the march") return rushMuster(state, scenario, assaultCompanies(state, scenario, orders, doctrines));
+  if (typeof muster === "object") return rushMuster(state, scenario, muster.from && state.phase >= muster.from.phase ? muster.from.posts : muster.posts);
   return [];
 }
 
