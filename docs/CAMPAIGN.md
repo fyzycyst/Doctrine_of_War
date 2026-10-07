@@ -271,7 +271,7 @@ doctrine, campaign, roster profile or Host schedule):
 
 **Test suites (2026-10-05; the finale's added 2026-10-07).** `npm test` is the fast suite:
 unit, UI and fast engine tests. `npm run test:balance` runs the simulation-heavy files, and
-`npm run test:finale` the finale's (*Cinder Road* battle 5: a 19-squad, 12-phase battle costs
+`npm run test:finale` the finale's (*Cinder Road* battle 5: a 19-squad, 14-phase battle costs
 about four ordinary games, so its sweeps would push test:balance past its ~120 s budget). The
 routing is by **file name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`, which
 also checks every heavy file runs in exactly one of the two heavy suites):
@@ -576,8 +576,8 @@ under the pursuit exception above):
 **Battle 5, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
 after battle 3, then moved after the pursuit and signed off on the full path, battles 1–4): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
 the sworn stand before the gate (every Host company is Resolve 3: they do not waver); 9
-Banners against 10 Host (19 squads), by day under ash-wind, a long day of 12 phases. Win: break
-the gate (`breakObjective`, integrity 18). Defeat: 3 companies lost, or the timeout. **The whole army takes the
+Banners against 10 Host (19 squads), by day under ash-wind, a long day of 14 phases. Win: break
+the gate (`breakObjective`, integrity 25). Defeat: 4 companies lost, or the timeout. **The whole army takes the
 field**: nine posts, one per Roll company (two flex: the second banner may be a frontline
 company, the Upper Gate Road may take one); carried veterans (at most two) take posts in
 place of Worn companies. "Choose who to bring" is expressed through who holds which post, not
@@ -595,11 +595,14 @@ muster, so two banners are what the recovery force should carry). **The partial 
 warden):** the banner posts stand centre-front, so in a bare assault their weak companies
 lead into the sworn line and it holds; rushing only the strong posts (holding the banner
 posts back) breaks the sworn line with the strong companies and sends the held-back ones in as
-a fresh second wave, which carried the bare assault to 78% on a famous army. The gate is
-therefore 18 blows deep (12 before), which a second wave cannot finish alone, and the day 12
-phases long (9 before), which the battered recovery force's assault needs and the partial
-rush does not; the role gate rushes partial subsets of posts too (the breach posts only, the
-vans only, every post but one; the census every post but two). A third role, a
+a fresh second wave, which carried the bare assault to 78% on a famous army; and holding the north flank back
+(the warden's signoff4 case, 74.6%) decoyed the north sally, which charged from phase 1, onto
+the standard. So the north sally (Pyre-Sworn) waits in the Broken Watch until phase 3; the gate
+is 25 blows deep (12 at first), which a second wave cannot finish alone; the day is 14 phases
+long (9 at first) and the line breaks at 4 companies lost (3 at first), both of which the
+battered recovery force's assault needs far more than any assault without banners. The role
+gate rushes partial subsets of posts too (the breach posts only, the vans only, every post but
+one, the worst every-post-but-two; the census every post but two). A third role, a
 counterstroke screen, was dropped in tuning: Clean Counterstroke hunts the fight into the
 sworn and no stock doctrine escorts the standards (the battle sheet has the numbers). The
 Banners' squads are authored at **fame 18**, one above the recovery force's 17, not the curated

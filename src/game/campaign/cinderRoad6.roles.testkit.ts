@@ -61,21 +61,27 @@ export type Muster = MusterPolicy | "rush the march" | PartialRush;
 export const ALL_POSTS: readonly string[] = [...BREACH.posts, ...BANNER.posts];
 const VANS = ["north_van", "gate_van", "road_van", "south_van"];
 
+const allBut = (...held: string[]): PartialRush => ({ name: `rush all but ${held.join(" and ")}`, posts: ALL_POSTS.filter((post) => !held.includes(post)) });
+
 /**
- * The gate's partial rushes (11): the breach posts only (the warden's: both banner posts held
- * back), the vans only, and every post but one (9). The sign-off census adds every post but
- * two (36). A rush that changes its subset from phase to phase is not enumerated.
+ * The gate's partial rushes (15): the breach posts only (the warden's: both banner posts held
+ * back), the vans only, every post but one (9), and the worst every-post-but-two found in tuning
+ * (4: the north flank held back, the warden's signoff4 case, and the riders or lances with
+ * another). The sign-off census plays every post but two (36). A rush that changes its subset
+ * from phase to phase is not enumerated.
  */
 export const PARTIAL_RUSHES: readonly PartialRush[] = [
   { name: "rush the breach posts only", posts: BREACH.posts },
   { name: "rush the vans only", posts: VANS },
-  ...ALL_POSTS.map((held) => ({ name: `rush all but ${held}`, posts: ALL_POSTS.filter((post) => post !== held) })),
+  ...ALL_POSTS.map((held) => allBut(held)),
+  allBut("north_van", "riders"),
+  allBut("road_van", "riders"),
+  allBut("lances", "riders"),
+  allBut("north_van", "lances"),
 ];
 
 /** Every post but two (36): the census's wider screen. */
-export const ALL_BUT_TWO: readonly PartialRush[] = ALL_POSTS.flatMap((first, index) =>
-  ALL_POSTS.slice(index + 1).map((second) => ({ name: `rush all but ${first} and ${second}`, posts: ALL_POSTS.filter((post) => post !== first && post !== second) })),
-);
+export const ALL_BUT_TWO: readonly PartialRush[] = ALL_POSTS.flatMap((first, index) => ALL_POSTS.slice(index + 1).map((second) => allBut(first, second)));
 
 /** A muster's name, for reports. */
 export const musterName = (muster: Muster) => (typeof muster === "string" ? muster : muster.name);

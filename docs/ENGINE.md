@@ -510,8 +510,8 @@ Each battle has a **star doctrine** even when it uses a mix:
   after the pursuit): the star is **Bring the Water**; the second
   role is **the banner**. Greyford Gate, held by the Host, on the shared Greyford Gate board
   (`scenarios/greyfordGate.board.ts`, also battle 4's: one ground, per-battle deployment zones).
-  Day, ash-wind all day, Banner initiative, 12 phases; 9 Banners (the whole army) against 10
-  Host (19 squads), every Host company sworn (Resolve 3). `breakObjective` on the gate (integrity 18),
+  Day, ash-wind all day, Banner initiative, 14 phases; 9 Banners (the whole army) against 10
+  Host (19 squads), every Host company sworn (Resolve 3). `breakObjective` on the gate (integrity 25), defeat at 4 companies lost, the north sally released at phase 3,
   whose only standable approaches are (7,3) and (7,4): the sworn line and the No Step Back
   flanks grind the assault on the way in and at the wall, so it falls back below 30 cohesion
   unless a banner (Rescue Standard: the only rally) keeps rallying it (observed at event time:

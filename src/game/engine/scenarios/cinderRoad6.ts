@@ -35,13 +35,13 @@ export const cinderRoad6: EngineScenario = {
     "and every company on that wall is sworn: they do not waver, and they do not step back. " +
     "They will grind down any assault on the way in and at the wall; only the standards keep it on its feet, so carry the banners with it. " +
     "Their coals smoke on the wind all day, and the companies that have seen least will feel the Kept Coal most. " +
-    "Bring the whole army, break the gate, and do not lose three companies.",
+    "Bring the whole army, break the gate, and do not lose four companies.",
   playerFaction: BANNERS,
   initiativeSide: BANNERS,
-  // A long day (12 phases): the battered recovery force's assault needs the hours (its losses
+  // A long day (14 phases): the battered recovery force's assault needs the hours (its losses
   // are partly the timeout), while an assault that sequences its strong companies to break the
   // sworn line without the standards gains nothing from them (the CR6 warden's partial rush).
-  maxPhases: 12,
+  maxPhases: 14,
   timeOfDay: "day",
   // The Kept Coal's coals smoke on the wind: ash-wind all day (dread from the Host x1.5; it
   // bites the less famous companies, which are below the sworn's Resolve).
@@ -54,9 +54,9 @@ export const cinderRoad6: EngineScenario = {
       name: "Greyford Gate",
       description: "The Host holds our gate. Break it.",
       hex: GREYFORD_GATE,
-      // 18 blows' worth: a fresh second wave cannot finish the gate alone; banners keep the
+      // 25 blows' worth: a fresh second wave cannot finish the gate alone; banners keep the
       // assault on it (the partial rush: docs/CAMPAIGN.md, battle 5).
-      integrity: 18,
+      integrity: 25,
       defender: HOST,
     },
   ],
@@ -90,8 +90,10 @@ export const cinderRoad6: EngineScenario = {
     // The sworn line before the gate: the assault must break it, then the gate.
     { id: "gate_ward", name: "Ashbound Gate-Ward", faction: HOST, role: "frontline", hex: { q: 6, r: 3 }, strength: 14, cohesion: 60, resolve: 3, doctrineId: "no_step_back" },
     { id: "coal_bearers", name: "Coal-Bearers", faction: HOST, role: "frontline", hex: { q: 6, r: 4 }, strength: 14, cohesion: 60, resolve: 3, doctrineId: "no_step_back" },
-    // The sallies: out of the works at whoever reaches the wall.
-    { id: "pyre_sworn", name: "Pyre-Sworn", faction: HOST, role: "frontline", hex: { q: 7, r: 0 }, strength: 24, cohesion: 60, resolve: 3, doctrineId: "terror_push" },
+    // The sallies: out of the works at whoever reaches the wall. Pyre-Sworn waits in the Broken
+    // Watch until phase 3 (hostSchedule): a north sally that charges from phase 1 could be
+    // decoyed by an army holding its north flank back (the CR6 warden's partial rush).
+    { id: "pyre_sworn", name: "Pyre-Sworn", faction: HOST, role: "frontline", hex: { q: 7, r: 0 }, strength: 24, cohesion: 60, resolve: 3, doctrineId: "lie_in_wait" },
     { id: "cindermaw_thralls", name: "Cinder-Born", faction: HOST, role: "frontline", hex: { q: 7, r: 7 }, strength: 20, cohesion: 54, resolve: 3, doctrineId: "terror_push" },
     // The hunters: they lie in the flank works, then go for whatever is weakest (the banners).
     { id: "ember_hunters", name: "Ember Hunters", faction: HOST, role: "skirmish", hex: { q: 5, r: 0 }, strength: 18, cohesion: 58, resolve: 3, doctrineId: "lie_in_wait" },
@@ -99,20 +101,28 @@ export const cinderRoad6: EngineScenario = {
   ],
   hostSchedule: [
     { phase: 1, intent: "The Kept Coal stand before Greyford Gate with the first kiln's coals; the sworn wait in the works.", orders: {} },
-    { phase: 2, intent: "The works empty at whoever reaches the wall.", orders: {} },
-    { phase: 3, intent: "The hunters slip out of the flank works and go for the banners.", orders: { ember_hunters: "cull_the_weak", ash_harriers: "cull_the_weak" } },
+    { phase: 2, intent: "The south works empty at whoever reaches the wall.", orders: {} },
+    {
+      phase: 3,
+      intent: "The Pyre-Sworn burst from the Broken Watch, and the hunters slip out of the flank works for the banners.",
+      orders: { pyre_sworn: "terror_push", ember_hunters: "cull_the_weak", ash_harriers: "cull_the_weak" },
+    },
     { phase: 4, intent: "No step back: the sworn hold the gate while the coals still burn.", orders: {} },
     { phase: 5, intent: "The coals still burn; the ash-wind carries their smoke over the field.", orders: {} },
-    { phase: 6, intent: "Noon over Greyford Wall, and the sworn have not given a step.", orders: {} },
-    { phase: 7, intent: "The day is going.", orders: {} },
+    { phase: 6, intent: "The morning is gone, and the sworn have not given a step.", orders: {} },
+    { phase: 7, intent: "Noon over Greyford Wall.", orders: {} },
     { phase: 8, intent: "The coals still burn.", orders: {} },
-    { phase: 9, intent: "The sun is on Greyford Wall.", orders: {} },
-    { phase: 10, intent: "The shadows of the wall reach the siege field.", orders: {} },
-    { phase: 11, intent: "The light goes.", orders: {} },
-    { phase: 12, intent: "Whatever still stands at nightfall, the Host keeps.", orders: {} },
+    { phase: 9, intent: "The afternoon wears on; the ash-wind does not drop.", orders: {} },
+    { phase: 10, intent: "The sun is on Greyford Wall.", orders: {} },
+    { phase: 11, intent: "The shadows of the wall reach the siege field.", orders: {} },
+    { phase: 12, intent: "The day is going.", orders: {} },
+    { phase: 13, intent: "The light goes.", orders: {} },
+    { phase: 14, intent: "Whatever still stands at nightfall, the Host keeps.", orders: {} },
   ],
   winCondition: { kind: "breakObjective", objectiveId: "greyford_gate" },
-  defeatConditions: [{ kind: "squadsLost", count: 3 }],
+  // Four companies: the battered recovery force's assault loses partly to routs of its worn
+  // companies, which a fourth company's grace helps far more than any assault without banners.
+  defeatConditions: [{ kind: "squadsLost", count: 4 }],
   timeoutOutcome: "defeat",
   referencePlans: {
     // The march breaks the gate; two banners keep it on its feet on the way in and at the wall.

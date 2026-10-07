@@ -1,11 +1,11 @@
 // Cinder Road battle 5's (the finale's) role gate, one describe per named call: each
 // cinderRoad6.roles.<call>.sim.test.ts calls describeRoleGate("<call>"). They run under
-// `npm run test:finale` (src/test/suites.ts): a 19-squad, 12-phase battle costs about four C2
+// `npm run test:finale` (src/test/suites.ts): a 19-squad, 14-phase battle costs about four C2
 // games, so the per-call files sample seeds (documented below) and the full per-plan census on
 // the sign-off range is on the battle sheet. Rule: docs/CAMPAIGN.md, "roles are defined by what
 // they achieve".
 import { describe, expect, it } from "vitest";
-import { GUARDRAILS } from "../engine/balance";
+import { GATE_SEEDS, GUARDRAILS } from "../engine/balance";
 import { BANNER, BREACH, calls, PARTIAL_RUSHES, rates } from "./cinderRoad6.roles.testkit";
 import { unfilledCombos, type NamedPlan } from "./roles.testkit";
 
@@ -14,16 +14,19 @@ export const BANNER_SEEDS = 16;
 /** Gate seeds per uniform breach-unfilled plan and policy (the static check covers every combination). */
 export const BREACH_SEEDS = 4;
 /**
- * Gate seeds per banner-unfilled combo and partial rush (25 combos x 11 rushes a call): a
+ * Gate seeds per banner-unfilled combo and partial rush (25 combos x 15 rushes a call): a
  * regression screen; the proof is the sign-off census (500 seeds each, plus every post but two).
  */
 export const PARTIAL_RUSH_SEEDS = 8;
 /**
- * The screen's tolerance: a combo fails at 7 or more wins of 8. At 8 seeds a plan that truly
- * wins 55% shows 6 of 8 a quarter of the time, so "below 75%" cannot be read off 8 games; 7 of
- * 8 is about one standard error above the floor (the guardrails' smoke uses the same idea).
+ * The screen is two-stage. A combo with at least this many wins of the first 8 seeds is played
+ * again on the next PARTIAL_RUSH_RECHECK_SEEDS and fails only if it reaches the floor there. At
+ * 8 seeds a plan that truly wins 55% shows 6 of 8 a quarter of the time, and the combos of one
+ * rush share their seeds, so a lucky cluster lifts them all together (the first 8 gate seeds win
+ * 8/8 for one rush that is 37-55% on 200).
  */
-export const PARTIAL_RUSH_MAX_WINS = 6;
+export const PARTIAL_RUSH_ESCALATE_AT = 6;
+export const PARTIAL_RUSH_RECHECK_SEEDS = 40;
 /** Gate seeds for the CR6 warden's named partial rush (the bare assault, the breach posts only). */
 export const WARDEN_RUSH_SEEDS = 40;
 
@@ -39,9 +42,11 @@ const POLICIES = ["none", "heuristic", "rush"] as const;
  * - Breach unfilled: each uniform non-march doctrine over the march's posts (the product is
  *   5^7; no stock doctrine but Bring the Water strikes the gate, the static check in
  *   cinderRoad6.test.ts, so none can win).
- * - Banner unfilled, partially rushed (the CR6 warden): the same 25 under each of the gate's 11
- *   partial rushes (PARTIAL_RUSHES: the breach posts only, the vans only, every post but one), a
- *   screen at 8 seeds with a tolerance (the sign-off census at 500 seeds is the proof); and the
+ * - Banner unfilled, partially rushed (the CR6 warden): the same 25 under each of the gate's 15
+ *   partial rushes (PARTIAL_RUSHES: the breach posts only, the vans only, every post but one, and
+ *   the four worst every-post-but-two), a
+ *   two-stage screen (8 seeds; 40 more for any combo with 6 or more wins, which must stay below
+ *   the floor; the sign-off census at 500 seeds is the proof); and the
  *   warden's own partial rush (the bare assault, the breach posts only) at 40 seeds, below the floor.
  * A diagnostic call (weakest legal, the roster where the lesson is weakest) is reported, not
  * failed, as it is in the guardrails: its recovery force (rough) is gated instead.
@@ -71,14 +76,16 @@ export function describeRoleGate(callName: string) {
       expect(failures).toEqual([]);
     });
 
-    it("banner unfilled, partially rushed (the breach posts only, the vans only, every post but one): a screen, at most 6 of 8 wins", () => {
+    it("banner unfilled, partially rushed (the breach posts only, the vans only, every post but one or the worst two): a two-stage screen, below the floor", () => {
       const failures: string[] = [];
       for (const rush of PARTIAL_RUSHES) {
         for (const { name, orders } of unfilledCombos(scenario, plans.intended, BANNER)) {
           const result = rates(scenario, orders, rush, PARTIAL_RUSH_SEEDS);
-          const wins = Math.round(result.advance * PARTIAL_RUSH_SEEDS);
-          if (wins > PARTIAL_RUSH_MAX_WINS) failures.push(`${name} (${rush.name}) wins ${wins}/${PARTIAL_RUSH_SEEDS} (bannered ${result.bannered}/${PARTIAL_RUSH_SEEDS})`);
           if (result.bannered > 0) failures.push(`${name} (${rush.name}) rallied the march in ${result.bannered}/${PARTIAL_RUSH_SEEDS}: not an unfilled plan`);
+          if (Math.round(result.advance * PARTIAL_RUSH_SEEDS) < PARTIAL_RUSH_ESCALATE_AT) continue;
+          const recheck = rates(scenario, orders, rush, PARTIAL_RUSH_RECHECK_SEEDS, GATE_SEEDS.first + PARTIAL_RUSH_SEEDS);
+          if (recheck.advance >= GUARDRAILS.intendedMin) failures.push(`${name} (${rush.name}) advances ${recheck.advance} on the recheck (${PARTIAL_RUSH_RECHECK_SEEDS} seeds)`);
+          if (recheck.bannered > 0) failures.push(`${name} (${rush.name}) rallied the march on the recheck: not an unfilled plan`);
         }
       }
       if (call.policy === "diagnostic") {
