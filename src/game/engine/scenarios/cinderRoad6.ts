@@ -10,7 +10,7 @@
 // battle sheet): the breach (a company strikes the gate; only Bring the Water can) and the banner
 // (a rally restores an assault company, observed when it fires; only Rescue Standard rallies). The intended plan carries two banners;
 // one, on either post, is an accepted filler by the role, though one banner rarely clears the
-// floor (the second banner's post is the tracked alternative; docs/CAMPAIGN.md, battle 5).
+// floor (the standard alone is the tracked alternative; docs/CAMPAIGN.md, battle 5).
 // The Banners' squads are authored at fame 18, one above the recovery force's, not the curated
 // path's: the Roll's threat then never eases the sworn's Resolve, and hardens the Host by +12 strength a company for a famous
 // army, which the battle's 10 Host companies turn into a real difference (docs/CAMPAIGN.md).
@@ -137,16 +137,17 @@ export const cinderRoad6: EngineScenario = {
       riders: BTW,
       slingers: BTW,
     },
-    // The tracked one-banner filler (never gated): the second banner's post (the standard
-    // marches). The standard alone is the other; since the partial-rush fix it is the stronger
-    // on the famous calls and far the weaker on the recovery force (the battle sheet).
+    // The strongest accepted filler (tracked, never gated) since the partial-rush fix: one
+    // banner, the standard alone (the second banner's post marches). It is 77-90% on the famous
+    // calls but collapses on the recovery force (23%); the second banner's post alone is the
+    // other one-banner filler, reported on the battle sheet.
     alternative: {
       north_van: BTW,
       gate_van: BTW,
       road_van: BTW,
       south_van: BTW,
-      standard: BTW,
-      bows: "rescue_standard",
+      standard: "rescue_standard",
+      bows: BTW,
       lances: BTW,
       riders: BTW,
       slingers: BTW,

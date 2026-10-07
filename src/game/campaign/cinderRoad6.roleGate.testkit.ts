@@ -119,9 +119,10 @@ export function describeRoleGate(callName: string) {
     });
 
     it("the accepted fillers fill the banner role: two banners (intended), one on either banner post", () => {
-      // The standard alone: the second banner's post marches (as in the bare assault).
-      const standardOnly = { ...plans.intended, bows: plans.bad.bows };
-      for (const [name, orders] of [["two banners", plans.intended], ["one banner, the second banner's post", plans.alternative!], ["one banner, the standard", standardOnly]] as const) {
+      // The second banner's post alone: the standard marches (as in the bare assault). The
+      // standard alone is the tracked alternative.
+      const secondOnly = { ...plans.intended, standard: plans.bad.standard };
+      for (const [name, orders] of [["two banners", plans.intended], ["one banner, the standard", plans.alternative!], ["one banner, the second banner's post", secondOnly]] as const) {
         const result = rates(scenario, orders, "none", BANNER_SEEDS);
         // A banner rallies the march on its approach in (nearly) every game.
         expect(result.bannered, name).toBeGreaterThanOrEqual(BANNER_SEEDS * 0.9);
