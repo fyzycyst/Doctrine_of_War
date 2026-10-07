@@ -589,9 +589,11 @@ Coal's dread on the ash-wind hits the less famous companies hardest. Roles, by f
 breach** (a Banner company strikes the gate; only Bring the Water can) and **the banner** (a
 rally restores an assault company, observed when it fires: the standards keep the assault on
 its feet on the way in and at the sworn line; only Rescue Standard rallies). The intended plan carries two banners; one
-on either post is an accepted filler (the second banner's post is the stronger and the
-tracked alternative; but on a battered army neither one banner clears the floor with no
-muster, so two banners are what the recovery force should carry). **The partial rush (the CR6
+on either post is an accepted filler, by the role (it rallies the assault), but since the
+partial-rush fix one banner rarely clears the floor: the second banner's post alone (the
+tracked alternative) is 61–73% with no muster on every call, and the standard alone 77–90% on
+the famous calls but 23% on the recovery force, so two banners are what every army should
+carry (`signoff5`; the battle sheet has the numbers). **The partial rush (the CR6
 warden):** the banner posts stand centre-front, so in a bare assault their weak companies
 lead into the sworn line and it holds; rushing only the strong posts (holding the banner
 posts back) breaks the sworn line with the strong companies and sends the held-back ones in as
