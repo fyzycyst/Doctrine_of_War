@@ -525,7 +525,8 @@ Each battle has a **star doctrine** even when it uses a mix:
   heuristic) on the recommended call, at least 87.0% (94.4%) on every gated call; the bare
   assault at most 1.6%; every stock combination with no banner at most 45.4% on any gated call
   under no muster, heuristic or the rush, and at most 68.6% under any enumerated partial rush
-  (carried recommended, every post but the riders; the 15 gate rushes and every post but two),
+  (carried recommended, every post but the riders; the 15 gate rushes at 500 seeds, and every
+  post but two screened on tuning seeds with the 12 rows at 50% or more promoted to 500),
   none rallying the assault; no breach-unfilled plan strikes the gate. Its suites run under `npm run test:finale`.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**

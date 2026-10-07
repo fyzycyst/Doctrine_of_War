@@ -52,6 +52,8 @@ export const NEAR_GATE = 2;
 export interface PartialRush {
   name: string;
   posts: readonly string[];
+  /** A timed rush: from this phase on, these posts rush instead. */
+  from?: { phase: number; posts: readonly string[] };
 }
 
 /** How the player musters: a harness policy, "rush the march" (only the companies on Bring the Water rush), or a partial rush. */
@@ -67,7 +69,8 @@ const allBut = (...held: string[]): PartialRush => ({ name: `rush all but ${held
  * The gate's partial rushes (15): the breach posts only (the warden's: both banner posts held
  * back), the vans only, every post but one (9), and the worst every-post-but-two found in tuning
  * (4: the north flank held back, the warden's signoff4 case, and the riders or lances with
- * another). The sign-off census plays every post but two (36). A rush that changes its subset
+ * another). The sign-off screens every post but two (36) on tuning seeds and promotes the rows at
+ * 50% or more to 500 sign-off seeds. A rush that changes its subset
  * from phase to phase is not enumerated.
  */
 export const PARTIAL_RUSHES: readonly PartialRush[] = [
@@ -80,6 +83,13 @@ export const PARTIAL_RUSHES: readonly PartialRush[] = [
   allBut("north_van", "lances"),
 ];
 
+/**
+ * The CR6 warden's timed rush (signoff5): hold the riders back in phase 1 only, then rush
+ * everyone. With the standard on Shield the Line and the bows on Clean Counterstroke it is the
+ * worst stock plan the warden found, about 70% on the famous calls (the battle sheet).
+ */
+export const RIDER_HOLD: PartialRush = { name: "rush all but riders in phase 1, then all", posts: allBut("riders").posts, from: { phase: 2, posts: ALL_POSTS } };
+
 /** Every post but two (36): the census's wider screen. */
 export const ALL_BUT_TWO: readonly PartialRush[] = ALL_POSTS.flatMap((first, index) => ALL_POSTS.slice(index + 1).map((second) => allBut(first, second)));
 
@@ -90,7 +100,7 @@ function musterFor(state: EngineState, scenario: EngineScenario, orders: Orders,
   if (muster === "heuristic") return heuristicMuster(state, scenario);
   if (muster === "rush") return rushMuster(state, scenario);
   if (muster === "rush the march") return rushMuster(state, scenario, assaultCompanies(state, scenario, orders, doctrines));
-  if (typeof muster === "object") return rushMuster(state, scenario, muster.posts);
+  if (typeof muster === "object") return rushMuster(state, scenario, muster.from && state.phase >= muster.from.phase ? muster.from.posts : muster.posts);
   return [];
 }
 

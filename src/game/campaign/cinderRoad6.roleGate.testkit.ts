@@ -5,8 +5,8 @@
 // the sign-off range is on the battle sheet. Rule: docs/CAMPAIGN.md, "roles are defined by what
 // they achieve".
 import { describe, expect, it } from "vitest";
-import { GATE_SEEDS, GUARDRAILS } from "../engine/balance";
-import { BANNER, BREACH, calls, PARTIAL_RUSHES, rates } from "./cinderRoad6.roles.testkit";
+import { GATE_SEEDS, GUARDRAILS, SMOKE_STANDARD_ERRORS } from "../engine/balance";
+import { BANNER, BREACH, calls, PARTIAL_RUSHES, rates, RIDER_HOLD } from "./cinderRoad6.roles.testkit";
 import { unfilledCombos, type NamedPlan } from "./roles.testkit";
 
 /** Gate seeds per banner-unfilled combo and policy (25 combos x 3 policies a call). */
@@ -15,7 +15,8 @@ export const BANNER_SEEDS = 16;
 export const BREACH_SEEDS = 4;
 /**
  * Gate seeds per banner-unfilled combo and partial rush (25 combos x 15 rushes a call): a
- * regression screen; the proof is the sign-off census (500 seeds each, plus every post but two).
+ * regression screen; the proof is the sign-off census (500 seeds each; every post but two is
+ * screened on tuning seeds and the rows at 50% or more are promoted to 500).
  */
 export const PARTIAL_RUSH_SEEDS = 8;
 /**
@@ -29,6 +30,15 @@ export const PARTIAL_RUSH_ESCALATE_AT = 6;
 export const PARTIAL_RUSH_RECHECK_SEEDS = 40;
 /** Gate seeds for the CR6 warden's named partial rush (the bare assault, the breach posts only). */
 export const WARDEN_RUSH_SEEDS = 40;
+/**
+ * The warden's timed rider hold (RIDER_HOLD) is a smoke check, not a gate: it runs about 70%
+ * on the famous calls (carried recommended 1079/1500 pooled, Wilson 69.6-74.2), so 40 gate
+ * seeds land exactly on 30/40 and any floor-level threshold would flap. It is judged like the
+ * guardrails' smoke, the floor plus SMOKE_STANDARD_ERRORS standard errors at its seeds (60:
+ * ~86.2%); the sign-off census is the proof.
+ */
+export const RIDER_HOLD_SEEDS = 60;
+const RIDER_HOLD_MAX = GUARDRAILS.intendedMin + SMOKE_STANDARD_ERRORS * Math.sqrt((GUARDRAILS.intendedMin * (1 - GUARDRAILS.intendedMin)) / RIDER_HOLD_SEEDS);
 
 const POLICIES = ["none", "heuristic", "rush"] as const;
 
@@ -103,6 +113,17 @@ export function describeRoleGate(callName: string) {
         return;
       }
       expect(result.advance).toBeLessThan(GUARDRAILS.intendedMin);
+    });
+
+    it("the CR6 warden's timed rider hold (standard on Shield the Line, bows on Clean Counterstroke): a smoke check", () => {
+      const orders = { ...plans.bad, standard: "shield_the_line", bows: "clean_counterstroke" };
+      const result = rates(scenario, orders, RIDER_HOLD, RIDER_HOLD_SEEDS);
+      expect(result.bannered).toBe(0);
+      if (call.policy === "diagnostic") {
+        console.info(`[diagnostic: ${callName}, the timed rider hold] advances ${result.advance}`);
+        return;
+      }
+      expect(result.advance).toBeLessThan(RIDER_HOLD_MAX);
     });
 
     it("breach unfilled (each stock non-march doctrine on every march post): no muster, heuristic, rush; nobody strikes the gate", () => {

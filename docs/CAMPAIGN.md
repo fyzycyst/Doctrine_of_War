@@ -604,7 +604,9 @@ is 25 blows deep (12 at first), which a second wave cannot finish alone; the day
 long (9 at first) and the line breaks at 4 companies lost (3 at first), both of which the
 battered recovery force's assault needs far more than any assault without banners. The role
 gate rushes partial subsets of posts too (the breach posts only, the vans only, every post but
-one, the worst every-post-but-two; the census every post but two). A third role, a
+one, the worst every-post-but-two; and the warden's timed rider hold as a smoke check; at
+sign-off, every post but two is screened on tuning seeds and the rows at 50% or more are
+played on 500 sign-off seeds). A third role, a
 counterstroke screen, was dropped in tuning: Clean Counterstroke hunts the fight into the
 sworn and no stock doctrine escorts the standards (the battle sheet has the numbers). The
 Banners' squads are authored at **fame 18**, one above the recovery force's 17, not the curated
