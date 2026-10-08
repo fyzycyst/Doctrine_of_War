@@ -6,7 +6,13 @@ import { holdForDawn } from "../../game/engine/scenarios/holdForDawn";
 import { isDoused } from "../atmosphere/Fires";
 import { closeShotOn, wideShotFor, type CameraShot } from "../camera/shots";
 import { boardCenter, hexToWorld } from "../hexWorld";
-import { CR6_GATE, CR6_GATE_FRONT, CR6_SIEGE_APPROACH, cinderRoad6LabBoard as cr6 } from "../lab/cinderRoad6Lab";
+import { cinderRoad6 } from "../../game/engine/scenarios/cinderRoad6";
+import { GREYFORD_GATE as CR6_GATE } from "../../game/engine/scenarios/greyfordGate.board";
+
+const cr6 = cinderRoad6.board;
+/** The hex before the gate (the finale beat) and the Siege Approach on the Gate Road. */
+const CR6_GATE_FRONT = { q: 7, r: 3 };
+const CR6_SIEGE_APPROACH = { q: 6, r: 3 };
 import { emberDusk } from "../skins";
 import { buildIsland } from "./buildIsland";
 import { objectiveFacing, objectiveHolder, OBJECTIVE_STAGES } from "./objectiveProps";

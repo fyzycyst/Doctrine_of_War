@@ -14,6 +14,9 @@ describe("findScenario", () => {
   it("finds a campaign battle by number", () => {
     expect(findScenario("cinderRoad1")?.id).toBe("cinder_road_saltmarsh");
     expect(findScenario("cinderRoad2")?.id).toBe("cinder_road_wagon_park");
+    // The five-battle Cinder Road: battle 4 the pursuit, battle 5 the finale.
+    expect(findScenario("cinderRoad4")?.id).toBe("cinder_road_gate_road");
+    expect(findScenario("cinderRoad5")?.id).toBe("cinder_road_greyford_gate");
     expect(findScenario("ashAndBanner2")?.id).toBe(registry.campaign("ash_and_banner")!.campaign.battles[1].scenarioId);
   });
 
