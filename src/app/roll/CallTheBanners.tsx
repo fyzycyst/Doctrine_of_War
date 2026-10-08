@@ -21,6 +21,7 @@ import type { EngineScenario } from "../../game/engine";
 import { scenarioFor } from "../flow/campaignView";
 import { useFlow } from "../flow/flowStore";
 import { CALL_HELP_COPY, CallHelp, type CallHelpNote, type HelpLayout } from "../guide/CallHelp";
+import { columnTargets, type Box } from "../guide/callHelpLayout";
 import { useGuide } from "../guide/guideStore";
 import { resolveRank } from "../game/view";
 import { RoleGlyph, ROLE_NAME, Sigil } from "../ui/glyphs";
@@ -41,14 +42,11 @@ const VETERAN_CAP_NOTE = "In reserve: veteran cap reached";
 
 /** Where "How the call works" pins its notes, from the screen as laid out right now. */
 const rectsOf = (selector: string) => [...document.querySelectorAll(`.roll-screen ${selector}`)].map((element) => element.getBoundingClientRect());
-function bounds(rects: DOMRect[]): DOMRect | null {
-  if (rects.length === 0) return null;
-  const left = Math.min(...rects.map((rect) => rect.left));
-  const top = Math.min(...rects.map((rect) => rect.top));
-  return new DOMRect(left, top, Math.max(...rects.map((rect) => rect.right)) - left, Math.max(...rects.map((rect) => rect.bottom)) - top);
-}
-const posts = () => bounds(rectsOf(".post-head"));
-const choices = () => bounds(rectsOf(".post-company"));
+// The Posts and Company selection rings: the rows' full height, split between the columns (T27).
+const columns = () => columnTargets(rectsOf(".post"), rectsOf(".post-head"), rectsOf(".post-company"));
+const asRect = (box: Box | undefined) => (box ? new DOMRect(box.left, box.top, box.right - box.left, box.bottom - box.top) : null);
+const posts = () => asRect(columns()?.posts);
+const choices = () => asRect(columns()?.selection);
 // The Roll's section (its list scrolls inside it, past the window's foot).
 const rollList = () => rectsOf(".roll-roster")[0] ?? null;
 const GAP = 14;
@@ -95,10 +93,10 @@ function hostSlot(panel: { width: number; height: number }): HelpLayout | null {
 }
 
 const HELP_NOTES: CallHelpNote[] = [
-  { ...CALL_HELP_COPY[0], targets: () => [posts()].filter((rect): rect is DOMRect => rect !== null), prefer: "below", slot: bandSlot(0, posts, "below") },
-  { ...CALL_HELP_COPY[1], targets: () => [choices()].filter((rect): rect is DOMRect => rect !== null), prefer: "below", slot: bandSlot(1, choices, "below") },
+  { ...CALL_HELP_COPY[0], targets: () => [posts()].filter((rect): rect is DOMRect => rect !== null), badges: ["inside"], prefer: "below", slot: bandSlot(0, posts, "below") },
+  { ...CALL_HELP_COPY[1], targets: () => [choices()].filter((rect): rect is DOMRect => rect !== null), badges: ["edge"], prefer: "below", slot: bandSlot(1, choices, "below") },
   { ...CALL_HELP_COPY[2], targets: () => [rollList()].filter((rect): rect is DOMRect => rect !== null), prefer: "left", slot: bandSlot(2, rollList, "left") },
-  { ...CALL_HELP_COPY[3], targets: () => [...rectsOf(".roll-threat"), ...rectsOf(".roll-recommended")], prefer: "right", slot: hostSlot },
+  { ...CALL_HELP_COPY[3], targets: () => [...rectsOf(".roll-threat"), ...rectsOf(".roll-recommended")], badges: ["inside", "outside"], prefer: "right", slot: hostSlot },
 ];
 
 export function ConditionBadge({ condition }: { condition: RollEntry["condition"] }) {

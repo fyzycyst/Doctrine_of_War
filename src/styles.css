@@ -271,6 +271,81 @@ h3 {
   text-shadow: 0 1px 3px #000;
 }
 
+/* What the battle is fought over (T27): under the two rosters. */
+.roster-objectives {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+}
+
+.roster-objectives .roster-heading {
+  color: var(--gold);
+}
+
+.roster-objectives ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.objective-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 7px 8px;
+  border-left: 3px solid var(--ember);
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(90deg, rgba(20, 16, 22, 0.88), rgba(20, 16, 22, 0.6));
+}
+
+.objective-row.ours {
+  border-left-color: var(--lapis);
+}
+
+.objective-row .sigil {
+  flex: none;
+}
+
+.objective-body {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.objective-name {
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--bone);
+}
+
+.objective-sub {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.objective-row.theirs .objective-whose {
+  color: #ffb07a;
+}
+
+.objective-row.broken .objective-whose {
+  color: var(--rust-text);
+}
+
+.objective-count {
+  color: var(--bone);
+}
+
+.objective-row.theirs .meter-integrity > span {
+  background: linear-gradient(90deg, #7a2c1c, var(--ember));
+}
+
 /* A banner tab: a swallowtail pennant with the role mark on its hoist. */
 .banner-tab {
   position: relative;
@@ -434,6 +509,65 @@ h3 {
   height: 100%;
   border-radius: inherit;
   transition: width 0.4s var(--ease);
+}
+
+/* Strength and cohesion side by side, each a caption ("STRENGTH 77") over its bar (T27 §3). */
+.banner-meters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.meter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label value"
+    "bar bar";
+  align-items: baseline;
+  column-gap: 4px;
+  row-gap: 1px;
+}
+
+.meter-row .meter {
+  grid-area: bar;
+}
+
+.meter-value {
+  grid-area: value;
+}
+
+.meter-label {
+  grid-area: label;
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.meter-row .meter-value {
+  font-size: 10.5px;
+  font-style: normal;
+  text-align: right;
+  color: var(--bone);
+}
+
+.meter-row.cohesion.low .meter-value,
+.meter-row.cohesion.low .meter-label {
+  color: var(--rust-text);
+}
+
+.meter-row.cohesion.low .meter > span {
+  background: var(--rust-text);
+}
+
+.insp-note {
+  display: block;
+  text-transform: none;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .meter-strength > span {
@@ -3335,9 +3469,13 @@ html.reduce-motion *::after {
 }
 
 .roster.dense .banner-meters {
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  margin-top: 2px;
+  gap: 8px;
+  margin-top: 1px;
+}
+
+.roster.dense .meter-label,
+.roster.dense .meter-row .meter-value {
+  font-size: 8.5px;
 }
 
 .roster.dense .meter {
@@ -4557,10 +4695,9 @@ html.reduce-motion .ticker-text.static {
   animation: none;
 }
 
+/* Placed by callHelpLayout.ts (offsets from the ring's border box; -2 for its border). */
 .call-help-ring .call-help-number {
   position: absolute;
-  top: -12px;
-  right: -12px;
 }
 
 .call-help-number {
