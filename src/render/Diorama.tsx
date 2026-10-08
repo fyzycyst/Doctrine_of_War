@@ -14,6 +14,7 @@ import { facingFor } from "./fromEngine";
 import { sides } from "./sides";
 import { placeSquads, type DioramaSquad, type FigureApproach, type PlacedSquad } from "./figures/types";
 import { wideShotFor } from "./camera/shots";
+import { CaptureShot } from "./camera/CaptureShot";
 import { boardRadius, hexToWorld } from "./hexWorld";
 import { LightRig } from "./lighting/LightRig";
 import { AtmosphereTicker, useLook } from "./look/LookContext";
@@ -240,6 +241,8 @@ export function Diorama({
       {/* Tickers first so every consumer below sees this frame's state. */}
       <AtmosphereTicker />
       <AnimatorTicker animator={animator} />
+      {/* Dev capture framing for the real app (`?captureShot=`); dropped from production builds. */}
+      {import.meta.env.DEV && <CaptureShot board={board} />}
       <DofFocusWriter placed={placed} animator={animator} />
       {/* Lit from the Banners' side: mirrored on a board whose sides are turned round (CR6). */}
       <SkyDome mirror={side.reversed} />
