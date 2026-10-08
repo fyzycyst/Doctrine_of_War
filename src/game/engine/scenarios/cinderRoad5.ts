@@ -49,7 +49,8 @@ export const cinderRoad5: EngineScenario = {
   maxPhases: 5,
   timeOfDay: "day",
   // Fortune-on seed for the first playthrough and video capture: a clean win, no company lost,
-  // nobody worn (tuning range; on the curated path the hunters break three in phase 1).
+  // nobody worn (tuning range; on the curated path the hunters break the third company in
+  // phase 4, one company having reached the gate).
   curatedSeed: 1,
   board,
   objectives: [],

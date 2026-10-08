@@ -12,7 +12,7 @@ import { nonFillers, unfilledCombos } from "./roles.testkit";
  * and judged on its own, never pooled, under no muster, the heuristic and "close" (the
  * interception adversary, which replaces the rush: the rush has nothing to rush toward here).
  * Each stays below the floor and wins in at most unfilledSlack of its games (every win breaks
- * two fleeing companies, so a win is a hunt by accident). Every non-filler mono stays below the
+ * three fleeing companies, so a win is a hunt by accident). Every non-filler mono stays below the
  * floor too; the fillers' monos are harrying done right (the harrying exception). The CR5
  * warden's counterexample (everyone on Shield the Line, mustered beside the road) is a named
  * regression on every call.
