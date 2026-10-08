@@ -4557,10 +4557,9 @@ html.reduce-motion .ticker-text.static {
   animation: none;
 }
 
+/* Placed by callHelpLayout.ts (offsets from the ring's border box; -2 for its border). */
 .call-help-ring .call-help-number {
   position: absolute;
-  top: -12px;
-  right: -12px;
 }
 
 .call-help-number {

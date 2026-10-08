@@ -2,6 +2,7 @@
 // coach marks (the guide's own ring, panel and placement: CoachMark.tsx) pin short notes
 // onto the real controls. Esc, the (?) button again, or a click anywhere closes it.
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { badgeRect, ringOf, type BadgePlace } from "./callHelpLayout";
 import { place, type Layout, type Placement } from "./CoachMark";
 import { pressed } from "../shortcuts";
 
@@ -13,6 +14,8 @@ export interface CallHelpNote {
   body: string;
   /** The controls this note is about: a numbered ring around each. */
   targets: () => DOMRect[];
+  /** Where each target ring carries its number (default just outside its corner). */
+  badges?: BadgePlace[];
   /** Where the note goes beside the first target when it has no slot of its own. */
   prefer: Placement;
   /** A fixed slot for the note, given its size (null: no room, fall back to `prefer`). */
@@ -34,7 +37,7 @@ export const CALL_HELP_COPY = [
 ] as const;
 
 interface Placed {
-  rings: (CSSProperties & { inner?: boolean })[];
+  rings: (CSSProperties & { inner?: boolean; badge: CSSProperties })[];
   layout: HelpLayout | null;
 }
 
@@ -57,13 +60,19 @@ export function CallHelp({ notes, onClose, onMore }: { notes: CallHelpNote[]; on
         const layout: HelpLayout | null = size ? (note.slot?.(size) ?? (boxes[0] ? place(boxes[0], size, note.prefer) : null)) : null;
         return {
           // A ring inside the note's first one (a detail of it) goes unnumbered.
-          rings: boxes.map((rect, ringIndex) => ({
-            left: rect.left - 6,
-            top: rect.top - 6,
-            width: rect.width + 12,
-            height: rect.height + 12,
-            inner: ringIndex > 0 && boxes[0].left <= rect.left && boxes[0].top <= rect.top && boxes[0].right >= rect.right && boxes[0].bottom >= rect.bottom,
-          })),
+          rings: boxes.map((rect, ringIndex) => {
+            const ring = ringOf(rect);
+            const badge = badgeRect(ring, note.badges?.[ringIndex]);
+            return {
+              left: ring.left,
+              top: ring.top,
+              width: ring.right - ring.left,
+              height: ring.bottom - ring.top,
+              inner: ringIndex > 0 && boxes[0].left <= rect.left && boxes[0].top <= rect.top && boxes[0].right >= rect.right && boxes[0].bottom >= rect.bottom,
+              // Inside a tall ring's corner, just outside a small one's (callHelpLayout.ts).
+              badge: { left: badge.left - ring.left - 2, top: badge.top - ring.top - 2 },
+            };
+          }),
           layout,
         };
       });
@@ -109,9 +118,13 @@ export function CallHelp({ notes, onClose, onMore }: { notes: CallHelpNote[]; on
         How the call works
       </h2>
       {placed.map((item, index) =>
-        item.rings.map(({ inner, ...ring }, ringIndex) => (
+        item.rings.map(({ inner, badge, ...ring }, ringIndex) => (
           <div key={`${index}-${ringIndex}`} className={`coach-ring call-help-ring ${inner ? "inner" : ""}`} style={ring} aria-hidden="true">
-            {!inner && <span className="call-help-number">{index + 1}</span>}
+            {!inner && (
+              <span className="call-help-number" style={badge}>
+                {index + 1}
+              </span>
+            )}
           </div>
         )),
       )}
