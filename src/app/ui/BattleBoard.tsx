@@ -7,7 +7,7 @@ import { useAmbience } from "../../audio";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { DioramaCamera, wideShotFor } from "../../render/camera/DioramaCamera";
 import { Diorama } from "../../render/Diorama";
-import { lightingFor, objectiveStagesFor, visibilityFromView, weatherFor } from "../../render/fromEngine";
+import { lightingFor, objectiveStagesFor, objectiveStrengthFor, visibilityFromView, weatherFor } from "../../render/fromEngine";
 import { timeOfDayAt } from "../../game/engine";
 import { LookProvider } from "../../render/look/LookContext";
 import { PostFX } from "../../render/post/PostFX";
@@ -76,6 +76,8 @@ export function BattleBoard({
   const visibility = useMemo(() => visibilityFromView(view, scenario), [view, scenario]);
   // M2: battered and broken objectives (barricade, wagons, sluice) from the shown view.
   const objectiveStates = useMemo(() => objectiveStagesFor(view.objectives, scenario.objectives), [view.objectives, scenario.objectives]);
+  // T27 §2a: each objective's strength ring (holder's colour, draining with integrity).
+  const objectiveStrength = useMemo(() => objectiveStrengthFor(view.objectives, scenario.objectives), [view.objectives, scenario.objectives]);
   return (
     <div className={`board ${shaking ? "shake" : ""}`} aria-hidden="true">
       <Canvas
@@ -97,6 +99,7 @@ export function BattleBoard({
             emphasisHex={camera.emphasisHex}
             visibility={visibility}
             objectiveStates={objectiveStates}
+            objectiveStrength={objectiveStrength}
             animationRef={animationRef}
             onFiguresReady={onFiguresReady}
           />

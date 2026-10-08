@@ -127,3 +127,19 @@ export function objectiveStagesFor(
     return [];
   });
 }
+
+/**
+ * `<Diorama objectiveStrength>` (T27 §2a): every objective's integrity as a share of its
+ * start (the scenario setup), and its holder (the engine's defender), for the strength
+ * ring on its hex.
+ */
+export function objectiveStrengthFor(
+  objectives: ReadonlyArray<{ id: string; hex: HexCoord; integrity: number; defender: SquadSetup["faction"] }>,
+  setups: ReadonlyArray<{ id: string; integrity: number }>,
+): Array<{ hex: HexCoord; fraction: number; holder: SquadSetup["faction"] }> {
+  return objectives.map((o) => {
+    const start = setups.find((s) => s.id === o.id)?.integrity ?? o.integrity;
+    const fraction = start > 0 ? Math.max(0, Math.min(1, o.integrity / start)) : 0;
+    return { hex: o.hex, fraction, holder: o.defender };
+  });
+}

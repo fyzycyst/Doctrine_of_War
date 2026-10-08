@@ -51,4 +51,12 @@ describe("BattleBoard objective stages (M2)", () => {
     withIntegrity(0);
     expect(last().objectiveStates).toEqual([{ hex: gate.hex, stage: "broken" }]);
   });
+
+  it("passes each objective's strength and holder for its ring (T27 §2a)", () => {
+    render(<BattleBoard />);
+    expect(last().objectiveStrength).toEqual([{ hex: gate.hex, fraction: 1, holder: gate.defender }]);
+    withIntegrity(Math.floor(gate.integrity / 4));
+    expect(last().objectiveStrength).toEqual([{ hex: gate.hex, fraction: Math.floor(gate.integrity / 4) / gate.integrity, holder: gate.defender }]);
+  });
 });
+

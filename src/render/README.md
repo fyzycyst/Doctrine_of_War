@@ -72,6 +72,13 @@ imported (see `fromEngine.ts`); engine logic may not.
   ghosts and to routs. On a turned-round board the key and fill lights, and the sky's sun glow, mirror east to west
   (`lightAzimuth`, the `mirror` prop on `LightRig` and `SkyDome`). That keeps the rig's rule of a warm
   key from the Banners' side, and lights the gate face they attack in Cinder Road 6.
+- **Objective strength rings (T27 §2a):** `<Diorama objectiveStrength={objectiveStrengthFor(view.objectives,
+  scenario.objectives)}>` draws a ring round each objective's hex in its holder's colour
+  (`terrain/ObjectiveRings.tsx`). It uses the company rings' look: a faint track and a lit arc that
+  drains with integrity, the gap opening at the back. A crenellated outer band marks it as a
+  structure. It sits beside the prop stages as the precise reading. It is drawn above the mist,
+  eases as it drains, and jumps straight to the new value under reduced motion. Non-objective
+  gatehouses get no ring.
 - **Capture framing (dev builds only):** `?captureShot=q,r;q,r&captureAz=<deg>` on the real app holds
   the camera on `closeShotOn` of those hexes (`camera/captureParams.ts` and `camera/CaptureShot.tsx`,
   which the Diorama mounts under `import.meta.env.DEV`). An example is Cinder Road's finale beat,
