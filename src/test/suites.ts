@@ -6,7 +6,7 @@
 // - the heaviest campaign sweeps go to test:campaign instead, to keep test:balance near ~90 s
 //   (its budget is ~120 s): the finale's (`cinderRoad6[.*].sim.test.ts` and
 //   `balance.cinderRoad6.test.ts`: a 19-squad, 14-phase battle costs about four ordinary games)
-//   and the pursuit's role census (`cinderRoad5.roles.<call>.sim.test.ts`: 64 combinations x
+//   and the harrying battle's role census (`cinderRoad5.roles.<call>.sim.test.ts`: 64 combinations x
 //   40 seeds x 3 musters per call). Its ablation and guardrail smoke stay in test:balance.
 // Long synchronous simulations starve vitest's worker RPC under machine load ("Timeout calling
 // onTaskUpdate"), so they stay out of the fast suite.

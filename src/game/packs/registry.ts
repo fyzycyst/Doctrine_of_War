@@ -32,14 +32,16 @@ import {
 export const firstCall: PackManifest = {
   id: "first_call",
   title: "The First Call",
-  // Content 5 (CR5): Cinder Road gained battle 4, the pursuit, before its finale (content 4
-  // came with the finale, CR6, at slot 4; content 2 and 3 with battles 2 and 3), so an earlier
-  // run (one completed after battles 1-3, or after battles 1-3 and the finale at slot 4, cannot
-  // replay against the longer campaign) is no longer read: it is preserved as unavailable and
-  // can be set aside. The intro's v1 save is not gated by content revision and is unaffected.
-  revision: { pack: 1, content: 5, rules: 1 },
-  readsContent: [5],
-  // Cinder Road (Roll): five battles, the pursuit (battle 4) before the finale (2026-10-06).
+  // Content 6 (T29): battle 4 retuned as Turn the Retreat (the column retreats in waves at
+  // cohesion 45; break three). Content 5 (CR5) gave Cinder Road battle 4, the harrying battle,
+  // before its finale (content 4 came with the finale, CR6, at slot 4; content 2 and 3 with
+  // battles 2 and 3). An earlier run is no longer read: one from a shorter campaign cannot replay,
+  // and a content-5 run, which would still replay, was played against the old battle 4, so the
+  // edition is a deliberate boundary. It is preserved as unavailable and can be set aside. The
+  // intro's v1 save is not gated by content revision and is unaffected.
+  revision: { pack: 1, content: 6, rules: 1 },
+  readsContent: [6],
+  // Cinder Road (Roll): five battles, the harrying battle (battle 4) before the finale (2026-10-06).
   campaigns: [ashAndBanner, cinderRoad],
   scenarios: [firstBreach, emberFord, saltmarshColumn, holdForDawn, cinderRoad1, cinderRoad2, cinderRoad3, cinderRoad5, cinderRoad6],
   doctrines: [],

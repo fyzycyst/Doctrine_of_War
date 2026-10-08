@@ -482,32 +482,33 @@ Each battle has a **star doctrine** even when it uses a mix:
   (Fighting Withdrawal with fw_rout_guard 90 on the watch) is a diagnostic probe at 0%.
   Role gate: `cinderRoad3.roles.<call>.sim.test.ts`, one per named call. Every named call is
   in docs/CAMPAIGN.md.
-- *Cut the Retreat* (*Cinder Road* battle 4, the pursuit, `scenarios/cinderRoad5.ts`, CR5,
+- *Turn the Retreat* (*Cinder Road* battle 4, the harrying battle, `scenarios/cinderRoad5.ts`, CR5,
   in the First Call pack): the star is **Clean Counterstroke**. Engine #2's shared Greyford
   Gate board (`greyfordGate.board.ts`, `gateObjective: false`; the gate is dressed as the
   gatehouse, render-only).
-  - **The Host:** the column (5 companies, Slip the Leash, Resolve 3: no dread on sight) runs
-    down the Gate Road for Greyford Gate; the rearguard holds the River Ford (No Step Back,
-    texture).
-  - **The goal:** break 2 of the column (`destroySquads`) before 3 reach the gate's approaches
+  - **The Host:** the column (5 companies, Slip the Leash, cohesion 45, Resolve 3: no dread on
+    sight) falls back down the Gate Road for Greyford Gate in waves (the van at once, two
+    companies in phase 2, two in phase 3; T29), so a win usually comes in phase 3; the rearguard
+    holds the River Ford (No Step Back, texture).
+  - **The goal:** break 3 of the column (`destroySquads`) before 3 reach the gate's approaches
     (`enemyEscape`); 5 phases.
-  - **One counted role, the hunt,** under the pursuit exception (docs/CAMPAIGN.md): the
-    harness's `PURSUIT_FILLERS` spares the monos of its fillers (Clean Counterstroke, Bring the
+  - **One counted role, the hunt,** under the harrying exception (docs/CAMPAIGN.md): the
+    harness's `HARRYING_FILLERS` spares the monos of its fillers (Clean Counterstroke, Bring the
     Water, Open the Road) from the mono cap; every other mono and every hunt-unfilled
     combination are still gated.
-  - **Signed off on `signoff3`** (300001–300500; `signoff2` was read before the CR5 warden's
-    repair, and the gate range is observed by the census), fortune on, curated path after
-    battles 1–3:
-    - intended 99.4% on every gated call, 99.2% with no muster;
+  - **Signed off on `signoff4`** (400001–400500; `signoff3` signed off the pre-T29 content,
+    `signoff2` was read before the CR5 warden's repair, and the gate range is observed by the
+    census), fortune on, curated path after battles 1–3:
+    - intended 99.8–100% on every gated call, 95.2–100% with no muster;
     - the bad plan and every non-filler mono 0%;
-    - selection spread 0.6 points.
+    - selection spread 0.2 points (4.8 with no muster).
   - **Role gate** (`cinderRoad5.roles.<call>.sim.test.ts`, one per named call): a full
     per-plan census of all 4^3 hunt-unfilled combinations on 40 gate seeds under no muster,
     the heuristic and the interception adversary ("close", which replaces the rush: the rush
     makes no moves here), plus the CR5 warden's counterexample as a named regression; each
     one below the floor and within the slack (≤ 2/40 wins; ≤ 4/40 under the adversaries).
 - *Break the Strongpoint* (*Cinder Road* battle 5, the finale, `scenarios/cinderRoad6.ts`, CR6,
-  after the pursuit): the star is **Bring the Water**; the second
+  after the harrying battle): the star is **Bring the Water**; the second
   role is **the banner**. Greyford Gate, held by the Host, on the shared Greyford Gate board
   (`scenarios/greyfordGate.board.ts`, also battle 4's: one ground, per-battle deployment zones).
   Day, ash-wind all day, Banner initiative, 14 phases; 9 Banners (the whole army) against 10

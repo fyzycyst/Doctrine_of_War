@@ -1,4 +1,4 @@
-// Cinder Road battle 4, the pursuit (CR5): the hunt by function (docs/CAMPAIGN.md, "pursuit
+// Cinder Road battle 4, the harrying battle (CR5): the hunt by function (docs/CAMPAIGN.md, "harrying battle
 // battles"), observed in a run, and the named calls it is checked on. The role gate
 // (cinderRoad5.roleGate.testkit.ts) runs one file per named call
 // (cinderRoad5.roles.<call>.sim.test.ts); cinderRoad5.test.ts checks every call has its file.
@@ -20,7 +20,7 @@ import type { RoleDeclaration } from "./roles.testkit";
 /** Gate seeds per plan and muster policy (every combination is judged on its own: a census). */
 export const SEEDS = 40;
 /**
- * The pursuit's one counted role (the pursuit exception). The hunt breaks fleeing companies
+ * The harrying battle's one counted role (the harrying exception). The hunt breaks fleeing companies
  * before they reach the gate: its fillers by function are the doctrines that strike what
  * comes beside them. Clean Counterstroke (intended: it waits, then charges a company fallen
  * out of the column), Bring the Water and Open the Road (each strikes whatever is adjacent,
@@ -30,14 +30,14 @@ export const SEEDS = 40;
 export const HUNT: RoleDeclaration = { posts: HUNT_POSTS, fillers: ["clean_counterstroke", "bring_the_water", "open_the_road"] };
 
 /**
- * How the player musters in the pursuit's gate: no muster, the heuristic, or "close", the
+ * How the player musters in the harrying battle's gate: no muster, the heuristic, or "close", the
  * interception adversary (the CR5 warden's finding): every company out of contact steps to its
  * legal muster hex nearest a fleeing company it can see, every phase, standing in view of the
  * column and beside its road. It replaces the rush, which has nothing to rush toward here (no
  * enemy objective, no exits for the player; cinderRoad5.test.ts proves it returns no moves).
  */
-export type PursuitMuster = "none" | "heuristic" | "close";
-export const PURSUIT_MUSTERS: readonly PursuitMuster[] = ["none", "heuristic", "close"];
+export type HarryingMuster = "none" | "heuristic" | "close";
+export const HARRYING_MUSTERS: readonly HarryingMuster[] = ["none", "heuristic", "close"];
 
 /** The interception adversary: legal moves only, each checked against the moves already chosen. */
 export function closeMuster(state: EngineState, scenario: EngineScenario): MusterMove[] {
@@ -80,7 +80,7 @@ export function wardenMuster(state: EngineState, scenario: EngineScenario): Must
   return moves;
 }
 
-type Muster = PursuitMuster | "warden";
+type Muster = HarryingMuster | "warden";
 function musterFor(state: EngineState, scenario: EngineScenario, muster: Muster): MusterMove[] {
   if (muster === "heuristic") return heuristicMuster(state, scenario);
   if (muster === "close") return closeMuster(state, scenario);
@@ -89,7 +89,7 @@ function musterFor(state: EngineState, scenario: EngineScenario, muster: Muster)
 }
 
 /** One game to its end under `muster`. */
-export function playPursuit(scenario: EngineScenario, orders: Orders, seed: number, muster: Muster): EngineState {
+export function playHarrying(scenario: EngineScenario, orders: Orders, seed: number, muster: Muster): EngineState {
   let state = createInitialState(scenario, { seed, fortune: "on" });
   while (state.status === "command") state = resolvePhase(state, orders, scenario, { muster: musterFor(state, scenario, muster) }).state;
   return state;
@@ -107,7 +107,7 @@ export function unfilledSlack(muster: Muster): number {
 
 /** Wins, fleeing companies broken and escaped, over `seeds` gate seeds. */
 export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, seeds = SEEDS, firstSeed: number = GATE_SEEDS.first) {
-  const finals = Array.from({ length: seeds }, (_, index) => playPursuit(scenario, orders, firstSeed + index, muster));
+  const finals = Array.from({ length: seeds }, (_, index) => playHarrying(scenario, orders, firstSeed + index, muster));
   const column = (status: (value: string) => boolean) => finals.reduce((sum, final) => sum + final.squads.filter((squad) => COLUMN.includes(squad.id) && status(squad.status)).length, 0) / seeds;
   return {
     wins: finals.filter((final) => final.status === "victory").length,
@@ -119,7 +119,7 @@ export function rates(scenario: EngineScenario, orders: Orders, muster: Muster, 
   };
 }
 
-/** Every named call of the pursuit (rollCallMatrix: eight calls, none not applicable). */
+/** Every named call of the harrying battle (rollCallMatrix: eight calls, none not applicable). */
 export const calls = rollCallMatrix(
   cinderRoad,
   registry.scenarios(),

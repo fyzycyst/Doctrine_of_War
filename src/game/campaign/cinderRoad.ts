@@ -122,7 +122,7 @@ export const cinderRoad: CampaignDefinition = {
     },
     {
       id: "cr_gate_road",
-      title: "Cut the Retreat",
+      title: "Turn the Retreat",
       scenarioId: "cinder_road_gate_road",
       slots: {
         lances: "sunward_lances",
@@ -150,12 +150,12 @@ export const cinderRoad: CampaignDefinition = {
       },
     },
     {
-      // The finale (battle 5, after the pursuit; re-gated on the full path [1, 2, 3, 4]).
+      // The finale (battle 5, after the harrying battle; re-gated on the full path [1, 2, 3, 4]).
       id: "cr_greyford_gate",
       title: "Break the Strongpoint",
       scenarioId: "cinder_road_greyford_gate",
       // The whole army: every company of the Roll has a post. The authored call is the
-      // recommended force after battle 4 (the pursuit).
+      // recommended force after battle 4 (the harrying battle).
       slots: {
         north_van: "coldwater_shields",
         gate_van: "ferrymoot_pikes",

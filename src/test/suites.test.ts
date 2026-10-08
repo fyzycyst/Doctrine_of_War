@@ -24,7 +24,7 @@ describe("test suites", () => {
     for (const file of everyTest.filter((item) => !heavy.includes(item))) expect(isBalanceTest(file) || isCampaignTest(file), file).toBe(false);
   });
 
-  it("sends every battle's guardrail smoke and the simulation suites to a heavy suite; the finale's and the pursuit's census to test:campaign", () => {
+  it("sends every battle's guardrail smoke and the simulation suites to a heavy suite; the finale's and the harrying battle's census to test:campaign", () => {
     expect(heavy.filter((file) => /\/balance\.[^/]+\.test\.ts$/.test(file))).toHaveLength(GUARDRAIL_SCENARIO_IDS.length);
     for (const file of [
       "src/game/campaign/cinderRoad2.roles.recommended.sim.test.ts",
@@ -43,7 +43,7 @@ describe("test suites", () => {
     ]) {
       expect(campaign).toContain(file);
     }
-    // The pursuit's ablation and guardrail smoke stay in test:balance (they are quick).
+    // The harrying battle's ablation and guardrail smoke stay in test:balance (they are quick).
     for (const file of ["src/game/campaign/cinderRoad5.sim.test.ts", "src/game/engine/balance.cinderRoad5.test.ts"]) expect(balance).toContain(file);
     // The engine's own balance unit tests (and the per-battle coverage check) stay fast.
     expect(isBalanceTest("src/game/engine/balance.test.ts") || isCampaignTest("src/game/engine/balance.test.ts")).toBe(false);
