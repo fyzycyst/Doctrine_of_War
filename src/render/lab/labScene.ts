@@ -7,7 +7,8 @@ import { cinderRoad1 } from "../../game/engine/scenarios/cinderRoad1";
 import { stressScenario } from "./stressScenario";
 import { twoObjectivesBoard, twoObjectivesSquads } from "./twoObjectives";
 import { cinderRoad2 } from "../../game/engine/scenarios/cinderRoad2";
-import { cinderRoad6LabBoard, cinderRoad6LabSquadSetups } from "./cinderRoad6Lab";
+import { cinderRoad5 } from "../../game/engine/scenarios/cinderRoad5";
+import { cinderRoad6 } from "../../game/engine/scenarios/cinderRoad6";
 import type { DioramaVisibility } from "../Diorama";
 import type { DioramaSquad } from "../figures/types";
 import { dioramaSquads, lightingFor } from "../fromEngine";
@@ -68,8 +69,11 @@ export const LAB_SCENES = {
   twoObjectives: toScene(twoObjectivesBoard, twoObjectivesSquads, "dusk"),
   // Cinder Road 2, Strike the Wagon Park, by day.
   cinderRoad2: toScene(cinderRoad2.board, dioramaSquads(cinderRoad2.squads), lightingFor(cinderRoad2.timeOfDay)),
-  // Cinder Road 6, Break the Strongpoint (lab copy of engine #2's board until it lands).
-  cinderRoad6: toScene(cinderRoad6LabBoard, dioramaSquads(cinderRoad6LabSquadSetups), lightingFor("day")),
+  // Cinder Road on the Greyford Gate board (keys follow the scenario files): battle 4, Cut
+  // the Retreat (cinderRoad5.ts, the gate a dressed wall), and battle 5, Break the
+  // Strongpoint (cinderRoad6.ts, the gate the objective).
+  cinderRoad5: toScene(cinderRoad5.board, dioramaSquads(cinderRoad5.squads), lightingFor(cinderRoad5.timeOfDay)),
+  cinderRoad6: toScene(cinderRoad6.board, dioramaSquads(cinderRoad6.squads), lightingFor(cinderRoad6.timeOfDay)),
 } as const;
 
 export type LabSceneId = keyof typeof LAB_SCENES;

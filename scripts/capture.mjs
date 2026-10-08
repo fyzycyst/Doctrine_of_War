@@ -173,7 +173,7 @@ jobs.push(
   { name: "m2f-c2-wagons", query: "scenario=cinderRoad2&preset=dusk&figures=a&cam=close&focusHex=1,6" },
 );
 
-// CR6 (lab stand-in): Greyford Gate held by the Host, attacked from the west. The gate
+// Cinder Road's finale (battle 5, cinderRoad6.ts): Greyford Gate held by the Host, attacked from the west. The gate
 // intact, battered, breached, hit and breached under reduced motion, from the approach;
 // and First Breach's (the Banners') gate for comparison, intact and battered.
 {
@@ -191,6 +191,9 @@ jobs.push(
     { name: "cr6-gate-hit", query: `${beat}&objective=battered&anim=shake&shakeAt=8,3&animFreeze=0.3` },
     { name: "cr6-gate-breached-reduced", query: `${beat}&objective=broken&motion=reduce` },
     { name: "cr6-gate-night", query: `${beat.replace("preset=dusk", "preset=nightFires")}` },
+    // Battle 4, the pursuit, on the same board: the gate a dressed wall (Host banner, intact).
+    { name: "cr4-pursuit-wide", query: "scenario=cinderRoad5&preset=dusk&figures=a" },
+    { name: "cr4-pursuit-gate", query: "scenario=cinderRoad5&preset=dusk&figures=a&closeOn=7,3;8,3&az=-55" },
     { name: "cr6-fb-gate", query: "scenario=firstBreach&preset=dusk&figures=a&cam=close&focusHex=4,2" },
     { name: "cr6-fb-gate-battered", query: "scenario=firstBreach&preset=dusk&figures=a&cam=close&focusHex=4,2&objective=battered" },
   );

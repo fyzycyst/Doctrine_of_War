@@ -72,6 +72,10 @@ imported (see `fromEngine.ts`); engine logic may not.
   ghosts and to routs. On a turned-round board the key and fill lights, and the sky's sun glow, mirror east to west
   (`lightAzimuth`, the `mirror` prop on `LightRig` and `SkyDome`). That keeps the rig's rule of a warm
   key from the Banners' side, and lights the gate face they attack in Cinder Road 6.
+- **Capture framing (dev builds only):** `?captureShot=q,r;q,r&captureAz=<deg>` on the real app holds
+  the camera on `closeShotOn` of those hexes (`camera/captureParams.ts` and `camera/CaptureShot.tsx`,
+  which the Diorama mounts under `import.meta.env.DEV`). An example is Cinder Road's finale beat,
+  `captureShot=7,3;8,3&captureAz=-55`. Production builds drop it.
 - **River dressing (M2):** Ember Ford's burning bridge wrecks and the Host's bank braziers appear
   only under `nightFires` (`atmosphere/fireRules.ts`; braziers are `island.brazierGeometry`). By day
   the wrecks are cold, charred stumps trailing a thin smoke. `BoardLayout.fordDressing?:

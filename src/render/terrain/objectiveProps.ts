@@ -118,9 +118,12 @@ export function roadGoals(board: BoardLayout): HexCoord[] {
   return [...ranked, ...objectives.filter((h) => !ranked.includes(h))].map((h) => h.coord);
 }
 
-/** Where the roads lead: the Host's objective, else the first objective, else the first wall. */
+/**
+ * Where the roads lead: the Host's objective, else the first objective, else a gatehouse
+ * (the pursuit's dressed Greyford Gate), else the first wall.
+ */
 export function roadGoal(board: BoardLayout): HexCoord | null {
-  return roadGoals(board)[0] ?? board.hexes.find((h) => h.terrain === "wall")?.coord ?? null;
+  return roadGoals(board)[0] ?? (board.hexes.find(isGatehouse) ?? board.hexes.find((h) => h.terrain === "wall"))?.coord ?? null;
 }
 
 /**

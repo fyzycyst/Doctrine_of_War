@@ -79,14 +79,8 @@ function readParams() {
   const board: LabSceneId =
     p.get("board") === "stress"
       ? "stress"
-      : scenarioParam === "emberFord" ||
-          scenarioParam === "saltmarsh" ||
-          scenarioParam === "holdForDawn" ||
-          scenarioParam === "cinderRoad1" ||
-          scenarioParam === "twoObjectives" ||
-          scenarioParam === "cinderRoad2" ||
-          scenarioParam === "cinderRoad6"
-        ? scenarioParam
+      : scenarioParam && scenarioParam !== "stress" && Object.hasOwn(LAB_SCENES, scenarioParam)
+        ? (scenarioParam as LabSceneId)
         : "firstBreach";
   return {
     state: {

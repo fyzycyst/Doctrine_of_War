@@ -4,9 +4,14 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { hexKey, type BoardLayout } from "../../game/board";
 import { registry } from "../../game/packs";
-import { CR6_GATE, cinderRoad6LabBoard } from "../lab/cinderRoad6Lab";
+import { cinderRoad5 } from "../../game/engine/scenarios/cinderRoad5";
+import { cinderRoad6 } from "../../game/engine/scenarios/cinderRoad6";
+import { GREYFORD_GATE as CR6_GATE } from "../../game/engine/scenarios/greyfordGate.board";
+
+const cinderRoad6LabBoard = cinderRoad6.board;
 import { emberDusk } from "../skins";
 import { buildIsland } from "./buildIsland";
+import { roadGoal } from "./objectiveProps";
 
 function checksum(g: THREE.BufferGeometry | null) {
   if (!g) return "null";
@@ -39,6 +44,20 @@ describe("a gatehouse without an objective (CR4, the pursuit)", () => {
     expect(gate.gateKey).toBeNull();
     // Its torches are not tied to any objective (nothing breaches it).
     expect(gate.fireAnchors.filter((a) => a.kind === "torch").every((a) => a.objective === undefined)).toBe(true);
+  });
+
+  it("is how the shipped pursuit (Cut the Retreat) draws Greyford Gate", () => {
+    const gate = cinderRoad5.board.hexes.find((h) => hexKey(h.coord) === hexKey(CR6_GATE))!;
+    expect(gate.gatehouse).toBe(true);
+    expect(gate.objectiveId).toBeUndefined();
+    const island = buildIsland(cinderRoad5.board, emberDusk);
+    expect(island.gateBanner).toBeDefined();
+    expect(island.gateHolder).toBe("ashen_host");
+    expect(island.wallStages).toBeNull();
+  });
+
+  it("leads the pursuit's roads to the dressed gate, not the first wall hex", () => {
+    expect(roadGoal(cinderRoad5.board)).toEqual(CR6_GATE);
   });
 
   it("only dresses a wall", () => {

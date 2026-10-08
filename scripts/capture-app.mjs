@@ -59,6 +59,29 @@ const STAGES = [
   { name: "m2f-ingame-battered", query: "skirmish=skirmish_cinder_road_cr_saltmarsh&seed=7&stage=command&phase=5&plan=intended&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
   // M2: Cinder Road 2 mid-battle: the Kiln Ram (5,1) facing the keepers on the Sluice Walk (6,1).
   { name: "m2f-c2-ingame-ram", query: "scenario=cinderRoad2&stage=command&phase=3&plan=intended&select=keepers&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
+  // Cinder Road battle 4, the pursuit (curated seed 1): a Clean Counterstroke company charging
+  // the fleeing column in phase 1 (the riders, (5,5) -> (4,6)). Engagements are captions, not
+  // callouts, so the snippet waits for the first "charged" caption and shoots on it.
+  ...[
+    ["cr4-strike", ""],
+    ["cr4-strike-close", "&captureShot=5,5;4,6&captureAz=-30"],
+  ].map(([name, shot]) => ({
+    name,
+    query: `scenario=cinderRoad4&stage=resolving&phase=1&plan=intended&still=1${shot}`,
+    settleMs: 120,
+    sizes: [[1600, 1000]],
+    eval: `(async () => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < 30000 && !/ charged /.test(document.body.innerText)) await new Promise((r) => setTimeout(r, 25));
+      await new Promise((r) => setTimeout(r, 220));
+    })()`,
+  })),
+  { name: "cr4-after-phase1", query: "scenario=cinderRoad4&stage=report&phase=1&plan=intended&still=1", settleMs: 2500, sizes: [[1600, 1000]] },
+  // Battle 5, the finale (curated seed 58): the gate battered (phase 5: 16 of 25) and breached
+  // (the outcome; capture=1 hides the overlay), on the finale beat from the attackers' side.
+  { name: "cr5-gate-battered", query: "scenario=cinderRoad5&stage=command&phase=5&plan=intended&still=1&capture=1&captureShot=7,3;8,3&captureAz=-55", settleMs: 3000, sizes: [[1600, 1000]] },
+  { name: "cr5-gate-breached", query: "scenario=cinderRoad5&stage=outcome&plan=intended&still=1&capture=1&captureShot=7,3;8,3&captureAz=-55", settleMs: 3000, sizes: [[1600, 1000]] },
+  { name: "cr5-gate-battered-ui", query: "scenario=cinderRoad5&stage=command&phase=5&plan=intended&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
   { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },
