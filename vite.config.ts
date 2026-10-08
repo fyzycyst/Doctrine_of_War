@@ -6,7 +6,7 @@ import type { Plugin } from "vite";
 import { configDefaults, defineConfig } from "vitest/config";
 import electron from "vite-plugin-electron/simple";
 import { PRODUCTION_CSP } from "./electron/security";
-import { BALANCE_TEST_GLOBS, FINALE_TEST_GLOBS } from "./src/test/suites";
+import { BALANCE_TEST_GLOBS, CAMPAIGN_TEST_GLOBS } from "./src/test/suites";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const enableElectron = process.env.ELECTRON === "1";
@@ -87,20 +87,22 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./src/test/setup.ts",
-    // Two suites (src/test/suites.ts): `npm test` runs "unit", `npm run test:balance` runs
-    // "balance" (the simulation-heavy files); a bare `vitest run` runs both.
+    // Three suites (src/test/suites.ts): `npm test` runs "unit", `npm run test:balance` runs
+    // "balance" (the simulation-heavy files), `npm run test:campaign` runs "campaign" (the
+    // heaviest campaign sweeps); a bare `vitest run` runs all three.
     projects: [
-      { extends: true, test: { name: "unit", exclude: [...configDefaults.exclude, ...BALANCE_TEST_GLOBS, ...FINALE_TEST_GLOBS] } },
+      { extends: true, test: { name: "unit", exclude: [...configDefaults.exclude, ...BALANCE_TEST_GLOBS, ...CAMPAIGN_TEST_GLOBS] } },
       // Heavy simulations: a generous per-test limit, so a busy machine (other agents' gates)
       // slows them rather than failing them. Keep each test well under it at normal load.
       {
         extends: true,
-        test: { name: "balance", include: BALANCE_TEST_GLOBS, exclude: [...configDefaults.exclude, ...FINALE_TEST_GLOBS], setupFiles: ["./src/test/setup.balance.ts"], testTimeout: 240_000 },
+        test: { name: "balance", include: BALANCE_TEST_GLOBS, exclude: [...configDefaults.exclude, ...CAMPAIGN_TEST_GLOBS], setupFiles: ["./src/test/setup.balance.ts"], testTimeout: 240_000 },
       },
-      // The finale (Cinder Road battle 5): the same rules, its own run (src/test/suites.ts).
+      // The heaviest campaign sweeps (the finale's, and the pursuit's role census): the same
+      // rules, their own run (src/test/suites.ts).
       {
         extends: true,
-        test: { name: "finale", include: FINALE_TEST_GLOBS, setupFiles: ["./src/test/setup.balance.ts"], testTimeout: 240_000 },
+        test: { name: "campaign", include: CAMPAIGN_TEST_GLOBS, setupFiles: ["./src/test/setup.balance.ts"], testTimeout: 240_000 },
       },
     ],
   },

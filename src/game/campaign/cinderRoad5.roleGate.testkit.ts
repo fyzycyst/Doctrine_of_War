@@ -1,6 +1,6 @@
 // The pursuit's role gate, one describe per named call: each cinderRoad5.roles.<call>.sim.test.ts
-// calls describeRoleGate("<call>") (vitest spreads the calls across workers). Rule:
-// docs/CAMPAIGN.md, "pursuit battles".
+// calls describeRoleGate("<call>") (vitest spreads the calls across workers); they run under
+// `npm run test:campaign` (src/test/suites.ts). Rule: docs/CAMPAIGN.md, "pursuit battles".
 import { describe, expect, it } from "vitest";
 import { GUARDRAILS } from "../engine/balance";
 import { calls, HUNT, PURSUIT_MUSTERS, rates, SEEDS, unfilledSlack } from "./cinderRoad5.roles.testkit";

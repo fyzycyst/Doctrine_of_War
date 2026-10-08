@@ -12,7 +12,7 @@
     "build:mac": "npm run build && ELECTRON=1 vite build && electron-builder --mac",
     "test": "vitest run --project unit",
     "test:balance": "vitest run --project balance",
-    "test:finale": "vitest run --project finale",
+    "test:campaign": "vitest run --project campaign",
     "test:watch": "vitest --project unit",
     "balance": "vite-node scripts/balance.ts --",
     "capture": "node scripts/capture.mjs",

@@ -383,7 +383,7 @@ if a guardrail fails:
 - no mono plan **advances** (wins plus stalemates) ≥ 60%.
 
 The same check runs with 60 seeds on every `npm run test:balance` (the finale's on
-`npm run test:finale`), one file per battle
+`npm run test:campaign`), one file per battle
 (`balance.<battle>.test.ts` via `guardrails.testkit.ts`; Roll battles one test per named
 call). Every pack scenario (`registry.scenarios()`) must pass, and so must any engine prototype in
 `fixtures/` (test fixtures, never offered to the player; run one by name with
@@ -527,7 +527,7 @@ Each battle has a **star doctrine** even when it uses a mix:
   under no muster, heuristic or the rush, and at most 68.6% under any enumerated partial rush
   (carried recommended, every post but the riders; the 15 gate rushes at 500 seeds, and every
   post but two screened on tuning seeds with the 12 rows at 50% or more promoted to 500),
-  none rallying the assault; no breach-unfilled plan strikes the gate. Its suites run under `npm run test:finale`.
+  none rallying the assault; no breach-unfilled plan strikes the gate. Its suites run under `npm run test:campaign`.
 
 **Scenario design principle.** Every battle's intended plan fills at least two **roles**
 with at least two doctrine families. A role is defined by what it achieves (hold the gate,
