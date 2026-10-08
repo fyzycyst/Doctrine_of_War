@@ -261,12 +261,12 @@ export function runVariantProbe(
 export type GuardrailPolicy = "full" | "floor";
 
 /**
- * The pursuit exception (docs/CAMPAIGN.md, "pursuit battles"): a pursuit has one counted role,
- * the hunt, and the monos of its filler doctrines are pursuits done right, so they are not
+ * The harrying exception (docs/CAMPAIGN.md, "harrying battles"): a harrying battle has one counted role,
+ * the hunt, and the monos of its filler doctrines are harrying done right, so they are not
  * held to the mono cap. Every other mono, and every plan that leaves the hunt unfilled, is
  * still gated. Keyed by scenario id; a battle not listed here is unaffected.
  */
-export const PURSUIT_FILLERS: Readonly<Record<string, readonly string[]>> = {
+export const HARRYING_FILLERS: Readonly<Record<string, readonly string[]>> = {
   cinder_road_gate_road: ["clean_counterstroke", "bring_the_water", "open_the_road"],
 };
 
@@ -278,7 +278,7 @@ function monoDoctrine(row: BalanceRow): string | null {
 
 /**
  * Human-readable guardrail failures; empty only when the scenario is provably in balance
- * (fails closed). `capExempt`: doctrines whose monos the mono cap skips (PURSUIT_FILLERS).
+ * (fails closed). `capExempt`: doctrines whose monos the mono cap skips (HARRYING_FILLERS).
  */
 export function guardrailFailures(rows: BalanceRow[], policy: GuardrailPolicy = "full", limits: Guardrails = GUARDRAILS, capExempt: readonly string[] = []): string[] {
   const pct = (value: number) => `${Math.round(value * 100)}%`;

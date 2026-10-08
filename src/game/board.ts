@@ -24,7 +24,7 @@ export interface BoardHex {
   objectiveKind?: ObjectiveKind;
   /**
    * Dress this wall hex as a gatehouse though it is no objective (render-only): e.g.
-   * Greyford Gate in the pursuit, where the gate is not a target. Intact only.
+   * Greyford Gate in the harrying battle, where the gate is not a target. Intact only.
    */
   gatehouse?: true;
   /**

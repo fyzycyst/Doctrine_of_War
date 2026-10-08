@@ -194,17 +194,18 @@ describe("v2 runs", () => {
   });
 });
 
-describe("pack editions (C2, C3, CR6, CR5: Cinder Road battles 2 and 3, the finale, then the pursuit before it)", () => {
-  it("this build is content 5 and reads only content 5", () => {
-    expect(firstCall.revision.content).toBe(5);
-    expect(firstCall.readsContent).toEqual([5]);
+describe("pack editions (C2, C3, CR6, CR5, T29: Cinder Road battles 2 and 3, the finale, the harrying battle before it, its retune)", () => {
+  it("this build is content 6 and reads only content 6", () => {
+    expect(firstCall.revision.content).toBe(6);
+    expect(firstCall.readsContent).toEqual([6]);
   });
 
   // A Cinder Road run as an earlier build wrote it: the campaign as it stood then (content 1:
   // battle 1 only, e553746; content 2: battles 1-2, 44ed9d4; content 3: battles 1-3, f0ac610;
-  // content 4: battles 1-3 and the finale at slot 4, 4c5cf88), won to the end, so complete.
+  // content 4: battles 1-3 and the finale at slot 4, 4c5cf88; content 5: all five battles, battle
+  // 4 before its T29 retune, 321f4e9), won to the end, so complete.
   const finale = cinderRoad.battles.find((battle) => battle.id === "cr_greyford_gate")!;
-  for (const edition of [1, 2, 3, 4]) {
+  for (const edition of [1, 2, 3, 4, 5]) {
     const earlier = { ...cinderRoad, battles: edition === 4 ? [...cinderRoad.battles.slice(0, 3), finale] : cinderRoad.battles.slice(0, edition) };
     const earlierBuild = createRegistry([{ ...firstCall, revision: { ...firstCall.revision, content: edition }, readsContent: [edition], campaigns: [ashAndBanner, earlier] }]);
     const complete = curatedRollState(earlier, registry.scenarios(), edition);
@@ -213,9 +214,11 @@ describe("pack editions (C2, C3, CR6, CR5: Cinder Road battles 2 and 3, the fina
     it(`a content-${edition} run completed after battle ${edition} is preserved as unavailable, never shown as an error, and can be set aside`, async () => {
       expect(complete.status).toBe("complete");
       expect(JSON.parse(payload).provenance.contentRevision).toBe(edition);
-      // Without the bump it could not be read at all: it no longer replays against the longer campaign.
+      // Without the bump: a shorter campaign's run no longer replays (unreadable); a content-5 run
+      // (the same five battles) would still replay, so its edition boundary is the bump alone (T29
+      // retuned battle 4 under it).
       const unbumped = createRegistry([{ ...firstCall, readsContent: [edition, firstCall.revision.content] }]);
-      expect(readCampaignSave(unbumped, "cinder_road", payload)).toMatchObject({ kind: "unreadable" });
+      expect(readCampaignSave(unbumped, "cinder_road", payload)).toMatchObject({ kind: edition === 5 ? "ok" : "unreadable" });
       // With it: unavailable, with the edition named, and kept as it is.
       expect(readCampaignSave(registry, "cinder_road", payload)).toMatchObject({ kind: "unavailable", reason: expect.stringMatching(/different edition/) });
       const { data, storage } = memory();
