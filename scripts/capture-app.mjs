@@ -147,6 +147,10 @@ const STAGES = [
     // T22: the weather ticker mid-crossing, and held still under reduced motion.
     ["t22-weather-ticker", "scenario=holdForDawn&stage=resolving&phase=3&plan=intended&pauseAt=weather&motion=full"],
     ["t22-weather-ticker-reduced", "scenario=holdForDawn&stage=resolving&phase=3&plan=intended&pauseAt=weather&motion=reduce"],
+    // T27: the Objectives section mid-battle: C1's barricade, C2's wagon park and sluice, the intro's gate.
+    ["t27-objectives-c1", "skirmish=skirmish_cinder_road_cr_saltmarsh&seed=7&stage=resolving&phase=2&plan=intended&pauseAt=rule-mine"],
+    ["t27-objectives-c2", "skirmish=skirmish_cinder_road_cr_wagon_park&seed=7&stage=resolving&phase=3&plan=intended&pauseAt=rule-mine"],
+    ["t27-objectives-gate", "scenario=firstBreach&stage=resolving&phase=2&plan=intended&pauseAt=rule-mine"],
     // M1: Cinder Road battle 1, fielded from Call the Banners (the recommended force), mid-playback.
     ["m1-roll-play", "mockRoll=1&rollBattle=1&stage=resolving&plan=intended&pauseAt=rule-mine"],
     ["qa-sm-play2", "scenario=saltmarshColumn&stage=resolving&phase=2&plan=intended&pauseAt=rule-mine"],

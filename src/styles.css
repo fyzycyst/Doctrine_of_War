@@ -271,6 +271,81 @@ h3 {
   text-shadow: 0 1px 3px #000;
 }
 
+/* What the battle is fought over (T27): under the two rosters. */
+.roster-objectives {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+}
+
+.roster-objectives .roster-heading {
+  color: var(--gold);
+}
+
+.roster-objectives ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.objective-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 7px 8px;
+  border-left: 3px solid var(--ember);
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(90deg, rgba(20, 16, 22, 0.88), rgba(20, 16, 22, 0.6));
+}
+
+.objective-row.ours {
+  border-left-color: var(--lapis);
+}
+
+.objective-row .sigil {
+  flex: none;
+}
+
+.objective-body {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.objective-name {
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--bone);
+}
+
+.objective-sub {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.objective-row.theirs .objective-whose {
+  color: #ffb07a;
+}
+
+.objective-row.broken .objective-whose {
+  color: var(--rust-text);
+}
+
+.objective-count {
+  color: var(--bone);
+}
+
+.objective-row.theirs .meter-integrity > span {
+  background: linear-gradient(90deg, #7a2c1c, var(--ember));
+}
+
 /* A banner tab: a swallowtail pennant with the role mark on its hoist. */
 .banner-tab {
   position: relative;

@@ -3,7 +3,7 @@ import type { VisibleSquad } from "../../game/engine";
 import { useAppStore } from "../store";
 import { useGame, useShownView } from "../game/gameStore";
 import { getDoctrine, resolveRank, rosterName } from "../game/view";
-import { ColumnGlyph, RoleGlyph, ROLE_NAME } from "./glyphs";
+import { ColumnGlyph, RoleGlyph, ROLE_NAME, Sigil } from "./glyphs";
 import { isRelief, planFor } from "../game/muster";
 import { inContact, useMuster } from "./useMuster";
 import { pressed } from "../shortcuts";
@@ -148,6 +148,59 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
           </div>
         )}
       </div>
+      <Objectives view={view} />
     </nav>
+  );
+}
+
+/**
+ * What the battle is fought over (T27): each objective with its holder's sigil, its integrity
+ * out of its starting value, and whose it is. Reads the shown view, so it drains during
+ * playback as the company bars do. Objectives are public: no fog applies.
+ */
+function Objectives({ view }: { view: ReturnType<typeof useShownView> }) {
+  const scenario = useGame((s) => s.scenario);
+  if (view.objectives.length === 0) return null;
+  return (
+    <section className="roster-objectives" aria-label="Objectives">
+      <p className="roster-heading" aria-hidden="true">
+        Objectives
+      </p>
+      <ul>
+        {view.objectives.map((objective) => {
+          const start = scenario.objectives.find((item) => item.id === objective.id)?.integrity ?? objective.integrity;
+          const now = Math.max(0, Math.round(objective.integrity));
+          const ours = objective.defender === view.viewer;
+          const broken = now <= 0;
+          const whose = broken ? "Broken" : ours ? "Yours to keep" : "Theirs to break";
+          const said = broken ? "broken" : ours ? "yours to keep" : "the Host's, yours to break";
+          return (
+            <li key={objective.id} className={`objective-row ${ours ? "ours" : "theirs"} ${broken ? "broken" : ""}`}>
+              <Sigil faction={objective.defender} size={18} />
+              <span className="objective-body">
+                <span className="objective-name">{objective.name}</span>
+                <span className="objective-sub">
+                  <span className="objective-whose">{whose}</span>
+                  <span className="objective-count mono" aria-hidden="true">
+                    {now} / {start}
+                  </span>
+                </span>
+                <span
+                  className="meter meter-integrity"
+                  role="meter"
+                  aria-label={`${objective.name} integrity`}
+                  aria-valuemin={0}
+                  aria-valuemax={start}
+                  aria-valuenow={now}
+                  aria-valuetext={`${now} of ${start}: ${said}`}
+                >
+                  <span style={{ width: `${start > 0 ? Math.min(100, (now / start) * 100) : 0}%` }} />
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
