@@ -25,7 +25,7 @@ export function objectiveDressing(hex: BoardHex): ObjectiveKind | null {
 
 /**
  * A wall hex drawn as the gatehouse: an objective dressed so (`objectiveDressing`),
- * or a wall flagged `gatehouse` though it is no objective (the pursuit's Greyford Gate).
+ * or a wall flagged `gatehouse` though it is no objective (the harrying battle's Greyford Gate).
  */
 export function isGatehouse(hex: BoardHex): boolean {
   return objectiveDressing(hex) === "gatehouse" || (hex.gatehouse === true && hex.terrain === "wall");
@@ -120,7 +120,7 @@ export function roadGoals(board: BoardLayout): HexCoord[] {
 
 /**
  * Where the roads lead: the Host's objective, else the first objective, else a gatehouse
- * (the pursuit's dressed Greyford Gate), else the first wall.
+ * (the harrying battle's dressed Greyford Gate), else the first wall.
  */
 export function roadGoal(board: BoardLayout): HexCoord | null {
   return roadGoals(board)[0] ?? (board.hexes.find(isGatehouse) ?? board.hexes.find((h) => h.terrain === "wall"))?.coord ?? null;

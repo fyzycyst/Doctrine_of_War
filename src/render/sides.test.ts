@@ -23,7 +23,7 @@ describe("which way each side faces and flees (CR6: the Banners attack east)", (
 
   it("turns both sides round when the Banners deploy west of the Host", () => {
     const d = sides(cinderRoad6.board);
-    // The pursuit on the same board: the Host runs east for the gate, the Banners behind and beside it.
+    // The harrying battle (Turn the Retreat) on the same board: the Host runs east for the gate, the Banners behind and beside it.
     expect(sides(cinderRoad5.board).ashen_host.home).toEqual([1, 0]);
     expect(d.free_banners.facing).toBe(0);
     expect(d.ashen_host.facing).toBe(Math.PI);

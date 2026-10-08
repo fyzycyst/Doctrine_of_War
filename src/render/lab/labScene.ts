@@ -69,7 +69,7 @@ export const LAB_SCENES = {
   twoObjectives: toScene(twoObjectivesBoard, twoObjectivesSquads, "dusk"),
   // Cinder Road 2, Strike the Wagon Park, by day.
   cinderRoad2: toScene(cinderRoad2.board, dioramaSquads(cinderRoad2.squads), lightingFor(cinderRoad2.timeOfDay)),
-  // Cinder Road on the Greyford Gate board (keys follow the scenario files): battle 4, Cut
+  // Cinder Road on the Greyford Gate board (keys follow the scenario files): battle 4, Turn
   // the Retreat (cinderRoad5.ts, the gate a dressed wall), and battle 5, Break the
   // Strongpoint (cinderRoad6.ts, the gate the objective).
   cinderRoad5: toScene(cinderRoad5.board, dioramaSquads(cinderRoad5.squads), lightingFor(cinderRoad5.timeOfDay)),

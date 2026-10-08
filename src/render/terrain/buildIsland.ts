@@ -326,7 +326,7 @@ export function buildIsland(layout: BoardLayout, skin: Skin): IslandBuild {
   drawRoads(b, layout, hexes, roadColor, T[`field`].top, rand);
   const wb = new GeoBuilder();
   // The gatehouse whose stages show (an objective), and whoever holds a gatehouse at all
-  // (an objective or a dressed wall, e.g. the pursuit's Greyford Gate: intact only).
+  // (an objective or a dressed wall, e.g. the harrying battle's Greyford Gate: intact only).
   const gate = layout.hexes.find((h) => h.terrain === "wall" && objectiveDressing(h) === "gatehouse");
   const gateKey = gate ? hexKey(gate.coord) : null;
   const anyGate = gate ?? layout.hexes.find(isGatehouse);
