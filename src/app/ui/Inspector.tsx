@@ -94,7 +94,10 @@ export function Inspector() {
         </div>
         <div>
           <dt>Cohesion</dt>
-          <dd>{squad.cohesion}</dd>
+          <dd title="Its nerve in battle. A company breaks when cohesion reaches 0, whatever its strength.">
+            {squad.cohesion}
+            <span className="insp-note">breaks at 0</span>
+          </dd>
         </div>
         {own && (
           <div>

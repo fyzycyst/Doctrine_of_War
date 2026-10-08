@@ -511,6 +511,65 @@ h3 {
   transition: width 0.4s var(--ease);
 }
 
+/* Strength and cohesion side by side, each a caption ("STRENGTH 77") over its bar (T27 §3). */
+.banner-meters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.meter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label value"
+    "bar bar";
+  align-items: baseline;
+  column-gap: 4px;
+  row-gap: 1px;
+}
+
+.meter-row .meter {
+  grid-area: bar;
+}
+
+.meter-value {
+  grid-area: value;
+}
+
+.meter-label {
+  grid-area: label;
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.meter-row .meter-value {
+  font-size: 10.5px;
+  font-style: normal;
+  text-align: right;
+  color: var(--bone);
+}
+
+.meter-row.cohesion.low .meter-value,
+.meter-row.cohesion.low .meter-label {
+  color: var(--rust-text);
+}
+
+.meter-row.cohesion.low .meter > span {
+  background: var(--rust-text);
+}
+
+.insp-note {
+  display: block;
+  text-transform: none;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 .meter-strength > span {
   background: #e8dcc4;
 }
@@ -3410,9 +3469,13 @@ html.reduce-motion *::after {
 }
 
 .roster.dense .banner-meters {
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  margin-top: 2px;
+  gap: 8px;
+  margin-top: 1px;
+}
+
+.roster.dense .meter-label,
+.roster.dense .meter-row .meter-value {
+  font-size: 8.5px;
 }
 
 .roster.dense .meter {

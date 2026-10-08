@@ -61,6 +61,14 @@ describe("the Field Manual", () => {
     await user.click(within(manual()).getByRole("button", { name: "Back" }));
   });
 
+  it("Your companies says a company breaks when its cohesion reaches 0", () => {
+    act(() => useFlow.getState().openHelp("companies"));
+    render(<Root />);
+    expect(within(manual()).getByRole("region", { name: "Strength and cohesion" })).toHaveTextContent(
+      "A company breaks and runs when its cohesion reaches 0, even with strength to spare.",
+    );
+  });
+
   it("the Controls page is the shortcut table, row for row", () => {
     act(() => useFlow.getState().openHelp("controls"));
     render(<Root />);

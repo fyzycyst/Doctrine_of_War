@@ -18,11 +18,46 @@ const STATUS_WORD: Record<VisibleSquad["status"], string> = {
   escaped: "Escaped",
 };
 
-function Meter({ label, value, tone }: { label: string; value: number; tone: "strength" | "cohesion" }) {
+function Meter({ label, value, tone, valueText }: { label: string; value: number; tone: "strength" | "cohesion"; valueText?: string }) {
   const clamped = Math.max(0, Math.min(100, value));
   return (
-    <span className={`meter meter-${tone}`} role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={clamped}>
+    <span
+      className={`meter meter-${tone}`}
+      role="meter"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={clamped}
+      aria-valuetext={valueText}
+    >
       <span style={{ width: `${clamped}%` }} />
+    </span>
+  );
+}
+
+/** Cohesion at or under this reads as near breaking. */
+const LOW_COHESION = 25;
+const COHESION_NOTE = "Cohesion: its nerve in battle. A company breaks when cohesion reaches 0, whatever its strength.";
+
+/**
+ * Strength and cohesion side by side, labelled, with their numbers (T27 §3): companies break
+ * on cohesion, so it is shown as plainly as strength.
+ */
+function SquadMeters({ squad }: { squad: VisibleSquad }) {
+  const strength = Math.round(squad.strength);
+  const cohesion = Math.round(squad.cohesion);
+  return (
+    <span className="banner-meters">
+      <span className="meter-row strength">
+        <span className="meter-label">Strength</span>
+        <Meter label={`${squad.name} strength`} value={strength} tone="strength" />
+        <span className="meter-value mono">{strength}</span>
+      </span>
+      <span className={`meter-row cohesion ${cohesion <= LOW_COHESION ? "low" : ""}`} title={COHESION_NOTE}>
+        <span className="meter-label">Cohesion</span>
+        <Meter label={`${squad.name} cohesion`} value={cohesion} tone="cohesion" valueText={`${cohesion} of 100: it breaks at 0`} />
+        <span className="meter-value mono">{cohesion}</span>
+      </span>
     </span>
   );
 }
@@ -121,12 +156,8 @@ export function Roster({ onOpenHand }: { onOpenHand: () => void }) {
               "Last seen"
             ) : null}
           </span>
-          {own && !out && (
-            <span className="banner-meters">
-              <Meter label={`${squad.name} strength`} value={squad.strength} tone="strength" />
-              <Meter label={`${squad.name} cohesion`} value={squad.cohesion} tone="cohesion" />
-            </span>
-          )}
+          {/* Fog: a Host company's numbers only while it is in sight. */}
+          {!out && (own || !squad.lastKnown) && <SquadMeters squad={squad} />}
         </span>
       </div>
     );

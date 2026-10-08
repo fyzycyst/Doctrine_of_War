@@ -148,8 +148,17 @@ function CompaniesPage() {
           ))}
         </ul>
         <p>
-          The rank word is a company&apos;s <strong>Resolve</strong>, its nerve. It grows with each battle survived; at +3 a company earns a name,
+          The rank word is a company&apos;s <strong>Resolve</strong>, its steadiness. It grows with each battle survived; at +3 a company earns a name,
           its renown.
+        </p>
+      </section>
+
+      <section className="howto-panel" aria-labelledby="c-meters">
+        <h3 id="c-meters">Strength and cohesion</h3>
+        <p>
+          Each company shows two bars. <strong>Strength</strong> is how much fight it has left; <strong>cohesion</strong> is its nerve in
+          battle. A company breaks and runs when its cohesion reaches 0, even with strength to spare. On the board, the ring under a company
+          is its cohesion: the gap is what it has lost. You see a Host company&apos;s bars and ring while it is in sight.
         </p>
       </section>
 
