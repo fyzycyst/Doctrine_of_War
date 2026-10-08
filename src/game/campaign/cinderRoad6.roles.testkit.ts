@@ -1,7 +1,7 @@
 // Cinder Road battle 5 (CR6, the finale): the roles by function (docs/CAMPAIGN.md, "roles are
 // defined by what they achieve"), observed in a run, and the named calls they are checked on.
 // The role gate (cinderRoad6.roleGate.testkit.ts) runs one file per named call
-// (cinderRoad6.roles.<call>.sim.test.ts, in `npm run test:finale`); cinderRoad6.test.ts checks
+// (cinderRoad6.roles.<call>.sim.test.ts, in `npm run test:campaign`); cinderRoad6.test.ts checks
 // every call has its file. No vitest import here, so scripts can reuse these helpers.
 import { hexDistance } from "../board";
 import { GATE_SEEDS } from "../engine/balance";

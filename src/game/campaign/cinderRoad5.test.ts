@@ -1,6 +1,6 @@
 // Cinder Road battle 4, the pursuit (CR5): Cut the Retreat, its ground, posts and curated seed.
-// The role gate and the role ablation play many battles, so they are *.sim.test.ts (npm run
-// test:balance).
+// The role gate and the role ablation play many battles, so they are *.sim.test.ts: the role
+// gate under npm run test:campaign, the ablation under npm run test:balance.
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { hexDistance, sameHex } from "../board";

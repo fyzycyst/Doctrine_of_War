@@ -1,6 +1,6 @@
 // Cinder Road battle 5 (CR6, the finale): Break the Strongpoint, its ground, posts, threat and
 // curated seed. The role gate, the role ablation and the fog regression play many 19-squad
-// battles, so they are cinderRoad6.*.sim.test.ts (npm run test:finale).
+// battles, so they are cinderRoad6.*.sim.test.ts (npm run test:campaign).
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { hexDistance } from "../board";
