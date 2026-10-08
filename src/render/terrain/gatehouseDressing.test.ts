@@ -1,5 +1,6 @@
-// A gatehouse that is not an objective (Cinder Road 4, the pursuit, on the shared Greyford
-// Gate board with gateObjective: false): BoardHex.gatehouse dresses the wall hex, intact only.
+// A gatehouse that is not an objective (Cinder Road 4, Turn the Retreat, the harrying battle,
+// on the shared Greyford Gate board with gateObjective: false): BoardHex.gatehouse dresses the
+// wall hex, intact only.
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { hexKey, type BoardLayout } from "../../game/board";
@@ -23,16 +24,16 @@ function checksum(g: THREE.BufferGeometry | null) {
   return `${p.length}:${s.toFixed(3)}`;
 }
 
-/** The Greyford Gate board as the pursuit has it: the gate is no objective, but still a gatehouse. */
-const pursuit = (gatehouse: boolean): BoardLayout => ({
+/** The Greyford Gate board as the harrying battle has it: the gate is no objective, but still a gatehouse. */
+const harrying = (gatehouse: boolean): BoardLayout => ({
   ...cinderRoad6LabBoard,
   hexes: cinderRoad6LabBoard.hexes.map(({ objectiveId: _o, ...h }) => (gatehouse && hexKey(h.coord) === hexKey(CR6_GATE) ? { ...h, gatehouse: true as const } : h)),
 });
 
-describe("a gatehouse without an objective (CR4, the pursuit)", () => {
+describe("a gatehouse without an objective (CR4, the harrying battle)", () => {
   it("dresses the wall hex as the gatehouse, with the Host's banner, intact only", () => {
-    const plain = buildIsland(pursuit(false), emberDusk);
-    const gate = buildIsland(pursuit(true), emberDusk);
+    const plain = buildIsland(harrying(false), emberDusk);
+    const gate = buildIsland(harrying(true), emberDusk);
     // Without the field the gate is plain wall (no banner, no torches); with it, the gatehouse.
     expect(plain.gateBanner).toBeUndefined();
     expect(gate.gateBanner).toBeDefined();
@@ -46,7 +47,7 @@ describe("a gatehouse without an objective (CR4, the pursuit)", () => {
     expect(gate.fireAnchors.filter((a) => a.kind === "torch").every((a) => a.objective === undefined)).toBe(true);
   });
 
-  it("is how the shipped pursuit (Cut the Retreat) draws Greyford Gate", () => {
+  it("is how the shipped harrying battle (Turn the Retreat) draws Greyford Gate", () => {
     const gate = cinderRoad5.board.hexes.find((h) => hexKey(h.coord) === hexKey(CR6_GATE))!;
     expect(gate.gatehouse).toBe(true);
     expect(gate.objectiveId).toBeUndefined();
@@ -56,12 +57,12 @@ describe("a gatehouse without an objective (CR4, the pursuit)", () => {
     expect(island.wallStages).toBeNull();
   });
 
-  it("leads the pursuit's roads to the dressed gate, not the first wall hex", () => {
+  it("leads the harrying battle's roads to the dressed gate, not the first wall hex", () => {
     expect(roadGoal(cinderRoad5.board)).toEqual(CR6_GATE);
   });
 
   it("only dresses a wall", () => {
-    const field = { ...pursuit(false), hexes: pursuit(false).hexes.map((h) => (hexKey(h.coord) === "4,3" ? { ...h, gatehouse: true as const } : h)) };
+    const field = { ...harrying(false), hexes: harrying(false).hexes.map((h) => (hexKey(h.coord) === "4,3" ? { ...h, gatehouse: true as const } : h)) };
     expect(buildIsland(field, emberDusk).gateBanner).toBeUndefined();
   });
 

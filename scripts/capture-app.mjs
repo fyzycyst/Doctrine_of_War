@@ -59,7 +59,7 @@ const STAGES = [
   { name: "m2f-ingame-battered", query: "skirmish=skirmish_cinder_road_cr_saltmarsh&seed=7&stage=command&phase=5&plan=intended&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
   // M2: Cinder Road 2 mid-battle: the Kiln Ram (5,1) facing the keepers on the Sluice Walk (6,1).
   { name: "m2f-c2-ingame-ram", query: "scenario=cinderRoad2&stage=command&phase=3&plan=intended&select=keepers&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
-  // Cinder Road battle 4, the pursuit (curated seed 1): a Clean Counterstroke company charging
+  // Cinder Road battle 4, Turn the Retreat (the harrying battle; curated seed 1): a Clean Counterstroke company charging
   // the fleeing column in phase 1 (the riders, (5,5) -> (4,6)). Engagements are captions, not
   // callouts, so the snippet waits for the first "charged" caption and shoots on it.
   ...[
