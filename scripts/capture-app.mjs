@@ -82,6 +82,17 @@ const STAGES = [
   { name: "cr5-gate-battered", query: "scenario=cinderRoad5&stage=command&phase=5&plan=intended&still=1&capture=1&captureShot=7,3;8,3&captureAz=-55", settleMs: 3000, sizes: [[1600, 1000]] },
   { name: "cr5-gate-breached", query: "scenario=cinderRoad5&stage=outcome&plan=intended&still=1&capture=1&captureShot=7,3;8,3&captureAz=-55", settleMs: 3000, sizes: [[1600, 1000]] },
   { name: "cr5-gate-battered-ui", query: "scenario=cinderRoad5&stage=command&phase=5&plan=intended&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
+  // T27 §2a: objective strength rings, mid-battle (curated seeds). C1 the barricade at 21 and
+  // 13 of 30; C2 the wagon park at 21 of 44 beside the untouched sluice; the intro's gates.
+  { name: "t27-c1-phase4", query: "scenario=cinderRoad1&stage=command&phase=4&plan=intended&still=1", settleMs: 3000 },
+  { name: "t27-c1-phase5", query: "scenario=cinderRoad1&stage=command&phase=5&plan=intended&still=1", settleMs: 3000 },
+  { name: "t27-c2-phase3", query: "scenario=cinderRoad2&stage=command&phase=3&plan=intended&still=1", settleMs: 3000 },
+  { name: "t27-c1-close", query: "scenario=cinderRoad1&stage=command&phase=5&plan=intended&still=1&captureShot=3,1;3,2", settleMs: 3000, sizes: [[1600, 1000]] },
+  { name: "t27-c2-close", query: "scenario=cinderRoad2&stage=command&phase=3&plan=intended&still=1&captureShot=1,6;2,6", settleMs: 3000, sizes: [[1600, 1000]] },
+  { name: "t27-c2-sluice-close", query: "scenario=cinderRoad2&stage=command&phase=3&plan=intended&still=1&captureShot=6,1;7,0&captureAz=-30", settleMs: 3000, sizes: [[1600, 1000]] },
+  { name: "t27-firstBreach-gate", query: "scenario=firstBreach&stage=command&phase=3&plan=bad&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
+  { name: "t27-firstBreach-gate-close", query: "scenario=firstBreach&stage=command&phase=3&plan=bad&still=1&captureShot=3,2;4,2&captureAz=-40", settleMs: 3000, sizes: [[1600, 1000]] },
+  { name: "t27-holdForDawn-gate", query: "scenario=holdForDawn&stage=command&phase=4&plan=intended&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
   { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },

@@ -26,6 +26,7 @@ import { ExitMarkers } from "./terrain/ExitMarkers";
 import { buildIsland, disposeIsland } from "./terrain/buildIsland";
 import { GateBanner } from "./terrain/GateBanner";
 import { WallsAndObjectiveFX } from "./terrain/ObjectiveFX";
+import { ObjectiveRings, type ObjectiveStrength } from "./terrain/ObjectiveRings";
 import type { ObjectiveStage } from "./terrain/objectiveProps";
 import { Reeds } from "./terrain/Reeds";
 import { Water } from "./terrain/Water";
@@ -76,6 +77,7 @@ export function Diorama({
   emphasisHex,
   visibility,
   objectiveStates,
+  objectiveStrength,
   animationRef,
   onFiguresReady,
   onReveal,
@@ -106,6 +108,11 @@ export function Diorama({
    * fromEngine.ts). Omitted objectives are intact.
    */
   objectiveStates?: ReadonlyArray<{ hex: HexCoord; stage: Exclude<ObjectiveStage, "intact"> }>;
+  /**
+   * Each objective's remaining strength and holder (from `objectiveStrengthFor` in
+   * fromEngine.ts): a strength ring on its hex in the company rings' symbology (T27).
+   */
+  objectiveStrength?: readonly ObjectiveStrength[];
   animationRef?: Ref<SquadAnimationApi>;
   onFiguresReady?: () => void;
   /** Squads that just came out of the fog (e.g. to play the `reveal` SFX). */
@@ -282,6 +289,7 @@ export function Diorama({
       {/* The holder's banner over the gate; it is down once the gate is breached. */}
       {island.gateBanner && stages.get(island.gateKey ?? "") !== "broken" && <GateBanner anchor={island.gateBanner} faction={island.gateHolder} />}
       <BoardHighlights island={island} deploymentHexes={deploymentHexes} zoneStyle={zoneStyle} marchFrom={marchFrom} emphasisHex={emphasisHex} />
+      {objectiveStrength && objectiveStrength.length > 0 && <ObjectiveRings island={island} strengths={objectiveStrength} />}
       {exitHexes && exitHexes.length > 0 && <ExitMarkers board={board} island={island} hexes={exitHexes} />}
       <SquadMarkers placed={placed} animator={animator} waterLevel={island.waterLevel} />
       <Suspense fallback={null}>
