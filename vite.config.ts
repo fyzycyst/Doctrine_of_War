@@ -6,6 +6,7 @@ import type { Plugin } from "vite";
 import { configDefaults, defineConfig } from "vitest/config";
 import electron from "vite-plugin-electron/simple";
 import { PRODUCTION_CSP } from "./electron/security";
+import { thirdPartyNotices } from "./scripts/thirdPartyNotices";
 import { BALANCE_TEST_GLOBS, CAMPAIGN_TEST_GLOBS } from "./src/test/suites";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,6 +49,8 @@ export default defineConfig({
     react(),
     contentSecurityPolicy(),
     labAssets(),
+    // licenses/THIRD_PARTY_NOTICES.txt from the bundle's own packages (web and Mac builds).
+    thirdPartyNotices(),
     ...(enableElectron
       ? [
           electron({

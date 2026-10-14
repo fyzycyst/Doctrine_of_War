@@ -21,7 +21,7 @@ import type { EngineScenario } from "../../game/engine";
 import { scenarioFor } from "../flow/campaignView";
 import { useFlow } from "../flow/flowStore";
 import { CALL_HELP_COPY, CallHelp, type CallHelpNote, type HelpLayout } from "../guide/CallHelp";
-import { columnTargets, type Box } from "../guide/callHelpLayout";
+import { badgeRect, columnTargets, ringOf, type Box } from "../guide/callHelpLayout";
 import { useGuide } from "../guide/guideStore";
 import { resolveRank } from "../game/view";
 import { RoleGlyph, ROLE_NAME, Sigil } from "../ui/glyphs";
@@ -71,7 +71,9 @@ function bandSlot(index: number, pointAt: () => DOMRect | null, side: "below" | 
     // Under the columns; when that is too short, lifted to sit just above Recommended force,
     // over the foot of the columns (those two notes then lose their pennant).
     const below = Math.max(columns[0].bottom, columns[1].bottom) + GAP;
-    const top = Math.min(below, recommended.top - 8 - panel.height);
+    // Clear of Recommended force and of its number, which sits just above its ring's corner.
+    const badgeTop = badgeRect(ringOf(recommended), "outside").top;
+    const top = Math.min(below, badgeTop - 6 - panel.height);
     const lifted = top < below && side === "below";
     const pointer =
       side === "below"

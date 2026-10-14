@@ -5,6 +5,7 @@ import { useSettings, type QualitySetting } from "../settingsStore";
 import type { DofMode, MotionPreference } from "../store";
 import { useFlow } from "../flow/flowStore";
 import { useGuide } from "../guide/guideStore";
+import { APP_VERSION, COPYRIGHT } from "../about";
 import { packs } from "../roll/api";
 import { exportSave } from "../support";
 import { Modal } from "./Modal";
@@ -204,6 +205,20 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               </button>
               <button type="button" className="btn-quiet" disabled={guideFresh} onClick={resetGuide}>
                 {guideFresh ? "Guide ready" : "Show the guide again"}
+              </button>
+            </div>
+          </Row>
+          <Row title="About" help={`Doctrine of War ${APP_VERSION} · ${COPYRIGHT}`}>
+            <div className="settings-audio">
+              <button
+                type="button"
+                className="btn-quiet"
+                onClick={() => {
+                  onClose();
+                  openHelp("about");
+                }}
+              >
+                Credits
               </button>
             </div>
           </Row>

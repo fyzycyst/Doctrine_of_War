@@ -10,7 +10,7 @@
 //   &select=<squadId>      select a squad
 //   &still=1               no idle camera drift (captures)
 //   &guide=reset | &coach=select|read|assign|seal|watch|chronicle | &howto=1   guidance
-//   &help=play|doctrines|companies|call|modes|editor|controls   the Field Manual on a page (T26)
+//   &help=play|doctrines|companies|call|modes|editor|controls|about   the Field Manual on a page (T26)
 //   &callHelp=seen|open    Call the Banners' "How the call works" (T25)
 import type { EngineScenario } from "../game/engine";
 import { registry } from "../game/packs";

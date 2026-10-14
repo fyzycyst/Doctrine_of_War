@@ -1,7 +1,37 @@
 # Credits
 
-Every third-party asset is CC0 (public domain). Each licence was verified from the pack's own
-`License.txt` / `LICENSE.txt` on 2026-09-28. Crediting the authors is optional under CC0, but we do it anyway.
+Every third-party asset the game ships with, and its licence. The audio is CC0 (public domain;
+each licence verified from the pack's own `License.txt` / `LICENSE.txt` on 2026-09-28; crediting is
+optional under CC0, but we do it anyway). The two typefaces are under the **SIL Open Font License
+1.1**, and the code libraries bundled into the game under **MIT, zlib and ISC** licences (below).
+
+## Typefaces (SIL Open Font License 1.1)
+
+Bundled from Fontsource (`@fontsource/cinzel`, `@fontsource/alegreya-sans`) as web fonts in every
+build. Their licence texts ship with the game, in `licenses/` of the web build and of the Mac app
+(from `public/licenses/`):
+
+| Typeface | Copyright | Licence text |
+| --- | --- | --- |
+| Cinzel | Copyright 2020 The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel) | `licenses/Cinzel-OFL-1.1.txt` |
+| Alegreya Sans | Copyright 2013 The Alegreya Sans Project Authors (https://github.com/huertatipografica/Alegreya-Sans) | `licenses/AlegreyaSans-OFL-1.1.txt` |
+
+## Code libraries bundled into the game
+
+| Library | Licence |
+| --- | --- |
+| React, React DOM | MIT |
+| three.js | MIT |
+| React Three Fiber, drei, @react-three/postprocessing | MIT |
+| zustand | MIT |
+| postprocessing (Raoul van Rüschen) | zlib |
+| Lucide icons (lucide-react) | ISC |
+| Electron, in the Mac app only | MIT |
+| …and their dependencies (troika, three-stdlib, camera-controls, MediaPipe Tasks, hls.js, …) | MIT, ISC, Apache-2.0 |
+
+Every npm package actually in the bundle is listed with its licence text in
+`licenses/THIRD_PARTY_NOTICES.txt`, which each production build writes from its own module list
+(`scripts/thirdPartyNotices.ts`). It ships in the web build and in the Mac app, beside the OFL texts.
 
 ## Audio (`public/assets/audio/`, about 120 KB total)
 

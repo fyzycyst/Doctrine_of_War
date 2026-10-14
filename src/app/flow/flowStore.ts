@@ -37,7 +37,7 @@ export interface CarrySource {
 }
 
 /** The Field Manual's pages (T26), in tab order. */
-export type HelpPageId = "play" | "doctrines" | "companies" | "call" | "modes" | "editor" | "controls";
+export type HelpPageId = "play" | "doctrines" | "companies" | "call" | "modes" | "editor" | "controls" | "about";
 
 /** "invalid": a save exists but failed validation (it is never loaded). */
 export type SaveStatus = "checking" | "none" | "valid" | "invalid";
