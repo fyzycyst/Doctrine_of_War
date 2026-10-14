@@ -60,11 +60,11 @@ const STAGES = [
   // M2: Cinder Road 2 mid-battle: the Kiln Ram (5,1) facing the keepers on the Sluice Walk (6,1).
   { name: "m2f-c2-ingame-ram", query: "scenario=cinderRoad2&stage=command&phase=3&plan=intended&select=keepers&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
   // Cinder Road battle 4, Turn the Retreat (the harrying battle; curated seed 1): a Clean Counterstroke company charging
-  // the fleeing column in phase 1 (the riders, (5,5) -> (4,6)). Engagements are captions, not
+  // the fleeing column in phase 1 (since T29: the lances, (5,0) -> (5,1)). Engagements are captions, not
   // callouts, so the snippet waits for the first "charged" caption and shoots on it.
   ...[
     ["cr4-strike", ""],
-    ["cr4-strike-close", "&captureShot=5,5;4,6&captureAz=-30"],
+    ["cr4-strike-close", "&captureShot=5,0;5,1&captureAz=-30"],
   ].map(([name, shot]) => ({
     name,
     query: `scenario=cinderRoad4&stage=resolving&phase=1&plan=intended&still=1${shot}`,
@@ -93,6 +93,28 @@ const STAGES = [
   { name: "t27-firstBreach-gate", query: "scenario=firstBreach&stage=command&phase=3&plan=bad&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
   { name: "t27-firstBreach-gate-close", query: "scenario=firstBreach&stage=command&phase=3&plan=bad&still=1&captureShot=3,2;4,2&captureAz=-40", settleMs: 3000, sizes: [[1600, 1000]] },
   { name: "t27-holdForDawn-gate", query: "scenario=holdForDawn&stage=command&phase=4&plan=intended&still=1", settleMs: 3000, sizes: [[1600, 1000]] },
+  // T31b release art (README + website): `npm run capture:app -- media-`, then
+  // `python3 scripts/make-media.py` writes the compressed docs/media/*.png and public/og-image.png.
+  { name: "media-title", query: "screen=title", settleMs: 3500, sizes: [[1600, 1000]] },
+  { name: "media-campaigns", query: "screen=campaigns", settleMs: 3500, sizes: [[1600, 1000]] },
+  { name: "media-roll", query: "screen=roll&mockRoll=1&callHelp=seen", settleMs: 2000, sizes: [[1600, 1000]] },
+  { name: "media-doctrine", query: "scenario=emberFord&stage=resolving&phase=1&plan=intended&pauseAt=rule-mine&still=1", settleMs: 1500, sizes: [[1600, 1000]] },
+  { name: "media-doctrine-c1", query: "scenario=cinderRoad1&stage=resolving&phase=3&plan=intended&pauseAt=rule-mine&still=1", settleMs: 1500, sizes: [[1600, 1000]] },
+  { name: "media-wagon-park", query: "scenario=cinderRoad2&stage=command&phase=3&plan=intended&still=1&captureShot=1,6;2,6;3,5&captureAz=-20", settleMs: 3000, sizes: [[1600, 1000]] },
+  {
+    name: "media-harrying",
+    query: "scenario=cinderRoad4&stage=resolving&phase=1&plan=intended&still=1&captureShot=5,0;5,1&captureAz=-30",
+    settleMs: 120,
+    sizes: [[1600, 1000]],
+    eval: `(async () => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < 30000 && !/ charged /.test(document.body.innerText)) await new Promise((r) => setTimeout(r, 25));
+      await new Promise((r) => setTimeout(r, 220));
+    })()`,
+  },
+  { name: "media-finale", query: "scenario=cinderRoad5&stage=outcome&plan=intended&still=1&capture=1&captureShot=7,3;8,3&captureAz=-55", settleMs: 3000, sizes: [[1600, 1000]] },
+  { name: "media-og-title", query: "screen=title&capture=1", settleMs: 3500, sizes: [[1200, 630]] },
+  { name: "media-og-hero", query: "scenario=cinderRoad5&stage=outcome&plan=intended&still=1&capture=1&captureShot=7,3;8,3&captureAz=-55", settleMs: 3000, sizes: [[1200, 630]] },
   { name: "campaign-start", query: "screen=campaign", settleMs: 2500 },
   { name: "campaign", query: "screen=campaign&campaignAt=1", settleMs: 2500 },
   { name: "ending-sofar", query: "screen=ending&campaignAt=2", settleMs: 2500 },
