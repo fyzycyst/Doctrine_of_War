@@ -3222,6 +3222,29 @@ html.reduce-motion *::after {
   color: var(--muted);
 }
 
+.howto-panel p.manual-about-version {
+  font-family: var(--display);
+  color: var(--gold-hi);
+}
+
+.manual-credits {
+  table-layout: fixed;
+}
+
+.manual-credits td,
+.manual-credits td:first-child {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.manual-credits th:nth-child(1) {
+  width: 46%;
+}
+
+.manual-credits th:nth-child(2) {
+  width: 22%;
+}
+
 .manual-controls kbd {
   padding: 1px 6px;
   border: 1px solid rgba(239, 227, 200, 0.3);

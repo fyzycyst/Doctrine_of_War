@@ -1,118 +1,145 @@
 # Doctrine of War: Ash & Banner
 
-Doctrine of War: Ash & Banner is a web-first fantasy command game prototype. Players lead the Free Banners in the tutorial scenario, assign doctrines to squads during command windows, and watch deterministic battle phases resolve against the Ashen Host.
+**A fantasy command game where you never move a soldier.** You write your companies' standing
+orders (their *doctrines*), seal them, and watch the battle play out on a floating-island
+diorama. Then you read the chronicle, see which orders fired, and write better ones.
 
-## Current Status
+![The Free Banners hold the line at dusk](docs/media/hero.png)
 
-This repository implements the first playable tutorial scenario plus the first board-first post-MVP pass:
+<p>
+  <a href="https://doctrinegame.ftlenterprises.us"><strong>▶ Play in your browser</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/fyzycyst/Doctrine_of_War/releases"><strong>⬇ Download for Mac</strong></a>
+</p>
 
-- Vite + React + TypeScript web app.
-- One tutorial scenario: `The First Breach`.
-- Player controls the Free Banners.
-- Ashen Host acts first through scripted phase pressure.
-- Hex-based 2D battlefield with terrain, deployment hexes, and objective hexes.
-- Preset doctrine assignment from pick lists.
-- Squad-level strength, cohesion, and Resolve.
-- Deterministic hex-based phase resolution with terrain defense, support radius, objective pressure, structured phase events, readable/fast visual playback, and battle reports.
+Version 1.0.0 · © 2026 FTL Enterprises
 
-Deferred until later:
+## The game
 
-- Doctrine editing.
-- Multi-scenario campaign progression.
-- Resolve persistence between scenarios.
-- Campaign editor.
-- Larger maps, scrolling, art assets, and richer unit tokens.
-- Playback off switch.
-- Deliberate in-phase unit movement.
-- Utility AI skirmish mode.
-- Save/load.
-- Mac packaging or native app.
+The Ashen Host is coming down the road. You command the Free Banners, a handful of companies of
+line infantry, cavalry, skirmishers and standard bearers. Each phase you give every company a
+doctrine card: a short list of *if this, then that* rules, read top to bottom. Seal your orders and
+the phase plays out in three beats, the Host first and then your companies, each one following the
+first rule that fits. Fortune is real but always shown, fog hides what your companies can't see, and
+a company breaks when its cohesion reaches zero, however much strength it has left.
 
-## Board-First Evaluation
+| | |
+| --- | --- |
+| ![Giving orders: the hand of doctrines](docs/media/battle-orders.png) | ![A phase playing out](docs/media/battle-playback.png) |
+| ![Call the Banners: choosing who holds each post](docs/media/call-the-banners.png) | ![The campaign map](docs/media/campaign-map.png) |
 
-The first post-MVP board pass moved the tutorial from a lane-field prototype to a small hex battlefield. The result supports player deployment before phase one, terrain effects during resolution, structured support/engagement/objective events, and readable phase playback that resolves each engagement at human-perceptible speed.
+### Two campaigns, and Skirmish
 
-This is enough to keep exploring the board-first direction. The next product decision should focus on whether larger scenarios remain legible before adding campaign breadth, a doctrine editor, or a utility AI opponent.
+- **Ash & Banner**: the defence of Greyford, in four battles, with a fixed army whose companies
+  carry their Resolve and renown from battle to battle: *The First Breach*, *Ember Ford*, *The
+  Saltmarsh Column* and *Hold for Dawn*. The first battle teaches the game as you play.
+- **Cinder Road**: the counter-offensive, in five battles. Before each one you **Call the Banners**:
+  choose which company holds each post, from a Roll of companies that tire (Fresh, Worn,
+  Reforming) and rest in reserve. Up to five veterans can come from a completed Ash & Banner, and at
+  most two take the field in any battle. *The Saltmarsh, Northbound*, *Strike the Wagon Park*,
+  *Open a Road*, *Turn the Retreat*, *Break the Strongpoint*.
+- **Skirmish**: any battle of either campaign again, on a fresh fortune, with the battle's default
+  forces (all fresh, no veterans). Nothing is saved.
 
-## Run Locally
+Also in the box: a **doctrine editor** (reorder and tune a doctrine's rules, then *Test in the field*
+against the original over many battles), and an in-game **Field Manual** (press `F1` or `?`).
 
-```bash
-npm install
-npm run dev
-```
+## Play
 
-Then open the local URL printed by Vite.
+| | |
+| --- | --- |
+| **In a browser** | <https://doctrinegame.ftlenterprises.us>. A modern desktop browser with **WebGL 2** (current Chrome, Edge, Firefox or Safari). Saves stay in that browser. |
+| **On a Mac** | The DMG from [the releases page](https://github.com/fyzycyst/Doctrine_of_War/releases): one for **Apple silicon** (arm64) and one for **Intel** (x64), on a recent version of macOS. Signed and notarized. Saves go to `~/Library/Application Support/Doctrine of War/`. |
 
-**npm 11 gotcha:** npm 11's install-scripts policy skips Electron's postinstall, so the
-Electron binary is never downloaded and `npm run dev:mac` / `npm run capture` fail. After
-`npm install`, run once:
+## Controls
 
-```bash
-node node_modules/electron/install.js
-```
+Everything is mouse-driven, and the keyboard works throughout. The same table is the Field
+Manual's Controls page (`src/app/shortcuts.ts`; a test keeps this copy in step).
 
-**Benign Electron log lines on macOS.** `npm run dev:mac` may print these to the terminal. They are
-Chromium's, not the game's, and nothing in the game depends on them:
+| Keys | Does | Where |
+| --- | --- | --- |
+| `F1` or `?` | Open the Field Manual | Anywhere (outside a text box) |
+| `Esc` | Close the top layer (a guide, a dialog, the hand), then deselect the company | Battle: deploying and giving orders |
+| `Space` or `Esc` | Skip to the end of the phase | Battle: while a phase plays |
+| `↑` or `↓` | Move between companies | Battle: the company list |
+| `Enter` or `Space` | Select the company (when giving orders, open its hand of doctrines) | Battle: the company list |
+| `←` or `→` or `Home` or `End` | Browse the doctrines | Battle: the hand of doctrines |
+| `Enter` or `Space` | Give the company that doctrine | Battle: the hand of doctrines |
+| `Esc` | Back to the company list | Battle: the hand of doctrines |
+| `↑` or `↓` | Move between companies | Call the Banners: a post's company list |
+| `Esc` | Close the list, or the help | Call the Banners: a post's company list, or How the call works |
+| `Esc` | Skip the guide | The first battle's guide |
+| `⌘/Ctrl ⇧ H` | Capture mode: hide the interface for a clean picture (again to bring it back) | Anywhere |
 
-- `ERROR:sandbox/mac/system_services.cc:35] SetApplicationIsDaemon: … paramErr (-50)`: Chromium's
-  macOS sandbox calls `SetApplicationIsDaemon()` in every sandboxed helper process as it starts
-  (GPU, network, audio service, …), and recent macOS (seen on 26.x) rejects the call. It shows up
-  when a helper process launches, e.g. the audio service on the first click.
-- `ERROR:gpu/…/shared_image_manager.cc:254] SharedImageManager::ProduceSkia: Trying to Produce a
-  Skia representation from a non-existent mailbox`: Chromium's GPU process asked to draw a shared
-  image (e.g. a WebGL canvas frame) that was already released, which can happen when a canvas is
-  destroyed or its context is lost between compositor frames. It's reported across Chromium apps.
-  Each screen (title, campaign map, battle) mounts its own WebGL canvas, but T20 couldn't
-  reproduce the message on Electron 44.4.5 / macOS 26.5.1 through title → campaign → battle,
-  resizes, hide/minimize/restore or the first audio click. If it ever comes with a visible
-  glitch, the fix is one persistent `<Canvas>` shared across screens; until then it's log noise.
+## Run it locally
 
-### Look Lab and screenshots
-
-- `npm run dev`, then open `/?lab=1` for the dev-only diorama lab (`&scenario=firstBreach|emberFord`,
-  `&board=stress`, `&preset=`, `&skin=`, `&quality=low`; see `src/render/README.md`).
-- `npm run capture [-- <filter>]` saves 1600×1000 PNGs of the lab into `captures/` (gitignored).
-- `npm run fetch:cc0` downloads the optional CC0 KayKit figures (figure approach b) into
-  `lab-assets/`. They are lab-only: served by the dev server, never bundled or shipped.
-
-### Capture mode and video frames
-
-- `?capture=1` turns on capture mode (`useCaptureStore` in `src/app/captureStore.ts`): UI layers
-  hide so the diorama records clean.
-- `npm run capture -- --sequence <path> [--scenario firstBreach|emberFord] [--seconds 8] [--fps 30]`
-  steps the scene deterministically along a cinematic camera path and writes
-  `captures/seq-<path>/frame_0000.png …`. Paths: `craneInGate`, `bannerDolly`, `riverPush`
-  (Ember Ford) and `titleFlyover`.
-- Turn a sequence into a clip with ffmpeg (optional, not needed by the project):
+Requires Node.js 20.19 or later (or 22.12+), as Vite 7 does.
 
 ```bash
-ffmpeg -framerate 30 -i captures/seq-craneInGate/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -crf 16 crane-in.mp4
+npm ci
+npm run dev        # the web build at the URL Vite prints
+npm run dev:mac    # the Electron app (see the npm 11 note below)
 ```
 
+**npm 11:** its install-scripts policy skips Electron's postinstall, so the Electron binary is never
+downloaded. After `npm ci`, run `node node_modules/electron/install.js` once.
 
-## Checks
+### Tests and builds
 
 ```bash
-npm test              # fast: unit, UI and engine tests
-npm run test:balance  # simulation-heavy: balance smokes, role sweeps, ablations
-npm run test:campaign # the heaviest campaign sweeps: the finale's, the harrying battle's census
-npm run build
+npx tsc -b             # type-check every project
+npm test               # fast: unit, UI and engine tests
+npm run test:balance   # simulation-heavy: each battle's balance smoke, role sweeps, ablations
+npm run test:campaign  # the heaviest campaign sweeps
+npm run build          # the web build (dist/)
+npm run build:mac      # the Mac DMGs (release/); signing and notarizing: docs/RELEASE.md
 ```
 
-A test file runs under `npm run test:balance` when it is named `balance.<battle>.test.ts` or
-`*.sim.test.ts`, and under `npm run test:campaign` when it is one of the heaviest campaign
-sweeps: the finale's (`cinderRoad6[.*].sim.test.ts`, `balance.cinderRoad6.test.ts`) and the
-harrying battle's role census (`cinderRoad5.roles.<call>.sim.test.ts`; `src/test/suites.ts`); see
-"Test suites" in docs/CAMPAIGN.md.
+Which suite a test file runs in is set by its name (`src/test/suites.ts`); see "Test suites" in
+[docs/CAMPAIGN.md](docs/CAMPAIGN.md). The engine's rules are in [docs/ENGINE.md](docs/ENGINE.md),
+and how a battle is balanced and signed off is in docs/CAMPAIGN.md.
 
-## Project Shape
+### Developer tools
 
-- `src/game/` contains pure TypeScript game types, scenario data, doctrines, and phase resolution.
-- `src/game/board.ts` contains axial hex helpers, terrain definitions, lookup, pixel projection, and defense bonuses.
-- `src/ui/` contains React UI components for the briefing, doctrine panel, hex battlefield, battle report, objective summary, and action controls.
-- `src/App.tsx` coordinates tutorial state, doctrine assignments, deployment, phase commits, phase playback, and composition of the extracted UI panels.
-- `PRD.md` and `Stakeholder_Needs.md` capture the product intent and MVP constraints.
+- `/?lab=1` on the dev server opens the Look Lab, a diorama test bench (`src/render/README.md`).
+- `npm run capture:app [-- <filter>]` screenshots the app at 1600×1000 and 1280×800 into
+  `captures/` (gitignored), and `npm run capture` does the same for the Look Lab.
+- `npm run balance -- --seeds 500` runs a battle's balance gate.
+- **Benign Electron log lines on macOS.** `npm run dev:mac` may print Chromium's
+  `SetApplicationIsDaemon … paramErr (-50)` and `SharedImageManager::ProduceSkia … non-existent
+  mailbox`. Both are Chromium's own and nothing in the game depends on them.
 
-## IP Guardrails
+## Credits and licences
 
-This project should not use Tolkien-specific names, quoted lines, places, species-specific lore, hobbit analogues, or recognizable story structures. Common fantasy ingredients may be used only through original naming, worldbuilding, and mechanics.
+Every third-party asset the game ships with is listed in [CREDITS.md](CREDITS.md), and in the game
+under Field Manual → About & credits.
+
+| What | By | Licence |
+| --- | --- | --- |
+| Orchestral samples: Versilian Studios Chamber Orchestra 2, Community Edition (VSCO 2 CE) | Versilian Studios | CC0 1.0 |
+| Sound effects: Impact Sounds, Casino Audio, RPG Audio | Kenney | CC0 1.0 |
+| Typefaces: Cinzel and Alegreya Sans (via Fontsource) | The Cinzel / Alegreya Sans Project Authors | SIL Open Font License 1.1; the licence texts ship in `licenses/` |
+| three.js, React, React Three Fiber, drei, zustand | their authors | MIT |
+| postprocessing | Raoul van Rüschen | zlib |
+| Lucide icons | Lucide contributors | ISC |
+| Electron (the Mac app) | OpenJS Foundation and contributors | MIT |
+| Their dependencies (troika, three-stdlib, camera-controls, MediaPipe Tasks, hls.js, …) | their authors | MIT, ISC, Apache-2.0 |
+
+Every bundled package and its licence text is in `licenses/THIRD_PARTY_NOTICES.txt`, which each
+production build writes from its own module list (`scripts/thirdPartyNotices.ts`); the fonts'
+OFL texts sit beside it. Both ship in the web build and the Mac app.
+
+The terrain, figures, effects, ambience and score are made in code: there are no third-party
+models, textures or music recordings in the shipped game.
+
+## How it was built
+
+One person designed and directed it. A team of AI agents built it, each with its own lane: the
+engine, the rendering, the interface, and independent review. They worked from written tickets and
+reports, each change landing on its own branch with its own tests before it was merged. The project
+history, tickets and the design documents in `docs/` show how.
+
+---
+
+© 2026 FTL Enterprises. The game's name, world and writing are original; the third-party pieces
+above are under their own licences.

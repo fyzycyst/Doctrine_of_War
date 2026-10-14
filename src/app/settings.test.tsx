@@ -160,7 +160,7 @@ describe("the Settings dialog", () => {
     );
     expect(outline).toEqual([
       ["Display & motion", "Graphics", "Depth of field", "Motion", "Rules", "Doctrine only", "Doctrine editor"],
-      ["Sound & pace", "Sound", "Music", "Battle pace", "Help & support", "Guidance", "Show battle details", "Export save file"],
+      ["Sound & pace", "Sound", "Music", "Battle pace", "Help & support", "Guidance", "About", "Show battle details", "Export save file"],
     ]);
   });
 });

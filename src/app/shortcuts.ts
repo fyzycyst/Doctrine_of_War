@@ -19,7 +19,7 @@ export interface Shortcut {
 }
 
 export const SHORTCUTS = [
-  { id: "help", combos: [{ key: "F1" }, { key: "?" }], where: "Anywhere (outside a text box)", does: "Open this Field Manual" },
+  { id: "help", combos: [{ key: "F1" }, { key: "?" }], where: "Anywhere (outside a text box)", does: "Open the Field Manual" },
   { id: "deselect", combos: [{ key: "Escape" }], where: "Battle: deploying and giving orders", does: "Close the top layer (a guide, a dialog, the hand), then deselect the company" },
   { id: "skipPhase", combos: [{ key: " " }, { key: "Escape" }], where: "Battle: while a phase plays", does: "Skip to the end of the phase" },
   { id: "rosterMove", combos: [{ key: "ArrowUp" }, { key: "ArrowDown" }], where: "Battle: the company list", does: "Move between companies" },

@@ -8,3 +8,15 @@ tasks/
 
 captures/
 lab-assets/cc0/kaykit/*.glb
+
+# Secrets and signing material: never committed (T31 audit hardening).
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.pem
+*.key
+*.cer
+*.mobileprovision
+AuthKey_*

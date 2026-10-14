@@ -10,6 +10,7 @@ import { memoryStore } from "../flow/testKit";
 import { useFlow } from "../flow/flowStore";
 import { useGame } from "../game/gameStore";
 import { Root } from "../Root";
+import { APP_VERSION, CREDITS } from "../about";
 import { comboLabel, SHORTCUTS } from "../shortcuts";
 import { HELP_PAGES } from "./FieldManual";
 import { useGuide } from "./guideStore";
@@ -67,6 +68,18 @@ describe("the Field Manual", () => {
     expect(within(manual()).getByRole("region", { name: "Strength and cohesion" })).toHaveTextContent(
       "A company breaks and runs when its cohesion reaches 0, even with strength to spare.",
     );
+  });
+
+  it("About & credits gives the version, the maker and every bundled piece with its licence; Settings links there", async () => {
+    const user = userEvent.setup();
+    act(() => useFlow.getState().setSettingsOpen(true));
+    render(<Root />);
+    const settings = screen.getByRole("dialog", { name: "Settings" });
+    expect(settings).toHaveTextContent(`Doctrine of War ${APP_VERSION} · © 2026 FTL Enterprises`);
+    await user.click(within(settings).getByRole("button", { name: "Credits" }));
+    expect(manual()).toHaveAccessibleName("About & credits");
+    expect(manual()).toHaveTextContent(`Version ${APP_VERSION} · © 2026 FTL Enterprises`);
+    for (const credit of CREDITS) expect(within(manual()).getByRole("cell", { name: credit.what })).toBeInTheDocument();
   });
 
   it("the Controls page is the shortcut table, row for row", () => {

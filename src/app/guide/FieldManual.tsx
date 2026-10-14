@@ -6,6 +6,7 @@ import { useRef, type KeyboardEvent } from "react";
 import { CARRY_OVER_MAX, CARRY_RESOLVE, DEFAULT_MAX_CARRIED_FIELDED, REFORMED_RESOLVE, WORN_PENALTY } from "../../game/campaign";
 import { MAX_ASIDES } from "../../game/campaign/saveFiles";
 import { doctrineLibrary, type Doctrine, type SquadRole } from "../../game/engine";
+import { APP_VERSION, COPYRIGHT, CREDITS, RELEASES_URL, WEB_URL } from "../about";
 import { useFlow, type HelpPageId } from "../flow/flowStore";
 import { resolveRank } from "../game/view";
 import { ConditionBadge } from "../roll/CallTheBanners";
@@ -26,6 +27,7 @@ export const HELP_PAGES: { id: HelpPageId; title: string }[] = [
   { id: "modes", title: "Modes" },
   { id: "editor", title: "The doctrine editor" },
   { id: "controls", title: "Controls" },
+  { id: "about", title: "About & credits" },
 ];
 
 const signed = (value: number) => (value > 0 ? `+${value}` : `${value}`);
@@ -84,6 +86,7 @@ export function FieldManual({ onClose }: { onClose: () => void }) {
         {page === "modes" && <ModesPage />}
         {page === "editor" && <EditorPage />}
         {page === "controls" && <ControlsPage />}
+        {page === "about" && <AboutPage />}
       </div>
 
       <footer className="howto-foot">
@@ -391,6 +394,54 @@ function EditorPage() {
           <dt>No real difference</dt>
           <dd>The two play about the same.</dd>
         </dl>
+      </section>
+    </div>
+  );
+}
+
+/** The version, the maker, where to play, and every third-party piece with its licence (T31). */
+function AboutPage() {
+  return (
+    <div className="howto-grid">
+      <section className="howto-panel" aria-labelledby="a-game">
+        <h3 id="a-game">Doctrine of War: Ash &amp; Banner</h3>
+        <p className="manual-about-version">
+          Version {APP_VERSION} · {COPYRIGHT}
+        </p>
+        <p>
+          Play in a browser at <span className="mono">{WEB_URL.replace("https://", "")}</span>, or download the Mac app from{" "}
+          <span className="mono">{RELEASES_URL.replace("https://", "")}</span>.
+        </p>
+      </section>
+
+      <section className="howto-panel" aria-labelledby="a-built">
+        <h3 id="a-built">How it was built</h3>
+        <p>
+          Designed and directed by one person, built with a team of AI agents: separate agents for the engine, the rendering, the interface
+          and independent review. The terrain, figures, effects and score are made in code.
+        </p>
+      </section>
+
+      <section className="howto-panel wide" aria-labelledby="a-credits">
+        <h3 id="a-credits">Credits</h3>
+        <table className="manual-controls manual-credits">
+          <thead>
+            <tr>
+              <th scope="col">What</th>
+              <th scope="col">By</th>
+              <th scope="col">Licence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {CREDITS.map((credit) => (
+              <tr key={credit.what}>
+                <td>{credit.what}</td>
+                <td>{credit.who}</td>
+                <td>{credit.licence}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
     </div>
   );

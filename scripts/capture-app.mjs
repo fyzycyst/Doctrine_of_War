@@ -108,7 +108,7 @@ const STAGES = [
   { name: "guide-6-chronicle", query: "stage=report&coach=chronicle&plan=intended", sizes: [[1600, 1000]] },
   { name: "howto", query: "screen=title&howto=1", settleMs: 1500, sizes: [[1600, 1000]] },
   // T26: the Field Manual, page by page.
-  ...["play", "doctrines", "companies", "call", "modes", "editor", "controls"].map((page) => ({ name: `t26-manual-${page}`, query: `screen=title&help=${page}`, settleMs: 1500 })),
+  ...["play", "doctrines", "companies", "call", "modes", "editor", "controls", "about"].map((page) => ({ name: `t26-manual-${page}`, query: `screen=title&help=${page}`, settleMs: 1500 })),
   // T19 #2: the doctrine editor from the title, Test in the field run on a picked battle (real worker).
   {
     name: "t19-editor-field-test",
