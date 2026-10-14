@@ -4,7 +4,7 @@
 orders (their *doctrines*), seal them, and watch the battle play out on a floating-island
 diorama. Then you read the chronicle, see which orders fired, and write better ones.
 
-![The Free Banners hold the line at dusk](docs/media/hero.png)
+![The title: the island at dusk, Doctrine of War · Ash & Banner](docs/media/title.png)
 
 <p>
   <a href="https://doctrinegame.ftlenterprises.us"><strong>▶ Play in your browser</strong></a>
@@ -25,8 +25,9 @@ a company breaks when its cohesion reaches zero, however much strength it has le
 
 | | |
 | --- | --- |
-| ![Giving orders: the hand of doctrines](docs/media/battle-orders.png) | ![A phase playing out](docs/media/battle-playback.png) |
-| ![Call the Banners: choosing who holds each post](docs/media/call-the-banners.png) | ![The campaign map](docs/media/campaign-map.png) |
+| ![A doctrine firing: "If an enemy bars the way, strike it"](docs/media/doctrine.png) | ![Call the Banners: choosing who holds each post](docs/media/roll.png) |
+| ![Strike the Wagon Park: the objective's strength ring and the Objectives panel](docs/media/wagon-park.png) | ![Turn the Retreat: lances harry the fleeing column](docs/media/harrying.png) |
+| ![The finale: Greyford Gate breached at nightfall](docs/media/finale.png) | |
 
 ### Two campaigns, and Skirmish
 
