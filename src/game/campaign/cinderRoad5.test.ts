@@ -135,5 +135,6 @@ describe("Turn the Retreat (Cinder Road, battle 4: the harrying battle)", () => 
       expect(checked, name).toBeGreaterThan(100);
       expect(leaks.slice(0, 3), name).toEqual([]);
     }
-  });
+    // ~2.3 s alone; the 5 s default timed out under heavy load (as C3's fog check, 30 s).
+  }, 30_000);
 });
