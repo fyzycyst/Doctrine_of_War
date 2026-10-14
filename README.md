@@ -142,5 +142,6 @@ history, tickets and the design documents in `docs/` show how.
 
 ---
 
-© 2026 FTL Enterprises. The game's name, world and writing are original; the third-party pieces
-above are under their own licences.
+© 2026 FTL Enterprises. All rights reserved: see [LICENSE](LICENSE). The code is public to view
+and evaluate. The game's name, world and writing are original; the third-party pieces above are
+under their own licences.
