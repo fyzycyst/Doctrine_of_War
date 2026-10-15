@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ashAndBanner, startCampaign, type CampaignDefinition } from "../../game/campaign";
+import { ashAndBanner, cinderRoad, startCampaign, type CampaignDefinition } from "../../game/campaign";
 import { useGame } from "../game/gameStore";
 import { Root } from "../Root";
 import { useFlow } from "./flowStore";
@@ -54,6 +54,15 @@ describe("title screen", () => {
     await user.click(button);
     await waitFor(() => expect(useFlow.getState().screen).toBe("campaign"));
     expect(useFlow.getState().campaign?.battleIndex).toBe(1);
+  });
+
+  it("names the intro's next battle on Continue even after another campaign was open (PR #1 review)", async () => {
+    // Continue always resumes Ash & Banner (checkSave and continueCampaign both read the intro's
+    // save), so its note must not use whichever campaign the flow last had open.
+    reset(savedStore(afterTutorial()));
+    useFlow.setState({ definition: cinderRoad });
+    render(<Root />);
+    expect(await screen.findByRole("button", { name: /Continue\s*Ember Ford/ })).toBeEnabled();
   });
 
   it("asks before a new campaign replaces a save", async () => {

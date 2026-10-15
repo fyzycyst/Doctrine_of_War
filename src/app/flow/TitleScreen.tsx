@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { currentBattle } from "../../game/campaign";
+import { ashAndBanner, currentBattle } from "../../game/campaign";
 import { TitleScene } from "../../render/showcase/TitleScene";
 import { FrameProbe } from "../ui/FrameProbe";
 import { Modal } from "../ui/Modal";
@@ -88,12 +88,15 @@ export function TitleScreen({ onSettings, onHowTo, onEditor }: { onSettings?: ()
   );
 }
 
-/** Which battle Continue leads to. */
+/**
+ * Which battle Continue leads to. Continue always resumes the intro (checkSave and
+ * continueCampaign both read Ash & Banner's save), so the note uses the intro's definition,
+ * not whichever campaign the flow last had open.
+ */
 function ContinueNote() {
-  const definition = useFlow((s) => s.definition);
   const saved = useFlow((s) => s.saved);
   if (!saved) return null;
-  const battle = currentBattle(definition, saved);
+  const battle = currentBattle(ashAndBanner, saved);
   return <span className="btn-note">{battle ? battle.title : "The war is won"}</span>;
 }
 
