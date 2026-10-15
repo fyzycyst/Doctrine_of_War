@@ -1,0 +1,187 @@
+// Condition evaluation, target selection and first-match rule choice.
+import { hexDistance, type HexCoord } from "../board";
+import type {
+  Condition,
+  Doctrine,
+  DoctrineRule,
+  EngineObjective,
+  TargetSelector,
+} from "./types";
+import type { RuleContext } from "./context";
+import { exitHexesFor } from "./outcome";
+import { looksOverextended, perceive, type PerceivedWorld } from "./perception";
+import { byDistance, type ActiveSquad } from "./world";
+
+export type { RuleContext };
+
+export type ResolvedTarget =
+  | { kind: "squad"; squad: ActiveSquad }
+  | { kind: "objective"; objective: EngineObjective }
+  | { kind: "hexes"; hexes: HexCoord[] };
+
+const DEFAULT_OVEREXTENDED_RANGE = 3;
+const OBJECTIVE_THREAT_RANGE = 2;
+
+function within(squads: ActiveSquad[], from: HexCoord, range: number): ActiveSquad[] {
+  return squads.filter((squad) => hexDistance(squad.hex, from) <= range);
+}
+
+/** Seen enemies in contact with one of this squad's allies (a fight in progress). */
+function fighting(world: PerceivedWorld): ActiveSquad[] {
+  return world.enemies.filter((enemy) => world.allies.some((ally) => !ally.noncombatant && hexDistance(ally.hex, enemy.hex) === 1));
+}
+
+function defendedObjectives(ctx: RuleContext, squad: ActiveSquad, objectiveId?: string) {
+  return ctx.state.objectives.filter(
+    (objective) =>
+      objective.defender === squad.faction &&
+      objective.integrity > 0 &&
+      (objectiveId === undefined || objective.id === objectiveId),
+  );
+}
+
+/**
+ * The first standing objective on `side` (as the objective selector picks it). Objectives
+ * are public: both sides know where they stand and how battered they are.
+ */
+function standingObjective(ctx: RuleContext, squad: ActiveSquad, side: "own" | "enemy", objectiveId?: string) {
+  return ctx.state.objectives.find(
+    (item) =>
+      item.integrity > 0 &&
+      (item.defender === squad.faction) === (side === "own") &&
+      (objectiveId === undefined || item.id === objectiveId),
+  );
+}
+
+// Conditions and selectors read only the perceived world (see perception.ts):
+// under fog, the player's squads react only to what their side can see.
+export function evaluateCondition(
+  ctx: RuleContext,
+  squad: ActiveSquad,
+  condition: Condition,
+  world: PerceivedWorld = perceive(ctx, squad),
+): boolean {
+  const { enemies, allies } = world;
+
+  switch (condition.kind) {
+    case "always":
+      return true;
+    case "selfCohesionBelow":
+      return squad.cohesion < condition.value;
+    case "selfStrengthBelow":
+      return squad.strength < condition.value;
+    case "enemyAdjacent":
+      return within(enemies, squad.hex, 1).length > 0;
+    case "enemyWithin":
+      return within(enemies, squad.hex, condition.range).length > 0;
+    case "fightBeyond":
+      return fighting(world).length > 0 && within(enemies, squad.hex, condition.range).length === 0;
+    case "enemyBelow":
+      return within(enemies, squad.hex, condition.range).some(
+        (enemy) => enemy[condition.stat] < condition.value,
+      );
+    case "allyAdjacentBelow":
+      return within(allies, squad.hex, 1).some((ally) => ally[condition.stat] < condition.value);
+    case "allyBelow":
+      return allies.some((ally) => ally[condition.stat] < condition.value);
+    case "enemyOverextended":
+      return within(enemies, squad.hex, condition.range ?? DEFAULT_OVEREXTENDED_RANGE).some((enemy) =>
+        looksOverextended(world, enemy),
+      );
+    case "wardNear":
+      return allies.some((ally) => {
+        const distance = hexDistance(ally.hex, squad.hex);
+        return ally.noncombatant && distance >= (condition.minRange ?? 1) && distance <= condition.range;
+      });
+    case "retreatOpen":
+      return (exitHexesFor(ctx.scenario, squad.faction) ?? []).length > 0;
+    case "atObjective":
+      return ctx.state.objectives.some(
+        (objective) =>
+          objective.defender !== squad.faction &&
+          objective.integrity > 0 &&
+          (condition.objectiveId === undefined || objective.id === condition.objectiveId) &&
+          hexDistance(objective.hex, squad.hex) === 1,
+      );
+    case "objectiveThreatened":
+      return defendedObjectives(ctx, squad, condition.objectiveId).some((objective) =>
+        enemies.some((enemy) => hexDistance(enemy.hex, objective.hex) <= OBJECTIVE_THREAT_RANGE),
+      );
+    case "aheadOfLine": {
+      // Fog-independent by construction: the objective's hex and own allies only.
+      const objective = standingObjective(ctx, squad, "enemy", condition.objectiveId);
+      const line = allies.filter((ally) => !ally.noncombatant && ally.doctrineId === squad.doctrineId);
+      if (!objective || line.length === 0) {
+        return false;
+      }
+      const nextInLine = Math.min(...line.map((ally) => hexDistance(ally.hex, objective.hex)));
+      return nextInLine - hexDistance(squad.hex, objective.hex) >= condition.by;
+    }
+  }
+}
+
+function sortByStat(squads: ActiveSquad[], stat: "cohesion" | "strength", from: HexCoord) {
+  const ordered = byDistance(squads, from);
+  return ordered
+    .map((squad, index) => ({ squad, index }))
+    .sort((a, b) => a.squad[stat] - b.squad[stat] || a.index - b.index)
+    .map((entry) => entry.squad);
+}
+
+/** Returns null when nothing matches the selector (the action is then blocked). */
+export function resolveTarget(
+  ctx: RuleContext,
+  squad: ActiveSquad,
+  selector: TargetSelector,
+  world: PerceivedWorld = perceive(ctx, squad),
+): ResolvedTarget | null {
+  const { enemies, allies } = world;
+  let chosen: ActiveSquad | undefined;
+
+  switch (selector.kind) {
+    case "nearestEnemy":
+      chosen = byDistance(enemies, squad.hex)[0];
+      break;
+    case "weakestEnemy": {
+      const pool = selector.range === undefined ? enemies : within(enemies, squad.hex, selector.range);
+      chosen = sortByStat(pool, selector.stat, squad.hex)[0];
+      break;
+    }
+    case "overextendedEnemy": {
+      const pool = within(enemies, squad.hex, selector.range ?? DEFAULT_OVEREXTENDED_RANGE).filter(
+        (enemy) => looksOverextended(world, enemy),
+      );
+      chosen = byDistance(pool, squad.hex)[0];
+      break;
+    }
+    case "ward":
+      chosen = byDistance(allies.filter((ally) => ally.noncombatant), squad.hex)[0];
+      break;
+    case "weakestAlly":
+      chosen = sortByStat(allies, selector.stat, squad.hex)[0];
+      break;
+    case "fightingEnemy":
+      chosen = byDistance(fighting(world), squad.hex)[0];
+      break;
+    case "objective": {
+      const objective = standingObjective(ctx, squad, selector.side, selector.objectiveId);
+      return objective ? { kind: "objective", objective } : null;
+    }
+    case "exitEdge": {
+      const hexes = exitHexesFor(ctx.scenario, squad.faction);
+      return hexes ? { kind: "hexes", hexes } : null;
+    }
+  }
+
+  return chosen ? { kind: "squad", squad: chosen } : null;
+}
+
+/** First rule whose condition holds, or undefined if none do. */
+export function chooseRule(
+  ctx: RuleContext,
+  squad: ActiveSquad,
+  doctrine: Doctrine,
+): DoctrineRule | undefined {
+  const world = perceive(ctx, squad);
+  return doctrine.rules.find((rule) => evaluateCondition(ctx, squad, rule.when, world));
+}

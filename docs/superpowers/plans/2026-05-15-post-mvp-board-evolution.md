@@ -328,3 +328,89 @@ These are intentionally deferred until the board-first loop has stable resolutio
 - `Fighting Withdrawal` implies fallback movement: the unit should move back by one hex when the doctrine resolves.
 - Player turns should eventually include deliberate unit movement, with cavalry able to move farther than infantry.
 - Ranged units should reach beyond adjacent hexes. Their effect may diminish with range, or they may take reduced melee damage because ranged pressure happens before close combat.
+
+## Slice 7: Larger-Board Readability Evaluation Spike
+
+**Intent:** Test whether the current board presentation has enough headroom before adding campaign breadth or richer scenario systems.
+
+**Status 2026-06-26:** Complete. Added a data-only readability fixture with an 8 by 7 axial board, 14 squads, 2 objectives, and 7 scripted threats across 3 phases. The fixture is intentionally not wired into the app as a selectable scenario; it exists to stress board density, token identity, terrain spread, support adjacency, and playback event volume without starting campaign scope.
+
+**Files:**
+- Create: `src/game/readabilityScenario.ts`
+- Create: `src/game/readabilityScenario.test.ts`
+- Modify: `docs/superpowers/plans/2026-05-15-post-mvp-board-evolution.md`
+
+**Evaluation:**
+
+- The larger fixture stays within the existing scenario data shape and confirms the board model can represent a wider line without new architecture.
+- The current rectangular token treatment is likely the next scaling bottleneck. On a 14-squad fixture, role-based token text such as `Shield` or `Engine` would repeat across multiple squads, weakening at-a-glance identity.
+- The side status panel also becomes longer with the larger roster, so exact stats should remain off-token but the board token itself needs denser, clearer identity cues.
+- Fixed playback timing is worth revisiting after token density improves. Seven scripted threats across three phases is enough to test event volume, but the stronger immediate issue is token identity rather than playback pacing.
+
+**Tests:**
+
+- [x] `src/game/readabilityScenario.test.ts` verifies board size, squad count, threat count, complete rectangular axial coordinates, valid squad/objective/threat hexes, unique initial squad positions, terrain variety, support adjacency, and multiple objective locations.
+
+**Recommendation:**
+
+- Proceed to Slice 8 before Slice 9. Use the larger fixture as evidence that compact token identity should improve before adding playback pace controls.
+
+## Slice 8: Token Density and Board Information Pass
+
+**Intent:** Improve board-token identity so a larger board can be scanned without relying on repeated role words or wide text rectangles.
+
+**Status 2026-06-26:** Complete. Squad tokens now render as compact circular faction markers with two-character callsigns and role pips. Accessible labels still expose squad name, hex, role, and doctrine; exact strength and cohesion remain in the status panel rather than on-token.
+
+**Files:**
+- Modify: `src/ui/HexBoard.tsx`
+- Modify: `src/ui/HexBoard.test.tsx`
+- Modify: `src/styles.css`
+
+**Evaluation:**
+
+- The tutorial roster now renders as unique short codes: `GS`, `DA`, `MS`, `SR`, `CV`, `GE`, `ER`, and `FR`.
+- The larger readability fixture also receives unique two-character token codes across all 14 squads, preventing repeated `Shield` or `Engine` labels.
+- Faction remains encoded through token body color, while role is encoded through a small pip and role class.
+- Browser QA confirmed desktop token selection, commit/skip playback flow, and a 390px mobile viewport with no horizontal overflow.
+- Slice 9 remains useful: the larger fixture can generate enough phase events that fixed readable timing may feel long once the fixture is rendered or simulated through future scenario flows.
+
+**Tests:**
+
+- [x] `src/ui/HexBoard.test.tsx` verifies compact tutorial token codes, unique larger-fixture token codes, role/faction cues, selectable player tokens, deployment behavior, and objective hex labeling.
+- [x] `npm test` passed with 53 tests.
+- [x] `npm run build` passed.
+- [x] `git diff --check` passed.
+
+**Recommendation:**
+
+- Proceed to Slice 9 with the smallest pace control. Do not add a replay timeline or scenario selector.
+
+## Slice 9: Playback Pace and Event-Volume Control
+
+**Intent:** Keep phase playback understandable as event volume grows without building a replay timeline or exposing the larger fixture as a scenario.
+
+**Status 2026-06-26:** Complete. Added a compact `Readable` / `Fast` playback pace control in the right rail. Readable keeps the original timing; Fast shortens support, engagement, and objective-damage beats for higher-volume phases.
+
+**Files:**
+- Modify: `src/App.tsx`
+- Modify: `src/App.test.tsx`
+- Modify: `src/styles.css`
+- Modify: `README.md`
+- Modify: `PRD.md`
+- Modify: `Stakeholder_Needs.md`
+- Modify: `docs/superpowers/plans/2026-05-15-post-mvp-board-evolution.md`
+
+**Evaluation:**
+
+- The control is intentionally small: two segmented buttons, no replay timeline, no off switch, and no scenario selector.
+- `Readable` remains the default for first-time tutorial comprehension.
+- `Fast` gives the existing playback loop a lower-latency path for phases with more support, engagement, and objective events.
+- Playback off remains deferred until larger rendered scenarios prove that skipping is not enough.
+
+**Tests:**
+
+- [x] `src/App.test.tsx` verifies that selecting `Fast` changes event stepping duration with fake timers while preserving the existing readable timing tests.
+
+**Recommendation:**
+
+- Stop this three-slice stack here. The next stack should decide whether to render the readability fixture in a controlled evaluation route, add board zoom/scroll, or begin doctrine-driven movement events.

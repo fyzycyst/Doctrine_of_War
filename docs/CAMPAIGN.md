@@ -1,0 +1,728 @@
+# Campaign
+
+Code: `src/game/campaign/` (pure TypeScript; the campaign-map UI lives in the app layer).
+
+## Shape
+
+- **`CampaignDefinition`** (authored data, `definition.ts`): the companies and an ordered
+  list of battles. *Ash & Banner* is *The First Breach* → *Ember Ford* →
+  *The Saltmarsh Column* → *Hold for Dawn*. A battle can be marked `placeholder` while it
+  is being built: the campaign shows it but cannot play it (none are left in *Ash &
+  Banner*).
+- **Roster continuity.** Each battle maps every player squad of its scenario to a campaign
+  company (`slots: {scenarioSquadId: companyId}`). Roles must match, and a company fills at
+  most one slot per battle. `validateCampaignDefinition()` checks this against the
+  scenarios. A company **joins** the first time a battle uses it:
+  - at its `startingResolve`, which defaults to 0 ("fresh");
+  - the tutorial's four founding companies start at the Resolve the tutorial was
+    balanced around.
+- **`applyCampaign(def, state, scenario)`**: each mapped squad takes its company's name,
+  Resolve and renown (renown also brings dread, for either side). The input scenario is
+  never modified.
+- **`CampaignState`** (saved): `battleIndex`, `status`, the roster (Resolve, renown title,
+  battles fought, times routed and destroyed, times reformed) and `history`. Each history
+  entry records the outcome, seed, attempt, phases played, companies broken, enemies
+  broken, the defended objective's integrity, and every company's Resolve before and
+  after.
+
+## After each battle (`recordBattle`)
+
+| Battle outcome | Company ended the battle… | Resolve |
+| --- | --- | --- |
+| victory (the campaign advances) | steady (on the field, or escaped) | +1 |
+| stalemate (the campaign advances) | steady | +0 (a stalemate earns nothing) |
+| victory | routed | −1 |
+| stalemate | routed | −2 (−1 plus the stalemate penalty) |
+| victory or stalemate | destroyed | **reforms at −2** and loses its renown title |
+| defeat | anything | no change: the same battle is **retried** with the same roster |
+
+- Resolve is clamped to −3…+3.
+- After a defeat, casualties and battles fought are still counted, and the attempt number
+  goes up. Resolve does not change, which avoids death spirals.
+- **Destroyed companies reform rather than disappear**, so later battles always have
+  their slots filled. The banner is raised again by survivors and recruits, at −2
+  (Shaken).
+- **Renown**: reaching +3 without a title earns one from `titles.ts`. It is a
+  deterministic, original generator seeded by the company id (for example
+  "The Fordwardens" or "The Unbowed"), rerolled if another company already holds the
+  same title. The title is kept when Resolve later dips, and lost only on destruction.
+
+## Packs (`src/game/packs`, M1)
+
+Content ships as **packs**: `packs -> campaigns -> battles`, plus a skirmish list per
+pack. A `PackManifest` is plain, versioned data (`revision {pack, content, rules}`,
+`readsContent`: the content revisions whose saves it still replays). Packs are compiled
+in, but `createRegistry` treats every manifest as untrusted: `parsePackManifest`
+rebuilds it field by field through a fail-closed schema (unknown fields and kinds are
+refused; ids, numbers and lists are bounded), then `lintPacks` checks ids unique across
+packs (packs, campaigns, **companies**, scenarios, doctrines, skirmishes), every
+reference, each scenario's internal consistency, and each campaign against its
+scenarios. Nothing is exposed from a set that fails. `registry.compatibility(provenance)`
+says whether a saved run (pack, campaign, content and rules revision) can continue.
+The shipped pack is `first_call` (The First Call), holding the intro and *Cinder Road*
+(five battles, the user's choice of 2026-10-06; see below).
+
+**Editions.** `first_call` is at content revision **6** (`readsContent: [6]`) since battle 4
+was retuned as *Turn the Retreat* (T29: a content-5 run would replay, but against the old
+battle 4, so the edition is a deliberate boundary). Revision 5 came when *Cinder Road* gained
+battle 4, the harrying battle (CR5), before its finale (revision 4 came with
+the finale, CR6, merged after battle 3; 3 with battle 3, C3; 2 with battle 2, C2): an
+earlier-content Cinder Road run (one completed on a shorter or differently ordered campaign
+cannot replay against this one) is read as **unavailable**, kept as it is, and can be set aside to begin anew; it
+is never shown as unreadable. Appending
+a battle to a campaign is such a change, so bump the content revision with it. The
+intro's v1 save is not gated by content revision.
+
+Adding an engine condition, action, selector, win or defeat kind means adding it to
+`packs/manifest.ts` too; the shipped-pack round-trip test fails until you do.
+
+## The Roll (`roll.ts`, M1): Roll campaigns
+
+A campaign with `mode: "roll"` calls companies from its **Roll** into each battle; the
+intro stays `"fixed"` and is untouched.
+
+- **Slots** are the scenario's player squads (stable slot id = squad id; activation
+  order = squad order, never changed by selection). `battle.slots` is the authored
+  default. `battle.call.flex` allows at most 2 role-variable slots, each with the squad's
+  own role first and a doctrine per role; `battle.call.locked` story-locks a company.
+  `battle.call.labels` names posts by where they stand ("The Ford Road"; short plain
+  names, never a company's). `RollSlot.label` is that name, else the hex's board label,
+  else "<Terrain> · <role>" ("Ridge · skirmishers"), never the scenario squad's name;
+  `RollSlot.hex` says where the post stands.
+- **Realms.** A company may name its home realm (`realm`: `greyford_march`,
+  `fenwardens`, `dawnwatch_holds`; `REALM_IDS` grows with later packs). It is frozen on
+  release like the name, travels in carried snapshots, and is checked against the origin
+  campaign's definition on load.
+- **Companies own their profile** (`strength`, `cohesion`), linted against a per-role
+  band (`PROFILE_BANDS`), and **arrive** at an authored battle (`joins`).
+- **Assignment** (`slot id -> company id`) is checked by `validateAssignment` (plain
+  reasons per slot); `recommendedForce` is always legal: locks, then the readiest company
+  per slot (fresh before Worn, then Resolve and renown; ties to the authored company).
+- **The Host's threat is fixed at battle entry** (`battleThreat`): the intro's bounded
+  escalation, computed from the *recommended* force and the state at entry, not from the
+  picks. A defeat changes nothing it reads, so retries face the same Host.
+- `assembleBattle` returns an ordinary `EngineScenario`: each slot squad takes its
+  company's name, role, profile (minus the Worn penalty), Resolve, renown and, on a flex
+  slot, the doctrine for its role. `recordBattle(..., { assignment })` settles it.
+
+**Worn, reserves and reform (B2).** Conditions change only on an advancing result
+(victory or stalemate); a defeat changes nobody's readiness.
+
+| A company that... | becomes |
+| --- | --- |
+| was fielded and destroyed | **Reforming** (Resolve −2, renown lost, as today): sits out the next advancing battle |
+| was fielded and routed | **Worn** |
+| was fielded and ended under half the strength it took the field with | **Worn** |
+| was fielded otherwise | keeps its condition (only rest clears Worn) |
+| sat in reserve | **fresh** (one advancing battle in reserve clears Worn and Reforming) |
+
+Precedence: destroyed > routed > under strength. A Worn company may be fielded at −15
+strength and −10 cohesion (`WORN_PENALTY`). A Reforming company cannot be assigned unless
+a slot story-locks it, and then it fights with the Worn penalty (and comes out Worn).
+**Legal force:** a slot no ready company can fill takes a nameless **levy** (`LEVY_ID`;
+the bottom of its role's band, Resolve −1, no renown, never settled). A levy is only
+legal where it is forced. Records store each slot's `startStrength` and `endStrength`, so
+conditions re-derive on replay.
+
+**Carry-over.** Starting a Roll campaign, the player may bring up to 5 companies from a
+*completed* campaign (`carryOverCandidates`, `snapshotCarryOver`). Each is snapshotted
+into the new run (`state.carried`: id, name, role, profile, Resolve clamped to −1…+2,
+renown kept, origin); replay starts from the snapshot and never re-reads the earlier
+save. Carried companies join the Roll at the start, beside the authored army, and count
+toward the Host's threat like any other. Company ids are unique across campaigns (lint).
+**At most 2 veterans take the field.** A run may carry up to 5 companies in, but at most
+`maxCarriedFielded` of them (default 2, `DEFAULT_MAX_CARRIED_FIELDED`; a campaign may set
+0–5) take the field in any one battle; the rest wait in reserve. `validateAssignment`
+refuses a third ("At most 2 veterans from earlier campaigns may take the field; <Company>
+must stay in reserve, not hold <post>."), `carriedFielded(def, state, assignment)` gives
+the UI its "Veterans n/2", and a levy is legal where only a benched veteran could hold a
+post. `recommendedForce` fills the posts from the campaign's own army by readiness, then
+places at most the limit of veterans, each where it gains the most readiness over the
+post's holder (a levy-held post first); the Host's fixed threat reads that force, so it
+counts at most two veterans' fame. The harness's picks (`rollCalls`) respect the limit.
+Loading a run checks each carried snapshot against this build's registry: the origin pack
+and campaign exist, the company is in that campaign's definition with the same id, name
+and role, its profile is the frozen definition profile, Resolve is inside the clamp, and
+renown is none or a title the generator can give that company. **Trust decision:** the
+snapshot does not prove that the source run was completed, or that the company really
+earned that Resolve or renown there. The game is single-player and the snapshot stands
+alone by design (the earlier save is never re-read), so editing a local save only changes
+the player's own campaign.
+The intro's companies carry their Hold for Dawn numbers as their profile.
+
+## Balancing campaign battles
+
+Carried-over Resolve and renown change a battle a lot, so `npm run balance` checks
+every campaign battle after the first against three rosters:
+
+| Roster | What it is | Guardrails |
+| --- | --- | --- |
+| baseline | the scenario as authored | full: intended wins ≥ 75%, bad ≤ 35%, every mono plan advances < 60% |
+| strong | the curated path (every earlier battle won with its intended plan on its curated seed), replayed live | full |
+| rough | a plausible bad run: the strong roster's best company destroyed and reformed at −2 (renown lost), the next two at −1 | **floor only**: intended advances ≥ 75%, bad advances ≤ 35%, no mono cap |
+
+**Why rough is only a floor.** The rough roster makes sure a struggling player can
+still win. Policing doctrine dominance there fights the escalation instead:
+- anything that makes a battered army winnable also makes blunt plans winnable;
+- on a broken army, "just do the one thing" working is acceptable.
+
+Doctrine dominance is policed on the baseline and strong rosters, and each battle's
+scenario tests include an **ablation test**. The intended plan uses at least two
+doctrine families in meaningful roles, and swapping out any one family costs at least
+15 points of advance rate.
+
+**The Host has heard of you** (`hostEscalation`, applied by `applyCampaign`):
+- The Host scales to the army that takes the field, relative to the roster the
+  scenario was authored for, in **both** directions.
+- *Fame* is the fielded companies' Resolve sum plus 2 per renowned company. Each point
+  of fame above (below) the authored roster's adds (removes) 2 strength on every Host
+  company, capped at ±12. Above the authored roster, every 4 points add 1 Host Resolve
+  (capped at +1).
+- **Catch-up handicap** (below the authored roster): every 2 points of missing fame
+  remove 1 Host Resolve, capped at −2. It is small and relative (a roster at or above
+  the authored fame never sees it), and it exists because a battered army's low Resolve
+  hurts twice, through wavering and through dread; without it Ember Ford's rough roster
+  fell to about 30% once a timeout became a defeat.
+- Veterans draw the Host's hardest companies; a battered army faces a Host that holds
+  its best back. It is deliberately small: it keeps strong-roster battles tense rather
+  than rebalancing them.
+
+### Roll battles: the named calls (`rollCalls.ts`, P5)
+
+A Roll battle is not one roster but a choice, so it is balanced on the **Tier A named
+calls** (synthesis §6): deterministic assignments from deterministic campaign states.
+`balanceVariantsIn(campaigns, scenarios, scenario)` dispatches: a Roll campaign's calls,
+a fixed campaign's rosters, or the baseline.
+
+| Call | Campaign state | Assignment | Guardrails |
+| --- | --- | --- | --- |
+| recommended | the curated path (earlier battles won by their recommended force, intended plan, curated seed) | `recommendedForce` | full |
+| curated | the curated path | the battle's authored call (`battle.slots`) | full |
+| rough | the curated Roll battered: the most famous company Reforming (−2, renown lost), the next two Worn at −1 (a hypothetical before battle 1) | `recommendedForce`: the **recovery force** | floor |
+| greedy | the curated path | highest fame per post (veteran-heavy, ignores Worn) | floor |
+| weakest legal | the curated path | lowest fame per post, Worn first, levies only where forced | **diagnostic**: its recovery force is the recommended call on the same state, gated in full |
+| role: … | the curated path | one per combination of flex-post roles (the most famous company of that role), when it can be filled legally | floor |
+| carried: recommended / greedy | every battle: the curated path replayed with the intro's 5 most famous companies carried in (`strongCarryOver`; at most `maxCarriedFielded` of them fielded) | recommended / greedy | full |
+
+**Reference plans are played exactly as authored on every call** (P7): every order a plan
+sets stands, whoever fills the post (doctrines are not tied to roles). The call's role
+template (`flex.doctrines`) only fills a flex post a plan leaves unset (`templatePlan`); a
+test pins every call's plans to the authored ones. Every gated call is also played with
+no muster (the floor).
+
+**The call census** (`rollCallMatrix`, P7): every documented call is built, or the run
+fails (`MissingCallError`); the matrix never silently shrinks. The only exception is a
+role pattern the Roll cannot legally field, listed as *not applicable* with its reason
+(Cinder Road 1: frontline on both flex posts "needs 5 frontline companies and the Roll
+has 4 ready"). `npm run balance` prints it.
+
+**Diagnostics, not gates** (decided on pilot evidence at the Oct 8 gate), printed by `npm
+run balance` with and without muster (`rollDiagnostics`):
+- **selection spread**: intended-plan advance on the best call minus the worst (proposed
+  ≤ 25 points, ≥ 5 informational);
+- **plan beats roster**: the bad plan on the call where it does best still advances less
+  than the intended plan on the worst call;
+- **strongest alternative** (when a scenario authors `referencePlans.alternative`, the
+  strongest known cheap plan): the intended plan's smallest lead over it across the calls
+  (negative = the alternative wins there). Played on every call, never gated.
+
+**Coverage matrix** (roster × plan × muster × seeds, and where it runs):
+
+| Where | Calls | Plans | Muster | Seeds |
+| --- | --- | --- | --- | --- |
+| `balance.<battle>.test.ts` (every `npm run test:balance`, one test per call: a **smoke test**) | every named call | heuristic: intended, bad, alternative, every mono; none: intended, bad, alternative | as listed | gate seeds 100001–100060, fortune on; thresholds relaxed by 2 binomial SE (`smokeGuardrails`) |
+| `npm run balance` (the gate; every content merge) | every named call, plus the census | the same | as listed, plus the diagnostics | gate seeds 100001–100500 (`--range gate`, default), fortune on |
+| `campaign/cinderRoad.test.ts` | the authored call | intended and its ablations | none (the banner ablation: heuristic) | tuning seeds 1–60 |
+| `fogProjection.test.ts` | the authored call | intended, bad, all Counterstroke, all Bring the Water | none | 10 (projection), 6 (decisions), random |
+
+**Seed ranges** (P7, `engine/balance.ts`): balance is tuned on `TUNING_SEEDS` (1–1000:
+sweeps, ablation tests, curated seeds) and gated on the held-out `GATE_SEEDS`
+(100001–100500): every *scored* gate trial is played on gate seeds. One exception, by
+design: the curated-path roster state (the `curated` call, and carried calls built from a
+completed intro) is *constructed* by replaying earlier battles at their curated seeds,
+which lie in the tuning range; only that setup reads tuning seeds, never a scored trial.
+Never tune on the gate range; pack lint refuses a curated seed inside it. All plans in a
+run play the same seeds (paired).
+
+Sampling limits: 60 seeds at a true 75% has a standard error near 5.6 points, 500 seeds
+near 1.9. The calls sample reachable states; they do not prove every state.
+
+**The 60-seed smoke suite** judges each gated threshold relaxed by two binomial standard
+errors at n = 60, computed in code (`smokeGuardrails`, `SMOKE_STANDARD_ERRORS`): intended
+≥ 63.8%, bad ≤ 47.3%, mono < 72.6%. Each test prints the tolerance it used. It catches
+gross regressions without flaking on a 60-seed window; it is not the sign-off.
+
+**Balance merge checklist** (required before any content merge: a new or changed battle,
+doctrine, campaign, roster profile or Host schedule):
+1. `npm test`, `npm run test:balance` **and** `npm run test:campaign` pass (the second runs
+   every `balance.<battle>.test.ts` smoke suite and every `*.sim.test.ts` suite, the third the
+   heaviest campaign sweeps; see "Test suites" below).
+2. **`npm run balance -- --seeds 500` on the battle's sign-off range exits 0: the sign-off.**
+   Every gated call meets GUARDRAILS exactly on held-out seeds. The sign-off range is the
+   gate (100001–100500, the default) unless that range was **observed while tuning the
+   battle** (a gate run read before a retune, or an adversarial search on it): then it is
+   burned for that battle, and the sign-off uses the next reserved block nobody has observed
+   for it, `--range signoff2` (200001–200500), then `signoff3` (300001–300500), … up to
+   `signoff9`. The battle sheet records which range signed it off, and why a range was
+   burned. Never tune to a sign-off range's outcomes.
+3. The census shows every documented call, and any *not applicable* entry has a reason.
+4. The diagnostics (selection spread, plan beats roster, strongest alternative) are read
+   and any change is noted in the merge description; they are not gates.
+5. Tuning happened on `--range tuning` (never on a sign-off range), and curated seeds stay
+   outside every reserved sign-off block (pack lint).
+
+**Test suites (2026-10-05; the finale's added 2026-10-07, renamed `test:campaign` the same
+day).** `npm test` is the fast suite: unit, UI and fast engine tests. `npm run test:balance`
+runs the simulation-heavy files, and `npm run test:campaign` the heaviest campaign sweeps,
+which would push test:balance past its ~120 s budget (it is kept near ~90 s at normal load):
+- the finale's (*Cinder Road* battle 5: a 19-squad, 14-phase battle costs about four ordinary
+  games);
+- the harrying battle's role census (*Cinder Road* battle 4: 64 combinations × 40 seeds × 3 musters per
+  call; its ablation and guardrail smoke stay in test:balance).
+
+The
+routing is by **file name** (`src/test/suites.ts`, pinned by `src/test/suites.test.ts`, which
+also checks every heavy file runs in exactly one of the two heavy suites):
+- `balance.<battle>.test.ts`: a battle's guardrail smoke (one per battle, via
+  `guardrails.testkit.ts`; `balance.test.ts` checks every battle has one);
+- `*.sim.test.ts`: any other suite that plays many battles: role and unfilled-role sweeps
+  (`cinderRoad2.roles.<call>.sim.test.ts`, one per named call), ablations over about 5 s
+  (`holdForDawn.sim.test.ts`, `cinderRoad2.sim.test.ts`). A new battle's role gate follows
+  C2: one `cinderRoad<N>.roles.<call>.sim.test.ts` per named call, each calling a
+  `describeRoleGate("<call>")` from `cinderRoad<N>.roleGate.testkit.ts`, with the role
+  declarations and observables in `cinderRoad<N>.roles.testkit.ts` (no vitest import, so
+  scripts can use it) and the shared helpers in `roles.testkit.ts`. A fast test checks every
+  call has its file. A testkit is not a test file and is not routed.
+- These go to `npm run test:campaign` instead:
+  - the finale's files: `cinderRoad6.sim.test.ts`, `cinderRoad6.<anything>.sim.test.ts` and
+    `balance.cinderRoad6.test.ts`. Its role gate samples seeds (16 a plan and policy), and the
+    full per-plan census on the sign-off range is on its battle sheet;
+  - the harrying battle's role census: `cinderRoad5.roles.<call>.sim.test.ts`.
+  
+  A battle whose sweeps would push test:balance past ~120 s joins this list.
+Keep each heavy test under about 10 s at normal load, so it stays under vitest's 60 s worker
+RPC timeout even when the machine is busy. The balance suite yields to the event loop
+before each test (`src/test/setup.balance.ts`), so long files no longer trip "Timeout
+calling onTaskUpdate". Anything over about 5 s that simulates belongs in `*.sim.test.ts`.
+
+**Decision (2026-10-02, P7): roster- and muster-dependent best plans are accepted.**
+On *Cinder Road* battle 1, the strongest alternative (the stair held, everyone else
+marching, no banner) beats the intended plan with **no muster** on two calls (the
+frontline-bows role pattern by about 10 points, rough by about 5; about a tie on the
+recommended force). The banner with the assault is worth about +32 points when the player
+musters (relief and rallies) and about 0 when nobody does, while "keep the boats" and
+"march" are essential either way. That is a feature of the Roll, not a defect: the
+alternative stays a tracked diagnostic, and the briefing hints at the banner's role.
+
+**Rule (2026-10-05, C2; tightened after the warden's re-review): roles are defined by what
+they achieve, declared before the gate, and ablated as roles.**
+- A battle's intended plan fills **roles**, and each role is defined by **function**, as
+  something a run can observe, not by the doctrine that fills it (*Cinder Road* battle 2:
+  the **guard** is a company holding the Sluice Walk when the ram comes up to it, or
+  fighting the ram before it strikes the sluice; the **march** is companies striking the
+  wagon park).
+- The battle sheet **declares the roles and their accepted fillers before the gate run**.
+  An accepted filler is a way of filling the role that the design accepts, with what it
+  depends on: fixed orders, the roster, or the player's muster (battle 2's guard: Hold for
+  Dawn, intended; Clean Counterstroke, roster-dependent; any holding doctrine, Shield the
+  Line or an edited variant, mustered onto the walk, muster-dependent). Accepted fillers are
+  never gated. Their per-call results under matched muster policies go on the battle sheet,
+  and one of them may be the tracked `referencePlans.alternative` row.
+- **The gate, and what makes the rule falsifiable:** plans where a role is genuinely
+  **unfilled** are played on **every named call, with no muster, with the heuristic muster,
+  and against the rush**. The unfilled plans are the **cartesian product of the battle's
+  stock non-filler doctrines over the role's posts** (`unfilledCombos` in `roles.testkit.ts`:
+  mixed orders too, since a mixed watch is still no watch; about 5^posts), with no muster
+  that fills the role, plus the pure march. When the product is too large to simulate in
+  full within about 10 s a file, the suite plays a documented spread sample with fewer seeds,
+  and a static check must cover every combination (battle 2: no stock doctrine but Bring the
+  Water can strike the park, so no march-unfilled plan can win). Where no static check
+  covers it, the gate is **two-stage** and judges **each plan on its own** (battle 3's
+  march): every combination is screened on a few gate seeds, then every combination that won
+  or touched the role in the screen, and the most dangerous few besides, are re-run on the
+  full gate seeds against the per-plan limits. A pooled sample of one seed per plan is not a
+  gate: the C3 warden found it hid a plan winning 15.8%. The screen is sampling, not proof:
+  at a 5% touch rate, 8 independent screen seeds miss a plan about 66% of the time, and
+  "most dangerous" ranking has no proven bound. So when a battle's content changes, its
+  sign-off must rest on a **full per-plan census on the full gate seeds** (every combination,
+  40+ seeds each) or a **structural proof** that covers every combination; the two-stage
+  screen is the fast regression check between content changes. The rush (`rushMuster`) is the adversarial policy: every
+  fighting company, or only the companies on the role that is filled, steps toward the
+  enemy objective each phase, or toward the line of retreat in an escape battle. Strength
+  alone must not skip a role. Each plan must stay **below the floor** (advance < 75%), and
+  the role's observable must confirm the plan does not win by filling the role: it may win
+  with the role filled in at most 5% of games with no muster or the heuristic, and 10%
+  against the rush. (Since C5, routes are planned on what the mover knows, so a company can
+  meet the enemy or stand on the guarded ground on its honest route and still lose: touching
+  the role by accident is reported, not failed. Until C5 the check counted every game that
+  touched the role.) These are scenario tests, and the 500-seed numbers go on the battle
+  sheet.
+- **The ≥ 15-point ablation is by role:** replace every doctrine that fills the role with
+  the best doctrine that does not (no muster), and the advance rate must drop by at least 15
+  points.
+- **Adding an accepted filler after the gate run** needs the orchestrator's sign-off,
+  recorded on the battle sheet with a **dominance review**: does it beat the intended plan
+  anywhere, by how much, and at what cost (command effort, roster, muster)? There is no fixed
+  numerical cap: a two-click muster and a self-positioning doctrine cost the player
+  different things, and the Roll changes their performance by roster.
+- An extra that is not a counted role (battle 2's standard on Rescue Standard) carries no
+  ablation requirement.
+- Unchanged: every mono plan, the named bad plan and the pure march stay gated.
+
+**Design principle (2026-10-06, CR4 and CR5): strength skips any role that is filled by
+fighting.**
+- **What happened:** the Roll fields very different armies for one battle. At battle 4, for
+  example, the curated path's titled companies carry +3 Resolve, and the rough recovery force
+  fields worn companies at −1.
+- **The mechanism:** a role whose job is done by fighting is done by *any* doctrine that
+  fights, once the army is strong enough. That covers:
+  - breaking a rearguard;
+  - grinding down an assault;
+  - cutting down a column.
+  
+  So mono plans of striking doctrines (Clean Counterstroke, Bring the Water, Open the Road)
+  fill every such role at once and pass the mono cap on strong rosters. Meanwhile a weak
+  roster fails the intended plan.
+- **Battles 2 and 3 survived** because one of their roles was filled by *standing on a post
+  before the enemy reaches it*: holding the Sluice Walk, standing on the Mill Road. Striking
+  doctrines do not go to an empty post and wait there on their own, and those battles'
+  unfilled roles lose by a rule (the ram strikes the sluice; an outrider steps on the road),
+  not by attrition.
+- **Pinning an enemy that is already adjacent is not standing.** CR5's trials showed that
+  every fighter fills that role too: a striker answers an adjacent enemy where it stands, as
+  surely as Shield the Line braces there. Only doctrines that give ground (Fighting
+  Withdrawal, Rescue Standard) let it go.
+- **The rule for a new battle:**
+  - give it at least one role filled by standing on a post *before contact*, which a striker
+    does not do by itself;
+  - make its unfilled roles lose structurally;
+  - check the roster spread on the real calls early, before deep tuning.
+  
+  Evidence: the CR4 and CR5 findings pages.
+  - **CR4 (attrition-only depth):** no Host configuration kept the rough call ≥ 75% with
+    unfilled plans below the floor on the recommended call.
+  - **CR5 (a harrying battle):** the hunt has no roster spread, but a second role made of fighting
+    (breaking or pinning the rearguard) let mono Counterstroke pass on the strong calls.
+
+**Exception (2026-10-06, the user's option A): harrying battles.** A harrying battle (Cinder Road
+battle 4, *Turn the Retreat*) has **one counted role, the hunt**: break fleeing companies
+before they get away.
+- **Waived for a harrying battle:** the "at least two roles in two families" rule, and the mono cap
+  for the hunt's **filler** doctrines. Monos of strikers are harrying done right. The harness
+  lists them in `HARRYING_FILLERS` (`engine/balance.ts`), keyed by scenario id; the balance
+  script prints the exception.
+- **Still gated:**
+  - the intended plan ≥ 75% on **every** gated call (the no-muster floor too);
+  - every **non-filler** mono, and every hunt-unfilled combination, below the floor on every
+    call under no muster, the heuristic and the interception adversary, each plan judged on
+    its own (a full census). The interception adversary ("close": every company out of
+    contact musters to its legal hex nearest a fleeing company it can see, every phase)
+    replaces the rush, which has nothing to rush toward in a harrying battle (no enemy objective, no
+    exits for the player; a unit test proves it makes no moves). The CR5 warden's
+    counterexample is a named regression on every call;
+  - the ≥ 15-point role ablation.
+- **Why it is safe:** the loss is structural (escape is a rule, `enemyEscape`), not attrition,
+  and there is no roster spread: on the real calls, a striking hunt wins 98–100% and a
+  standing or yielding one 0%, on every call (artifact m2-cinder-road/cr5-findings).
+
+**Rule (2026-10-06, the CR5 warden): a role that breaks X needs X's Resolve at least the
+Roll's titled companies'.** Dread on first sight is a structural effect of fame: a company
+loses (the renowned enemy's Resolve − its own) × 5 cohesion the first time it sees each one.
+- **What happened:** CR5's fleeing column (Resolve 1, cohesion 27) was broken by the Roll's
+  titled companies (Resolve 3) standing in view. Everyone on Shield the Line, mustered beside
+  the road, won 40/40 without a blow.
+- **The rule:** any role whose job is breaking an enemy company must give that company Resolve
+  ≥ the highest Resolve a Banner company can bring (RESOLVE_MAX, 3). The battle's test asserts
+  it on every named call.
+- **The audit** of the merged Cinder Road battles (worst-case dread on sight, real calls):
+  - no role target is exposed;
+  - C2's ram escort and the park's garrison can be half-broken on the carried calls, but
+    neither is the ram, and a positional probe kept every unfilled plan at 0/40;
+  - battles 1, 3 and 6 show no exposure.
+
+**Decision (2026-10-05, C3 warden; confirmed by the user 2026-10-06: "if a player can come up with something better, they should"): editor variants are diagnostics,
+not gated.** A doctrine-editor variant that out-thinks a battle is a reward for skill, which
+is what Test in the field is for. The gate guarantees the lesson for **stock doctrines plus
+legal musters** (the unfilled-role product above, under every muster policy). Variants a
+review finds worth tracking are recorded per battle in `engine/variantProbes.ts`; `npm run
+balance` plays each on every named call and prints it as an "editor variant (diagnostic)"
+row (`runVariantProbe`, fails closed on a variant the editor would refuse). They are never
+gated, and the battle sheet lists them.
+
+**Carry-over and doctrine dominance.** Veterans make blunt plans stronger, and no
+threat adjustment fixes that without also wrecking the intended plan (with two carried
+veterans fielded, all Bring the Water still advanced about 78% on the first version of
+*Cinder Road* battle 1). The fix is in content: each battle must **punish the blunt plan
+whatever the force** (battle 1's outriders burn the boats behind a pure march). With
+that, the carried calls face the full guardrails like the authored army.
+
+## Cinder Road (`cinderRoad.ts`, M1 pilot)
+
+The counter-offensive, fought from the Roll. Its own army of nine companies (ids never
+reuse the intro's; intro companies arrive only by carry-over), with homes from the
+setting bible: the Greyford March (Coldwater Shields, Ferrymoot Pikes, Thornwick Spears),
+the Fenwardens (Sedgewick Levy, Wickmere Standard, Heronwick Bows), the Dawnwatch Holds
+(Sunward Lances, Brightcrag Riders, Morningwall Slingers). Battle 1 calls six posts, each
+with an authored label; two are flex (the lances' post may take a frontline company, which
+marches on the barricade; the bows' post may take a frontline company, which carries a
+banner with the assault).
+
+**Battle 1, *The Saltmarsh, Northbound*** (`engine/scenarios/cinderRoad1.ts`): the intro's
+Saltmarsh in reverse, by daylight, with Banner initiative and fog. Goal: `breakObjective`
+on the Saltgate Barricade (integrity 30) at the causeway head, within 7 phases. Defeats:
+one Host outrider reaching the Heron Stair, where the Banners' boats wait (`enemyEscape`,
+count 1: "they burn the crossing behind us"), or 3 companies lost. The Host: two barricade
+guards on No Step Back, Mire Stalkers on Terror Push in the central reeds, the Weirfen
+Hunters loosed on Cull the Weak in phase 2, and two outriders that never fight but run for
+the boats from phase 2 (the Drowned Hounds, renowned, Resolve 3, and the Ash Harriers).
+Intended plan: Bring the Water on the three vanguard posts and the lances; the Wickmere
+Standard holds the Heron Stair (Shield the Line: it never leaves, so the outriders cannot
+pass); the bows carry a banner with the assault (Rescue Standard). The bad plan is the
+pure march (everyone on Bring the Water): the stair is left empty, and it loses whatever
+the force. Curated seed 91: won in phase 5 with no company lost, the Hounds held at the
+stair. Numbers are in docs/ENGINE.md.
+
+**Battle 2, *Strike the Wagon Park*** (`engine/scenarios/cinderRoad2.ts`, C2): upstream of
+Ember Ford, by daylight, Banner initiative, fog, 6 phases. Win: break the Host's wagon
+park (`breakObjective`), escorted by a detachment of the Kept Coal (the renowned main body
+holds Greyford Gate in battle 5). Defeat: the Covenant's Weir Sluice on our bank falls
+(`objectiveLost`, new in C2), or 3 companies lost. Posts (authored as the army stands
+after battle 1, so the curated path meets a nil threat): the Wainford, the Wagon Track,
+the Sedge Flank, the Lance Line (flex: cavalry or frontline), Willow Rise, and the Weir
+Sluice keepers (flex: skirmish or cavalry). Roles, by function: **the march** strikes the
+park (Bring the Water on the four assault posts); **the guard** holds the Sluice Walk when
+the ram comes up, or fights the ram before it strikes the sluice. Accepted guards: Hold for
+Dawn on the keepers (intended), who take their stand on the walk; Clean Counterstroke
+(roster-dependent), which waits and strikes the ram when it comes up alone; and any holding
+doctrine the player musters onto the walk (muster-dependent, signed off by the
+orchestrator after the warden's re-review; numbers and the dominance review are on the
+battle sheet). The standard carries a banner with the assault
+(Rescue Standard: an extra, not a counted role). The briefing names the role ("someone
+must keep the Sluice Walk"), not a doctrine. Bad plan: the pure march. Curated seed 64:
+won in phase 3, no company lost, the sluice untouched. The sluice falls at the ram's first
+blow (integrity 16), so even a strong force rushing the park cannot beat the ram to it.
+Repaired on C5 (honest routes): five shallow fords (the Upper Shallows, (4,3)), the ram
+waits on the weir bank (3,0) and the park's integrity is 44, so a march that misses the
+shallows cannot reach the ram by the walk before it strikes. Signed off on `signoff3`
+(300001–300500); the battle sheet has the numbers and why the earlier ranges are burned.
+
+**Battle 3, *Open a Road*** (`engine/scenarios/cinderRoad3.ts`, C3): Ember Ford's own
+ground by daylight, crossed the other way. The Banners deploy on the same east bank as on
+the night of the burning bridges and cross west; the far-bank road now runs on to the west
+edge, where it forks into the Cinder Road and the Ashpit Lane, and below the Mill Ford the
+river runs shallow by the tollhouse (the Tollhouse Shallows, a second crossing). Goal:
+`escapeEdge`, 2 companies onto those two road hexes within 7 phases. Defeats: one Host
+company on the Mill Road behind us (`enemyEscape`, count 1), or 4 companies lost. The Host:
+the Cinderwake Spears (No Step Back) and the Ashpit Wardens (Lie in Wait) stand on the two
+road heads; the Chapel Stalkers rise from the Burnt Chapel on Cull the Weak in phase 3; the
+outriders (the Scorchmark Spears, the Kilnbrand Raiders) wait opposite the Mill Ford and slip
+over at the first horn, by the ford or the shallows, on Slip the Leash, for the Mill Road:
+they never stop to fight, so someone must stop them before they reach the Mill Road (a watch
+standing on it, or a company sent to meet them in the crossings). Posts (authored labels): the Cinder Ford, the Ferry Road and the North Bank
+(frontline), Watcher's Rise (the standard, support), the Mill Road (cavalry) and the Mill
+Ford (skirmish, flex: frontline). Roles, by function: **the march** (the column) gets
+companies onto the far-bank roads (Open the Road on the three frontline posts and the
+standard); **the guard** keeps the Mill Road: a company stands on it when the reserve comes
+up beside it, or fights an outrider in the crossings or on our bank before any Host company
+gets through.
+Accepted marchers: Open the Road (intended), and Fighting Withdrawal, a **weak** filler: it
+falls back toward the exits and reaches the roads in some games (the C3 warden's mix,
+ford_van on Fighting Withdrawal, road_van on Rescue Standard and the rest on Clean
+Counterstroke, wins at most 16.8% on any call on `signoff3`, against the intended plan's
+99.6–100%).
+Accepted guards by orders: Shield the Line (intended), Clean Counterstroke (the tracked
+alternative: it waits and strikes the crossers), and Bring the Water (nothing to march on:
+it stands where posted; roster-dependent); and one muster-dependent guard: the lances on
+Open the Road mustered into the Tollhouse Shallows in phase 1 (one legal move), where they
+meet the outriders (with everyone else on Open the Road: 78–93% on the gated calls). The
+weak marcher and the muster-dependent guard were declared after the gate run, on the C3
+warden's re-review, **with the orchestrator's sign-off (2026-10-06)**; their dominance
+reviews are on the battle sheet. Neither beats the intended plan on any call.
+The guard is left unfilled by a watch that leaves the Mill Road (Open the Road, Fighting
+Withdrawal, and Rescue Standard, which goes to rally the weakest ally; mixed too) and by the
+pure march: the outriders are on the road before any column can cut through. The briefing
+names the role ("someone must stop them before they reach the Mill Road"), not a doctrine.
+The role gate is `cinderRoad3.roles.<call>.sim.test.ts`, one per named call; the march is
+gated in two stages (all 4^4 combinations screened on 8 gate seeds, then every one that won
+or reached the roads, and the ten most dangerous, judged per plan on 40). Bad plan:
+everyone on Bring the Water (last battle's star misapplied: no objective to march on).
+Curated seed 1: won in phase 3 by daylight, no company lost, an outrider broken short of the
+Mill Road. Signed off on `signoff3` (the gate range and `signoff2` were observed for C3; see
+the battle sheet). Numbers are in
+docs/ENGINE.md and on the battle sheet.
+
+*Cinder Road* battle 4, **Turn the Retreat** (`scenarios/cinderRoad5.ts`, CR5; the harrying battle,
+under the harrying exception above):
+- **Ground:** the shared Greyford Gate board (`greyfordGate.board.ts`, engine #2's, with
+  `gateObjective: false`), the day before battle 5.
+- **The story:** the Host, broken on the roads at Ember Ford, falls back down the Gate Road to
+  Greyford Gate in order; the Banners harry it until it breaks (T29, playtest 4: "turning an
+  orderly retreat into a rout").
+- **The goal:** break 3 of the 5 retreating companies (`destroySquads`) before 3 reach the gate's
+  approaches (7,3)/(7,4) (`enemyEscape`); or 3 companies lost; 5 phases.
+- **The Host:**
+  - the column runs on Slip the Leash and never stops to fight. It comes over the River Ford in
+    waves (the van at once, two companies in phase 2, two in phase 3), at cohesion 45, so it
+    takes harrying (two to four blows, a charge counting for about two) to break a company, and a
+    win usually comes in phase 3. Until T29 it was cohesion 27 all at once: two blows broke any
+    company, at most of its strength (cohesion is what routs it), and the battle ended in phase
+    1–2;
+  - it is at Resolve 3 ("they run, but they are not panicked"), so the Roll's famous companies
+    cannot break it by standing in view (the rule above);
+  - its rearguard holds the River Ford on No Step Back (texture, not a counted role).
+- **Posts** (authored labels):
+  - the hunt: the Broken Watch Folds and the South Works Folds (cavalry; the latter flex:
+    skirmish), and the South Ditch (skirmish), lying on the flank edges ahead;
+  - the foot: the North Bank, the River Ford and the South Bank, behind.
+- **The hunt, by function:** break retreating companies before they reach the gate.
+  - Fillers: **Clean Counterstroke** (intended: it waits, then charges a company that has
+    fallen out of the column), Bring the Water and Open the Road (each strikes whatever comes
+    beside it).
+  - Unfilled by Shield the Line and Hold for Dawn, which stand beside the road and let them
+    by, and Fighting Withdrawal and Rescue Standard, which give ground: all 4^3 combinations
+    are gated.
+- **The lesson:** "Harry them until they break. Strike what runs past; a wall only lets them
+  by." (T29; "strike, don't block" before it), the inverse of Open a Road's guard. The
+  briefing says so.
+- **Plans:** bad, everyone on Shield the Line (Open a Road's guard misapplied); alternative
+  (diagnostic), the hunt on Bring the Water.
+- **No standard is called;** the Rearguard (CR4's doctrine) is not offered.
+- **Curated seed 1:** a clean win in phase 4 (one company gets inside the gate), no company
+  lost, nobody worn; on the curated path only the Brightcrag Riders gain Resolve (0 → 1).
+- **Signed off on `signoff4`** (T29; `signoff3` signed off the pre-T29 content); the numbers are
+  in docs/ENGINE.md and on the battle sheet.
+- **Role gate:** `cinderRoad5.roles.<call>.sim.test.ts`, one per named call: the census
+  under no muster, the heuristic and the interception adversary, plus the warden's plan.
+**Battle 5, the finale, *Break the Strongpoint*** (`engine/scenarios/cinderRoad6.ts`, CR6; built
+after battle 3, then moved after the harrying battle and signed off on the full path, battles 1–4): Greyford Gate, where the intro began, held by the Host. The Kept Coal's main body and
+the sworn stand before the gate (every Host company is Resolve 3: they do not waver); 9
+Banners against 10 Host (19 squads), by day under ash-wind, a long day of 14 phases. Win: break
+the gate (`breakObjective`, integrity 25). Defeat: 4 companies lost, or the timeout. **The whole army takes the
+field**: nine posts, one per Roll company (two flex: the second banner may be a frontline
+company, the Upper Gate Road may take one); carried veterans (at most two) take posts in
+place of Worn companies. "Choose who to bring" is expressed through who holds which post, not
+optional posts (a candidate mechanic for after the hackathon). Lesson (the Advance and the
+standards; First Breach turned round): the march breaks the gate, and **a banner carried with
+the assault** keeps it on its feet on the way in and at the wall, against the sworn line and
+the No Step Back flanks; the Kept
+Coal's dread on the ash-wind hits the less famous companies hardest. Roles, by function: **the
+breach** (a Banner company strikes the gate; only Bring the Water can) and **the banner** (a
+rally restores an assault company, observed when it fires: the standards keep the assault on
+its feet on the way in and at the sworn line; only Rescue Standard rallies). The intended plan carries two banners; one
+on either post is an accepted filler, by the role (it rallies the assault), but since the
+partial-rush fix one banner rarely clears the floor: the standard alone (the tracked
+alternative, the strongest) is 77–90% with no muster on the famous calls but 23% on the
+recovery force, and the second banner's post alone 61–73% on every call, so two banners are
+what every army should carry (`signoff5`; the battle sheet has the numbers). **The partial rush (the CR6
+warden):** the banner posts stand centre-front, so in a bare assault their weak companies
+lead into the sworn line and it holds; rushing only the strong posts (holding the banner
+posts back) breaks the sworn line with the strong companies and sends the held-back ones in as
+a fresh second wave, which carried the bare assault to 78% on a famous army; and holding the north flank back
+(the warden's signoff4 case, 74.6%) decoyed the north sally, which charged from phase 1, onto
+the standard. So the north sally (Pyre-Sworn) waits in the Broken Watch until phase 3; the gate
+is 25 blows deep (12 at first), which a second wave cannot finish alone; the day is 14 phases
+long (9 at first) and the line breaks at 4 companies lost (3 at first), both of which the
+battered recovery force's assault needs far more than any assault without banners. The role
+gate rushes partial subsets of posts too (the breach posts only, the vans only, every post but
+one, the worst every-post-but-two; and the warden's timed rider hold as a smoke check; at
+sign-off, every post but two is screened on tuning seeds and the rows at 50% or more are
+played on 500 sign-off seeds). A third role, a
+counterstroke screen, was dropped in tuning: Clean Counterstroke hunts the fight into the
+sworn and no stock doctrine escorts the standards (the battle sheet has the numbers). The
+Banners' squads are authored at **fame 18**, one above the recovery force's 17, not the curated
+path's 31 (the C2 convention is deliberately not used): the Roll's threat then never eases the
+sworn's Resolve, which let the veterans' renown break the Host, eases the recovery force's
+Host by 2 strength a company, and hardens every Host company by +12 strength for a famous
+army. (On the path through the harrying battle the Brightcrag Riders reach Resolve 1; the authored
+squad mirrors it, which raised the authored fame from 17 and kept the recovery force's ease:
+with the nil threat it lost, the recovery force fell to 71% with no muster on tuning seeds.) The banners stand in the front row: Rescue Standard only moves when an ally falls below
+50. Curated seed 58 (on the path through the harrying battle, where the Brightcrag Riders reach Resolve
+1): won in phase 7, no company lost, the Kept Coal broken. Numbers are on the
+battle sheet.
+
+## Saves
+
+- `saveCampaign(state)` writes `{"version": 1, "campaign": …}`, capped at 256 KiB.
+- `loadCampaign(json, def)` **fails closed** with a `CampaignSaveError` on:
+  - wrong type, bad JSON, the wrong version or an oversized save;
+  - any malformed field (ids, ranges, enums, duplicates);
+  - a campaign id, battle, company or status/battleIndex mismatch against the
+    definition;
+  - a history that could not have been played: the history is replayed from a fresh
+    start with the campaign rules, and the battle order, scenario ids, attempt numbers,
+    one result per slot with the slot's company, Resolve before/after, renown earned,
+    `companiesBroken`, `battleIndex` and the whole roster (name, role, Resolve, renown and
+    every counter) must match the replay.
+
+  JSON `-0` is normalized to `0`.
+
+  It rebuilds the state field by field, so unknown keys are dropped.
+- **Stores** (`storage.ts`): `defaultStore()` uses Electron's bridge when present, else
+  `localStorage` (key `doctrine-of-war:campaign`).
+- **Electron** (`electron/saveFile.ts`): the preload exposes
+  `window.doctrineOfWar.saves.{read, write}`. The main process handles two IPC channels
+  that read and write **one fixed file**, `userData/campaign-save.json`:
+  - the renderer never supplies a path;
+  - only the app's own top-level document may call them (`electron/security.ts`:
+    the packaged `dist/index.html`, or the dev server origin in development); subframes
+    and foreign pages are rejected, and the window cannot navigate away, open windows
+    or attach webviews;
+  - before writing, main runs the same full `loadCampaign(data, ashAndBanner)`
+    validation, so a bad write can never replace a good save;
+  - writes are serialized and atomic (a fresh exclusive `0600` temp file, fsync, rename);
+  - symlinks are never followed (the save, temp files or userData itself), and reads
+    are bounded to 256 KiB.
+  - **Accepted risk:** userData is checked with `lstat` and the file is then opened by
+    path, so a process that swaps the userData folder for a symlink in between can
+    redirect a read; exploiting that needs write access to the user's own Library
+    folder, which already grants control of the app's data, so it is out of scope.
+- **Per-campaign saves** (M1, `saveFiles.ts`): one save per campaign, keyed by an
+  **allowlisted** campaign id (`CAMPAIGN_SAVE_FILES`). The intro (`ash_and_banner`)
+  keeps its v1 file and localStorage key and is read and written exactly as before (no
+  migration, no backup file; a v1 fixture corpus written by the `v1.0-intro` build,
+  `fixtures/v1/`, must load and re-save byte for byte). Every other campaign writes a
+  **v2 envelope** `{"version": 2, "provenance": {packId, packRevision, campaignId,
+  contentRevision, rulesRevision}, "campaign": …}` (at most `MAX_RUN_BYTES`, 512 KiB per campaign; a full
+  11-battle run with 120 attempts and five carried companies uses well under half).
+  - `readCampaignSave(registry, id, payload)` never throws: `empty`, `ok`, `unavailable`
+    (a well-formed run this build cannot continue: other pack, pack format, campaign,
+    content or rules revision) or `unreadable`. v2 loading rebuilds every field and replays the
+    history from the carried snapshot with the Roll rules (`loadRollCampaignState`):
+    each assignment must be legal in the replayed state, start strengths as fielded, end
+    strengths no higher and 0 exactly when destroyed, and conditions, Resolve, renown and
+    the Roll must match.
+  - **Preserved runs:** `saveCampaignRun` refuses to replace an `unavailable` or
+    `unreadable` v2 save; the player sets it aside first (`store.setAside`), which copies
+    it to a new slot (`:aside:1`…`:aside:8` in the browser; an exclusively created
+    `<file>.aside-<time>-<id>` in Electron, retrying on a clash), verifies the copy and
+    only then removes the save. Set-aside runs are never replaced or deleted: past
+    `MAX_ASIDES` (8) per campaign, setting another aside is refused. The intro is never
+    set aside. Each v2 write keeps the previous
+    save as a backup (`:backup` / `<file>.bak`); `loadCampaignBackup` reads it for
+    recovery.
+  - **Electron:** the save channels take an optional campaign id (none means the
+    intro). Main checks it against **its own literal allowlist** (`MAIN_SAVE_FILES`,
+    tested equal to the renderer's) and accepts nothing else; no path crosses the
+    bridge. Before a v2 write, main itself requires the payload to read `ok` for exactly
+    that campaign against the shipped registry, refuses to overwrite a preserved run,
+    and writes the backup and the save atomically with the same no-symlink rules. Two
+    channels, `saves:backup` and `saves:set-aside`, take a campaign id only. Export
+    takes an optional campaign id and will copy out a run this build cannot continue
+    (useful in a bug report), but not an unreadable file.
+- **Seeds and support** (T19): every battle's seed stays in the save (each history
+  record) and in the phase log, but the UI shows it only with Settings → Support →
+  "Show battle details" (off by default). "Export save file…" copies the campaign save
+  for a bug report: a download on the web; in Electron a fixed-purpose channel,
+  `doctrine-of-war:saves:export`, that takes no arguments: main reads and validates its
+  own save and writes it where the user picks in the native save dialog.
+- **Doctrine variants** (T16, Experimental) live in their own versioned store,
+  `{"version": 1, "variants": […]}` (at most 24, 64 KiB): `localStorage` key
+  `doctrine-of-war:variants` on the web, or a second fixed file,
+  `userData/doctrine-variants.json`, on its own IPC channels with the same checks as
+  the save (main-side validation refuses any variant the game would drop). Changes are
+  stored before they are shown, so a refused write changes nothing. A campaign battle
+  fought with a variant records `customOrders: true` in its history; there is no penalty.
+- **CSP**: production builds (web and Electron) get a `Content-Security-Policy` meta
+  from `vite.config.ts` (`PRODUCTION_CSP` in `electron/security.ts`): `script-src 'self'
+  'wasm-unsafe-eval'` (the meshopt WASM decoder `useGLTF` uses), no `'unsafe-eval'`,
+  no plugins or frames. The dev server has none (React refresh needs inline scripts).

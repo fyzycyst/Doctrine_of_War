@@ -10,21 +10,47 @@ export interface PixelPoint {
   y: number;
 }
 
-export type TerrainType = "road" | "ridge" | "ford" | "wall" | "field" | "ruin";
+export type TerrainType = "road" | "ridge" | "ford" | "wall" | "field" | "ruin" | "river" | "marsh" | "reeds";
 
 export interface BoardHex {
   coord: HexCoord;
   terrain: TerrainType;
   label?: string;
   objectiveId?: string;
+  /**
+   * How the renderer dresses this hex's objective (M2). Render-only: no rule reads it.
+   * Absent = the old behaviour (a gatehouse on a wall, no prop on open ground).
+   */
+  objectiveKind?: ObjectiveKind;
+  /**
+   * Dress this wall hex as a gatehouse though it is no objective (render-only): e.g.
+   * Greyford Gate in the harrying battle, where the gate is not a target. Intact only.
+   */
+  gatehouse?: true;
+  /**
+   * A ford's own dressing, over the board's `fordDressing` (render-only): e.g. "none" on
+   * shallows that never had a bridge, on a board whose other fords are burned bridges.
+   */
+  fordDressing?: FordDressing;
   deploymentFaction?: FactionId;
 }
+
+/** The objective props the renderer can draw (see BoardHex.objectiveKind). */
+export type ObjectiveKind = "gatehouse" | "barricade" | "wagons" | "sluice";
 
 export interface BoardLayout {
   hexes: BoardHex[];
   width: number;
   height: number;
+  /**
+   * How the renderer dresses fords on a river board. Render-only: no rule reads it.
+   * Absent = "bridgeWrecks" (Ember Ford: the Host's burned bridges, and its braziers).
+   */
+  fordDressing?: FordDressing;
 }
+
+/** Ford dressing on a river board (see BoardLayout.fordDressing). */
+export type FordDressing = "bridgeWrecks" | "none";
 
 const neighborOffsets: HexCoord[] = [
   { q: 1, r: 0 },
@@ -95,6 +121,18 @@ export function getHex(layout: BoardLayout, coord: HexCoord): BoardHex | undefin
   return layout.hexes.find((hex) => sameHex(hex.coord, coord));
 }
 
+/** Neighbors of `coord` that exist on the board, in hexNeighbors order. */
+export function boardNeighbors(layout: BoardLayout, coord: HexCoord): BoardHex[] {
+  return hexNeighbors(coord)
+    .map((neighbor) => getHex(layout, neighbor))
+    .filter((hex): hex is BoardHex => hex !== undefined);
+}
+
+/** Walls (including gate hexes) and deep river block movement; every other terrain can be entered. */
+export function isPassableTerrain(terrain: TerrainType): boolean {
+  return terrain !== "wall" && terrain !== "river";
+}
+
 export function terrainDefenseBonus(terrain: TerrainType): number {
   switch (terrain) {
     case "ridge":
@@ -105,8 +143,13 @@ export function terrainDefenseBonus(terrain: TerrainType): number {
       return 4;
     case "ruin":
       return 2;
+    case "reeds":
+      return 1;
+    case "marsh":
+      return -1;
     case "field":
     case "road":
+    case "river":
       return 0;
   }
 }

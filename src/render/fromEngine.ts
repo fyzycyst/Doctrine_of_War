@@ -1,0 +1,145 @@
+import { hexDistance, type BoardLayout, type HexCoord } from "../game/board";
+import type { ObjectiveStage } from "./terrain/objectiveProps";
+import type { SquadSetup, TimeOfDay as EngineTimeOfDay, Weather } from "../game/engine/types";
+import type { DioramaVisibility } from "./Diorama";
+import type { DioramaSquad } from "./figures/types";
+import type { TimeOfDay, WeatherKind } from "./skins/types";
+
+/**
+ * Pure mapping from the engine's scenario/state shapes to what the Diorama
+ * draws. Type-only engine imports: the renderer never runs engine logic.
+ */
+
+/** The engine's semantic time of day → the skin's lighting preset key. */
+export function lightingFor(timeOfDay: EngineTimeOfDay | undefined): TimeOfDay {
+  return timeOfDay === undefined || timeOfDay === "day" ? "dusk" : timeOfDay;
+}
+
+/** Engine weather → skin weather overlay (same names today; kept as a seam). */
+export function weatherFor(weather: Weather | undefined): WeatherKind {
+  return weather ?? "clear";
+}
+
+/** Squads face the enemy: the Banners west, the Host east. */
+export function facingFor(faction: SquadSetup["faction"]): number {
+  return faction === "free_banners" ? Math.PI : 0;
+}
+
+type SquadLike = Pick<SquadSetup, "id" | "faction" | "hex" | "strength" | "cohesion" | "renown" | "noncombatant"> & {
+  /** VisibleSquad.lastKnown: an enemy drawn where it was last seen (a ghost). */
+  lastKnown?: boolean;
+  /** The engine role; "siege" draws the siege model (the Cinderram). */
+  role?: string;
+};
+
+/** True for the engine's noncombatant squads (the Column). */
+export function isNoncombatant(s: { noncombatant?: boolean }): boolean {
+  return s.noncombatant === true;
+}
+
+function kindFor(s: SquadLike): DioramaSquad["kind"] {
+  if (isNoncombatant(s)) return "column";
+  return s.role === "siege" ? "siege" : "combat";
+}
+
+export function dioramaSquads(squads: SquadLike[]): DioramaSquad[] {
+  return squads.map((s) => ({
+    id: s.id,
+    faction: s.faction,
+    hex: s.hex,
+    strength: s.strength,
+    cohesion: s.cohesion,
+    facing: facingFor(s.faction),
+    renowned: !!s.renown,
+    lastKnown: !!s.lastKnown,
+    kind: kindFor(s),
+  }));
+}
+
+/** Minimal shape of the engine's VisibleState that the fog adapter reads. */
+export interface VisibleStateLike {
+  viewer: SquadSetup["faction"];
+  fortune: "on" | "off";
+  weather: Weather;
+  squads: Array<{
+    id: string;
+    faction: SquadSetup["faction"];
+    hex: HexCoord | null;
+    status: string;
+    strength: number;
+    cohesion: number;
+    lastKnown: boolean;
+  }>;
+}
+
+/**
+ * Fog-of-war input for `<Diorama visibility>`, from the player's VisibleState.
+ * Returns undefined when nothing is hidden (fortune off).
+ *
+ * ADAPTER: until the engine exports `visibleHexes(state, faction)`, the seen
+ * hexes are approximated here from the documented sight rule (docs/ENGINE.md:
+ * 2 hexes, +1 on a ridge, -1 in mist, -1 at night, minimum 1; ruins blocking
+ * sight and lit fords are not modelled). When it lands, replace the
+ * `approximateVisibleHexes(...)` call with the engine's result.
+ */
+export function visibilityFromView(
+  view: VisibleStateLike,
+  scenario: { board: BoardLayout; timeOfDay?: EngineTimeOfDay },
+): DioramaVisibility | undefined {
+  if (view.fortune === "off") return undefined;
+  const visibleHexes = approximateVisibleHexes(view, scenario);
+  const lastKnown = view.squads
+    .filter((s) => s.lastKnown && s.hex && s.status === "active")
+    .map((s) => ({ squadId: s.id, hex: s.hex!, faction: s.faction, strength: s.strength, cohesion: s.cohesion }));
+  return { visibleHexes, lastKnown };
+}
+
+function approximateVisibleHexes(view: VisibleStateLike, scenario: { board: BoardLayout; timeOfDay?: EngineTimeOfDay }): HexCoord[] {
+  const own = view.squads.filter((s) => s.faction === view.viewer && s.status === "active" && s.hex);
+  const terrainAt = new Map(scenario.board.hexes.map((h) => [`${h.coord.q},${h.coord.r}`, h.terrain]));
+  const sightAt = (hex: HexCoord) => {
+    const ridge = terrainAt.get(`${hex.q},${hex.r}`) === "ridge" ? 1 : 0;
+    const mist = view.weather === "mist" ? 1 : 0;
+    const night = scenario.timeOfDay === "nightFires" ? 1 : 0;
+    return Math.max(1, 2 + ridge - mist - night);
+  };
+  return scenario.board.hexes
+    .map((h) => h.coord)
+    .filter((c) => own.some((s) => hexDistance(s.hex!, c) <= sightAt(s.hex!)));
+}
+
+/** An objective at or below this share of its starting integrity reads as battered (M2). */
+export const BATTERED_AT = 0.7;
+
+/**
+ * `<Diorama objectiveStates>` from the engine's objectives (VisibleState.objectives)
+ * and the scenario's setups (their starting integrity): each objective on its own,
+ * battered at BATTERED_AT, broken at 0. Untouched objectives are left out.
+ */
+export function objectiveStagesFor(
+  objectives: ReadonlyArray<{ id: string; hex: HexCoord; integrity: number }>,
+  setups: ReadonlyArray<{ id: string; integrity: number }>,
+): Array<{ hex: HexCoord; stage: Exclude<ObjectiveStage, "intact"> }> {
+  return objectives.flatMap((o): Array<{ hex: HexCoord; stage: Exclude<ObjectiveStage, "intact"> }> => {
+    const start = setups.find((s) => s.id === o.id)?.integrity ?? o.integrity;
+    if (o.integrity <= 0) return [{ hex: o.hex, stage: "broken" as const }];
+    if (start > 0 && o.integrity <= start * BATTERED_AT) return [{ hex: o.hex, stage: "battered" as const }];
+    return [];
+  });
+}
+
+/**
+ * `<Diorama objectiveStrength>` (T27 §2a): every objective's integrity as a share of its
+ * start (the scenario setup), and its holder (the engine's defender), for the strength
+ * ring on its hex.
+ */
+export function objectiveStrengthFor(
+  objectives: ReadonlyArray<{ id: string; hex: HexCoord; integrity: number; defender: SquadSetup["faction"] }>,
+  setups: ReadonlyArray<{ id: string; integrity: number }>,
+): Array<{ hex: HexCoord; fraction: number; holder: SquadSetup["faction"] }> {
+  return objectives.map((o) => {
+    const start = setups.find((s) => s.id === o.id)?.integrity ?? o.integrity;
+    const fraction = start > 0 ? Math.max(0, Math.min(1, o.integrity / start)) : 0;
+    return { hex: o.hex, fraction, holder: o.defender };
+  });
+}

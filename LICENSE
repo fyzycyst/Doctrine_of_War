@@ -1,0 +1,19 @@
+Doctrine of War: Ash & Banner
+Copyright (c) 2026 FTL Enterprises. All rights reserved.
+
+This repository is published so that its source code and assets can be viewed and
+evaluated (including for the hackathon it was entered in). No licence is granted to
+copy, modify, distribute, sublicense or sell this software or its original assets, in
+whole or in part, without prior written permission from FTL Enterprises.
+
+You may download and play the released builds of the game for personal use.
+
+Third-party components bundled with or used by this software (fonts, audio samples,
+libraries and the Electron runtime) remain under their own licences. See CREDITS.md and
+licenses/THIRD_PARTY_NOTICES.txt, which is generated with every production build.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR ITS USE.

@@ -1,7 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="8" fill="#151312"/>
-  <path d="M18 14h20v29H18z" fill="#2f6856"/>
-  <path d="M38 14h8v36l-8-7z" fill="#d8a947"/>
-  <path d="M18 43h28v7H18z" fill="#7a3429"/>
-  <path d="M18 14h28" stroke="#f3eee4" stroke-width="4" stroke-linecap="round"/>
+  <!-- The app icon's standard (build/icon.svg), simplified for 16-32px: lapis cloth, gold sun. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#191a2c"/>
+      <stop offset="0.7" stop-color="#472c3c"/>
+      <stop offset="1" stop-color="#c77347"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="url(#sky)"/>
+  <rect x="12" y="8" width="40" height="3" rx="1.5" fill="#d4a64a"/>
+  <path d="M15 10 H49 V56 L32 48 L15 56 Z" fill="#2f4f8f" stroke="#d4a64a" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="16" y="11" width="32" height="4" fill="#e8dcc4"/>
+  <path fill="#e2b85a" d="M32 18 L35 27 L42 22 L38 30 L46 32 L38 34 L42 42 L35 37 L32 46 L29 37 L22 42 L26 34 L18 32 L26 30 L22 22 L29 27 Z"/>
 </svg>

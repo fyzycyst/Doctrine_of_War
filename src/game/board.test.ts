@@ -7,6 +7,7 @@ import {
   hexDistance,
   hexKey,
   hexNeighbors,
+  isPassableTerrain,
   sameHex,
   terrainDefenseBonus,
   type BoardLayout,
@@ -57,6 +58,12 @@ describe("hex board model", () => {
     expect(getHex(testBoard, { q: 2, r: 2 })).toBeUndefined();
   });
 
+  it("blocks movement through walls and deep river only", () => {
+    expect(isPassableTerrain("river")).toBe(false);
+    expect(isPassableTerrain("wall")).toBe(false);
+    expect(isPassableTerrain("ford")).toBe(true);
+  });
+
   it("defines a terrain defense bonus for every terrain type", () => {
     const expectedBonuses: Record<TerrainType, number> = {
       road: 0,
@@ -65,6 +72,9 @@ describe("hex board model", () => {
       wall: 4,
       field: 0,
       ruin: 2,
+      river: 0,
+      marsh: -1,
+      reeds: 1,
     };
 
     for (const [terrain, bonus] of Object.entries(expectedBonuses) as [TerrainType, number][]) {

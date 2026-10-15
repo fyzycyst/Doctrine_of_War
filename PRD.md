@@ -45,6 +45,7 @@ Implemented features:
 - Support radius effects from support doctrines.
 - Structured phase events for support, engagement, and objective damage.
 - Stepwise phase playback with visual indicators.
+- Readable and fast playback pace options.
 - Battle report after each phase.
 - Visible squad state including role, health/cohesion, doctrine, and Resolve.
 - Scenario data represented separately from UI code.
@@ -58,7 +59,7 @@ Deferred features:
 - Campaign editor.
 - Larger scrolling maps.
 - Art assets and richer token presentation.
-- User-adjustable playback speed and a playback off switch.
+- Playback off switch.
 - Deliberate unit movement orders.
 - Utility AI skirmish mode.
 - Save/load.
@@ -241,7 +242,7 @@ Priority future needs:
 - Validate whether the current board remains readable at larger scenario sizes.
 - Improve token presentation before text labels become too small or crowded.
 - Add movement rules only after the static deployment and resolution loop stays legible.
-- Consider user-adjustable playback speed or a playback off switch when larger scenarios create longer resolution sequences.
+- Consider a playback off switch if larger scenarios create long resolution sequences even at fast pace.
 - Add more effect types only when they can be represented without obscuring unit state.
 
 Known board debt:
@@ -249,7 +250,7 @@ Known board debt:
 - Browser smoke checks confirmed visibility, but not pixel-perfect overlap across all viewport sizes.
 - Current indicators are abstract SVG rings and badges, not final art.
 - The board is small and fixed; larger maps may require scrolling, zoom, or denser token rules.
-- The playback speed is currently fixed at the selected readable timing.
+- Playback now has readable and fast pace options, but no off switch or replay timeline.
 
 ## 17. Acceptance Criteria
 

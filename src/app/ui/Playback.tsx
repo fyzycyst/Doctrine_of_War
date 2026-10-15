@@ -1,0 +1,270 @@
+import { FastForward, Sunrise } from "lucide-react";
+import { useEffect, useRef, type RefObject } from "react";
+import { playSfx } from "../../audio";
+import { sameHex } from "../../game/board";
+import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
+import { emberDusk } from "../../render/skins";
+import { useCaptureStore } from "../captureStore";
+import { useGame } from "../game/gameStore";
+import { useAppStore } from "../store";
+import { FIRST_BATTLE } from "../guide/coach";
+import { useGuide } from "../guide/guideStore";
+import { PlaybackDirector } from "../playback/director";
+import { buildTimeline, snapshotBefore } from "../playback/timeline";
+import { stageTurn } from "../game/goal";
+import { pressed } from "../shortcuts";
+
+/** How long the "dawn breaks" moment holds at the end of the last night phase (ms). */
+const STAGE_TURN_MS = 2600;
+
+declare global {
+  interface Window {
+    /** Dev capture: set when a `?pauseAt=` playback freezes on its step. */
+    __playbackFrozen?: { ready: boolean; frames: number };
+  }
+}
+
+/**
+ * Runs the phase playback while the stage is "resolving" (T06): builds the timeline
+ * from the player's projected events and drives the director against the diorama.
+ * Remounts per run (key = runId), so a replay starts clean.
+ */
+export function Playback({
+  animation,
+  pauseAt,
+  headless = false,
+}: {
+  animation: RefObject<SquadAnimationApi | null>;
+  pauseAt?: string;
+  /** No bar (capture mode): the phase still plays on the board. */
+  headless?: boolean;
+}) {
+  const runId = useGame((s) => s.runId);
+  const director = useRef<PlaybackDirector | null>(null);
+  /** Ends the "dawn breaks" moment early (Skip). */
+  const endTurn = useRef<(() => void) | null>(null);
+  const skipButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const game = useGame.getState();
+    const entry = game.log[game.log.length - 1];
+    if (!entry) {
+      game.finishPlayback();
+      return undefined;
+    }
+    let alive = true;
+    let frozen = false;
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const later = (ms: number, fn: () => void) => {
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        fn();
+      }, ms / Math.max(0.001, useGame.getState().playbackSpeed));
+      timers.add(timer);
+      return timer;
+    };
+    const final = game.view;
+    const factions = new Map([...entry.start.squads, ...final.squads].map((squad) => [squad.id, squad.faction]));
+    const timeline = buildTimeline(entry.events, game.pace, {
+      playerFaction: game.scenario.playerFaction,
+      factionOf: (id) => factions.get(id),
+    });
+
+    const run = new PlaybackDirector(timeline, {
+      board: game.scenario.board,
+      playerFaction: game.scenario.playerFaction,
+      maxFigures: emberDusk.figures.maxFigures,
+      animator: () => animation.current,
+      pace: () => useGame.getState().pace,
+      display: () => useGame.getState().display ?? entry.start,
+      setDisplay: (display) => useGame.getState().setPlayback({ display }),
+      // Emerging squads start as they were when first seen, not as they end the phase.
+      known: (id, step) => snapshotBefore(final.squads.find((squad) => squad.id === id), entry.events, step.index),
+      setBeat: (beat) => useGame.getState().setPlayback({ beat }),
+      callout: (spec) => {
+        const id = useGame.getState().pushCallout(spec);
+        // First battle: the guide stops on the first of your rule banners so it can be read.
+        const guide = useGuide.getState();
+        const teach =
+          guide.coach === "active" &&
+          guide.step === "watch" &&
+          guide.watchCallout === null &&
+          !useCaptureStore.getState().captureMode &&
+          game.baseScenario.id === FIRST_BATTLE &&
+          spec.kind === "rule" &&
+          spec.faction === game.scenario.playerFaction &&
+          !spec.repeat;
+        if (teach) {
+          guide.pinCallout(id);
+          run.pause();
+          animation.current?.pause();
+          if (import.meta.env.DEV) later(500, () => (window.__playbackFrozen = { ready: true, frames: 9999 }));
+          return;
+        }
+        later(spec.linger, () => {
+          if (!frozen) useGame.getState().dropCallout(id);
+        });
+        const match =
+          pauseAt === spec.kind ||
+          (pauseAt === "rule-mine" && spec.kind === "rule" && spec.faction === game.scenario.playerFaction && !spec.repeat) ||
+          // Dev capture of a crowded moment (T19 declutter): three banners on the board.
+          (pauseAt === "busy" && useGame.getState().callouts.filter((callout) => callout.hex).length >= 3);
+        if (import.meta.env.DEV && match && !frozen) {
+          frozen = true;
+          freeze(run, animation.current, later);
+        }
+      },
+      focus: (focus) => {
+        useGame.getState().setPlayback({ focus });
+        // The depth-of-field band follows the company acting there (T20); the camera does not move.
+        const display = useGame.getState().display ?? entry.start;
+        const acting = focus ? display.squads.find((squad) => squad.hex && squad.status === "active" && sameHex(squad.hex, focus)) : undefined;
+        useAppStore.getState().setFocusSquad(acting?.id ?? null);
+      },
+      shake: () => useGame.getState().setPlayback({ shakeAt: performance.now() }),
+      sfx: (name) => playSfx(name),
+      caption: (caption) => useGame.getState().setPlayback({ caption }),
+      sleep: (ms, signal) =>
+        new Promise((resolve) => {
+          const timer = later(ms, resolve);
+          // A cancelled wait clears its timer at once (skip, unmount, a settled animation).
+          signal?.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              timers.delete(timer);
+              resolve();
+            },
+            { once: true },
+          );
+        }),
+    });
+    director.current = run;
+    skipButton.current?.focus({ preventScroll: true });
+    void boardReady(Boolean(import.meta.env.DEV && pauseAt))
+      .then(() => (alive ? run.run() : "skipped"))
+      .then(async (result) => {
+        if (!alive) return;
+        // A staged win turns at the end of this phase (dawn breaks): show the new light and the new aim.
+        const turn = entry.status === "command" ? stageTurn(game.scenario, entry.phase) : null;
+        if (turn && result === "done") {
+          const store = useGame.getState();
+          store.setPlayback({ display: final, caption: `${turn.title}: ${turn.goal.text}` });
+          store.pushCallout({ kind: "stage", hex: null, faction: null, title: turn.title, text: turn.goal.text, repeat: false, linger: 0 });
+          await new Promise<void>((resolve) => {
+            endTurn.current = resolve;
+            if (import.meta.env.DEV && pauseAt === "stage") {
+              // Dev capture: hold the dawn moment for the still.
+              later(700, () => (window.__playbackFrozen = { ready: true, frames: 9999 }));
+              return;
+            }
+            later(STAGE_TURN_MS, resolve);
+          });
+          endTurn.current = null;
+        }
+        if (alive) useGame.getState().finishPlayback();
+      });
+
+    // When the "watch" mark is answered (or the guide skipped), carry on and let its banner go.
+    const unsubscribeGuide = useGuide.subscribe((guide, before) => {
+      const pinned = before.watchCallout;
+      if (pinned !== null && (guide.step !== "watch" || guide.coach !== "active")) {
+        useGuide.getState().pinCallout(null);
+        animation.current?.resume();
+        run.resume();
+        later(600, () => useGame.getState().dropCallout(pinned));
+      }
+    });
+
+    return () => {
+      alive = false;
+      unsubscribeGuide();
+      if (useGuide.getState().watchCallout !== null) useGuide.getState().pinCallout(null);
+      run.skip();
+      useAppStore.getState().setFocusSquad(null);
+      timers.forEach(clearTimeout);
+      animation.current?.reset();
+    };
+  }, [runId, animation, pauseAt]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (pressed("skipPhase", event)) {
+        event.preventDefault();
+        director.current?.skip();
+        endTurn.current?.();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  return headless ? null : (
+    <PlaybackBar
+      skipRef={skipButton}
+      onSkip={() => {
+        director.current?.skip();
+        endTurn.current?.();
+      }}
+    />
+  );
+}
+
+/** Dev capture boots straight into playback; wait for the board so the still has figures. */
+function boardReady(wait: boolean): Promise<void> {
+  if (!wait) return Promise.resolve();
+  return new Promise((resolve) => {
+    const poll = () => (window.__battleBoard?.ready ? resolve() : setTimeout(poll, 100));
+    poll();
+  });
+}
+
+/** Dev capture: hold the scene still a moment after the chosen callout appears. */
+function freeze(run: PlaybackDirector, animator: SquadAnimationApi | null, later: (ms: number, fn: () => void) => void) {
+  run.hold();
+  later(450, () => {
+    animator?.pause();
+    window.__playbackFrozen = { ready: true, frames: 9999 };
+  });
+}
+
+function PlaybackBar({ skipRef, onSkip }: { skipRef: RefObject<HTMLButtonElement | null>; onSkip: () => void }) {
+  const beat = useGame((s) => s.beat);
+  const caption = useGame((s) => s.caption);
+  const callouts = useGame((s) => s.callouts);
+  // (A weather shift is a chyron in the command bar: see CommandBar.)
+  const turn = callouts.find((callout) => callout.kind === "stage");
+
+  return (
+    <>
+      <div className="playback-dock">
+      {turn && (
+          <div className="stage-banner" role="status">
+            <Sunrise size={20} aria-hidden="true" />
+            <span className="stage-title">{turn.title}</span>
+            <span className="stage-goal">{turn.text}</span>
+          </div>
+        )}
+      <div className="playback-bar">
+        <div className="beat-indicator" role="img" aria-label={beat > 0 ? `Beat ${beat} of 3` : "The phase begins"}>
+          <span className="beat-label" aria-hidden="true">
+            {beat > 0 ? `Beat ${beat}/3` : "Orders sealed"}
+          </span>
+          <span className="pips" aria-hidden="true">
+            {[1, 2, 3].map((n) => (
+              <span key={n} className={`pip ${n < beat ? "done" : n === beat ? "now" : ""}`} />
+            ))}
+          </span>
+        </div>
+        <p className="playback-caption" aria-live="polite">
+          {caption}
+        </p>
+        <button ref={skipRef} type="button" className="btn-quiet skip" onClick={onSkip}>
+          <FastForward size={14} aria-hidden="true" /> Skip
+          <kbd>Space</kbd>
+        </button>
+      </div>
+      </div>
+    </>
+  );
+}
