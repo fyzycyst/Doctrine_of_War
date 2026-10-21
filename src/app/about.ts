@@ -1,6 +1,6 @@
 // What the game says about itself (T31, 1.0): its version (kept equal to package.json by
 // about.test.ts), its maker, where it is played, and what it is built from.
-export const APP_VERSION = "1.0.0";
+export const APP_VERSION = "1.0.1";
 export const COPYRIGHT = "© 2026 FTL Enterprises";
 export const WEB_URL = "https://doctrinegame.ftlenterprises.us";
 export const RELEASES_URL = "https://github.com/fyzycyst/Doctrine_of_War/releases";
