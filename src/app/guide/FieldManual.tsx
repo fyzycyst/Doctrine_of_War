@@ -6,7 +6,7 @@ import { useRef, type KeyboardEvent } from "react";
 import { CARRY_OVER_MAX, CARRY_RESOLVE, DEFAULT_MAX_CARRIED_FIELDED, REFORMED_RESOLVE, WORN_PENALTY } from "../../game/campaign";
 import { MAX_ASIDES } from "../../game/campaign/saveFiles";
 import { doctrineLibrary, type Doctrine, type SquadRole } from "../../game/engine";
-import { APP_VERSION, COPYRIGHT, CREDITS, RELEASES_URL, WEB_URL } from "../about";
+import { APP_VERSION, COPYRIGHT, CREDITS, PRIVACY_URL, RELEASES_URL, WEB_URL } from "../about";
 import { useFlow, type HelpPageId } from "../flow/flowStore";
 import { resolveRank } from "../game/view";
 import { ConditionBadge } from "../roll/CallTheBanners";
@@ -411,6 +411,10 @@ function AboutPage() {
         <p>
           Play in a browser at <span className="mono">{WEB_URL.replace("https://", "")}</span>, or download the Mac app from{" "}
           <span className="mono">{RELEASES_URL.replace("https://", "")}</span>.
+        </p>
+        <p>
+          Privacy: saves stay on your machine, and the game has no accounts or cookies. Policy:{" "}
+          <span className="mono">{PRIVACY_URL.replace("https://", "")}</span>
         </p>
       </section>
 

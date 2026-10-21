@@ -10,7 +10,7 @@ import { memoryStore } from "../flow/testKit";
 import { useFlow } from "../flow/flowStore";
 import { useGame } from "../game/gameStore";
 import { Root } from "../Root";
-import { APP_VERSION, CREDITS } from "../about";
+import { APP_VERSION, CREDITS, PRIVACY_URL } from "../about";
 import { comboLabel, SHORTCUTS } from "../shortcuts";
 import { HELP_PAGES } from "./FieldManual";
 import { useGuide } from "./guideStore";
@@ -80,6 +80,10 @@ describe("the Field Manual", () => {
     expect(manual()).toHaveAccessibleName("About & credits");
     expect(manual()).toHaveTextContent(`Version ${APP_VERSION} · © 2026 FTL Enterprises`);
     for (const credit of CREDITS) expect(within(manual()).getByRole("cell", { name: credit.what })).toBeInTheDocument();
+    // The studio-wide policy has a Doctrine of War section. Shown as text, like the other addresses:
+    // the Mac app blocks navigation away from the game.
+    expect(PRIVACY_URL).toBe("https://ftlenterprises.us/privacy#doctrine-of-war");
+    expect(manual()).toHaveTextContent("Privacy: saves stay on your machine, and the game has no accounts or cookies. Policy: ftlenterprises.us/privacy#doctrine-of-war");
   });
 
   it("the Controls page is the shortcut table, row for row", () => {
