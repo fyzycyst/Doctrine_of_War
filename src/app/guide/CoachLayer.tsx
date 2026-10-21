@@ -54,6 +54,13 @@ function useTutorialTriggers(enabled: boolean) {
         useGuide.setState({ step: "select", watchCallout: null });
         return;
       }
+      // The battle ended while the tutorial ran: it is complete, not left to restart next battle.
+      if (game.stage === "outcome") {
+        guide.finish();
+        return;
+      }
+      // Command opens with a company already selected (picked while deploying): that is step 1 done.
+      if (game.stage === "command" && phase === 0 && isOwnActive(useAppStore.getState().selectedSquadId)) guide.advance("select");
       if (game.stage === "command" && phase === 1) guide.catchUp("tiring");
       else if (game.stage === "command" && phase >= 2) guide.advance("relief"); // past phase 2's report: done
       else if (game.stage === "resolving" && phase === 1) guide.catchUp("watch");
@@ -67,11 +74,14 @@ function useTutorialTriggers(enabled: boolean) {
       if (!tutorialOn(guide)) return;
       if (game.stage !== before.stage || game.log.length !== before.log.length) return place();
       if (game.stage !== "command") return;
-      // Phase 1: orders given → seal.
-      if (game.log.length === 0 && Object.keys(game.orders).length > Object.keys(before.orders).length) guide.catchUp("seal");
-      // Phase 2: a muster planned → relief; a relief planned → seal again.
-      if (game.muster !== before.muster) {
-        if (game.muster.some(isRelief) && !before.muster.some(isRelief)) guide.catchUp("sealAgain");
+      // Phase 1: an order given (any assignment, even the same card again after Back) → seal.
+      // Edges on the action, not on counts: a removal (a deleted variant) is not an order.
+      const ordered = game.orders !== before.orders && Object.keys(game.orders).length > 0 && Object.keys(game.orders).length >= Object.keys(before.orders).length;
+      if (game.log.length === 0 && ordered) guide.catchUp("seal");
+      // Phase 2: a muster planned → relief; a relief planned (again, after Back) → seal again.
+      const planned = game.muster !== before.muster && game.muster.length >= before.muster.length;
+      if (planned) {
+        if (game.muster.some(isRelief) && (guide.step === "relieve" || !before.muster.some(isRelief))) guide.catchUp("sealAgain");
         else if (game.muster.some((move) => !isRelief(move)) && guide.step === "muster") guide.advance("muster");
       }
     });
@@ -204,9 +214,11 @@ function markFor(
         return mark(COACH_COPY[step], find(".wax-seal"), "above");
       case "tiring": {
         const tired = targets?.tired;
-        const broke = targets?.broke.map(name) ?? [];
-        if (tired) return mark(PHASE2_COPY.tiring(name(tired.squadId), tired.cohesion, tired.from, broke), find(`.roster .banner-tab[data-squad="${tired.squadId}"] .meter-row.cohesion`), "right", true);
-        return mark(broke.length ? PHASE2_COPY.broke(broke) : COACH_COPY.tiring, find(".roster .banner-tab.own .meter-row.cohesion"), "right", true);
+        const routed = targets?.routed.map(name) ?? [];
+        const destroyed = targets?.destroyed.map(name) ?? [];
+        if (tired) return mark(PHASE2_COPY.tiring(name(tired.squadId), tired.cohesion, tired.from, routed, destroyed), find(`.roster .banner-tab[data-squad="${tired.squadId}"] .meter-row.cohesion`), "right", true);
+        const fell = routed.length + destroyed.length > 0;
+        return mark(fell ? PHASE2_COPY.broke(routed, destroyed) : COACH_COPY.tiring, find(".roster .banner-tab.own .meter-row.cohesion"), "right", true);
       }
       case "muster": {
         const mover = targets?.mover;

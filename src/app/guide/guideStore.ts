@@ -56,6 +56,8 @@ export interface GuideState {
   seeCallHelp: () => void;
   /** Skip the tutorial (for good, until Settings shows it again). */
   skip: () => void;
+  /** The tutorial is complete (its last step, or the battle it ran in ended). */
+  finish: () => void;
   /** Settings → Show the tutorial again: everything back to a first visit. */
   reset: () => void;
   /** Dev and captures only, never saved: a battle opened straight from the URL shows no tutorial. */
@@ -98,6 +100,8 @@ export const useGuide = create<GuideState>()(
       callHelpSeen: false,
       seeCallHelp: () => set({ callHelpSeen: true }),
       skip: () => set({ coach: "done" }),
+      // Finishing it covers what the muster line says, so that line stays away.
+      finish: () => set({ coach: "done", musterTipSeen: true, watchCallout: null }),
       reset: () => set({ introSeen: false, coach: "active", step: "select", watchCallout: null, musterTipSeen: false, callHelpSeen: false, off: false }),
       off: false,
     }),

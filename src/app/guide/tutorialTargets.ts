@@ -5,14 +5,21 @@ import type { EngineScenario, EngineState, MusterMove } from "../../game/engine"
 import { isRelief, musterTargets } from "../game/muster";
 
 export interface TutorialTargets {
-  /** The player's companies that broke (routed or destroyed) so far: their cohesion reached 0. */
-  broke: string[];
+  /** The player's companies that routed so far: their cohesion reached 0. */
+  routed: string[];
+  /** The player's companies destroyed so far: their strength reached 0. */
+  destroyed: string[];
   /** The company whose cohesion fell most in the battle so far (null if none fell). */
   tired: { squadId: string; cohesion: number; from: number } | null;
   /** A fresh company that can relieve a company in contact (null if none can, this phase). */
   relief: { reliever: string; tired: string } | null;
   /** A company free to muster somewhere (not the relief's two), or null. */
   mover: { squadId: string; reach: number } | null;
+}
+
+/** The player's companies that ended so (not the Column). */
+function fallen(engine: EngineState, scenario: EngineScenario, status: "routed" | "destroyed") {
+  return engine.squads.filter((squad) => squad.faction === scenario.playerFaction && !squad.noncombatant && squad.status === status).map((squad) => squad.id);
 }
 
 /** The player's companies still fighting (not the Column: it keeps its own orders). */
@@ -42,7 +49,8 @@ export function tutorialTargets(engine: EngineState, scenario: EngineScenario, p
   const busy = new Set(relief ? [relief.reliever, relief.tired] : []);
   const free = own.find((squad) => !busy.has(squad.id) && musterTargets(engine, scenario, plan, squad.id).hexes.length > 0);
   return {
-    broke: engine.squads.filter((squad) => squad.faction === scenario.playerFaction && !squad.noncombatant && (squad.status === "routed" || squad.status === "destroyed")).map((squad) => squad.id),
+    routed: fallen(engine, scenario, "routed"),
+    destroyed: fallen(engine, scenario, "destroyed"),
     tired,
     relief,
     mover: free ? { squadId: free.id, reach: free.role === "cavalry" ? 2 : 1 } : null,

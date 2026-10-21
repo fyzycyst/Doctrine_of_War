@@ -235,7 +235,8 @@ describe("phase 2: muster and relief, on the live battle", () => {
     const tired = targets.tired!;
     expect(mark()).toHaveTextContent(`${nameOf(tired.squadId)}: cohesion down from ${tired.from} to ${tired.cohesion}.`);
     // A company that broke in phase 1 is named, with why.
-    for (const id of targets.broke) expect(mark()).toHaveTextContent(new RegExp(`${nameOf(id)}.* broke and ran`));
+    for (const id of targets.routed) expect(mark()).toHaveTextContent(`${nameOf(id)} broke and ran`);
+    for (const id of targets.destroyed) expect(mark()).toHaveTextContent(`${nameOf(id)} was destroyed: its strength reached 0`);
     await user.click(within(mark()!).getByRole("button", { name: "Next" }));
 
     // Muster: select the free company, then move it.

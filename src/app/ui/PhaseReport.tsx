@@ -59,12 +59,18 @@ export function PhaseReport() {
   const showSeed = useShowSeed();
   const log = useGame((s) => s.log);
   const view = useGame((s) => s.view);
-  const nextPhase = useGame((s) => s.nextPhase);
+  const nextBattlePhase = useGame((s) => s.nextPhase);
+  const advanceGuide = useGuide((s) => s.advance);
   const replay = useGame((s) => s.replayPhase);
   const scenario = useGame((s) => s.scenario);
   // The tutorial's chronicle steps (in whichever battle it runs): phase 1's, and phase 2's musters.
   const tutorialStep = useGuide((s) => (tutorialOn(s) && (s.step === "chronicle" || s.step === "relief") ? s.step : null));
   const teaching = tutorialStep !== null;
+  // One action for the report's next, whichever button: the tutorial's step and the battle together.
+  const nextPhase = () => {
+    if (tutorialStep) advanceGuide(tutorialStep);
+    nextBattlePhase();
+  };
   const entry = log[log.length - 1];
   const button = useRef<HTMLButtonElement>(null);
 
@@ -92,8 +98,8 @@ export function PhaseReport() {
         </header>
 
         <div className="report-body">
-          {tutorialStep === "chronicle" && <InlineCoach step="chronicle" onNext={nextPhase} />}
-          {tutorialStep === "relief" && <InlineCoach step="relief" copy={reliefLine ? PHASE2_COPY.reliefRead(reliefLine) : undefined} onNext={nextPhase} />}
+          {tutorialStep === "chronicle" && <InlineCoach step="chronicle" onNext={nextBattlePhase} />}
+          {tutorialStep === "relief" && <InlineCoach step="relief" copy={reliefLine ? PHASE2_COPY.reliefRead(reliefLine) : undefined} onNext={nextBattlePhase} />}
           <section aria-labelledby="fired-title" className={`fired ${teaching ? "coach-target" : ""}`}>
             <h3 id="fired-title">Your standing orders that fired</h3>
             {ours.length === 0 ? <p className="quiet">None of your orders fired.</p> : <FiredList groups={ours} />}

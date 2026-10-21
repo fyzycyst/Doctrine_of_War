@@ -54,17 +54,27 @@ export const COACH_COPY: Record<CoachStep, CoachCopy> = {
   },
 };
 
+/**
+ * How phase 1's losses fell, each by its own cause: a routed company's cohesion reached 0
+ * (it broke and ran); a destroyed company's strength reached 0.
+ */
+function fallenLines(routed: string[], destroyed: string[]): string {
+  const routedLine = routed.length ? `${routed.join(" and ")} broke and ran: ${routed.length === 1 ? "its" : "their"} cohesion reached 0. ` : "";
+  const destroyedLine = destroyed.length ? `${destroyed.join(" and ")} ${destroyed.length === 1 ? "was" : "were"} destroyed: ${destroyed.length === 1 ? "its" : "their"} strength reached 0. ` : "";
+  return routedLine + destroyedLine;
+}
+
 /** Phase 2's marks, naming the real companies (tutorialTargets.ts); fallbacks when this run offers none. */
 export const PHASE2_COPY = {
-  tiring: (company: string, cohesion: number, from: number, broke: string[]): CoachCopy => ({
+  tiring: (company: string, cohesion: number, from: number, routed: string[], destroyed: string[]): CoachCopy => ({
     title: COACH_COPY.tiring.title,
-    body: `${broke.length ? `${broke.join(" and ")} broke and ran: ${broke.length === 1 ? "its" : "their"} cohesion reached 0. ` : ""}${company}: cohesion down from ${from} to ${cohesion}. Cohesion is a company's nerve: at 0 it breaks and runs, however strong it is.`,
+    body: `${fallenLines(routed, destroyed)}${company}: cohesion down from ${from} to ${cohesion}. Cohesion is a company's nerve: at 0 it breaks and runs, however strong it is.`,
     next: "Next",
   }),
-  /** Phase 1 broke a company but none still standing lost nerve: say why it broke. */
-  broke: (broke: string[]): CoachCopy => ({
+  /** Phase 1 cost companies but none still standing lost nerve: say how each fell. */
+  broke: (routed: string[], destroyed: string[]): CoachCopy => ({
     title: COACH_COPY.tiring.title,
-    body: `${broke.join(" and ")} broke and ran: ${broke.length === 1 ? "its" : "their"} cohesion reached 0. This bar is cohesion, a company's nerve: at 0 it breaks, however strong it is.`,
+    body: `${fallenLines(routed, destroyed)}This bar is cohesion, a company's nerve: at 0 it breaks and runs, however strong it is.`,
     next: "Next",
   }),
   musterSelect: (company: string): CoachCopy => ({

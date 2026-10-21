@@ -9,7 +9,7 @@ import { useGame } from "../game/gameStore";
 import { useGuide } from "./guideStore";
 
 vi.mock("../ui/BattleBoard", () => ({ BattleBoard: () => null }));
-vi.mock("./tutorialTargets", () => ({ tutorialTargets: () => ({ broke: [], tired: null, relief: null, mover: null }) }));
+vi.mock("./tutorialTargets", () => ({ tutorialTargets: () => ({ routed: [], destroyed: [], tired: null, relief: null, mover: null }) }));
 
 const mark = () => screen.getByRole("region", { name: "Tutorial step" });
 
