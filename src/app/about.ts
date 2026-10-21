@@ -4,6 +4,8 @@ export const APP_VERSION = "1.0.0";
 export const COPYRIGHT = "© 2026 FTL Enterprises";
 export const WEB_URL = "https://doctrinegame.ftlenterprises.us";
 export const RELEASES_URL = "https://github.com/fyzycyst/Doctrine_of_War/releases";
+/** The game's section of the studio-wide privacy policy. */
+export const PRIVACY_URL = "https://ftlenterprises.us/privacy#doctrine-of-war";
 
 /** Every third-party thing the shipped game carries, with its licence (see CREDITS.md). The fonts'
  * licence texts ship in the build's licenses/ (public/licenses/), for the web and the Mac app. */
