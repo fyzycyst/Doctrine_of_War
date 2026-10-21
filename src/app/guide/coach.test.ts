@@ -15,9 +15,9 @@ describe("the first battle's one lesson", () => {
     const why = LESSON_WHY[`${lesson.squadId}:${lesson.doctrineId}`];
     expect(why).toBeDefined();
     expect(lessonCopy("assign", "Stoneford Riders", "Clean Counterstroke", why, true).body).toBe(
-      "Give the Stoneford Riders the Clean Counterstroke card: they'll charge any enemy that comes on alone, and the Ford Reavers will.",
+      "Click the Clean Counterstroke card in the hand below: it makes them charge any enemy that comes on alone, as the Ford Reavers are about to.",
     );
-    expect(lessonCopy("assign", "Stoneford Riders", "Clean Counterstroke", why, false).body).toMatch(/^Select the Stoneford Riders, then give them/);
+    expect(lessonCopy("assign", "Stoneford Riders", "Clean Counterstroke", why, false).body).toMatch(/^Select the Stoneford Riders, then click the Clean Counterstroke card in their hand/);
     expect(lessonCopy("select", "Stoneford Riders", "Clean Counterstroke", why, false).body).toMatch(/Pick the Stoneford Riders/);
   });
 

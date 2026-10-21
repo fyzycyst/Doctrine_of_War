@@ -4,6 +4,7 @@ import { TitleScene } from "../../render/showcase/TitleScene";
 import { FrameProbe } from "../ui/FrameProbe";
 import { Modal } from "../ui/Modal";
 import { useFlow } from "./flowStore";
+import { tutorialOn, useGuide } from "../guide/guideStore";
 
 /** The title: the First Breach crane shot with the main menu laid over it. */
 export function TitleScreen({ onSettings, onHowTo, onEditor }: { onSettings?: () => void; onHowTo?: () => void; onEditor?: () => void }) {
@@ -21,6 +22,8 @@ export function TitleScreen({ onSettings, onHowTo, onEditor }: { onSettings?: ()
   useEffect(() => first.current?.focus({ preventScroll: true }), [save]);
 
   const canContinue = save === "valid";
+  // Before the tutorial has been finished or skipped (T32): point newcomers at the right door.
+  const newcomer = useGuide(tutorialOn) && !canContinue;
   const continueNote =
     save === "checking" ? "Looking for a saved campaign…" : save === "invalid" ? "The saved campaign could not be read" : save === "none" ? "No saved campaign yet" : null;
 
@@ -39,9 +42,15 @@ export function TitleScreen({ onSettings, onHowTo, onEditor }: { onSettings?: ()
             type="button"
             className={canContinue ? "btn-quiet" : "btn-command"}
             onClick={() => (canContinue ? setConfirming(true) : void begin())}
+            aria-describedby={newcomer ? "newcomer-note" : undefined}
           >
             Begin the Campaign
           </button>
+          {newcomer && (
+            <p id="newcomer-note" className="title-newcomer">
+              New here? <strong>Begin the Campaign.</strong> Its first battle teaches as you go.
+            </p>
+          )}
           {!canContinue && (
             <button type="button" className="btn-quiet" disabled aria-describedby="continue-note">
               Continue

@@ -271,6 +271,76 @@ h3 {
   text-shadow: 0 1px 3px #000;
 }
 
+/* The tutorial (T32): a strip that says so, always, while it runs. */
+.tutorial-strip {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  z-index: 62;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px 6px 16px;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: rgba(20, 16, 22, 0.94);
+  box-shadow:
+    0 0 0 3px rgba(212, 166, 74, 0.18),
+    0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+.tutorial-strip-label {
+  font-family: var(--display);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-hi);
+  white-space: nowrap;
+}
+
+.tutorial-strip-title {
+  font-size: 13.5px;
+  color: var(--bone);
+  white-space: nowrap;
+}
+
+.tutorial-strip .btn-quiet {
+  padding: 3px 12px;
+  font-size: 12.5px;
+}
+
+/* The coach ring, stronger while the tutorial runs (the reduced-motion reset stills its pulse). */
+.coach-ring {
+  border-width: 3px;
+}
+
+.title-newcomer {
+  margin: 2px 0 6px;
+  font-size: 13.5px;
+  text-align: center;
+  color: var(--bone);
+}
+
+.title-newcomer strong {
+  color: var(--gold-hi);
+}
+
+.choice-lede.choice-newcomer {
+  color: var(--gold-hi);
+}
+
+.intro-tutorial {
+  margin: 0 0 14px;
+  color: var(--gold-hi);
+}
+
+.intro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 /* What the battle is fought over (T27): under the two rosters. */
 .roster-objectives {
   display: grid;

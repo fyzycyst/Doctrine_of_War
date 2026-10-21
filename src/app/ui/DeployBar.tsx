@@ -9,7 +9,7 @@ export function DeployBar() {
     <div className="deploy-bar">
       <div>
         <p className="deploy-title">Deploy your companies</p>
-        <p className="deploy-help">Choose a company, then a hex in your deployment zone.</p>
+        <p className="deploy-help">Your companies start in position. To move one, choose it, then a hex in your deployment zone.</p>
         <p className="deploy-notice" role="status" aria-live="polite">
           {notice}
         </p>

@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { useCaptureStore } from "../captureStore";
 import { useGame } from "../game/gameStore";
 import { FIRST_BATTLE } from "./coach";
-import { useGuide } from "./guideStore";
+import { tutorialOn, useGuide } from "./guideStore";
 
 export const MUSTER_TIP = {
   title: "Muster & relief",
@@ -13,14 +13,15 @@ export const MUSTER_TIP = {
 } as const;
 
 export function MusterTip() {
-  const seen = useGuide((s) => s.musterTipSeen);
+  // Outside the tutorial only: the tutorial teaches muster and relief itself, step by step.
+  const seen = useGuide((s) => s.musterTipSeen || tutorialOn(s));
   const see = useGuide((s) => s.seeMusterTip);
   const show = useGame((s) => s.baseScenario.id === FIRST_BATTLE && s.stage === "command" && s.log.length >= 1);
   const captureMode = useCaptureStore((s) => s.captureMode);
   const button = useRef<HTMLButtonElement>(null);
   if (seen || !show || captureMode) return null;
   return (
-    <section className="coach-panel muster-tip" aria-label="Guide">
+    <section className="coach-panel muster-tip" aria-label="Tip">
       <p className="coach-eyebrow" aria-hidden="true">
         New this phase
       </p>

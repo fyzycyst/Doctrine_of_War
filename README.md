@@ -69,7 +69,7 @@ Manual's Controls page (`src/app/shortcuts.ts`; a test keeps this copy in step).
 | `Esc` | Back to the company list | Battle: the hand of doctrines |
 | `↑` or `↓` | Move between companies | Call the Banners: a post's company list |
 | `Esc` | Close the list, or the help | Call the Banners: a post's company list, or How the call works |
-| `Esc` | Skip the guide | The first battle's guide |
+| `Esc` | Skip the tutorial | The tutorial, while a step is showing |
 | `⌘/Ctrl ⇧ H` | Capture mode: hide the interface for a clean picture (again to bring it back) | Anywhere |
 
 ## Run it locally

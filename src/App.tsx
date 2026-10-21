@@ -19,8 +19,7 @@ import { useCaptureStore } from "./app/captureStore";
 import { CoachLayer } from "./app/guide/CoachLayer";
 import { MusterTip } from "./app/guide/MusterTip";
 import { DoctrineIntro } from "./app/guide/DoctrineIntro";
-import { FIRST_BATTLE } from "./app/guide/coach";
-import { useGuide } from "./app/guide/guideStore";
+import { tutorialOn, useGuide } from "./app/guide/guideStore";
 
 /**
  * The command shell: the diorama full-bleed, with the command UI laid over it.
@@ -31,10 +30,9 @@ function App({ still = false, pauseAt }: { still?: boolean; pauseAt?: string }) 
   const hand = useRef<HandHandle>(null);
   const animation = useRef<SquadAnimationApi | null>(null);
   const captureMode = useCaptureStore((s) => s.captureMode);
-  // The first campaign battle opens with "What is a doctrine?" (once).
-  const introSeen = useGuide((s) => s.introSeen);
-  const firstBattle = useGame((s) => s.campaign !== null && s.baseScenario.id === FIRST_BATTLE);
-  const showIntro = !introSeen && firstBattle;
+  // The player's first battle, by any route (a campaign's or a skirmish), opens with
+  // "Standing orders" and the tutorial (T32).
+  const showIntro = useGuide((s) => !s.introSeen && tutorialOn(s));
   useBoardDeployment();
   useBoardMuster();
   useEscapeDeselects();
