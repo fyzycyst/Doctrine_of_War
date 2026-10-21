@@ -7,8 +7,7 @@ import { emberDusk } from "../../render/skins";
 import { useCaptureStore } from "../captureStore";
 import { useGame } from "../game/gameStore";
 import { useAppStore } from "../store";
-import { FIRST_BATTLE } from "../guide/coach";
-import { useGuide } from "../guide/guideStore";
+import { tutorialOn, useGuide } from "../guide/guideStore";
 import { PlaybackDirector } from "../playback/director";
 import { buildTimeline, snapshotBefore } from "../playback/timeline";
 import { stageTurn } from "../game/goal";
@@ -86,11 +85,10 @@ export function Playback({
         // First battle: the guide stops on the first of your rule banners so it can be read.
         const guide = useGuide.getState();
         const teach =
-          guide.coach === "active" &&
+          tutorialOn(guide) &&
           guide.step === "watch" &&
           guide.watchCallout === null &&
           !useCaptureStore.getState().captureMode &&
-          game.baseScenario.id === FIRST_BATTLE &&
           spec.kind === "rule" &&
           spec.faction === game.scenario.playerFaction &&
           !spec.repeat;
@@ -168,7 +166,7 @@ export function Playback({
     // When the "watch" mark is answered (or the guide skipped), carry on and let its banner go.
     const unsubscribeGuide = useGuide.subscribe((guide, before) => {
       const pinned = before.watchCallout;
-      if (pinned !== null && (guide.step !== "watch" || guide.coach !== "active")) {
+      if (pinned !== null && (guide.step !== "watch" || !tutorialOn(guide))) {
         useGuide.getState().pinCallout(null);
         animation.current?.resume();
         run.resume();

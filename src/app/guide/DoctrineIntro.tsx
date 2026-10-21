@@ -12,6 +12,7 @@ import { useGuide } from "./guideStore";
  */
 export function DoctrineIntro() {
   const seeIntro = useGuide((s) => s.seeIntro);
+  const skip = useGuide((s) => s.skip);
   const next = useRef<HTMLButtonElement>(null);
   const shield = doctrineLibrary.shield_the_line;
   const firing = shield.rules[1];
@@ -35,12 +36,25 @@ export function DoctrineIntro() {
           </div>
         </div>
         <div className="intro-copy">
-          <p className="scroll-eyebrow">Before the first battle</p>
+          <p className="scroll-eyebrow">Before your first battle</p>
           <h2 id="intro-title">Standing orders</h2>
           <p id="intro-body">You don't command soldiers. You give each company standing orders, then watch them act.</p>
-          <button ref={next} type="button" className="btn-command" onClick={seeIntro}>
-            Continue
-          </button>
+          <p className="intro-tutorial">This battle is your tutorial: it shows you each step as you play, through its first two phases.</p>
+          <div className="intro-actions">
+            <button ref={next} type="button" className="btn-command" onClick={seeIntro}>
+              Show me as I play
+            </button>
+            <button
+              type="button"
+              className="btn-quiet"
+              onClick={() => {
+                seeIntro();
+                skip();
+              }}
+            >
+              I know how to play
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

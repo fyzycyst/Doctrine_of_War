@@ -19,7 +19,10 @@ export const COACH_COPY: Record<CoachStep, CoachCopy> = {
     next: "Next",
   },
   assign: { title: "Give new orders", body: "Pick a different card from your hand to change what this company does." },
-  seal: { title: "Seal your orders", body: "When every company has its orders, seal them. The phase then plays out on its own." },
+  seal: {
+    title: "Seal your orders",
+    body: "Companies you didn't change keep their standing orders. Seal, and the phase plays out on its own.",
+  },
   watch: {
     title: "Watch your orders fire",
     body: "Each banner shows the rule a company is following right now. The battle waits while you read.",
@@ -27,9 +30,73 @@ export const COACH_COPY: Record<CoachStep, CoachCopy> = {
   },
   chronicle: {
     title: "Read the chronicle",
-    body: "After each phase: which of your orders fired, and what came of them.",
-    next: "Finish the guide",
+    body: "After each phase: which of your orders fired, and what came of them. Phase 2 adds something new.",
+    next: "Next phase",
   },
+  tiring: {
+    title: "Your line is tiring",
+    body: "This bar is a company's cohesion, its nerve. When it reaches 0 the company breaks and runs, however strong it is.",
+    next: "Next",
+  },
+  muster: {
+    title: "Muster: move a company",
+    body: "Before you seal, a company not in contact may muster: move 1 hex (cavalry 2). Select it and its hexes glow: click one, or pick one in its panel.",
+  },
+  relieve: {
+    title: "Relief: swap a company out of the line",
+    body: "A company out of contact, beside one in contact, can relieve it: they swap places, and the tired one steps out of the line.",
+  },
+  sealAgain: { title: "Seal again", body: "Your musters and reliefs happen first, before the Host moves. Then the phase plays out." },
+  relief: {
+    title: "The whole loop",
+    body: "That's the whole loop: orders, muster, seal, watch, read. Play on to the end of the battle. Press F1 any time for the Field Manual.",
+    next: "Finish the tutorial",
+  },
+};
+
+/** Phase 2's marks, naming the real companies (tutorialTargets.ts); fallbacks when this run offers none. */
+export const PHASE2_COPY = {
+  tiring: (company: string, cohesion: number, from: number, broke: string[]): CoachCopy => ({
+    title: COACH_COPY.tiring.title,
+    body: `${broke.length ? `${broke.join(" and ")} broke and ran: ${broke.length === 1 ? "its" : "their"} cohesion reached 0. ` : ""}${company}: cohesion down from ${from} to ${cohesion}. Cohesion is a company's nerve: at 0 it breaks and runs, however strong it is.`,
+    next: "Next",
+  }),
+  /** Phase 1 broke a company but none still standing lost nerve: say why it broke. */
+  broke: (broke: string[]): CoachCopy => ({
+    title: COACH_COPY.tiring.title,
+    body: `${broke.join(" and ")} broke and ran: ${broke.length === 1 ? "its" : "their"} cohesion reached 0. This bar is cohesion, a company's nerve: at 0 it breaks, however strong it is.`,
+    next: "Next",
+  }),
+  musterSelect: (company: string): CoachCopy => ({
+    title: COACH_COPY.muster.title,
+    body: `Before you seal, a company not in contact may muster: move before the phase begins. Select ${company}.`,
+  }),
+  musterPick: (company: string, reach: number): CoachCopy => ({
+    title: COACH_COPY.muster.title,
+    body: `Muster to bring a company closer to the fight or onto better ground. Where ${company} can go glows on the board (${reach} hex${reach === 1 ? "" : "es"}): click one, or pick one here (each named for its ground).`,
+  }),
+  musterNone: {
+    title: COACH_COPY.muster.title,
+    body: "Before you seal, a company not in contact may move 1 hex (cavalry 2). Nobody is free to this phase; select a company later and its muster hexes glow.",
+    next: "Next",
+  } satisfies CoachCopy,
+  reliefSelect: (reliever: string, tired: string): CoachCopy => ({
+    title: COACH_COPY.relieve.title,
+    body: `${tired} is in contact. ${reliever}, beside it and out of contact, can relieve it: the two swap places and ${tired} steps out of the line to recover. Select ${reliever}.`,
+  }),
+  reliefPick: (tired: string): CoachCopy => ({
+    title: COACH_COPY.relieve.title,
+    body: `Choose Relieve ${tired} here, or click ${tired} on the board.`,
+  }),
+  reliefNone: {
+    title: COACH_COPY.relieve.title,
+    body: "A company out of contact, beside one in contact, can relieve it: they swap places, and the tired one steps out. No company can this phase. When one can, its tab says Can relieve.",
+    next: "Next",
+  } satisfies CoachCopy,
+  reliefRead: (line: string): CoachCopy => ({
+    ...COACH_COPY.relief,
+    body: `Your relief opened the chronicle: "${line}". That's the whole loop: orders, muster, seal, watch, read. Play on to the end of the battle. Press F1 any time for the Field Manual.`,
+  }),
 };
 
 /**
@@ -48,7 +115,7 @@ export function firstLesson(scenario: EngineScenario): { squadId: string; doctri
 
 /** Why the lesson's card is right, keyed "squadId:doctrineId" (lower-case start: it follows a colon). */
 export const LESSON_WHY: Record<string, string> = {
-  "stoneford_riders:clean_counterstroke": "they'll charge any enemy that comes on alone, and the Ford Reavers will.",
+  "stoneford_riders:clean_counterstroke": "it makes them charge any enemy that comes on alone, as the Ford Reavers are about to.",
 };
 
 /**
@@ -61,6 +128,6 @@ export function lessonCopy(step: CoachStep, company: string, doctrine: string, w
   }
   return {
     title: COACH_COPY.assign.title,
-    body: onLesson ? `Give the ${company} the ${doctrine} card: ${why}` : `Select the ${company}, then give them the ${doctrine} card: ${why}`,
+    body: onLesson ? `Click the ${doctrine} card in the hand below: ${why}` : `Select the ${company}, then click the ${doctrine} card in their hand: ${why}`,
   };
 }

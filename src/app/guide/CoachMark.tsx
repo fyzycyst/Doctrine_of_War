@@ -129,10 +129,10 @@ export function CoachMark({
         ref={panelRef}
         className={`coach-panel side-${layout?.side ?? prefer} ${layout ? "" : "unplaced"}`}
         style={layout?.panel}
-        aria-label="Guide"
+        aria-label="Tutorial step"
       >
         <p className="coach-eyebrow" aria-hidden="true">
-          Guide · {index + 1} of {COACH_STEPS.length}
+          Tutorial · step {index + 1} of {COACH_STEPS.length}
         </p>
         <h2 className="coach-title">{copy.title}</h2>
         <p className="coach-body">{copy.body}</p>
@@ -143,7 +143,7 @@ export function CoachMark({
             </button>
           )}
           <button type="button" className="coach-skip" onClick={skip}>
-            Skip the guide <kbd>Esc</kbd>
+            Skip tutorial <kbd>Esc</kbd>
           </button>
         </div>
       </section>

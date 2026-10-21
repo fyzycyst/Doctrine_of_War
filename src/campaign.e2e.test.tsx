@@ -53,7 +53,7 @@ async function orderByHand(user: User, plan: "intended" | "bad") {
 /** From a briefing, through every phase, to the outcome screen. Returns the outcome word. */
 async function fightBattle(user: User, plan: "intended" | "bad" = "intended"): Promise<string> {
   const intro = screen.queryByRole("dialog", { name: "Standing orders" });
-  if (intro) await user.click(within(intro).getByRole("button", { name: "Continue" }));
+  if (intro) await user.click(within(intro).getByRole("button", { name: "Show me as I play" }));
   await user.click(screen.getByRole("button", { name: "Take Command" }));
   await user.click(screen.getByRole("button", { name: "March to positions" }));
   for (let guard = 0; guard < 8 && game().stage === "command"; guard += 1) {
@@ -64,9 +64,9 @@ async function fightBattle(user: User, plan: "intended" | "bad" = "intended"): P
     expect(game().stage).toBe("resolving");
     await user.click(screen.getByRole("button", { name: /Skip\s*Space/ }));
     await waitFor(() => expect(game().stage).toBe("report"));
-    const guideMark = screen.queryByRole("button", { name: "Finish the guide" });
-    if (guideMark) await user.click(guideMark);
-    await user.click(screen.getByRole("button", { name: /Next Phase|See the outcome/ }));
+    // The tutorial's steps in the chronicle (first battle) are the report's next: one button.
+    const tutorialStep = screen.queryByRole("button", { name: /^(Next phase|Finish the tutorial)$/ });
+    await user.click(tutorialStep ?? screen.getByRole("button", { name: /Next Phase|See the outcome/ }));
   }
   expect(game().stage).toBe("outcome");
   return screen.getByRole("heading", { level: 2, name: /Victory|Defeat|Stalemate/ }).textContent!;
@@ -104,7 +104,7 @@ describe("end-to-end campaign", () => {
       expect(useFlow.getState().screen).toBe("ending");
       expect(screen.getByRole("heading", { name: "Epilogue" })).toBeInTheDocument();
       expect(loadCampaign(store.data!, ashAndBanner).status).toBe("complete");
-      // The guide ran once, in the first battle only.
+      // The tutorial ran once, in the first battle, and was finished there.
       expect(useGuide.getState()).toMatchObject({ introSeen: true, coach: "done" });
     },
     60_000,

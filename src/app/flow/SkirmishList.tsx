@@ -9,6 +9,7 @@ import { packs } from "../roll/api";
 import { FrameProbe } from "../ui/FrameProbe";
 import { useFlow } from "./flowStore";
 import { useDockedMenu } from "./useDockedMenu";
+import { tutorialOn, useGuide } from "../guide/guideStore";
 
 /** The briefing's opening sentence: enough to tell the battles apart. */
 export function firstSentence(text: string): string {
@@ -39,6 +40,7 @@ export function SkirmishList({ onSettings }: { onSettings?: () => void }) {
   // One island per skirmish: the board it is fought on, labelled with its title when lit.
   const chains: CampaignSelectChain[] = entries.map(({ skirmish, scenario }) => ({ id: skirmish.id, boards: [scenario!.board], title: skirmish.title }));
   const docked = useDockedMenu();
+  const tutorialPending = useGuide(tutorialOn);
   const byPack = packs().packs.filter((pack) => entries.some((entry) => entry.pack.id === pack.id));
 
   useEffect(() => firstButton.current?.focus({ preventScroll: true }), []);
@@ -56,6 +58,11 @@ export function SkirmishList({ onSettings }: { onSettings?: () => void }) {
                 Every skirmish starts with the battle&apos;s default forces: its own companies, all fresh, with no veterans. The Host comes at its
                 usual strength. Nothing is saved.
               </p>
+              {tutorialPending && (
+                <p className="choice-lede choice-newcomer">
+                  New here? The tutorial runs in your first battle, whichever you choose, but Begin the Campaign is the gentlest start.
+                </p>
+              )}
             </div>
           </header>
           {entries.length === 0 && <p className="choice-lede">No skirmishes are offered in this build.</p>}

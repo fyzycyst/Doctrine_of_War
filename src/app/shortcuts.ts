@@ -29,7 +29,7 @@ export const SHORTCUTS = [
   { id: "handLeave", combos: [{ key: "Escape" }], where: "Battle: the hand of doctrines", does: "Back to the company list" },
   { id: "listMove", combos: [{ key: "ArrowUp" }, { key: "ArrowDown" }], where: "Call the Banners: a post's company list", does: "Move between companies" },
   { id: "listClose", combos: [{ key: "Escape" }], where: "Call the Banners: a post's company list, or How the call works", does: "Close the list, or the help" },
-  { id: "skipGuide", combos: [{ key: "Escape" }], where: "The first battle's guide", does: "Skip the guide" },
+  { id: "skipGuide", combos: [{ key: "Escape" }], where: "The tutorial, while a step is showing", does: "Skip the tutorial" },
   { id: "capture", combos: [{ key: "h", commandShift: true }], where: "Anywhere", does: "Capture mode: hide the interface for a clean picture (again to bring it back)" },
 ] as const satisfies readonly Shortcut[];
 

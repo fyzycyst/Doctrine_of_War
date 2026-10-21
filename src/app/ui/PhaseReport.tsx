@@ -14,9 +14,9 @@ import {
   type Losses,
 } from "../game/chronicle";
 import { reportHeadline, splitRule, WEATHER_NAME } from "../game/view";
-import { useFirstBattle } from "../guide/CoachLayer";
-import { useGuide } from "../guide/guideStore";
+import { tutorialOn, useGuide } from "../guide/guideStore";
 import { InlineCoach } from "../guide/InlineCoach";
+import { PHASE2_COPY } from "../guide/coach";
 import { ExperimentalBadge } from "./DoctrineCard";
 import { Modal, rosterFocus } from "./Modal";
 import { useShowSeed } from "../settingsStore";
@@ -62,9 +62,9 @@ export function PhaseReport() {
   const nextPhase = useGame((s) => s.nextPhase);
   const replay = useGame((s) => s.replayPhase);
   const scenario = useGame((s) => s.scenario);
-  const chronicleStep = useGuide((s) => s.coach === "active" && s.step === "chronicle");
-  const firstBattle = useFirstBattle();
-  const teaching = chronicleStep && firstBattle;
+  // The tutorial's chronicle steps (in whichever battle it runs): phase 1's, and phase 2's musters.
+  const tutorialStep = useGuide((s) => (tutorialOn(s) && (s.step === "chronicle" || s.step === "relief") ? s.step : null));
+  const teaching = tutorialStep !== null;
   const entry = log[log.length - 1];
   const button = useRef<HTMLButtonElement>(null);
 
@@ -72,6 +72,9 @@ export function PhaseReport() {
   const names = useMemo(() => (entry ? namesFor([entry.start, view]) : null), [entry, view]);
   const beats = useMemo(() => (entry && names ? buildChronicle(entry.events, names) : []), [entry, names]);
   const fired = useMemo(() => (entry && names ? firedOrders(entry.events, names) : []), [entry, names]);
+  // The tutorial quotes the relief's chronicle line, when there was one this phase.
+  const relieved = entry?.events.find((event) => event.kind === "relieved");
+  const reliefLine = relieved?.kind === "relieved" && names ? `${names.name(relieved.squadId)} relieved ${names.name(relieved.relievedId)} in the line` : null;
   if (!entry) {
     return null;
   }
@@ -89,7 +92,8 @@ export function PhaseReport() {
         </header>
 
         <div className="report-body">
-          {teaching && <InlineCoach step="chronicle" />}
+          {tutorialStep === "chronicle" && <InlineCoach step="chronicle" onNext={nextPhase} />}
+          {tutorialStep === "relief" && <InlineCoach step="relief" copy={reliefLine ? PHASE2_COPY.reliefRead(reliefLine) : undefined} onNext={nextPhase} />}
           <section aria-labelledby="fired-title" className={`fired ${teaching ? "coach-target" : ""}`}>
             <h3 id="fired-title">Your standing orders that fired</h3>
             {ours.length === 0 ? <p className="quiet">None of your orders fired.</p> : <FiredList groups={ours} />}

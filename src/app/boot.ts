@@ -9,7 +9,7 @@
 //   &speed=N               fast-forward playback
 //   &select=<squadId>      select a squad
 //   &still=1               no idle camera drift (captures)
-//   &guide=reset | &coach=select|read|assign|seal|watch|chronicle | &howto=1   guidance
+//   &guide=reset | &coach=<step> (COACH_STEPS: select … relief) | &howto=1   the tutorial and guidance
 //   &help=play|doctrines|companies|call|modes|editor|controls|about   the Field Manual on a page (T26)
 //   &callHelp=seen|open    Call the Banners' "How the call works" (T25)
 import type { EngineScenario } from "../game/engine";
@@ -86,7 +86,12 @@ export function bootFromUrl(search: string): BootOptions {
     );
   }
 
-  // First-battle guidance (captures): `&guide=reset` starts it fresh; `&coach=<step>` jumps to a mark.
+  // A battle opened straight from the URL (dev, captures) shows no tutorial unless asked for
+  // with `&guide=reset` or `&coach=<step>`. Not saved: the next visit is unaffected.
+  const direct = Boolean(scenario || fortune || seed || params.get("stage") || skirmish || params.get("rollBattle"));
+  if (direct && !params.get("guide") && !params.get("coach")) useGuide.setState({ off: true });
+
+  // The tutorial (captures): `&guide=reset` starts it fresh; `&coach=<step>` jumps to a step.
   if (params.get("guide") === "reset" || params.get("coach")) {
     useGuide.getState().reset();
   }

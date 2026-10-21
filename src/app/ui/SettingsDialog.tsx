@@ -191,7 +191,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           </Row>
 
           <h3 className="settings-section">Help &amp; support</h3>
-          <Row title="Guidance" help="The field manual, or the first battle's guide again (it shows on your next First Breach).">
+          <Row title="Guidance" help="The Field Manual, or the tutorial again: it runs in your next battle, from the first step.">
             <div className="settings-audio">
               <button
                 type="button"
@@ -204,7 +204,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 Field Manual
               </button>
               <button type="button" className="btn-quiet" disabled={guideFresh} onClick={resetGuide}>
-                {guideFresh ? "Guide ready" : "Show the guide again"}
+                {guideFresh ? "Tutorial ready" : "Show the tutorial again"}
               </button>
             </div>
           </Row>
