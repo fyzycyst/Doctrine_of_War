@@ -12,10 +12,10 @@ const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
 const require = createRequire(import.meta.url);
 
 describe("the 1.0 app identity", () => {
-  it("is FTL Enterprises' version 1.0.0", () => {
+  it("is FTL Enterprises' version 1.0.1", () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
     const builder = require(path.join(root, "electron-builder.cjs"));
-    expect(pkg.version).toBe("1.0.0");
+    expect(pkg.version).toBe("1.0.1");
     expect(builder.appId).toBe("us.ftlenterprises.doctrine-of-war");
     expect(builder.copyright).toBe("© 2026 FTL Enterprises");
   });

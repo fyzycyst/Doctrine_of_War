@@ -12,7 +12,7 @@ diorama. Then you read the chronicle, see which orders fired, and write better o
   <a href="https://github.com/fyzycyst/Doctrine_of_War/releases"><strong>⬇ Download for Mac</strong></a>
 </p>
 
-Version 1.0.0 · © 2026 FTL Enterprises
+Version 1.0.1 · © 2026 FTL Enterprises
 
 ## The game
 
@@ -50,7 +50,7 @@ against the original over many battles), and an in-game **Field Manual** (press 
 | | |
 | --- | --- |
 | **In a browser** | <https://doctrinegame.ftlenterprises.us>. A modern desktop browser with **WebGL 2** (current Chrome, Edge, Firefox or Safari). Saves stay in that browser. |
-| **On a Mac** | The DMG from [the releases page](https://github.com/fyzycyst/Doctrine_of_War/releases): one for **Apple silicon** (`Doctrine.of.War-1.0.0-arm64.dmg`) and one for **Intel** (`Doctrine.of.War-1.0.0.dmg`). Requires **macOS 13 Ventura or later**. Signed and notarized. Saves go to `~/Library/Application Support/Doctrine of War/`. |
+| **On a Mac** | The DMG from [the releases page](https://github.com/fyzycyst/Doctrine_of_War/releases): one for **Apple silicon** (`Doctrine.of.War-1.0.1-arm64.dmg`) and one for **Intel** (`Doctrine.of.War-1.0.1.dmg`). Requires **macOS 13 Ventura or later**. Signed and notarized. Saves go to `~/Library/Application Support/Doctrine of War/`. |
 
 ## Controls
 
