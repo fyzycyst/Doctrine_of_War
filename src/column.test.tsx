@@ -36,7 +36,7 @@ describe("the Saltmarsh Column", () => {
     render(<App />);
     expect(screen.getByRole("status", { name: "Goal: Get the Column and 3 more out, 0/4" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    const confirm = screen.getByRole("dialog", { name: "Seal your orders?" });
+    const confirm = screen.getByRole("dialog", { name: "Seal without changes?" });
     expect(within(confirm).queryByText(/Column/)).not.toBeInTheDocument();
     expect(game().defaultedSquads()).not.toContain("saltmarsh_column");
   });

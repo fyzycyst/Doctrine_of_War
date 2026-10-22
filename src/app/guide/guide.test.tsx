@@ -146,7 +146,7 @@ describe("phase 1", () => {
     act(() => useGame.setState({ playbackSpeed: 100 }));
     // The tutorial teaches that untouched companies keep their standing orders: no question asked.
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    expect(screen.queryByRole("dialog", { name: "Seal your orders?" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Seal without changes?" })).not.toBeInTheDocument();
     expect(guide().step).toBe("watch");
     // Playback stops on the first of your rule banners until you carry on.
     await waitFor(() => expect(guide().watchCallout).not.toBeNull(), { timeout: 5000 });
@@ -304,7 +304,7 @@ describe("phase 2: muster and relief, on the live battle", () => {
     expect(mark()).toHaveTextContent("Every other company follows its standing orders, as usual.");
     // Sealing in the tutorial asks nothing: it has just taught why.
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    expect(screen.queryByRole("dialog", { name: "Seal your orders?" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Seal without changes?" })).not.toBeInTheDocument();
     expect(game().stage).toBe("resolving");
   });
 
