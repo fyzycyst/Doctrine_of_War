@@ -144,8 +144,9 @@ describe("phase 1", () => {
     expect(within(mark()!).getByRole("heading", { name: "Seal your orders" })).toBeInTheDocument();
 
     act(() => useGame.setState({ playbackSpeed: 100 }));
+    // The tutorial teaches that untouched companies keep their standing orders: no question asked.
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    await user.click(screen.getByRole("button", { name: "Seal anyway" }));
+    expect(screen.queryByRole("dialog", { name: "Seal your orders?" })).not.toBeInTheDocument();
     expect(guide().step).toBe("watch");
     // Playback stops on the first of your rule banners until you carry on.
     await waitFor(() => expect(guide().watchCallout).not.toBeNull(), { timeout: 5000 });
@@ -183,7 +184,6 @@ describe("phase 1", () => {
     act(() => void game().assignDoctrine("greyford_shields", "fighting_withdrawal"));
     expect(guide().step).toBe("seal");
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    await user.click(screen.getByRole("button", { name: "Seal anyway" }));
     expect(guide().step).toBe("watch");
     await user.click(screen.getByRole("button", { name: /Skip\s*Space/ }));
     await waitFor(() => expect(game().stage).toBe("report"));
@@ -244,6 +244,7 @@ describe("phase 2: muster and relief, on the live battle", () => {
     expect(mark()).toHaveTextContent(`Select ${nameOf(mover.squadId)}.`);
     await user.click(screen.getByRole("option", { name: new RegExp(nameOf(mover.squadId)) }));
     expect(mark()).toHaveTextContent(`Where ${nameOf(mover.squadId)} can go glows on the board`);
+    expect(mark()).toHaveTextContent("click a glowing hex on the board, or pick one here in the Inspector");
     const hex = await import("../game/muster").then(({ musterTargets }) => musterTargets(game().engine, game().scenario, game().muster, mover.squadId).hexes[0]);
     act(() => void game().planMuster({ squadId: mover.squadId, to: hex }));
     expect(guide().step).toBe("relieve");
@@ -254,7 +255,7 @@ describe("phase 2: muster and relief, on the live battle", () => {
     // One story: the tired company shown earlier isn't the one doing the relieving.
     expect(tired.squadId).not.toBe(relief.reliever);
     await user.click(screen.getByRole("option", { name: new RegExp(nameOf(relief.reliever)) }));
-    expect(mark()).toHaveTextContent(`Choose Relieve ${nameOf(relief.tired)} here`);
+    expect(mark()).toHaveTextContent(`Click ${nameOf(relief.tired)} on the board (its hex glows), or choose Relieve ${nameOf(relief.tired)} here`);
     await user.click(screen.getByRole("button", { name: `Relieve ${nameOf(relief.tired)}` }));
     expect(guide().step).toBe("sealAgain");
     expect(within(mark()!).getByRole("heading", { name: "Seal again" })).toBeInTheDocument();
@@ -273,6 +274,38 @@ describe("phase 2: muster and relief, on the live battle", () => {
     expect(game().log).toHaveLength(2);
     expect(game().stage).not.toBe("report"); // and on to phase 3
     expect(strip()).not.toBeInTheDocument();
+  });
+
+  it("steps 8 and 9 by clicking the board: a glowing hex, then the worn company's figure (T33)", async () => {
+    const user = userEvent.setup();
+    battleAt(firstBreach, "command");
+    render(<Root />);
+    toPhaseTwo();
+    await user.click(within(mark()!).getByRole("button", { name: "Next" }));
+    expect(guide().step).toBe("muster");
+    const { musterTargets } = await import("../game/muster");
+    const { selectPick } = await import("../../render/picking");
+    // Muster: the company armed, a click on one of its glowing hexes (empty: the pick has no company).
+    const mover = tutorialTargets(game().engine, game().scenario, game().muster).mover!;
+    await user.click(screen.getByRole("option", { name: new RegExp(nameOf(mover.squadId)) }));
+    const to = musterTargets(game().engine, game().scenario, game().muster, mover.squadId).hexes[0];
+    await act(async () => selectPick(useAppStore.getState(), { ...to }, null));
+    expect(game().muster).toEqual([{ squadId: mover.squadId, to }]);
+    expect(useAppStore.getState().selectedSquadId).toBe(mover.squadId);
+    expect(guide().step).toBe("relieve");
+    // Relief: the reliever armed, a click on the worn company's figure.
+    const relief = tutorialTargets(game().engine, game().scenario, game().muster).relief!;
+    await user.click(screen.getByRole("option", { name: new RegExp(nameOf(relief.reliever)) }));
+    const tiredHex = game().view.squads.find((squad) => squad.id === relief.tired)!.hex!;
+    await act(async () => selectPick(useAppStore.getState(), { ...tiredHex }, relief.tired));
+    expect(game().muster).toContainEqual({ squadId: relief.reliever, relieve: relief.tired });
+    expect(useAppStore.getState().selectedSquadId).toBe(relief.reliever);
+    expect(guide().step).toBe("sealAgain");
+    expect(mark()).toHaveTextContent("Every other company follows its standing orders, as usual.");
+    // Sealing in the tutorial asks nothing: it has just taught why.
+    await user.click(screen.getByRole("button", { name: "Seal Orders" }));
+    expect(screen.queryByRole("dialog", { name: "Seal your orders?" })).not.toBeInTheDocument();
+    expect(game().stage).toBe("resolving");
   });
 
   it("is done once the battle moves past phase 2 even without the last click", () => {

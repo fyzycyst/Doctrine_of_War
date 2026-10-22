@@ -112,7 +112,7 @@ async function drive(win) {
     if (await js(`Boolean(${intro}) && /Standing orders/.test(${intro}.textContent)`)) await tryClick(/^Continue$/, intro);
     if (await tryClick(/^See the outcome$/)) continue;
     if (await tryClick(/^Next Phase$/)) continue;
-    if (await tryClick(/^Seal anyway$/)) continue;
+    if (await tryClick(/^Seal$/)) continue;
     if (await tryClick(/^Seal Orders$/)) continue;
     if (await js(`Boolean(${button(/^Skip/)})`)) {
       if (!shotPlayback) {

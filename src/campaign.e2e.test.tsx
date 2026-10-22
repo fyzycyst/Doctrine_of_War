@@ -59,8 +59,8 @@ async function fightBattle(user: User, plan: "intended" | "bad" = "intended"): P
   for (let guard = 0; guard < 8 && game().stage === "command"; guard += 1) {
     await orderByHand(user, plan);
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    const confirm = screen.queryByRole("alertdialog");
-    if (confirm) await user.click(within(confirm).getByRole("button", { name: "Seal anyway" }));
+    const confirm = screen.queryByRole("dialog", { name: "Seal your orders?" });
+    if (confirm) await user.click(within(confirm).getByRole("button", { name: "Seal" }));
     expect(game().stage).toBe("resolving");
     await user.click(screen.getByRole("button", { name: /Skip\s*Space/ }));
     await waitFor(() => expect(game().stage).toBe("report"));
@@ -126,8 +126,8 @@ describe("end-to-end campaign", () => {
     for (let guard = 0; guard < 8 && game().stage === "command"; guard += 1) {
       await orderByHand(user, "intended");
       await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-      const confirm = screen.queryByRole("alertdialog");
-      if (confirm) await user.click(within(confirm).getByRole("button", { name: "Seal anyway" }));
+      const confirm = screen.queryByRole("dialog", { name: "Seal your orders?" });
+      if (confirm) await user.click(within(confirm).getByRole("button", { name: "Seal" }));
       await user.click(screen.getByRole("button", { name: /Skip\s*Space/ }));
       await waitFor(() => expect(game().stage).toBe("report"));
       await user.click(screen.getByRole("button", { name: /Next Phase|See the outcome/ }));
@@ -211,8 +211,8 @@ describe("end-to-end campaign", () => {
     // Phase 1 as planned.
     await orderByHand(user, "intended");
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    const first = screen.queryByRole("alertdialog");
-    if (first) await user.click(within(first).getByRole("button", { name: "Seal anyway" }));
+    const first = screen.queryByRole("dialog", { name: "Seal your orders?" });
+    if (first) await user.click(within(first).getByRole("button", { name: "Seal" }));
     await user.click(screen.getByRole("button", { name: /Skip\s*Space/ }));
     await waitFor(() => expect(game().stage).toBe("report"));
     await user.click(screen.getByRole("button", { name: "Next Phase" }));
@@ -241,10 +241,10 @@ describe("end-to-end campaign", () => {
     expect(screen.getByText(/3 to muster/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    const confirm = screen.queryByRole("alertdialog");
+    const confirm = screen.queryByRole("dialog", { name: "Seal your orders?" });
     if (confirm) {
       expect(confirm).toHaveTextContent("3 companies will muster before the phase begins.");
-      await user.click(within(confirm).getByRole("button", { name: "Seal anyway" }));
+      await user.click(within(confirm).getByRole("button", { name: "Seal" }));
     }
     expect(game().stage).toBe("resolving");
     const events = game().log[1].events;

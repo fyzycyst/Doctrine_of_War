@@ -137,6 +137,12 @@ const STAGES = [
   { name: "t32-09-relieve-pick", query: "stage=command&phase=2&plan=intended&coach=relieve&select=mercy_standard" },
   { name: "t32-10-seal-again", query: "stage=command&phase=2&plan=intended&coach=sealAgain" },
   { name: "t32-11-relief", query: "stage=report&phase=2&plan=intended&coach=relief" },
+  // T33: the seal question outside the tutorial, reworded to reassure (phase 2, nothing changed).
+  {
+    name: "t33-seal-confirm",
+    query: "stage=command&phase=2&plan=intended",
+    eval: `document.querySelector(".wax-seal")?.click()`,
+  },
   { name: "howto", query: "screen=title&howto=1", settleMs: 1500, sizes: [[1600, 1000]] },
   // T26: the Field Manual, page by page.
   ...["play", "doctrines", "companies", "call", "modes", "editor", "controls", "about"].map((page) => ({ name: `t26-manual-${page}`, query: `screen=title&help=${page}`, settleMs: 1500 })),

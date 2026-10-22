@@ -6,6 +6,7 @@ import { useGame } from "./gameStore";
 import { useAppStore } from "../store";
 import { boardZone, useBoardMuster } from "../ui/useMuster";
 import { musterTargets } from "./muster";
+import { selectPick } from "../../render/picking";
 
 const game = () => useGame.getState();
 
@@ -106,6 +107,27 @@ describe("muster by clicking the board", () => {
     await act(() => Promise.resolve());
     expect(game().muster).toContainEqual({ squadId: "greyford_shields", relieve: "gatewarden_spears" });
     expect(useAppStore.getState().selectedSquadId).toBe("greyford_shields");
+  });
+
+  it("plans a relief when the worn company's figure is clicked, as when its hex is (T33)", async () => {
+    renderHook(() => useBoardMuster());
+    act(() => useAppStore.getState().selectSquad("greyford_shields"));
+    const tired = game().view.squads.find((squad) => squad.id === "gatewarden_spears")!.hex!;
+    // The Diorama's figure pick: the clicked company, on its hex.
+    act(() => selectPick(useAppStore.getState(), { ...tired }, "gatewarden_spears"));
+    await act(() => Promise.resolve());
+    expect(game().muster).toContainEqual({ squadId: "greyford_shields", relieve: "gatewarden_spears" });
+    expect(useAppStore.getState().selectedSquadId).toBe("greyford_shields");
+  });
+
+  it("selects a company whose figure is clicked when no company is armed", async () => {
+    renderHook(() => useBoardMuster());
+    act(() => useAppStore.getState().clearSelection());
+    const tired = game().view.squads.find((squad) => squad.id === "gatewarden_spears")!.hex!;
+    act(() => selectPick(useAppStore.getState(), { ...tired }, "gatewarden_spears"));
+    await act(() => Promise.resolve());
+    expect(game().muster).toEqual([]);
+    expect(useAppStore.getState().selectedSquadId).toBe("gatewarden_spears");
   });
 });
 

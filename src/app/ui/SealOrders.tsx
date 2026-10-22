@@ -2,10 +2,14 @@ import { useRef, useState } from "react";
 import { useGame } from "../game/gameStore";
 import { musterCount } from "../game/muster";
 import { getDoctrine } from "../game/view";
+import { tutorialOn, useGuide } from "../guide/guideStore";
 import { SealMark } from "./glyphs";
 import { Modal } from "./Modal";
 
-/** The wax-seal commit. If any company would fight on a doctrine you did not pick, it asks first. */
+/**
+ * The wax-seal commit. If some companies have no new orders it says so first, kindly: they
+ * keep their standing doctrines, which is normal (T33). Not in the tutorial, which teaches it.
+ */
 export function SealOrders() {
   const defaulted = useGame((s) => s.defaultedSquads);
   const seal = useGame((s) => s.sealOrders);
@@ -24,7 +28,7 @@ export function SealOrders() {
   const mustering = musterCount(muster);
   const onSeal = () => {
     const left = defaulted();
-    if (left.length > 0) {
+    if (left.length > 0 && !tutorialOn(useGuide.getState())) {
       setConfirming(left);
     } else {
       seal();
@@ -88,17 +92,17 @@ function ConfirmDefaults({ names, mustering, onSeal, onReview }: { names: string
   return (
     <Modal
       className="modal"
-      role="alertdialog"
+      role="dialog"
       labelledBy="confirm-title"
       describedBy="confirm-body"
       initialFocus={first}
       onCancel={onReview}
     >
-      <h2 id="confirm-title">Seal with standing doctrines?</h2>
+      <h2 id="confirm-title">Seal your orders?</h2>
       <div id="confirm-body">
         <p>
-          {names.length === 1 ? "This company has" : "These companies have"} no new orders and will keep fighting as
-          before:
+          {names.length === 1 ? "1 company keeps its standing doctrine" : `${names.length} companies keep their standing doctrines`}, as
+          every company does until you change its orders:
         </p>
         <ul>
           {names.map((name) => (
@@ -113,7 +117,7 @@ function ConfirmDefaults({ names, mustering, onSeal, onReview }: { names: string
       </div>
       <div className="modal-actions">
         <button ref={first} type="button" className="btn-command" onClick={onSeal}>
-          Seal anyway
+          Seal
         </button>
         <button type="button" className="btn-quiet" onClick={onReview}>
           Review orders

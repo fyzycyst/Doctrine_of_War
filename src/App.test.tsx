@@ -61,9 +61,9 @@ describe("command flow on The First Breach (fortune off)", () => {
     await user.click(within(hand).getByRole("option", { name: /Shield the Line/ }));
     expect(game().orders).toEqual({ greyford_shields: "shield_the_line" });
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    const confirm = screen.getByRole("alertdialog", { name: "Seal with standing doctrines?" });
+    const confirm = screen.getByRole("dialog", { name: "Seal your orders?" });
     expect(within(confirm).getAllByRole("listitem")).toHaveLength(3);
-    await user.click(within(confirm).getByRole("button", { name: "Seal anyway" }));
+    await user.click(within(confirm).getByRole("button", { name: "Seal" }));
 
     // The phase plays out on the board; Skip jumps to the final state and the report.
     expect(game().stage).toBe("resolving");
@@ -79,7 +79,7 @@ describe("command flow on The First Breach (fortune off)", () => {
     for (let guard = 0; guard < 5 && game().stage !== "outcome"; guard += 1) {
       if (game().stage === "command") {
         await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-        await user.click(screen.getByRole("button", { name: "Seal anyway" }));
+        await user.click(screen.getByRole("button", { name: "Seal" }));
         await user.click(screen.getByRole("button", { name: /Skip/ }));
       }
       await user.click(screen.getByRole("button", { name: /Next Phase|See the outcome/ }));
@@ -95,12 +95,12 @@ describe("command flow on The First Breach (fortune off)", () => {
     await toCommand(user);
     const seal = screen.getByRole("button", { name: "Seal Orders" });
     await user.click(seal);
-    const confirm = screen.getByRole("alertdialog", { name: "Seal with standing doctrines?" });
+    const confirm = screen.getByRole("dialog", { name: "Seal your orders?" });
     expect(confirm.tagName).toBe("DIALOG");
     expect(confirm).toHaveAttribute("data-modal", "true");
-    expect(within(confirm).getByRole("button", { name: "Seal anyway" })).toHaveFocus();
+    expect(within(confirm).getByRole("button", { name: "Seal" })).toHaveFocus();
     await user.click(within(confirm).getByRole("button", { name: "Review orders" }));
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Seal your orders?" })).not.toBeInTheDocument();
     expect(seal).toHaveFocus();
   });
 
@@ -129,7 +129,7 @@ describe("command flow on The First Breach (fortune off)", () => {
       act(() => void game().assignDoctrine(id, "shield_the_line"));
     }
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Seal your orders?" })).not.toBeInTheDocument();
     expect(game().stage).toBe("resolving");
   });
 });

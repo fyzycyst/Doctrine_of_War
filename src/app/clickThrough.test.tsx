@@ -10,6 +10,7 @@ import { firstBreach } from "../game/engine";
 import { useFlow } from "./flow/flowStore";
 import { memoryStore } from "./flow/testKit";
 import { useGame, type Stage } from "./game/gameStore";
+import { useGuide } from "./guide/guideStore";
 import { Root } from "./Root";
 import { useAppStore } from "./store";
 
@@ -93,5 +94,43 @@ describe("no overlay control lets a click fall through to the board", () => {
     if (screen === "campaign") await act(() => useFlow.getState().beginCampaign());
     expect(useFlow.getState().screen).toBe(screen);
     expect(unclickable()).toEqual([]);
+  });
+});
+
+/**
+ * HUD pieces that catch board clicks over empty space (T33): a wrapper in the HUD's grid
+ * with pointer events on whose contents are all fixed or absolute fills its grid cell
+ * with nothing visible, and swallows clicks meant for the board beneath (the tutorial's
+ * did, so board musters and reliefs did nothing while it ran).
+ */
+function emptyCatchers(): string[] {
+  return [...document.querySelectorAll<HTMLElement>(".hud > *")]
+    .filter((element) => {
+      const style = getComputedStyle(element);
+      // jsdom leaves an undeclared position empty: that is static, in the grid.
+      if (style.pointerEvents === "none" || style.display === "contents" || !["", "static"].includes(style.position)) return false;
+      const children = [...element.children];
+      return children.length > 0 && children.every((child) => ["fixed", "absolute"].includes(getComputedStyle(child).position));
+    })
+    .map((element) => element.className || element.tagName);
+}
+
+describe("no empty HUD box catches the board's clicks", () => {
+  it("knows a wrapper whose contents all float (the check itself)", () => {
+    const hud = document.createElement("div");
+    hud.className = "hud";
+    const wrapper = hud.appendChild(document.createElement("div"));
+    wrapper.className = "probe";
+    wrapper.appendChild(document.createElement("div")).className = "coach-panel";
+    document.body.append(hud);
+    expect(emptyCatchers()).toEqual(["probe"]);
+    hud.remove();
+  });
+
+  it("while the tutorial's step is on screen", () => {
+    act(() => useGuide.setState({ introSeen: true, coach: "active", step: "select", off: false }));
+    battleAt("command");
+    expect(document.querySelector(".coach-panel")).not.toBeNull();
+    expect(emptyCatchers()).toEqual([]);
   });
 });

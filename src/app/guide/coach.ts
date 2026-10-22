@@ -21,7 +21,7 @@ export const COACH_COPY: Record<CoachStep, CoachCopy> = {
   assign: { title: "Give new orders", body: "Pick a different card from your hand to change what this company does." },
   seal: {
     title: "Seal your orders",
-    body: "Companies you didn't change keep their standing orders. Seal, and the phase plays out on its own.",
+    body: "Companies you didn't give new orders simply follow their standing orders. That's normal: change only what you want changed. Seal, and the phase plays out on its own.",
   },
   watch: {
     title: "Watch your orders fire",
@@ -46,7 +46,10 @@ export const COACH_COPY: Record<CoachStep, CoachCopy> = {
     title: "Relief: swap a company out of the line",
     body: "A company out of contact, beside one in contact, can relieve it: they swap places, and the tired one steps out of the line.",
   },
-  sealAgain: { title: "Seal again", body: "Your musters and reliefs happen first, before the Host moves. Then the phase plays out." },
+  sealAgain: {
+    title: "Seal again",
+    body: "Your musters and reliefs happen first, before the Host moves. Every other company follows its standing orders, as usual. Then the phase plays out.",
+  },
   relief: {
     title: "The whole loop",
     body: "That's the whole loop: orders, muster, seal, watch, read. Play on to the end of the battle. Press F1 any time for the Field Manual.",
@@ -83,7 +86,7 @@ export const PHASE2_COPY = {
   }),
   musterPick: (company: string, reach: number): CoachCopy => ({
     title: COACH_COPY.muster.title,
-    body: `Muster to bring a company closer to the fight or onto better ground. Where ${company} can go glows on the board (${reach} hex${reach === 1 ? "" : "es"}): click one, or pick one here (each named for its ground).`,
+    body: `Muster to bring a company closer to the fight or onto better ground. Where ${company} can go glows on the board (${reach} hex${reach === 1 ? "" : "es"}): click a glowing hex on the board, or pick one here in the Inspector (each named for its ground).`,
   }),
   musterNone: {
     title: COACH_COPY.muster.title,
@@ -96,7 +99,7 @@ export const PHASE2_COPY = {
   }),
   reliefPick: (tired: string): CoachCopy => ({
     title: COACH_COPY.relieve.title,
-    body: `Choose Relieve ${tired} here, or click ${tired} on the board.`,
+    body: `Click ${tired} on the board (its hex glows), or choose Relieve ${tired} here in the Inspector.`,
   }),
   reliefNone: {
     title: COACH_COPY.relieve.title,

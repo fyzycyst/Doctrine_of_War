@@ -24,6 +24,7 @@
     "audio:demo": "node scripts/audio-demo.mjs",
     "smoke:field-test": "ELECTRON=1 vite build && electron scripts/smoke-field-test.mjs",
     "smoke:roll-save": "ELECTRON=1 vite build && electron scripts/smoke-roll-save.mjs",
+    "smoke:board-clicks": "node scripts/smoke-board-clicks.mjs",
     "fetch:cc0": "node scripts/fetch-cc0.mjs"
   },
   "dependencies": {
