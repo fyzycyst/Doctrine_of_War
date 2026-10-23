@@ -54,7 +54,18 @@ export function findScenario(key: string | null): EngineScenario | undefined {
 
 const ORDER: Stage[] = ["briefing", "deploy", "command", "resolving", "report", "outcome"];
 
+/**
+ * Dev and video capture only (T34): the stores on `window.__dow`, so a frame-stepped capture
+ * (scripts/video-*.mjs) can move the real game on (next phase, seal) with the UI hidden.
+ * Production builds drop it (`import.meta.env.DEV` is false there).
+ */
+export function exposeStoresForCapture(target: Record<string, unknown> = window as unknown as Record<string, unknown>) {
+  if (!import.meta.env.DEV) return;
+  target.__dow = { game: useGame, flow: useFlow, app: useAppStore, guide: useGuide };
+}
+
 export function bootFromUrl(search: string): BootOptions {
+  exposeStoresForCapture();
   const params = new URLSearchParams(search);
   // `&mockRoll=1|carry|veterans|stale` (`&rollBattle=1`): Cinder Road on in-memory saves (see roll/devBoot.ts).
   const mockRoll = params.get("mockRoll");

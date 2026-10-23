@@ -8,8 +8,14 @@ import { createServer } from "vite";
 
 const server = await createServer({ server: { port: 5199, strictPort: false }, logLevel: "warn" });
 await server.listen();
-const url = `${server.resolvedUrls.local[0]}?lab=1&view=audioDemo&ui=0`;
-const outDir = path.resolve("captures/audio");
+// `-- --set video [--out <dir>]`: the product video's music stems (src/audio/demo.ts renderVideoStems).
+const arg = (name) => {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+};
+const set = arg("set") === "video" ? "video" : "demos";
+const url = `${server.resolvedUrls.local[0]}?lab=1&view=audioDemo&ui=0&set=${set}`;
+const outDir = path.resolve(arg("out") ?? (set === "video" ? "captures/audio-video" : "captures/audio"));
 const child = spawn(electronPath, [path.resolve("scripts/audio-demo-electron.mjs")], {
   stdio: "inherit",
   env: { ...process.env, AUDIO_DEMO_CONFIG: JSON.stringify({ url, outDir }) },

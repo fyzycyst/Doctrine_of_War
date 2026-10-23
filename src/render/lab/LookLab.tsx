@@ -718,8 +718,10 @@ function AudioPanel() {
 function AudioDemoLab() {
   const [status, setStatus] = useState("rendering…");
   useEffect(() => {
+    // &set=video: the product video's music stems instead of the audition demos.
+    const set = new URLSearchParams(window.location.search).get("set") === "video" ? "video" : "demos";
     void import("../../audio/demo").then(async ({ renderAllDemos }) => {
-      const { demos, orchestra } = await renderAllDemos();
+      const { demos, orchestra } = await renderAllDemos(set);
       (window as unknown as { __audioDemoOrchestra?: string }).__audioDemoOrchestra = orchestra;
       (window as unknown as { __audioDemo?: unknown }).__audioDemo = demos;
       setStatus(`orchestra: ${orchestra}\n` + Object.entries(demos).map(([name, d]) => `${name}: ${d.seconds}s, peak ${d.peakDb} dBFS, rms ${d.rmsDb} dBFS`).join("\n"));
