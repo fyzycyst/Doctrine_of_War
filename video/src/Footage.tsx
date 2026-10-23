@@ -24,14 +24,18 @@ function Still({ file, focalX, focalY, frames }: { file: string; focalX: number;
 }
 
 export function Footage({ id, frames, media }: { id: string; frames: number; media: Media }) {
+  const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const settle = useSettle();
   const clip = media.clips[id as keyof Media["clips"]];
   if (clip) {
     const clipFrames = Math.floor(clip.seconds * fps);
     const video = <OffthreadVideo src={staticFile(clip.file)} muted style={cover(clip.focalX)} />;
+    // A gentle push-in on every clip: it moves a locked-off camera (the end card) and lifts
+    // the in-game callouts, which are fixed-size and read small at 1080p.
+    const push = interpolate(frame, [0, frames], [1, 1.06]);
     return (
-      <AbsoluteFill style={{ transform: `scale(${settle})` }}>
+      <AbsoluteFill style={{ transform: `scale(${settle * push})`, transformOrigin: `${clip.focalX * 100}% 50%` }}>
         <Sequence durationInFrames={Math.min(frames, clipFrames)}>{video}</Sequence>
         {/* A clip shorter than its shot holds its last frame. */}
         {clipFrames < frames && (
