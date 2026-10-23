@@ -1,7 +1,7 @@
 // The cut: each segment of the timeline in turn (hard cuts, as a trailer cuts), the
 // soundtrack under all of it, a fade up from black and down to black.
 import { AbsoluteFill, interpolate, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
-import { IntroCard } from "./IntroCard";
+import { IntroCard, IntroClip } from "./IntroCard";
 import media from "./generated/media.json";
 import { ShotView } from "./ShotView";
 import { Soundtrack } from "./Soundtrack";
@@ -20,7 +20,7 @@ export function Edit({ intro }: EditProps) {
     <AbsoluteFill style={{ backgroundColor: C.ash }}>
       {timeline.segments.map((segment) => (
         <Sequence key={segment.id} from={segment.from} durationInFrames={segment.frames} name={segment.id}>
-          {segment.kind === "intro" ? <IntroCard /> : <ShotView segment={segment} media={media as Media} />}
+          {segment.intro ? <IntroClip intro={segment.intro} /> : segment.kind === "intro" ? <IntroCard /> : <ShotView segment={segment} media={media as Media} />}
         </Sequence>
       ))}
       <Soundtrack timeline={timeline} media={media as Media} />

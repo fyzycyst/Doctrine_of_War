@@ -12,7 +12,8 @@ export const MEDIA_DIR = path.resolve(home(process.env.DOW_VIDEO_DIR ?? "~/Doctr
 /** The art-spike worktree's captures (stand-in stills only). */
 export const ART_SPIKE_DIR = path.resolve(home(process.env.DOW_ART_SPIKE ?? path.join(REPO_DIR, "..", "hack-t02-art-spike")));
 export const PUBLIC_DIR = path.join(VIDEO_DIR, "public");
-export const OUT_DIR = path.join(MEDIA_DIR, "out");
+/** Renders and captions (DOW_OUT_DIR to send a test render elsewhere). */
+export const OUT_DIR = path.resolve(home(process.env.DOW_OUT_DIR ?? path.join(MEDIA_DIR, "out")));
 export const GENERATED = path.join(VIDEO_DIR, "src", "generated", "media.json");
 /** The media folders the compositions read (out/ is not one: renders never go into a bundle). */
-export const LINKED = ["footage", "music", "vo", "vo-temp", "stills"] as const;
+export const LINKED = ["footage", "music", "vo", "vo-temp", "stills", "intro"] as const;

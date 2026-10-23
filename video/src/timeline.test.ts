@@ -76,3 +76,33 @@ describe("the camera moves", () => {
     }
   });
 });
+
+describe("the user's intro", () => {
+  const intro = { file: "intro/intro.mp4", seconds: 12.4, width: 1920, height: 1080, audio: "vo-temp/intro.wav", captions: [{ from: 1, to: 3.5, text: "Hello, I'm the commander who made this." }] };
+  const media: Media = { ...withVo(2), music: { dusk: { file: "music/dusk.wav", seconds: 49 } }, intro };
+
+  it("takes the slot after the cold open at its own length, and INTRO=0 still drops it", () => {
+    const timeline = buildTimeline(media, { intro: true });
+    const slot = timeline.segments[1];
+    assert.equal(slot.id, "intro");
+    assert.equal(slot.frames, Math.round(12.4 * FPS));
+    assert.equal(slot.intro?.file, "intro/intro.mp4");
+    assert.equal(timeline.segments[2].from, 5 * FPS + Math.round(12.4 * FPS));
+    assert.ok(!buildTimeline(media, { intro: false }).segments.some((segment) => segment.kind === "intro"));
+  });
+
+  it("has no music under it: the bed fades out before it, and picks up where it stopped after it", () => {
+    const beds = musicBeds(buildTimeline(media, { intro: true }));
+    assert.deepEqual(beds.slice(0, 2).map((bed) => [bed.stem, bed.from, bed.gapAfter ?? false, bed.start]), [
+      ["dusk", 0, true, 0],
+      ["dusk", 5 * FPS + Math.round(12.4 * FPS), false, 5],
+    ]);
+    // The placeholder card keeps the music running under it.
+    assert.equal(musicBeds(buildTimeline({ ...media, intro: undefined }, { intro: true }))[0].frames > 5 * FPS, true);
+  });
+
+  it("carries its own captions into the SRT, offset to where it sits", () => {
+    const srt = toSrt(cues(buildTimeline(media, { intro: true }), LINE_LENGTH.main));
+    assert.match(srt, /^1\n00:00:06,000 --> 00:00:08,500\nHello, I'm the commander who made this\.\n/);
+  });
+});

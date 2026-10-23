@@ -93,7 +93,61 @@ for (const stem of STEMS) {
   if (name) music[stem] = { file: `music/${name}`, seconds: seconds(path.join(MEDIA_DIR, "music", name)), lufs: lufs(path.join(MEDIA_DIR, "music", name)) };
 }
 
-const media: Media = { vo, clips, stills, music };
+// 6. The user's intro (intro/intro.mp4|mov|m4v), if it's there: its own picture and sound,
+// with the sound levelled to the narration (a copy in vo-temp/, remade when the clip changes),
+// and its captions if an intro.srt sits beside it.
+const INTRO_LEVEL = -25; // the narration's level in the mix (Soundtrack.tsx VOICE)
+let intro: Media["intro"];
+const introFile = ["mp4", "mov", "m4v"].map((ext) => path.join(MEDIA_DIR, "intro", `intro.${ext}`)).find((file) => fs.existsSync(file));
+if (introFile) {
+  const probe = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,width,height:stream_side_data=rotation", "-of", "json", introFile], { encoding: "utf8" })) as {
+    streams: Array<{ codec_type: string; width?: number; height?: number; side_data_list?: Array<{ rotation?: number }> }>;
+  };
+  const video = probe.streams.find((stream) => stream.codec_type === "video");
+  // Phones store portrait video as landscape plus a rotation.
+  const turned = Math.abs(video?.side_data_list?.find((data) => data.rotation !== undefined)?.rotation ?? 0) === 90;
+  const [width, height] = turned ? [video?.height ?? 1920, video?.width ?? 1080] : [video?.width ?? 1920, video?.height ?? 1080];
+  let audio: string | undefined;
+  let measured: number | undefined;
+  if (probe.streams.some((stream) => stream.codec_type === "audio")) {
+    const levelled = path.join(MEDIA_DIR, "vo-temp", "intro.wav");
+    const stamp = path.join(MEDIA_DIR, "vo-temp", "intro.txt");
+    const stat = fs.statSync(introFile);
+    const want = `${introFile}|${stat.size}|${stat.mtimeMs}|${INTRO_LEVEL}`;
+    if (!fs.existsSync(levelled) || !fs.existsSync(stamp) || fs.readFileSync(stamp, "utf8") !== want) {
+      measured = lufs(introFile);
+      const gain = INTRO_LEVEL - measured;
+      // One gain to the narration's level; a peak limiter only stops a loud moment clipping.
+      execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", introFile, "-vn", "-af", `volume=${gain.toFixed(2)}dB,alimiter=limit=0.89:level=0`, "-ar", "48000", "-ac", "2", levelled]);
+      fs.writeFileSync(stamp, want);
+      console.log(`intro: audio levelled from ${measured} LUFS to ${INTRO_LEVEL} (vo-temp/intro.wav)`);
+    }
+    audio = rel(levelled);
+  }
+  const srt = introFile.replace(/\.[^.]+$/, ".srt");
+  const stampToSeconds = (stamp: string) => {
+    const [h, m, rest] = stamp.split(":");
+    return Number(h) * 3600 + Number(m) * 60 + Number(rest.replace(",", "."));
+  };
+  const captions = fs.existsSync(srt)
+    ? fs
+        .readFileSync(srt, "utf8")
+        .replace(/\r/g, "")
+        .split(/\n\s*\n/)
+        .flatMap((block) => {
+          const lines = block.trim().split("\n");
+          const at = lines.findIndex((line) => line.includes("-->"));
+          if (at < 0) return [];
+          const [from, to] = lines[at].split("-->").map((part) => stampToSeconds(part.trim().split(" ")[0]));
+          const text = lines.slice(at + 1).join(" ").trim();
+          return text ? [{ from, to, text }] : [];
+        })
+    : undefined;
+  intro = { file: rel(introFile), seconds: seconds(introFile), width, height, audio, captions };
+  console.log(`intro: ${rel(introFile)} (${intro.seconds.toFixed(1)} s, ${width}x${height}${audio ? "" : ", no sound"}${captions ? `, ${captions.length} captions` : ""})`);
+}
+
+const media: Media = { vo, clips, stills, music, ...(intro ? { intro } : {}) };
 fs.mkdirSync(path.dirname(GENERATED), { recursive: true });
 const json = `${JSON.stringify(media, null, 2)}\n`;
 if (!fs.existsSync(GENERATED) || fs.readFileSync(GENERATED, "utf8") !== json) fs.writeFileSync(GENERATED, json);

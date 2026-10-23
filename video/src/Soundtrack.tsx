@@ -41,13 +41,19 @@ export function Soundtrack({ timeline, media }: { timeline: Timeline; media: Med
           <Sequence key={segment.vo.id} from={segment.vo.from} durationInFrames={segment.vo.frames + 2} name={segment.vo.id}>
             <Html5Audio src={staticFile(segment.vo.file)} volume={gainFor(VOICE, segment.vo.lufs)} />
           </Sequence>
+        ) : segment.intro?.audio ? (
+          // The user's intro: its own sound, already levelled to VOICE by prepare-media; no music under it.
+          <Sequence key="intro" from={segment.from} durationInFrames={segment.frames} name="intro sound">
+            <Html5Audio src={staticFile(segment.intro.audio)} />
+          </Sequence>
         ) : null,
       )}
       {beds.map((bed, index) => {
         const stem = media.music[bed.stem];
         if (!stem) return null;
         const last = index === beds.length - 1;
-        const length = bed.frames + (last ? 0 : OVERLAP);
+        // A bed cross-fades into the next one; before the intro's silence it fades out in place.
+        const length = bed.frames + (last || bed.gapAfter ? 0 : OVERLAP);
         const sting = bed.stem === "victory";
         const fits = stem.seconds - bed.start >= length / fps;
         return (
@@ -63,7 +69,11 @@ export function Soundtrack({ timeline, media }: { timeline: Timeline; media: Med
                 const under = gainFor(sting ? LEVEL.stingDucked : LEVEL.ducked, stem.lufs);
                 const level = clear + (under - clear) * duck(at);
                 const fadeIn = index === 0 || sting ? 1 : interpolate(f, [0, OVERLAP], [0, 1], clamp);
-                const fadeOut = last ? interpolate(f, [length - fps, length - 1], [1, 0], clamp) : interpolate(f, [bed.frames, length - 1], [1, 0], clamp);
+                const fadeOut = last
+                  ? interpolate(f, [length - fps, length - 1], [1, 0], clamp)
+                  : bed.gapAfter
+                    ? interpolate(f, [length - OVERLAP, length - 1], [1, 0], clamp)
+                    : interpolate(f, [bed.frames, length - 1], [1, 0], clamp);
                 return level * fadeIn * fadeOut;
               }}
             />

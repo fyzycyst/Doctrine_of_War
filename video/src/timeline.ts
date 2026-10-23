@@ -25,6 +25,15 @@ export interface Media {
   clips: Partial<Record<ShotId, MediaFile & { focalX: number; parts?: Array<MediaFile & { focalX: number }> }>>;
   stills: Partial<Record<ShotId, Array<{ file: string; focalX: number; focalY: number }>>>;
   music: Partial<Record<Stem, MediaFile>>;
+  /** The user's intro (intro/intro.mp4|mov|m4v): its own picture and sound, in the slot after the cold open. */
+  intro?: MediaFile & {
+    width: number;
+    height: number;
+    /** Its sound, levelled to the narration (absent: a silent clip). */
+    audio?: string;
+    /** From intro.srt beside it, in seconds from the intro's start. */
+    captions?: Array<{ from: number; to: number; text: string }>;
+  };
 }
 
 export interface Segment {
@@ -34,6 +43,8 @@ export interface Segment {
   /** Start and length, in frames. */
   from: number;
   frames: number;
+  /** The user's intro clip, for the intro slot when one exists (else the placeholder card). */
+  intro?: NonNullable<Media["intro"]>;
   /** The VO line laid in this shot (absolute frames), if it has one and a take exists. */
   vo: null | { id: string; text: string; file: string; source: "final" | "temp"; lufs?: number; from: number; frames: number };
 }
@@ -64,9 +75,10 @@ export function buildTimeline(media: Media, options: { intro: boolean }): Timeli
       vo: shot.vo && take ? { id: shot.vo.id, text: shot.vo.text, file: take.file, source: take.source, lufs: take.lufs, from: at + toFrames(lead), frames: Math.ceil(take.seconds * FPS) } : null,
     });
     at += frames;
+    // The intro slot: the user's clip at its own length, or the placeholder card.
     if (options.intro && shot.id === INTRO.after) {
-      const intro = toFrames(INTRO.placeholderSeconds);
-      segments.push({ kind: "intro", id: "intro", shot: null, from: at, frames: intro, vo: null });
+      const intro = media.intro ? Math.round(media.intro.seconds * FPS) : toFrames(INTRO.placeholderSeconds);
+      segments.push({ kind: "intro", id: "intro", shot: null, from: at, frames: intro, vo: null, ...(media.intro ? { intro: media.intro } : {}) });
       at += intro;
     }
   }
@@ -87,17 +99,36 @@ export interface Bed {
   frames: number;
   /** Seconds into the stem where this bed starts. */
   start: number;
+  /** Silence follows (the user's intro, with its own sound): the bed fades out in place rather than into the next. */
+  gapAfter?: boolean;
 }
 
-/** The score's beds: consecutive shots on the same stem make one bed (the intro keeps the bed it falls in). */
+/**
+ * The score's beds: consecutive shots on the same stem make one bed. The placeholder intro card
+ * keeps the bed it falls in; the user's intro clip has no music under it: the bed before it
+ * fades out at its end, and the one after picks the stem up where it left off.
+ */
 export function musicBeds(timeline: Timeline): Bed[] {
   const beds: Bed[] = [];
+  let resumeAfterGap = false;
   for (const segment of timeline.segments) {
+    if (segment.intro) {
+      const last = beds.at(-1);
+      if (last) last.gapAfter = true;
+      resumeAfterGap = true;
+      continue;
+    }
     const stem = segment.shot?.stem ?? beds.at(-1)?.stem;
     if (!stem) continue;
     const last = beds.at(-1);
-    if (last && last.stem === stem) last.frames += segment.frames;
-    else beds.push({ stem, from: segment.from, frames: segment.frames, start: beds.some((bed) => bed.stem === stem) ? (RETURN_AT[stem] ?? 0) : 0 });
+    if (last && last.stem === stem && !last.gapAfter) last.frames += segment.frames;
+    else {
+      const before = [...beds].reverse().find((bed) => bed.stem === stem);
+      // Back after the intro: carry on from where the stem stopped. Back after other music: past its opening.
+      const start = !before ? 0 : resumeAfterGap && before === last ? before.start + before.frames / FPS : (RETURN_AT[stem] ?? 0);
+      beds.push({ stem, from: segment.from, frames: segment.frames, start });
+    }
+    resumeAfterGap = false;
   }
   return beds;
 }

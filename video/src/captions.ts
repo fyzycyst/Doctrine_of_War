@@ -1,4 +1,5 @@
-// Captions (SRT) for the Chronicler's lines, timed from the timeline (the real VO lengths).
+// Captions (SRT) for the Chronicler's lines, timed from the timeline (the real VO lengths),
+// and for the user's intro when an intro.srt came with it (offset to where the intro sits).
 // A line is cut into cues at its sentences, then at commas, so each cue fits two lines;
 // a cue's share of the line's time follows its length.
 import { FPS, type Timeline } from "./timeline";
@@ -47,19 +48,26 @@ export function chunks(text: string, max: number): string[] {
   });
 }
 
+/** `text` spoken from `from` for `frames`, as cues of at most two lines. */
+function timed(text: string, from: number, frames: number, max: number): Cue[] {
+  const pieces = chunks(text, max);
+  const total = pieces.reduce((sum, piece) => sum + piece.length, 0);
+  let at = from;
+  return pieces.map((piece, index) => {
+    const to = index === pieces.length - 1 ? from + frames : at + Math.round((frames * piece.length) / total);
+    const cue = { from: at, to, text: wrap(piece, max).join("\n") };
+    at = to;
+    return cue;
+  });
+}
+
 export function cues(timeline: Timeline, max: number): Cue[] {
   return timeline.segments.flatMap((segment) => {
-    const vo = segment.vo;
-    if (!vo) return [];
-    const pieces = chunks(vo.text, max);
-    const total = pieces.reduce((sum, piece) => sum + piece.length, 0);
-    let at = vo.from;
-    return pieces.map((piece, index) => {
-      const to = index === pieces.length - 1 ? vo.from + vo.frames : at + Math.round((vo.frames * piece.length) / total);
-      const cue = { from: at, to, text: wrap(piece, max).join("\n") };
-      at = to;
-      return cue;
-    });
+    if (segment.vo) return timed(segment.vo.text, segment.vo.from, segment.vo.frames, max);
+    // The intro's own captions, re-wrapped to this cut's line length.
+    return (segment.intro?.captions ?? []).flatMap((caption) =>
+      timed(caption.text, segment.from + Math.round(caption.from * FPS), Math.round((Math.min(caption.to, segment.intro!.seconds) - caption.from) * FPS), max),
+    );
   });
 }
 

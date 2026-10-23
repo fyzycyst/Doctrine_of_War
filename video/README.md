@@ -13,7 +13,8 @@ Everything large lives in `$DOW_VIDEO_DIR` (default `~/DoctrineOfWar-video`):
 | `footage/` | One clip per shot, plus `manifest.json` | The render agent |
 | `music/` | Score stems, named `dusk*`, `battle*`, `dawn*`, `victory*` (see its `README.txt`) | The render agent |
 | `vo/` | The Chronicler's takes, `vo-01.mp3` … `vo-10.mp3` | The user (ElevenLabs) |
-| `vo-temp/` | A temporary macOS voice, for timing until the takes arrive | `npm run temp-vo` |
+| `vo-temp/` | A temporary macOS voice, for timing until the takes arrive (and the intro's levelled sound) | `npm run temp-vo`, `npm run prepare-media` |
+| `intro/` | The user's intro, `intro.mp4` (or `.mov`, `.m4v`), and optionally `intro.srt` | The user |
 | `stills/` | Stand-in stills, used until a shot's clip arrives | `npm run prepare-media` |
 | `out/` | Renders and captions | `npm run render:*`, `npm run srt` |
 
@@ -40,7 +41,18 @@ The footage manifest:
 - **Without a take:** the shot runs its §0.2 target.
 - `clipStart` trims a clip's dead head.
 - A real take (`vo/vo-NN.mp3`) replaces the temporary one automatically.
-- **The user's intro** goes after the cold open. Until it's spliced, a 2 s `[intro]` card holds its place. `INTRO=0 npm run render:main` (or `intro: false` in the Studio) drops the card.
+- **The user's intro** goes after the cold open; see below. `INTRO=0 npm run render:main` (or `intro: false` in the Studio) drops the slot.
+
+## The user's intro
+
+When `intro/intro.mp4` (or `.mov`, `.m4v`) exists, it takes the slot after the cold open. With no file, a 2 s `[intro]` card holds the place.
+
+- **Length and sound:** the clip runs its own length, with its own sound. No VO and no music go under it: the music fades out at the end of the cold open and picks up again on the title.
+- **Levelling:** its sound is levelled to the narration (-25 LUFS in the mix) into `vo-temp/intro.wav`. This copy is remade whenever the clip changes, so the final normalise treats the intro and the narration alike.
+- **16:9:** fitted whole, letterboxed if its shape differs.
+- **9:16:** a portrait clip fills the frame (a phone's rotation flag is honoured). Any other clip fills the width over a blurred, darkened copy of itself.
+- **Captions:** an `intro.srt` beside the clip (times from the clip's start) is offset into both SRTs and re-wrapped to each cut's line length. With no `intro.srt`, that stretch is left uncaptioned.
+- **To splice it:** drop the file in, then run `npm run render:all`.
 
 ## Motion and framing
 
