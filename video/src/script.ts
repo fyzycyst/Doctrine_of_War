@@ -203,11 +203,12 @@ export const SHOTS: Shot[] = [
     id: "s10-editor",
     footage: "The doctrine editor: reorder a rule → Test in the field → Clearly better",
     target: 8,
-    // UI: the clip's first 3.5 s are the command screen; the push lands on "Clearly better".
+    // UI: the clip's first 3.5 s are the command screen; the push lands on "Clearly better". In 9:16 the
+    // left column fills the width: the rules above the plate, the verdict (lower left) below it.
     min: 6.5,
     clipStart: 3.5,
     move: "push-in",
-    vertical: { fit: [0.31, 0.7], y: 0.51 },
+    vertical: { fit: [0.05, 0.42], y: 0.43 },
     text: "Test your doctrine across hundreds of battles.",
     vo: {
       id: "vo-09",
