@@ -1,7 +1,7 @@
 // `npm run prepare-media` (run by studio, render and srt): links the media folder into
 // public/, copies the stand-in stills, makes any missing temporary VO, and writes
 // src/generated/media.json: what exists and how long it runs, for the timeline.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { SHOTS, type ShotId, type Stem } from "../src/script";
@@ -14,6 +14,11 @@ const AUDIO = /\.(wav|mp3|m4a|aac|ogg)$/i;
 
 const seconds = (file: string) =>
   Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file], { encoding: "utf8" }).trim());
+/** Integrated loudness (EBU R128), in LUFS. */
+const lufs = (file: string) => {
+  const log = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", file, "-af", "ebur128", "-f", "null", "-"], { encoding: "utf8" }).stderr;
+  return Number(/I:\s+(-?[\d.]+) LUFS/.exec(log.slice(log.lastIndexOf("Summary:")))?.[1] ?? NaN);
+};
 const rel = (file: string) => path.relative(MEDIA_DIR, file).split(path.sep).join("/");
 
 // 1. Folders, and public/ linking to them.
@@ -51,7 +56,7 @@ for (const line of SHOTS.flatMap((shot) => (shot.vo ? [shot.vo] : []))) {
   const final = ["mp3", "wav"].map((ext) => path.join(MEDIA_DIR, "vo", `${line.id}.${ext}`)).find((file) => fs.existsSync(file));
   const temp = path.join(MEDIA_DIR, "vo-temp", `${line.id}.wav`);
   const file = final ?? (fs.existsSync(temp) ? temp : null);
-  if (file) vo[line.id] = { file: rel(file), seconds: seconds(file), source: final ? "final" : "temp" };
+  if (file) vo[line.id] = { file: rel(file), seconds: seconds(file), lufs: lufs(file), source: final ? "final" : "temp" };
   else console.warn(`vo: no take for ${line.id}; its shot runs silent at its target length`);
 }
 
@@ -85,7 +90,7 @@ const music: Media["music"] = {};
 const musicFiles = fs.readdirSync(path.join(MEDIA_DIR, "music")).filter((name) => AUDIO.test(name)).sort();
 for (const stem of STEMS) {
   const name = musicFiles.find((file) => file.toLowerCase().startsWith(stem));
-  if (name) music[stem] = { file: `music/${name}`, seconds: seconds(path.join(MEDIA_DIR, "music", name)) };
+  if (name) music[stem] = { file: `music/${name}`, seconds: seconds(path.join(MEDIA_DIR, "music", name)), lufs: lufs(path.join(MEDIA_DIR, "music", name)) };
 }
 
 const media: Media = { vo, clips, stills, music };

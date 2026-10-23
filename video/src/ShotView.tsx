@@ -60,7 +60,7 @@ export function ShotView({ segment, media }: { segment: Segment; media: Media })
   const layout = shot.layout;
   return (
     <AbsoluteFill>
-      <Footage id={shot.id} frames={frames} media={media} />
+      <Footage shot={shot} frames={frames} media={media} />
       <Grade strength={layout === "end" ? 2.2 : layout === "title" ? 1.6 : 1} />
       {layout && <AbsoluteFill style={{ backgroundColor: `rgba(8, 6, 10, ${layout === "end" ? 0.45 : 0.35})` }} />}
       {layout === "title" && <Title frames={frames} />}

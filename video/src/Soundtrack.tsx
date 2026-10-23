@@ -5,8 +5,16 @@ import { Html5Audio, interpolate, Sequence, staticFile, useVideoConfig } from "r
 import { musicBeds, voWindows, type Media, type Timeline } from "./timeline";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
-/** Bed level in the clear, under the voice, and on the title. */
-const LEVEL = { bed: 0.5, ducked: 0.17, title: 0.85, sting: 0.8, stingDucked: 0.45 };
+/**
+ * The mix, as loudness targets (LUFS) rather than gains, so it holds whatever level the takes
+ * and stems arrive at (prepare-media measures them; the whole is normalised to -14 after).
+ * Every VO line sits at VOICE; the music runs a little above it in the clear, swells on the
+ * title, and drops about 14 dB under the voice (the usual spacing for narration over music).
+ */
+const VOICE = -25;
+const LEVEL = { bed: -23, title: -20, ducked: -39, sting: -18, stingDucked: -35 };
+/** A gain that brings something measured at `measured` LUFS to `target`, never boosting (Html5Audio caps at 1). */
+const gainFor = (target: number, measured: number | undefined) => (measured === undefined || Number.isNaN(measured) ? 1 : Math.min(1, 10 ** ((target - measured) / 20)));
 const RAMP = 9; // frames to duck and recover
 const OVERLAP = 24; // frames each bed runs on into the next, for the cross-fade
 
@@ -24,7 +32,7 @@ export function Soundtrack({ timeline, media }: { timeline: Timeline; media: Med
       {timeline.segments.map((segment) =>
         segment.vo ? (
           <Sequence key={segment.vo.id} from={segment.vo.from} durationInFrames={segment.vo.frames + 2} name={segment.vo.id}>
-            <Html5Audio src={staticFile(segment.vo.file)} />
+            <Html5Audio src={staticFile(segment.vo.file)} volume={gainFor(VOICE, segment.vo.lufs)} />
           </Sequence>
         ) : null,
       )}
@@ -44,8 +52,8 @@ export function Soundtrack({ timeline, media }: { timeline: Timeline; media: Med
               volume={(f) => {
                 const at = bed.from + f;
                 const onTitle = title && at >= title.from && at < title.from + title.frames;
-                const clear = sting ? LEVEL.sting : onTitle ? LEVEL.title : LEVEL.bed;
-                const under = sting ? LEVEL.stingDucked : LEVEL.ducked;
+                const clear = gainFor(sting ? LEVEL.sting : onTitle ? LEVEL.title : LEVEL.bed, stem.lufs);
+                const under = gainFor(sting ? LEVEL.stingDucked : LEVEL.ducked, stem.lufs);
                 const level = clear + (under - clear) * duck(at);
                 const fadeIn = index === 0 || sting ? 1 : interpolate(f, [0, OVERLAP], [0, 1], clamp);
                 const fadeOut = last ? interpolate(f, [length - fps, length - 1], [1, 0], clamp) : interpolate(f, [bed.frames, length - 1], [1, 0], clamp);

@@ -31,12 +31,38 @@ export interface VoLine {
   say?: string;
 }
 
+/**
+ * The edit's camera move over a shot (Motion.tsx): slow and eased. Pans and tilts travel a
+ * few percent of the frame; push-in and pull-out stay within about 4.5% over the whole shot;
+ * drift is a 2–3° rotation with just enough scale that no edge shows. "none" for a clip whose
+ * own camera already moves.
+ */
+export type Move = "push-in" | "pull-out" | "pan-left" | "pan-right" | "tilt-up" | "tilt-down" | "drift" | "none";
+
+/** How a shot is framed in 9:16. */
+export type VerticalFrame =
+  /** Crop around this x of the 16:9 frame (default: the manifest's focalX). */
+  | { crop: { focalX: number } }
+  /** Fill the width with this horizontal range of the 16:9 frame, over a blurred, darkened copy of itself; `y` is its centre (0–1). */
+  | { fit: [number, number]; y?: number };
+
 export interface Shot {
   id: ShotId;
   /** What the footage shows (§0.2's "Shot" column). */
   footage: string;
-  /** Planned length in seconds: a minimum; a longer VO line stretches the shot. */
+  /** §0.2's planned length, in seconds: the shot's length while it has no VO take. */
   target: number;
+  /**
+   * With a take, the shot runs as long as its line needs (0.5 s before, 0.8 s after), but never
+   * shorter than this (default 5 s): long enough for the clip's own beat (a cut inside it, the
+   * seal pressed, a result shown).
+   */
+  min?: number;
+  /** Seconds trimmed from the head of the clip (dead frames before its action). */
+  clipStart?: number;
+  /** The camera move: one for the whole shot, or one per part of a montage (each part its own, so cuts read as cuts). */
+  move: Move | Move[];
+  vertical?: VerticalFrame;
   /** On-screen text (kinetic type), if any. */
   text?: string;
   vo?: VoLine;
@@ -51,6 +77,8 @@ export const SHOTS: Shot[] = [
     id: "s01-cold-open",
     footage: "Close on the Greyford Shields; the rule banner fires: If an enemy bars the way → Strike it (First Breach)",
     target: 5,
+    // No VO: runs its target. The push lands on the rule callout as it fires.
+    move: "push-in",
     text: "You never command a soldier.",
     stem: "dusk",
   },
@@ -58,6 +86,8 @@ export const SHOTS: Shot[] = [
     id: "s02-title",
     footage: "The title crane over the island at dusk; lockup",
     target: 7,
+    // The clip is a crane: the camera already moves.
+    move: "none",
     layout: "title",
     vo: {
       id: "vo-01",
@@ -70,6 +100,9 @@ export const SHOTS: Shot[] = [
     id: "s03-orders",
     footage: "The UI: select a company, the doctrine hand, lift a card, the wax seal",
     target: 10,
+    // UI: down the screen towards the hand and the seal, pressed at 8.2 s in the clip.
+    min: 9,
+    move: "tilt-down",
     text: "Give orders. Seal them.",
     vo: {
       id: "vo-02",
@@ -82,6 +115,9 @@ export const SHOTS: Shot[] = [
     id: "s04-playback",
     footage: "Playback: the Host marches, a clash, rule callouts firing, Heroic stand!",
     target: 9,
+    // Two parts in the clip (cut at 5.5 s): long enough for the heroic stand.
+    min: 8.5,
+    move: "pan-left",
     text: "Every rule, in plain sight.",
     vo: {
       id: "vo-03",
@@ -94,6 +130,8 @@ export const SHOTS: Shot[] = [
     id: "s05-ember-ford",
     footage: "Ember Ford by night: fog, the Pyre-Sworn stepping out of it, They know that banner…",
     target: 8,
+    // Along the river, the way the Pyre-Sworn cross.
+    move: "pan-right",
     text: "Fog. Fear. Fortune.",
     vo: {
       id: "vo-04",
@@ -106,10 +144,13 @@ export const SHOTS: Shot[] = [
     id: "s06-hold-for-dawn",
     footage: "Hold for Dawn: the light turns gold, the counter-charge",
     target: 7,
+    // Two parts in the clip (cut at 4.4 s): one drift across both, so the cut reads as a cut.
+    min: 7.5,
+    move: "drift",
     vo: {
       id: "vo-05",
-      text: "We held through the night, and struck when the light turned.",
-      say: "We held through the night, [[slnc 200]] and struck when the light turned.",
+      text: "We held through the night, and struck when dawn broke!",
+      say: "We held through the night, [[slnc 200]] and struck when dawn broke!",
     },
     stem: "dawn",
   },
@@ -117,6 +158,10 @@ export const SHOTS: Shot[] = [
     id: "s07-call-the-banners",
     footage: "Call the Banners: companies filling their posts",
     target: 8,
+    // UI: the posts fill one by one. In 9:16 the posts and their companies fill the width.
+    min: 8,
+    move: "pull-out",
+    vertical: { fit: [0.01, 0.6], y: 0.28 },
     text: "Choose who answers the call.",
     vo: {
       id: "vo-06",
@@ -129,6 +174,9 @@ export const SHOTS: Shot[] = [
     id: "s08-cinder-road",
     footage: "Cinder Road montage: the ram at the Sluice Walk, the wagon park breaking; Turn the Retreat: the lances charging the fleeing column",
     target: 13,
+    // A montage of three clips (ram, wagon park, harrying): a different move on each, no zooms.
+    min: 9,
+    move: ["pan-left", "tilt-up", "pan-right"],
     text: "Cinder Road · five battles",
     vo: {
       id: "vo-07",
@@ -141,6 +189,9 @@ export const SHOTS: Shot[] = [
     id: "s09-finale",
     footage: "The finale: banners rallying at the wall, Greyford Gate breached at nightfall",
     target: 8,
+    // Two parts in the clip (cut at 4.2 s): along the wall.
+    min: 7.5,
+    move: "pan-left",
     vo: {
       id: "vo-08",
       text: "And at Greyford Gate, our banners carried the assault into the Kept Coal.",
@@ -152,6 +203,11 @@ export const SHOTS: Shot[] = [
     id: "s10-editor",
     footage: "The doctrine editor: reorder a rule → Test in the field → Clearly better",
     target: 8,
+    // UI: the clip's first 3.5 s are the command screen; the push lands on "Clearly better".
+    min: 6.5,
+    clipStart: 3.5,
+    move: "push-in",
+    vertical: { fit: [0.31, 0.7], y: 0.51 },
     text: "Test your doctrine across hundreds of battles.",
     vo: {
       id: "vo-09",
@@ -164,6 +220,9 @@ export const SHOTS: Shot[] = [
     id: "s11-end-card",
     footage: "End card over the archipelago",
     target: 9,
+    // The camera holds: rise slowly towards the sky the end card sits in.
+    min: 9,
+    move: "tilt-up",
     layout: "end",
     vo: {
       id: "vo-10",

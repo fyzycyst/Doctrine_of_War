@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { chunks, cues, LINE_LENGTH, toSrt, wrap } from "./captions";
 import { SHOTS } from "./script";
-import { buildTimeline, FPS, musicBeds, toFrames, VO_LEAD, VO_TAIL, voWindows, type Media } from "./timeline";
+import { buildTimeline, FPS, MIN_SHOT, musicBeds, toFrames, VO_LEAD, VO_TAIL, voWindows, type Media } from "./timeline";
 
 const silent: Media = { vo: {}, clips: {}, stills: {}, music: {} };
 const withVo = (seconds: number): Media => ({
@@ -21,9 +21,12 @@ describe("the timeline", () => {
     assert.equal(withIntro.segments[1].from, 5 * FPS);
   });
 
-  it("keeps a shot's target as its minimum, and stretches it to fit a long line", () => {
+  it("with takes, runs each shot as long as its line needs, down to its floor, and stretches it for a long line", () => {
     const short = buildTimeline(withVo(1), { intro: false });
-    assert.equal(short.frames, 92 * FPS);
+    for (const segment of short.segments) {
+      const shot = segment.shot!;
+      assert.equal(segment.frames, toFrames(shot.vo ? (shot.min ?? MIN_SHOT) : shot.target), shot.id);
+    }
     const long = buildTimeline(withVo(10), { intro: false });
     const title = long.segments.find((segment) => segment.id === "s02-title")!;
     assert.equal(title.frames, toFrames(VO_LEAD + 10 + VO_TAIL));
@@ -60,5 +63,16 @@ describe("captions", () => {
     const srt = toSrt(list);
     assert.match(srt, /^1\n00:00:07,\d{3} --> 00:00:\d\d,\d{3}\nI have outlived three kings,/);
     assert.match(srt, /Choose your orders well\.\n$/);
+  });
+});
+
+describe("the camera moves", () => {
+  it("never repeat from one shot (or montage part) to the next, and a montage has one per part", () => {
+    const moves = SHOTS.flatMap((shot) => (Array.isArray(shot.move) ? shot.move : [shot.move]));
+    moves.slice(1).forEach((move, index) => assert.notEqual(move, moves[index], `${moves[index]} twice in a row`));
+    for (const shot of SHOTS.filter((item) => Array.isArray(item.move))) {
+      const parts = shot.move as string[];
+      assert.ok(!parts.some((move) => move === "push-in" || move === "pull-out"), `${shot.id}: no zooms across a montage's cuts`);
+    }
   });
 });

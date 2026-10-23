@@ -8,11 +8,15 @@ export const VO_LEAD = 0.5;
 export const VO_TAIL = 0.8;
 /** The end card lands before the Chronicler speaks over it. */
 const END_LEAD = 1.0;
+/** The shortest a shot with a VO take runs, unless the script sets its own floor (`min`). */
+export const MIN_SHOT = 5;
 
 export interface MediaFile {
   /** Relative to the public dir (staticFile). */
   file: string;
   seconds: number;
+  /** Integrated loudness (LUFS), measured for VO takes and music stems: the mix levels them. */
+  lufs?: number;
 }
 
 export interface Media {
@@ -31,7 +35,7 @@ export interface Segment {
   from: number;
   frames: number;
   /** The VO line laid in this shot (absolute frames), if it has one and a take exists. */
-  vo: null | { id: string; text: string; file: string; source: "final" | "temp"; from: number; frames: number };
+  vo: null | { id: string; text: string; file: string; source: "final" | "temp"; lufs?: number; from: number; frames: number };
 }
 
 export interface Timeline {
@@ -47,8 +51,9 @@ export function buildTimeline(media: Media, options: { intro: boolean }): Timeli
   for (const shot of SHOTS) {
     const take = shot.vo ? media.vo[shot.vo.id] : undefined;
     const lead = shot.layout === "end" ? END_LEAD : VO_LEAD;
-    // A shot runs to its target, or longer when its line needs it.
-    const seconds = Math.max(shot.target, take ? lead + take.seconds + VO_TAIL : 0);
+    // With a take, a shot runs as long as its line needs (no dead air), down to its floor;
+    // without one, §0.2's target.
+    const seconds = take ? Math.max(shot.min ?? MIN_SHOT, lead + take.seconds + VO_TAIL) : shot.target;
     const frames = toFrames(seconds);
     segments.push({
       kind: "shot",
@@ -56,7 +61,7 @@ export function buildTimeline(media: Media, options: { intro: boolean }): Timeli
       shot,
       from: at,
       frames,
-      vo: shot.vo && take ? { id: shot.vo.id, text: shot.vo.text, file: take.file, source: take.source, from: at + toFrames(lead), frames: Math.ceil(take.seconds * FPS) } : null,
+      vo: shot.vo && take ? { id: shot.vo.id, text: shot.vo.text, file: take.file, source: take.source, lufs: take.lufs, from: at + toFrames(lead), frames: Math.ceil(take.seconds * FPS) } : null,
     });
     at += frames;
     if (options.intro && shot.id === INTRO.after) {
