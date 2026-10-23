@@ -70,7 +70,23 @@ async function prepareStorage(win) {
 
 /** Loads the shot's page and steps the clock until it is ready, then `warm` more frames. */
 async function open(win, shot) {
-  await win.loadURL(shot.lab ? `${url}?lab=1&ui=0&${shot.query}` : `${url}?${shot.query}`);
+  // The dev server occasionally drops a load (ERR_FAILED) while it re-optimizes: retry.
+  // A capture-only page zoom (shot.zoom): the HTML overlay (rule callouts, banners, UI)
+  // renders that much larger; the 3D view keeps its framing. The app's "ultra" render scale
+  // (set below) keeps the canvas at full resolution behind it.
+  win.webContents.setZoomFactor(shot.zoom ?? 1);
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await win.loadURL(shot.lab ? `${url}?lab=1&ui=0&${shot.query}` : `${url}?${shot.query}`);
+      break;
+    } catch (error) {
+      if (attempt >= 3) throw error;
+      console.warn(`${shot.id}: load failed (${error.message.split("\n")[0]}); retrying`);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+  }
+  win.webContents.setZoomFactor(shot.zoom ?? 1);
+  if ((shot.zoom ?? 1) > 1) await js(win, "window.__dow?.app.setState({ ultra: true })");
   const ready = shot.ready ?? "window.__battleBoard?.ready";
   let frames = 0;
   while (!(await truthy(win, ready))) {
@@ -85,19 +101,50 @@ async function open(win, shot) {
   if (shot.setup) await js(win, `(async () => { ${shot.setup} })()`);
 }
 
-/** The centre of the first element matching `selector` (CSS pixels), or null. */
+/**
+ * The centre of the first element matching `selector` (CSS pixels), or null. `text=Label`
+ * matches a button, link or option by its visible text.
+ */
 const centre = (win, selector) =>
-  js(win, `(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+  js(
+    win,
+    `(() => {
+      const sel = ${JSON.stringify(selector)};
+      const e = sel.startsWith("text=")
+        ? [...document.querySelectorAll("button, a, [role=option], [role=button]")].find((x) => x.innerText.trim() === sel.slice(5) && x.getClientRects().length)
+        : document.querySelector(sel);
+      if (!e) return null;
+      e.scrollIntoView?.({ block: "nearest" });
+      const r = e.getBoundingClientRect();
+      const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      // Overlapping UI (a fanned hand): is the target what a click there would hit?
+      const at = document.elementFromPoint(x, y);
+      window.__videoTarget = e;
+      return { x, y, hit: Boolean(at && (e === at || e.contains(at))) };
+    })()`,
+  );
 
 /** A timeline of the shot's actions; `run(frame)` fires everything due by that frame. */
 function timeline(win, shot) {
+  const zoom = shot.zoom ?? 1;
   const queue = (shot.actions ?? []).map((a, k) => ({ ...a, frame: Math.round(a.at * FPS), k }));
   return async (frame) => {
     for (const a of queue) {
       if (a.done || frame < a.frame) continue;
       a.done = true;
       if (a.js) await js(win, `(async () => { ${a.js} })()`);
-      if (a.hover || a.click) {
+      if (a.waitFor) {
+        // Work off the virtual clock (the field test's Web Worker): the page keeps stepping (its
+        // own timers must fire) but the shot's timeline and the capture hold until it lands.
+        const t0 = Date.now();
+        while (!(await truthy(win, a.waitFor))) {
+          if (Date.now() - t0 > 180_000) throw new Error(`${shot.id}: waitFor never true (${a.waitFor})`);
+          await step(win, false);
+          await js(win, "window.__vt.realPause(30)");
+        }
+      }
+      // A glide's arrival (`move`) carries its click: it lands once, below, not here too.
+      if ((a.hover || a.click) && !a.move) {
         const p = await centre(win, a.hover ?? a.click);
         if (!p) {
           console.warn(`${shot.id}: no element for ${a.hover ?? a.click} at ${a.at}s`);
@@ -110,12 +157,12 @@ function timeline(win, shot) {
           queue.push({ frame: frame + Math.round(glide * FPS), move: p, click: a.click ? a.click : undefined, k: -1, at: a.at + glide });
           continue;
         }
-        win.webContents.sendInputEvent({ type: "mouseMove", x: Math.round(p.x), y: Math.round(p.y) });
-        if (a.click) await clickAt(win, p);
+        win.webContents.sendInputEvent({ type: "mouseMove", x: Math.round(p.x * zoom), y: Math.round(p.y * zoom) });
+        if (a.click) await clickAt(win, p, zoom);
       }
       if (a.move) {
-        win.webContents.sendInputEvent({ type: "mouseMove", x: Math.round(a.move.x), y: Math.round(a.move.y) });
-        if (a.click) await clickAt(win, a.move);
+        win.webContents.sendInputEvent({ type: "mouseMove", x: Math.round(a.move.x * zoom), y: Math.round(a.move.y * zoom) });
+        if (a.click) await clickAt(win, { ...a.move, hit: (await centre(win, a.click))?.hit }, zoom);
       }
       if (a.key) {
         win.webContents.sendInputEvent({ type: "keyDown", keyCode: a.key });
@@ -125,11 +172,66 @@ function timeline(win, shot) {
   };
 }
 
-async function clickAt(win, p) {
+async function clickAt(win, p, zoom = 1) {
   await js(win, "window.__cursor?.press()");
-  const at = { x: Math.round(p.x), y: Math.round(p.y), button: "left", clickCount: 1 };
+  if (p.hit === false) {
+    // Something overlaps the target at its centre: click the element itself.
+    await js(win, "window.__videoTarget?.click()");
+    return;
+  }
+  // Input events are in window pixels; the page's CSS pixels are scaled by the zoom.
+  const at = { x: Math.round(p.x * zoom), y: Math.round(p.y * zoom), button: "left", clickCount: 1 };
   win.webContents.sendInputEvent({ type: "mouseDown", ...at });
   win.webContents.sendInputEvent({ type: "mouseUp", ...at });
+}
+
+// The visible in-world callouts' horizontal spans, as [left, right, opacity, text], 0..1 of the width.
+const CALLOUT_SPANS = `[...document.querySelectorAll(".callout")].flatMap((e) => {
+  const r = e.getBoundingClientRect(), o = Number(getComputedStyle(e).opacity);
+  // On screen only, clipped to it (a callout parked off the edge is not in the shot).
+  const l = Math.max(0, r.left / innerWidth), rt = Math.min(1, r.right / innerWidth);
+  return rt > l && r.height > 0 && r.bottom > 0 && r.top < innerHeight && o > 0.3 ? [[l, rt, o, e.innerText.replace(/\\s+/g, " ").trim().slice(0, 80)]] : [];
+})`;
+const BAND = 1080 * (9 / 16) / 1920; // the centre 9:16 crop, as a share of the width
+
+/**
+ * `focalX: "auto"`: the crop centre that keeps the most callout-time inside the 9:16 band
+ * (each frame's callouts, by the share of each span inside), nearest the middle on ties.
+ * Returns { focalX, held } (held: that share, 0..1), or null with no callouts at all.
+ */
+/**
+ * The share (0..1) of the callout-time in `frames` inside the band centred on `f`. With `on`
+ * (a RegExp: the shot's key callout, `focalOn`), the matching callouts count five times over.
+ */
+function heldAt(frames, f, on) {
+  const spans = frames.flat().map(([l, r, w, text]) => [l, r, w * (on?.test(text ?? "") ? 5 : 1)]);
+  const total = spans.reduce((n, [l, r, w]) => n + (r - l) * w, 0);
+  return spans.reduce((n, [l, r, w]) => n + Math.max(0, Math.min(r, f + BAND / 2) - Math.max(l, f - BAND / 2)) * w, 0) / total;
+}
+
+function bestFocal(frames, on) {
+  if (frames.flat().length === 0) return null;
+  let best = null;
+  for (let f = BAND / 2; f <= 1 - BAND / 2 + 1e-9; f += 0.005) {
+    const held = heldAt(frames, f, on);
+    if (!best || held > best.held + 1e-6 || (Math.abs(held - best.held) <= 1e-6 && Math.abs(f - 0.5) < Math.abs(best.focalX - 0.5))) best = { focalX: f, held };
+  }
+  return { focalX: Math.round(best.focalX * 100) / 100, held: best.held };
+}
+
+/** The shot's crop centre: its own focalX, or with "auto" the callouts' (`spans`, per frame). */
+function focalOf(shot, spans) {
+  const on = shot.focalOn ? new RegExp(shot.focalOn, "i") : undefined;
+  if (shot.focalX !== "auto") {
+    const f = shot.focalX ?? 0.5;
+    if (spans.flat().length) console.log(`${shot.id}: focalX ${f} (set) holds ${(heldAt(spans, f) * 100).toFixed(0)}% of the callouts in the 9:16 band`);
+    return f;
+  }
+  const found = bestFocal(spans, on);
+  if (!found) return 0.5;
+  const key = on ? `; ${(heldAt(spans.map((f) => f.filter(([, , , t]) => on.test(t ?? ""))), found.focalX) * 100).toFixed(0)}% of /${shot.focalOn}/` : "";
+  console.log(`${shot.id}: focalX ${found.focalX} holds ${(heldAt(spans, found.focalX) * 100).toFixed(0)}% of the callouts in the 9:16 band${key}`);
+  return found.focalX;
 }
 
 /** Steps the shot's timeline from ready to `frames`, firing its actions, without capturing. */
@@ -163,6 +265,7 @@ async function shoot(win, shot) {
   await rm(dir, { recursive: true, force: true });
   await mkdir(dir, { recursive: true });
   const luma = [];
+  const spans = [];
   const cuts = new Set();
   const frame = (i) => path.join(dir, `f_${String(i).padStart(5, "0")}.png`);
   let n = 0;
@@ -175,6 +278,7 @@ async function shoot(win, shot) {
     const image = await win.webContents.capturePage();
     await writeFile(frame(n), image.toPNG());
     luma.push(meanLuma(image));
+    spans.push(await js(win, CALLOUT_SPANS));
     n += 1;
   }
   // A rare one-frame compositor glitch (a frame drawn mid-update): a frame far from both
@@ -196,8 +300,29 @@ async function shoot(win, shot) {
   );
   if (ff.status !== 0) throw new Error(`${shot.id}: ffmpeg failed`);
   if (!keepFrames) await rm(dir, { recursive: true, force: true });
-  await updateManifest(shot, total / FPS);
+  // Kept for a joined shot's crop (concatShot).
+  await writeFile(path.join(outDir, ".frames", `${shot.id}.spans.json`), JSON.stringify(spans));
+  await updateManifest(shot, total / FPS, focalOf(shot, spans));
   console.log(`wrote ${file} (${(total / FPS).toFixed(2)} s)`);
+}
+
+/** A shot made of other clips (`concat: [ids]`), joined end to end (same encoding, no re-encode). */
+async function concatShot(shot) {
+  const { existsSync } = await import("node:fs");
+  const missing = shot.concat.filter((id) => !existsSync(path.join(outDir, `${id}.mp4`)));
+  if (missing.length) throw new Error(`${shot.id}: render ${missing.join(", ")} first`);
+  const list = path.join(outDir, ".frames", `${shot.id}.txt`);
+  await mkdir(path.dirname(list), { recursive: true });
+  await writeFile(list, shot.concat.map((id) => `file '${path.join(outDir, `${id}.mp4`)}'`).join("\n") + "\n");
+  const file = path.join(outDir, `${shot.id}.mp4`);
+  const ff = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", "-movflags", "+faststart", file], { stdio: "inherit" });
+  if (ff.status !== 0) throw new Error(`${shot.id}: ffmpeg concat failed`);
+  const probe = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file], { encoding: "utf8" });
+  const seconds = Number(probe.stdout.trim());
+  const spans = [];
+  for (const id of shot.concat) spans.push(...JSON.parse(await readFile(path.join(outDir, ".frames", `${id}.spans.json`), "utf8").catch(() => "[]")));
+  await updateManifest(shot, seconds, focalOf(shot, spans));
+  console.log(`wrote ${file} (${seconds.toFixed(2)} s, ${shot.concat.join(" + ")})`);
 }
 
 /** `--trace`: run the shot's timeline for `traceSeconds`, printing each new callout or caption. */
@@ -207,7 +332,7 @@ async function traceShot(win, shot) {
   let last = "";
   for (let i = 0; i < Math.round((shot.traceSeconds ?? 40) * FPS); i += 1) {
     await fire(i);
-    const now = await js(
+    const now = shot.traceExpr ? String(await js(win, `(() => { try { return ${shot.traceExpr}; } catch (e) { return "ERR " + e.message; } })()`)) : await js(
       win,
       `[...document.querySelectorAll('[class*="callout"], [class*="caption"], [class*="Callout"], [class*="Caption"]')].map((e) => e.innerText.replace(/\\s+/g, " ").trim()).filter(Boolean).filter((t, i, all) => all.indexOf(t) === i && !all.some((o) => o !== t && o.includes(t))).join(" | ")`,
     );
@@ -227,7 +352,7 @@ function meanLuma(image) {
 }
 
 /** footage/manifest.json, merged shot by shot and kept in script order. */
-async function updateManifest(shot, seconds) {
+async function updateManifest(shot, seconds, focalX) {
   const file = path.join(outDir, "manifest.json");
   let manifest = { shots: [] };
   try {
@@ -235,16 +360,31 @@ async function updateManifest(shot, seconds) {
   } catch {
     // First clip.
   }
-  const entry = { id: shot.id, file: `${shot.id}.mp4`, seconds: Math.round(seconds * 100) / 100, focalX: shot.focalX ?? 0.5, note: shot.note ?? "" };
+  const entry = { id: shot.id, file: `${shot.id}.mp4`, seconds: Math.round(seconds * 100) / 100, focalX, note: shot.note ?? "" };
   manifest.shots = [...manifest.shots.filter((s) => s.id !== shot.id), entry].sort((a, b) => a.id.localeCompare(b.id));
   await writeFile(file, JSON.stringify(manifest, null, 2) + "\n");
 }
+
+// Each shot destroys its window before the next opens: without this, Electron's default quits
+// the app in that gap, aborting the next shot's load (ERR_FAILED) and then the whole run.
+app.on("window-all-closed", () => {});
 
 app.whenReady().then(async () => {
   await mkdir(outDir, { recursive: true });
   let failed = 0;
   let prepared = false;
   for (const shot of shots) {
+    if (shot.concat) {
+      if (!trace) {
+        try {
+          await concatShot(shot);
+        } catch (error) {
+          failed += 1;
+          console.error(`FAILED ${shot.id}: ${error.message}`);
+        }
+      }
+      continue;
+    }
     const [width, height] = shot.size ?? [1920, 1080];
     const win = new BrowserWindow({
       width,
