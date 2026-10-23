@@ -1,31 +1,34 @@
 import { useRef, useState } from "react";
 import { useGame } from "../game/gameStore";
 import { musterCount } from "../game/muster";
-import { getDoctrine } from "../game/view";
+import { tutorialOn, useGuide } from "../guide/guideStore";
 import { SealMark } from "./glyphs";
 import { Modal } from "./Modal";
 
-/** The wax-seal commit. If any company would fight on a doctrine you did not pick, it asks first. */
+/**
+ * The wax-seal commit. It asks first only when nothing changed this command window (no new
+ * orders, no musters): a likely slip. Companies left alone keep their standing doctrines,
+ * which is normal, so any change seals at once (T33). Never in the tutorial, which teaches it.
+ */
 export function SealOrders() {
   const defaulted = useGame((s) => s.defaultedSquads);
   const seal = useGame((s) => s.sealOrders);
-  const view = useGame((s) => s.view);
   const orders = useGame((s) => s.orders);
   const muster = useGame((s) => s.muster);
   const notice = useGame((s) => s.notice);
   const stage = useGame((s) => s.stage);
   const suggestMuster = useGame((s) => s.suggestMuster);
   const resetMuster = useGame((s) => s.resetMuster);
-  const [confirming, setConfirming] = useState<string[] | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
 
   const chosen = Object.keys(orders).length;
   // Musters (T21): companies that will move before the phase (a relief moves two).
   const mustering = musterCount(muster);
   const onSeal = () => {
-    const left = defaulted();
-    if (left.length > 0) {
-      setConfirming(left);
+    const unchanged = chosen === 0 && mustering === 0 && defaulted().length > 0;
+    if (unchanged && !tutorialOn(useGuide.getState())) {
+      setConfirming(true);
     } else {
       seal();
     }
@@ -66,54 +69,27 @@ export function SealOrders() {
         )}
       </div>
       {confirming && (
-        <ConfirmDefaults
-          mustering={mustering}
-          names={confirming.map((id) => {
-            const squad = view.squads.find((item) => item.id === id);
-            return `${squad?.name ?? id}: ${getDoctrine(squad?.doctrineId)?.name ?? "standing doctrine"}`;
-          })}
+        <ConfirmUnchanged
           onSeal={() => {
-            setConfirming(null);
+            setConfirming(false);
             seal();
           }}
-          onReview={() => setConfirming(null)}
+          onReview={() => setConfirming(false)}
         />
       )}
     </>
   );
 }
 
-function ConfirmDefaults({ names, mustering, onSeal, onReview }: { names: string[]; mustering: number; onSeal: () => void; onReview: () => void }) {
+function ConfirmUnchanged({ onSeal, onReview }: { onSeal: () => void; onReview: () => void }) {
   const first = useRef<HTMLButtonElement>(null);
   return (
-    <Modal
-      className="modal"
-      role="alertdialog"
-      labelledBy="confirm-title"
-      describedBy="confirm-body"
-      initialFocus={first}
-      onCancel={onReview}
-    >
-      <h2 id="confirm-title">Seal with standing doctrines?</h2>
-      <div id="confirm-body">
-        <p>
-          {names.length === 1 ? "This company has" : "These companies have"} no new orders and will keep fighting as
-          before:
-        </p>
-        <ul>
-          {names.map((name) => (
-            <li key={name}>{name}</li>
-          ))}
-        </ul>
-        {mustering > 0 && (
-          <p>
-            {mustering === 1 ? "1 company will muster" : `${mustering} companies will muster`} before the phase begins.
-          </p>
-        )}
-      </div>
+    <Modal className="modal" role="dialog" labelledBy="confirm-title" describedBy="confirm-body" initialFocus={first} onCancel={onReview}>
+      <h2 id="confirm-title">Seal without changes?</h2>
+      <p id="confirm-body">No new orders or musters this phase: every company keeps its standing doctrine.</p>
       <div className="modal-actions">
         <button ref={first} type="button" className="btn-command" onClick={onSeal}>
-          Seal anyway
+          Seal
         </button>
         <button type="button" className="btn-quiet" onClick={onReview}>
           Review orders

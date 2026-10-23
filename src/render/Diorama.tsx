@@ -20,7 +20,7 @@ import { LightRig } from "./lighting/LightRig";
 import { AtmosphereTicker, useLook } from "./look/LookContext";
 import type { FactionId } from "../game/engine/types";
 import { createIslandMaterial, createOutlineMaterial } from "./materials";
-import { pickBoardHex, resolveClick } from "./picking";
+import { pickBoardHex, resolveClick, selectPick } from "./picking";
 import { BoardHighlights, type ZoneStyle } from "./terrain/BoardHighlights";
 import { ExitMarkers } from "./terrain/ExitMarkers";
 import { buildIsland, disposeIsland } from "./terrain/buildIsland";
@@ -235,13 +235,9 @@ export function Diorama({
   const onIslandClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     const { hex, squadId } = resolveClick(pickBoardHex(e.point, board, island.center), squadRefs);
-    selectHex(hex);
-    selectSquad(squadId);
+    selectPick({ selectHex, selectSquad }, hex, squadId);
   };
-  const onFigureClick = (id: string) => {
-    selectSquad(id);
-    selectHex(drawn.find((s) => s.id === id)?.hex ?? null);
-  };
+  const onFigureClick = (id: string) => selectPick({ selectHex, selectSquad }, drawn.find((s) => s.id === id)?.hex ?? null, id);
 
   return (
     <>

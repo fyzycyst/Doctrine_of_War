@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { useGame } from "./app/game/gameStore";
 import { useAppStore } from "./app/store";
+import { useGuide } from "./app/guide/guideStore";
+import { musterTargets } from "./app/game/muster";
 import { applyCampaign, ashAndBanner, startCampaign } from "./game/campaign";
 import { createInitialState, doctrineLibrary, firstBreach } from "./game/engine";
 
@@ -57,13 +59,11 @@ describe("command flow on The First Breach (fortune off)", () => {
     expect(game().orders).toEqual({ greyford_shields: "fighting_withdrawal" });
     expect(within(hand).getByRole("option", { name: /Fighting Withdrawal/ })).toHaveAttribute("aria-selected", "true");
 
-    // Assign by click, then seal: the three untouched companies trigger a confirmation.
+    // Assign by click, then seal: a change was made, so it seals at once (the three untouched
+    // companies keep their standing doctrines).
     await user.click(within(hand).getByRole("option", { name: /Shield the Line/ }));
     expect(game().orders).toEqual({ greyford_shields: "shield_the_line" });
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    const confirm = screen.getByRole("alertdialog", { name: "Seal with standing doctrines?" });
-    expect(within(confirm).getAllByRole("listitem")).toHaveLength(3);
-    await user.click(within(confirm).getByRole("button", { name: "Seal anyway" }));
 
     // The phase plays out on the board; Skip jumps to the final state and the report.
     expect(game().stage).toBe("resolving");
@@ -79,7 +79,7 @@ describe("command flow on The First Breach (fortune off)", () => {
     for (let guard = 0; guard < 5 && game().stage !== "outcome"; guard += 1) {
       if (game().stage === "command") {
         await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-        await user.click(screen.getByRole("button", { name: "Seal anyway" }));
+        await user.click(screen.getByRole("button", { name: "Seal" }));
         await user.click(screen.getByRole("button", { name: /Skip/ }));
       }
       await user.click(screen.getByRole("button", { name: /Next Phase|See the outcome/ }));
@@ -95,12 +95,12 @@ describe("command flow on The First Breach (fortune off)", () => {
     await toCommand(user);
     const seal = screen.getByRole("button", { name: "Seal Orders" });
     await user.click(seal);
-    const confirm = screen.getByRole("alertdialog", { name: "Seal with standing doctrines?" });
+    const confirm = screen.getByRole("dialog", { name: "Seal without changes?" });
     expect(confirm.tagName).toBe("DIALOG");
     expect(confirm).toHaveAttribute("data-modal", "true");
-    expect(within(confirm).getByRole("button", { name: "Seal anyway" })).toHaveFocus();
+    expect(within(confirm).getByRole("button", { name: "Seal" })).toHaveFocus();
     await user.click(within(confirm).getByRole("button", { name: "Review orders" }));
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Seal without changes?" })).not.toBeInTheDocument();
     expect(seal).toHaveFocus();
   });
 
@@ -121,16 +121,59 @@ describe("command flow on The First Breach (fortune off)", () => {
     expect(screen.getByRole("option", { name: /Greyford Shields/ })).toHaveFocus();
   });
 
-  it("seals without asking when every company has new orders", async () => {
+});
+
+// T33: Seal asks only when nothing changed this command window (no orders, no musters), and
+// never in the tutorial, which teaches that untouched companies keep their standing orders.
+describe("the seal question", () => {
+  const question = () => screen.queryByRole("dialog", { name: "Seal without changes?" });
+
+  it("seals at once with a new order", async () => {
     const user = userEvent.setup();
     render(<App />);
     await toCommand(user);
-    for (const id of ["greyford_shields", "dawnwatch_archers", "mercy_standard", "stoneford_riders"]) {
-      act(() => void game().assignDoctrine(id, "shield_the_line"));
-    }
+    act(() => void game().assignDoctrine("greyford_shields", "fighting_withdrawal"));
     await user.click(screen.getByRole("button", { name: "Seal Orders" }));
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(question()).not.toBeInTheDocument();
     expect(game().stage).toBe("resolving");
+  });
+
+  it("seals at once with only a muster planned", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await toCommand(user);
+    const mover = game().view.squads.find((squad) => squad.faction === game().view.viewer && musterTargets(game().engine, game().scenario, [], squad.id).hexes.length > 0)!;
+    act(() => void game().planMuster({ squadId: mover.id, to: musterTargets(game().engine, game().scenario, [], mover.id).hexes[0] }));
+    expect(game().orders).toEqual({});
+    await user.click(screen.getByRole("button", { name: "Seal Orders" }));
+    expect(question()).not.toBeInTheDocument();
+    expect(game().stage).toBe("resolving");
+  });
+
+  it("asks when nothing changed, says every company keeps its standing doctrine, and Seal seals", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await toCommand(user);
+    await user.click(screen.getByRole("button", { name: "Seal Orders" }));
+    const confirm = question()!;
+    expect(confirm).toHaveTextContent("No new orders or musters this phase: every company keeps its standing doctrine.");
+    expect(within(confirm).getByRole("button", { name: "Seal" })).toHaveFocus();
+    await user.click(within(confirm).getByRole("button", { name: "Seal" }));
+    expect(game().stage).toBe("resolving");
+  });
+
+  it("never asks in the tutorial", async () => {
+    const user = userEvent.setup();
+    act(() => useGuide.setState({ introSeen: true, coach: "active", step: "seal", off: false }));
+    try {
+      render(<App />);
+      await toCommand(user);
+      await user.click(screen.getByRole("button", { name: "Seal Orders" }));
+      expect(question()).not.toBeInTheDocument();
+      expect(game().stage).toBe("resolving");
+    } finally {
+      act(() => useGuide.setState({ coach: "done" }));
+    }
   });
 });
 

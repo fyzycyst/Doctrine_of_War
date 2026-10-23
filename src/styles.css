@@ -2586,6 +2586,12 @@ html.reduce-motion *::after {
 
 /* ---------------------------------------------------------------- guide */
 
+/* The coach mark's wrapper takes no box: in the HUD's grid it would fill a cell over the
+   board and catch its clicks (T33). Its ring and panel place themselves (fixed). */
+.coach {
+  display: contents;
+}
+
 .coach-ring {
   position: fixed;
   z-index: 60;

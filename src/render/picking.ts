@@ -54,6 +54,21 @@ export function resolveClick(
   return { hex, squadId: squadAtHex(hex, squads) };
 }
 
+/**
+ * Writes a board pick (a hex, or a figure) to the store: the hex, then the squad on it.
+ * Always in this order: board actions (deploying, mustering, relieving) act when the hex
+ * changes, on the company selected before the click, so the clicked squad must not
+ * replace it first (T33: clicking a worn company's figure didn't plan its relief).
+ */
+export function selectPick(
+  app: { selectHex: (hex: HexCoord | null) => void; selectSquad: (id: string | null) => void },
+  hex: HexCoord | null,
+  squadId: string | null,
+) {
+  app.selectHex(hex);
+  app.selectSquad(squadId);
+}
+
 export function sameHexOrNull(a: HexCoord | null, b: HexCoord | null) {
   return a === b || (!!a && !!b && a.q === b.q && a.r === b.r);
 }
