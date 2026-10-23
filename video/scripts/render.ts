@@ -1,8 +1,9 @@
 // `npm run render:main | render:vertical | render:all`: H.264 (CRF 16) with AAC audio into
-// $DOW_VIDEO_DIR/out/. INTRO=0 drops the intro placeholder.
+// $DOW_VIDEO_DIR/out/, then loudness-normalised (loudnorm.ts). INTRO=0 drops the intro placeholder.
 import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
+import { loudnorm } from "./loudnorm";
 import { OUT_DIR, VIDEO_DIR } from "./paths";
 
 const OUTPUT: Record<string, string> = { Main: "doctrine-of-war-1080p.mp4", Vertical: "doctrine-of-war-vertical.mp4" };
@@ -40,5 +41,7 @@ for (const id of ids) {
       }
     },
   });
+  const loudness = loudnorm(outputLocation);
+  console.log(`loudness ${loudness.before} → ${loudness.after} (${loudness.mode})`);
   console.log(`rendered ${outputLocation} (${(composition.durationInFrames / composition.fps).toFixed(1)} s, ${composition.width}x${composition.height})`);
 }

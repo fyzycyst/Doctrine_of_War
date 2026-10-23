@@ -11,6 +11,7 @@
     "render:vertical": "npm run prepare-media && tsx scripts/render.ts Vertical",
     "render:all": "npm run prepare-media && tsx scripts/render.ts Main Vertical && tsx scripts/srt.ts",
     "srt": "npm run prepare-media && tsx scripts/srt.ts",
+    "loudnorm": "tsx scripts/loudnorm.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/*.test.ts"
   },

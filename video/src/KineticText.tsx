@@ -59,14 +59,15 @@ export function KineticText({ text, frames, delay = 6 }: { text: string; frames:
           }}
         >
           {words.map((word, index) => {
-            const s = spring({ frame: frame - delay - 4 - index * 3, fps, config: { damping: 13, stiffness: 170, mass: 0.6 } });
+            // The first word lands with the plate (never an empty box); the rest follow it in.
+            const s = spring({ frame: frame - delay - index * 3, fps, config: { damping: 13, stiffness: 170, mass: 0.6 } });
             return (
               <span
                 key={`${word}-${index}`}
                 style={{
                   display: "inline-block",
                   whiteSpace: "pre",
-                  opacity: Math.min(1, s * 1.6),
+                  opacity: Math.min(1, s * 2.2),
                   transform: `translateY(${(1 - s) * 56}px) scale(${0.88 + 0.12 * s})`,
                   filter: `blur(${Math.max(0, (1 - s) * 8)}px)`,
                 }}

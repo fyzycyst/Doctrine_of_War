@@ -49,6 +49,7 @@ npm run render:main      # out/doctrine-of-war-1080p.mp4      (1920×1080, 30 fp
 npm run render:vertical  # out/doctrine-of-war-vertical.mp4   (1080×1920)
 npm run render:all       # both, plus the captions
 npm run srt              # out/doctrine-of-war.srt (+ -vertical.srt if its line breaks differ)
+npm run loudnorm -- <file.mp4>  # -14 LUFS, ≤ -1 dBTP (every render already runs it)
 npm test                 # timeline and caption tests
 npm run typecheck
 ```
@@ -59,4 +60,5 @@ npm run typecheck
 - **Colour:** the game's palette (ash, ember, banner gold).
 - **On-screen text:** sits on a plate between gold hairlines, a nod to the rule banners.
 - **Sound:** the score is ducked under the voice, swells on the title, and the victory sting plays under the end card.
+- **Loudness:** every render is normalised to -14 LUFS integrated, true peak ≤ -1 dBTP. This is a two-pass ffmpeg `loudnorm` (`scripts/loudnorm.ts`); only the audio is re-encoded.
 - **Licensing:** Remotion is free for individuals and teams of up to three ([licence FAQ](https://www.remotion.dev/docs/license/faq)).
