@@ -59,7 +59,7 @@ npm run render:main      # out/doctrine-of-war-1080p.mp4      (1920×1080, 30 fp
 npm run render:vertical  # out/doctrine-of-war-vertical.mp4   (1080×1920)
 npm run render:all       # both, plus the captions
 npm run srt              # out/doctrine-of-war.srt (+ -vertical.srt if its line breaks differ)
-npm run loudnorm -- <file.mp4>  # -14 LUFS, ≤ -1 dBTP (every render already runs it)
+npm run loudnorm -- <file.mp4>  # -16 LUFS, ≤ -1.5 dBTP (every render already runs it)
 npm test                 # timeline and caption tests
 npm run typecheck
 ```
@@ -69,6 +69,6 @@ npm run typecheck
 - **Type:** Cinzel for titles and on-screen text, Alegreya Sans for small print. Both come from Fontsource, as in the game (SIL OFL 1.1).
 - **Colour:** the game's palette (ash, ember, banner gold).
 - **On-screen text:** sits on a plate between gold hairlines, a nod to the rule banners.
-- **Sound:** the mix is set as loudness targets, not gains, from each take's and stem's measured LUFS (`src/Soundtrack.tsx`). Every line sits at the same level; the music runs about 14 dB under the voice, swells on the title, and the victory sting plays under the end card.
-- **Loudness:** every render is normalised to -14 LUFS integrated, true peak ≤ -1 dBTP. This is a two-pass ffmpeg `loudnorm` (`scripts/loudnorm.ts`); only the audio is re-encoded.
+- **Sound:** the mix is set as loudness targets, not gains, from each take's and stem's measured LUFS (`src/Soundtrack.tsx`). Every line sits at the same level. The music drops about 14 dB under the voice, quickly, then rises back over about 1.3 s after a line. Between lines it sits just under the voice, it swells a little on the title, and the victory sting plays under the end card.
+- **Loudness:** every render is normalised to -16 LUFS integrated, true peak ≤ -1.5 dBTP (`scripts/loudnorm.ts`). Platforms only turn loud files down. The step applies one linear gain to the target; if that would push the peaks past the ceiling, a short peak limiter catches them. Only the audio is re-encoded.
 - **Licensing:** Remotion is free for individuals and teams of up to three ([licence FAQ](https://www.remotion.dev/docs/license/faq)).
