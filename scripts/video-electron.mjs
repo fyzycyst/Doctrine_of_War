@@ -293,9 +293,11 @@ async function shoot(win, shot) {
     }
   }
   const file = path.join(outDir, `${shot.id}.mp4`);
+  // capturePage returns device pixels (3840x2160 on a Retina display): scale to the clip's size.
+  const [w, h] = shot.size ?? [1920, 1080];
   const ff = spawnSync(
     "ffmpeg",
-    ["-y", "-loglevel", "error", "-framerate", String(FPS), "-i", path.join(dir, "f_%05d.png"), "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p", "-movflags", "+faststart", file],
+    ["-y", "-loglevel", "error", "-framerate", String(FPS), "-i", path.join(dir, "f_%05d.png"), "-vf", `scale=${w}:${h}:flags=lanczos`, "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p", "-movflags", "+faststart", file],
     { stdio: "inherit" },
   );
   if (ff.status !== 0) throw new Error(`${shot.id}: ffmpeg failed`);
