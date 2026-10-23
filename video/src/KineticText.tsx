@@ -24,7 +24,8 @@ export function KineticText({ text, frames, delay = 6 }: { text: string; frames:
   const portrait = height > width;
   const open = spring({ frame: frame - delay, fps, config: { damping: 200, stiffness: 220 } });
   const leave = interpolate(frame, [frames - 12, frames - 3], [0, 1], { ...clamp, easing: (t) => t * t });
-  // A separator ("·") keeps to the word after it, so a line never ends on one.
+  // A separator ("·") keeps to the word after it, so a line never ends on one. In 9:16 the
+  // text breaks there instead and the dot is dropped, so no line starts with one either.
   const words = text.split(" ").reduce<string[]>((list, word) => (list.at(-1) === "·" ? [...list.slice(0, -1), `· ${word}`] : [...list, word]), []);
   return (
     <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: portrait ? 560 : 150 }}>
@@ -58,10 +59,13 @@ export function KineticText({ text, frames, delay = 6 }: { text: string; frames:
             transform: `scaleX(${1 / (0.7 + 0.3 * open)})`,
           }}
         >
-          {words.map((word, index) => {
+          {words.flatMap((word, index) => {
             // The first word lands with the plate (never an empty box); the rest follow it in.
             const s = spring({ frame: frame - delay - index * 3, fps, config: { damping: 13, stiffness: 170, mass: 0.6 } });
-            return (
+            const separated = word.startsWith("· ");
+            const lineBreak = portrait && separated ? [<div key={`break-${index}`} style={{ flexBasis: "100%", height: 0 }} />] : [];
+            return [
+              ...lineBreak,
               <span
                 key={`${word}-${index}`}
                 style={{
@@ -72,16 +76,18 @@ export function KineticText({ text, frames, delay = 6 }: { text: string; frames:
                   filter: `blur(${Math.max(0, (1 - s) * 8)}px)`,
                 }}
               >
-                {word.startsWith("· ") ? (
+                {separated && !portrait ? (
                   <>
                     <span style={{ color: C.gold }}>·</span>
                     {word.slice(1)}
                   </>
+                ) : separated ? (
+                  word.slice(2)
                 ) : (
                   word
                 )}
-              </span>
-            );
+              </span>,
+            ];
           })}
         </div>
       </div>
