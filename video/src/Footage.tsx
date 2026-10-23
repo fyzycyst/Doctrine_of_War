@@ -23,26 +23,42 @@ function Still({ file, focalX, focalY, frames }: { file: string; focalX: number;
   );
 }
 
-export function Footage({ id, frames, media }: { id: string; frames: number; media: Media }) {
+function Clip({ file, seconds, focalX, frames }: { file: string; seconds: number; focalX: number; frames: number }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const settle = useSettle();
+  const clipFrames = Math.floor(seconds * fps);
+  const video = <OffthreadVideo src={staticFile(file)} muted style={cover(focalX)} />;
+  // A gentle push-in on every clip: it moves a locked-off camera (the end card) and lifts
+  // the in-game callouts, which are fixed-size and read small at 1080p.
+  const push = interpolate(frame, [0, frames], [1, 1.06]);
+  return (
+    <AbsoluteFill style={{ transform: `scale(${settle * push})`, transformOrigin: `${focalX * 100}% 50%` }}>
+      <Sequence durationInFrames={Math.min(frames, clipFrames)}>{video}</Sequence>
+      {/* A clip shorter than its shot holds its last frame. */}
+      {clipFrames < frames && (
+        <Sequence from={clipFrames}>
+          <Freeze frame={clipFrames - 1}>{video}</Freeze>
+        </Sequence>
+      )}
+    </AbsoluteFill>
+  );
+}
+
+export function Footage({ id, frames, media }: { id: string; frames: number; media: Media }) {
   const clip = media.clips[id as keyof Media["clips"]];
-  if (clip) {
-    const clipFrames = Math.floor(clip.seconds * fps);
-    const video = <OffthreadVideo src={staticFile(clip.file)} muted style={cover(clip.focalX)} />;
-    // A gentle push-in on every clip: it moves a locked-off camera (the end card) and lifts
-    // the in-game callouts, which are fixed-size and read small at 1080p.
-    const push = interpolate(frame, [0, frames], [1, 1.06]);
+  // A montage with parts: each part gets an even share of the shot (trimmed at its end), so a
+  // joined clip longer than the shot doesn't lose its last beat.
+  const parts = clip?.parts?.length ? clip.parts : clip ? [clip] : null;
+  if (parts) {
+    const each = Math.ceil(frames / parts.length);
     return (
-      <AbsoluteFill style={{ transform: `scale(${settle * push})`, transformOrigin: `${clip.focalX * 100}% 50%` }}>
-        <Sequence durationInFrames={Math.min(frames, clipFrames)}>{video}</Sequence>
-        {/* A clip shorter than its shot holds its last frame. */}
-        {clipFrames < frames && (
-          <Sequence from={clipFrames}>
-            <Freeze frame={clipFrames - 1}>{video}</Freeze>
+      <AbsoluteFill>
+        {parts.map((part, index) => (
+          <Sequence key={part.file} from={index * each} durationInFrames={each}>
+            <Clip {...part} frames={each} />
           </Sequence>
-        )}
+        ))}
       </AbsoluteFill>
     );
   }

@@ -17,7 +17,8 @@ export interface MediaFile {
 
 export interface Media {
   vo: Record<string, MediaFile & { source: "final" | "temp" }>;
-  clips: Partial<Record<ShotId, MediaFile & { focalX: number }>>;
+  /** A shot's clip; a montage may also have its parts (s08a-…, s08b-…), which the edit cuts itself. */
+  clips: Partial<Record<ShotId, MediaFile & { focalX: number; parts?: Array<MediaFile & { focalX: number }> }>>;
   stills: Partial<Record<ShotId, Array<{ file: string; focalX: number; focalY: number }>>>;
   music: Partial<Record<Stem, MediaFile>>;
 }

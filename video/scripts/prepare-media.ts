@@ -61,11 +61,22 @@ const manifestFile = path.join(MEDIA_DIR, "footage", "manifest.json");
 if (fs.existsSync(manifestFile)) {
   const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8")) as { shots?: Array<{ id: string; file: string; seconds?: number; focalX?: number }> };
   const ids = new Set<string>(SHOTS.map((shot) => shot.id));
+  // A montage's parts are named for its shot's number plus a letter (s08a-…, s08b-…).
+  const partOf = (id: string) => SHOTS.find((shot) => new RegExp(`^${shot.id.slice(0, 3)}[a-z]-`).test(id))?.id;
+  const parts: Partial<Record<ShotId, Array<{ id: string; file: string; seconds: number; focalX: number }>>> = {};
   for (const entry of manifest.shots ?? []) {
     const file = path.join(MEDIA_DIR, "footage", entry.file);
-    if (!ids.has(entry.id)) console.warn(`footage: manifest id ${entry.id} is not a shot in script.ts; ignored`);
-    else if (!fs.existsSync(file)) console.warn(`footage: ${entry.file} (for ${entry.id}) is missing; using stills`);
-    else clips[entry.id as ShotId] = { file: rel(file), seconds: seconds(file), focalX: Math.min(1, Math.max(0, entry.focalX ?? 0.5)) };
+    const focalX = Math.min(1, Math.max(0, entry.focalX ?? 0.5));
+    const part = partOf(entry.id);
+    if (!fs.existsSync(file)) console.warn(`footage: ${entry.file} (for ${entry.id}) is missing; ignored`);
+    else if (ids.has(entry.id)) clips[entry.id as ShotId] = { file: rel(file), seconds: seconds(file), focalX };
+    else if (part) (parts[part] ??= []).push({ id: entry.id, file: rel(file), seconds: seconds(file), focalX });
+    else console.warn(`footage: manifest id ${entry.id} is not a shot in script.ts; ignored`);
+  }
+  for (const [id, list] of Object.entries(parts) as Array<[ShotId, NonNullable<(typeof parts)[ShotId]>]>) {
+    const sorted = list.sort((a, b) => a.id.localeCompare(b.id)).map(({ file, seconds: length, focalX }) => ({ file, seconds: length, focalX }));
+    const whole = clips[id];
+    if (whole) whole.parts = sorted;
   }
 }
 
@@ -83,6 +94,8 @@ const json = `${JSON.stringify(media, null, 2)}\n`;
 if (!fs.existsSync(GENERATED) || fs.readFileSync(GENERATED, "utf8") !== json) fs.writeFileSync(GENERATED, json);
 
 const count = (record: object) => Object.keys(record).length;
+const montages = Object.entries(clips).filter(([, clip]) => clip.parts).map(([id, clip]) => `${id} (${clip.parts!.length} parts)`);
+if (montages.length) console.log(`footage: cut from parts: ${montages.join(", ")}`);
 const finals = Object.values(vo).filter((take) => take.source === "final").length;
 console.log(
   `media: ${MEDIA_DIR} · VO ${count(vo)}/10 (${finals} final, ${count(vo) - finals} temp) · clips ${count(clips)}/${SHOTS.length} · stems ${Object.keys(music).join(", ") || "none"} · out ${OUT_DIR}`,
