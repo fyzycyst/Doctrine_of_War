@@ -7,6 +7,7 @@ import path from "node:path";
 import { SHOTS, type ShotId, type Stem } from "../src/script";
 import { FALLBACK_STILL, STILLS, type StillSource } from "../src/stills";
 import type { Media } from "../src/timeline";
+import { isGreenScreen, keyGraph, measureBackground } from "./key-intro";
 import { ART_SPIKE_DIR, GENERATED, LINKED, MEDIA_DIR, OUT_DIR, PUBLIC_DIR, REPO_DIR, VIDEO_DIR } from "./paths";
 
 const STEMS: Stem[] = ["dusk", "battle", "dawn", "victory"];
@@ -98,7 +99,9 @@ for (const stem of STEMS) {
 // and its captions if an intro.srt sits beside it.
 const INTRO_LEVEL = -25; // the narration's level in the mix (Soundtrack.tsx VOICE)
 let intro: Media["intro"];
-const introFile = ["mp4", "mov", "m4v"].map((ext) => path.join(MEDIA_DIR, "intro", `intro.${ext}`)).find((file) => fs.existsSync(file));
+// Any case: intro.mp4, Intro.MOV, …
+const introName = fs.readdirSync(path.join(MEDIA_DIR, "intro")).find((name) => /^intro\.(mp4|mov|m4v)$/i.test(name));
+const introFile = introName ? path.join(MEDIA_DIR, "intro", introName) : undefined;
 if (introFile) {
   const probe = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,width,height:stream_side_data=rotation", "-of", "json", introFile], { encoding: "utf8" })) as {
     streams: Array<{ codec_type: string; width?: number; height?: number; side_data_list?: Array<{ rotation?: number }> }>;
@@ -124,7 +127,28 @@ if (introFile) {
     }
     audio = rel(levelled);
   }
-  const srt = introFile.replace(/\.[^.]+$/, ".srt");
+  // Keyed off a green background into work/ (key-intro.ts), remade when the clip changes.
+  let keyed: string | undefined;
+  const background = measureBackground(introFile, seconds(introFile));
+  if (isGreenScreen(background)) {
+    const out = path.join(MEDIA_DIR, "work", "intro-keyed.mov");
+    const stampFile = path.join(MEDIA_DIR, "work", "intro-keyed.txt");
+    const keyWidth = 1920;
+    const keyHeight = Math.round((keyWidth * height) / width / 2) * 2;
+    const graph = keyGraph(background, keyWidth, keyHeight);
+    const stat = fs.statSync(introFile);
+    const want = `${introFile}|${stat.size}|${stat.mtimeMs}\n${graph}`;
+    if (!fs.existsSync(out) || !fs.existsSync(stampFile) || fs.readFileSync(stampFile, "utf8") !== want) {
+      const graphFile = path.join(MEDIA_DIR, "work", "intro-key.fg");
+      fs.writeFileSync(graphFile, graph);
+      console.log(`intro: keying the green background (top ${background.top.join(",")}, bottom ${background.bottom.join(",")}) → work/intro-keyed.mov`);
+      execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", introFile, "-/filter_complex", graphFile, "-map", "[k]", "-c:v", "prores_ks", "-profile:v", "4", "-pix_fmt", "yuva444p10le", "-alpha_bits", "16", "-an", out], { stdio: "inherit" });
+      fs.writeFileSync(stampFile, want);
+    }
+    keyed = rel(out);
+  }
+  const srtName = fs.readdirSync(path.join(MEDIA_DIR, "intro")).find((name) => name.toLowerCase() === `${path.parse(introFile).name.toLowerCase()}.srt`);
+  const srt = srtName ? path.join(MEDIA_DIR, "intro", srtName) : "";
   const stampToSeconds = (stamp: string) => {
     const [h, m, rest] = stamp.split(":");
     return Number(h) * 3600 + Number(m) * 60 + Number(rest.replace(",", "."));
@@ -143,8 +167,8 @@ if (introFile) {
           return text ? [{ from, to, text }] : [];
         })
     : undefined;
-  intro = { file: rel(introFile), seconds: seconds(introFile), width, height, audio, captions };
-  console.log(`intro: ${rel(introFile)} (${intro.seconds.toFixed(1)} s, ${width}x${height}${audio ? "" : ", no sound"}${captions ? `, ${captions.length} captions` : ""})`);
+  intro = { file: rel(introFile), seconds: seconds(introFile), width, height, audio, captions, ...(keyed ? { keyed } : {}) };
+  console.log(`intro: ${rel(introFile)} (${intro.seconds.toFixed(1)} s, ${width}x${height}${audio ? "" : ", no sound"}${captions ? `, ${captions.length} captions` : ""}${keyed ? ", keyed" : ""})`);
 }
 
 const media: Media = { vo, clips, stills, music, ...(intro ? { intro } : {}) };

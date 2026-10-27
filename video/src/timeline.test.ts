@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { chunks, cues, LINE_LENGTH, toSrt, wrap } from "./captions";
+import { chunks, cues, LINE_LENGTH, MIN_CUE, toSrt, wrap } from "./captions";
 import { SHOTS } from "./script";
 import { buildTimeline, FPS, MIN_SHOT, musicBeds, toFrames, VO_LEAD, VO_TAIL, voWindows, type Media } from "./timeline";
 
@@ -104,5 +104,14 @@ describe("the user's intro", () => {
   it("carries its own captions into the SRT, offset to where it sits", () => {
     const srt = toSrt(cues(buildTimeline(media, { intro: true }), LINE_LENGTH.main));
     assert.match(srt, /^1\n00:00:06,000 --> 00:00:08,500\nHello, I'm the commander who made this\.\n/);
+  });
+});
+
+describe("short cues", () => {
+  it("stay up at least a second, taking time from their longer neighbours", () => {
+    const intro = { file: "intro/intro.mp4", seconds: 12, width: 1920, height: 1080, captions: [{ from: 5, to: 8, text: "A second line, long enough to wrap onto two lines in the vertical cut." }] };
+    const list = cues(buildTimeline({ ...withVo(3), intro }, { intro: true }), LINE_LENGTH.vertical);
+    assert.ok(list.length > 1);
+    for (const cue of list) assert.ok(cue.to - cue.from >= MIN_CUE - 1, `${cue.text}: ${cue.to - cue.from} frames`);
   });
 });

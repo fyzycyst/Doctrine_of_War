@@ -31,6 +31,8 @@ export interface Media {
     height: number;
     /** Its sound, levelled to the narration (absent: a silent clip). */
     audio?: string;
+    /** Keyed off its green background (work/intro-keyed.mov, with alpha), when it was filmed on one. */
+    keyed?: string;
     /** From intro.srt beside it, in seconds from the intro's start. */
     captions?: Array<{ from: number; to: number; text: string }>;
   };

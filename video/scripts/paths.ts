@@ -16,4 +16,4 @@ export const PUBLIC_DIR = path.join(VIDEO_DIR, "public");
 export const OUT_DIR = path.resolve(home(process.env.DOW_OUT_DIR ?? path.join(MEDIA_DIR, "out")));
 export const GENERATED = path.join(VIDEO_DIR, "src", "generated", "media.json");
 /** The media folders the compositions read (out/ is not one: renders never go into a bundle). */
-export const LINKED = ["footage", "music", "vo", "vo-temp", "stills", "intro"] as const;
+export const LINKED = ["footage", "music", "vo", "vo-temp", "stills", "intro", "work"] as const;

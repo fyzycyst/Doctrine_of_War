@@ -20,7 +20,7 @@ export function Edit({ intro }: EditProps) {
     <AbsoluteFill style={{ backgroundColor: C.ash }}>
       {timeline.segments.map((segment) => (
         <Sequence key={segment.id} from={segment.from} durationInFrames={segment.frames} name={segment.id}>
-          {segment.intro ? <IntroClip intro={segment.intro} /> : segment.kind === "intro" ? <IntroCard /> : <ShotView segment={segment} media={media as Media} />}
+          {segment.intro ? <IntroClip intro={segment.intro} media={media as Media} /> : segment.kind === "intro" ? <IntroCard /> : <ShotView segment={segment} media={media as Media} />}
         </Sequence>
       ))}
       <Soundtrack timeline={timeline} media={media as Media} />

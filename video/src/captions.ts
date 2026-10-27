@@ -24,6 +24,27 @@ export function wrap(text: string, max: number): string[] {
   return lines;
 }
 
+/** `text` cut at words into the fewest pieces that each fit, as even in length as can be. */
+function balanced(text: string, max: number, fits: (piece: string) => boolean): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  for (let count = 2; count <= words.length; count += 1) {
+    const target = text.length / count;
+    const pieces: string[] = [];
+    let current = "";
+    for (const word of words) {
+      const next = current ? `${current} ${word}` : word;
+      // Close the piece once it reaches its share, keeping room for the pieces still to come.
+      if (current && next.length > target && pieces.length < count - 1) {
+        pieces.push(current);
+        current = word;
+      } else current = next;
+    }
+    pieces.push(current);
+    if (pieces.every(fits)) return pieces;
+  }
+  return words;
+}
+
 /** Pieces of `text` that each wrap to at most two lines: sentences, then clauses, then words. */
 export function chunks(text: string, max: number): string[] {
   const fits = (piece: string) => wrap(piece, max).length <= 2;
@@ -37,25 +58,44 @@ export function chunks(text: string, max: number): string[] {
       if (last !== undefined && fits(`${last} ${clause}`)) joined[joined.length - 1] = `${last} ${clause}`;
       else joined.push(clause);
     }
-    // A clause still too long: two lines at a time.
-    return joined.flatMap((clause) => {
-      if (fits(clause)) return [clause];
-      const lines = wrap(clause, max);
-      const out: string[] = [];
-      for (let i = 0; i < lines.length; i += 2) out.push(lines.slice(i, i + 2).join(" "));
-      return out;
-    });
+    // A clause still too long: the fewest balanced pieces that each fit (never a lone word left over).
+    return joined.flatMap((clause) => (fits(clause) ? [clause] : balanced(clause, max, fits)));
   });
 }
 
-/** `text` spoken from `from` for `frames`, as cues of at most two lines. */
+/** The shortest a cue stays up (frames), so a short fragment never flashes. */
+export const MIN_CUE = FPS;
+
+/**
+ * Each piece's share of `frames`, by length, but none under MIN_CUE: a short piece takes time
+ * from the longer ones. Pieces are joined while there isn't room for every one to get MIN_CUE.
+ */
+function share(pieces: string[], frames: number): Array<{ text: string; frames: number }> {
+  let list = [...pieces];
+  while (list.length > 1 && list.length * MIN_CUE > frames) {
+    // Join the shortest piece to its shorter neighbour.
+    const i = list.reduce((best, piece, index) => (piece.length < list[best].length ? index : best), 0);
+    const j = i === 0 ? 1 : i === list.length - 1 ? i - 1 : list[i - 1].length <= list[i + 1].length ? i - 1 : i + 1;
+    const [a, b] = [Math.min(i, j), Math.max(i, j)];
+    list = [...list.slice(0, a), `${list[a]} ${list[b]}`, ...list.slice(b + 1)];
+  }
+  const total = list.reduce((sum, piece) => sum + piece.length, 0);
+  const lengths = list.map((piece) => (frames * piece.length) / total);
+  const short = lengths.filter((length) => length < MIN_CUE).reduce((sum, length) => sum + (MIN_CUE - length), 0);
+  const spare = lengths.filter((length) => length > MIN_CUE).reduce((sum, length) => sum + (length - MIN_CUE), 0);
+  const fitted = lengths.map((length) => (length < MIN_CUE ? MIN_CUE : spare > 0 ? length - ((length - MIN_CUE) * short) / spare : length));
+  return list.map((text, index) => ({ text, frames: fitted[index] }));
+}
+
+/** `text` spoken from `from` for `frames`, as cues of at most two lines (a joined pair may wrap to three). */
 function timed(text: string, from: number, frames: number, max: number): Cue[] {
-  const pieces = chunks(text, max);
-  const total = pieces.reduce((sum, piece) => sum + piece.length, 0);
+  const pieces = share(chunks(text, max), frames);
   let at = from;
+  let elapsed = 0;
   return pieces.map((piece, index) => {
-    const to = index === pieces.length - 1 ? from + frames : at + Math.round((frames * piece.length) / total);
-    const cue = { from: at, to, text: wrap(piece, max).join("\n") };
+    elapsed += piece.frames;
+    const to = index === pieces.length - 1 ? from + frames : from + Math.round(elapsed);
+    const cue = { from: at, to, text: wrap(piece.text, max).join("\n") };
     at = to;
     return cue;
   });

@@ -14,7 +14,8 @@ Everything large lives in `$DOW_VIDEO_DIR` (default `~/DoctrineOfWar-video`):
 | `music/` | Score stems, named `dusk*`, `battle*`, `dawn*`, `victory*` (see its `README.txt`) | The render agent |
 | `vo/` | The Chronicler's takes, `vo-01.mp3` … `vo-10.mp3` | The user (ElevenLabs) |
 | `vo-temp/` | A temporary macOS voice, for timing until the takes arrive (and the intro's levelled sound) | `npm run temp-vo`, `npm run prepare-media` |
-| `intro/` | The user's intro, `intro.mp4` (or `.mov`, `.m4v`), and optionally `intro.srt` | The user |
+| `intro/` | The user's intro, `intro.mp4` (or `.mov`, `.m4v`, any case), and optionally `intro.srt` | The user |
+| `work/` | The intro keyed off its green background (`intro-keyed.mov`, ProRes 4444 with alpha) | `npm run prepare-media` |
 | `stills/` | Stand-in stills, used until a shot's clip arrives | `npm run prepare-media` |
 | `out/` | Renders and captions | `npm run render:*`, `npm run srt` |
 
@@ -45,13 +46,20 @@ The footage manifest:
 
 ## The user's intro
 
-When `intro/intro.mp4` (or `.mov`, `.m4v`) exists, it takes the slot after the cold open. With no file, a 2 s `[intro]` card holds the place.
+When `intro/intro.mp4` (or `.mov`, `.m4v`, any case) exists, it takes the slot after the cold open. With no file, a 2 s `[intro]` card holds the place.
 
 - **Length and sound:** the clip runs its own length, with its own sound. No VO and no music go under it: the music fades out at the end of the cold open and picks up again on the title.
 - **Levelling:** its sound is levelled to the narration (-25 LUFS in the mix) into `vo-temp/intro.wav`. This copy is remade whenever the clip changes, so the final normalise treats the intro and the narration alike.
-- **16:9:** fitted whole, letterboxed if its shape differs.
-- **9:16:** a portrait clip fills the frame (a phone's rotation flag is honoured). Any other clip fills the width over a blurred, darkened copy of itself.
-- **Captions:** an `intro.srt` beside the clip (times from the clip's start) is offset into both SRTs and re-wrapped to each cut's line length. With no `intro.srt`, that stretch is left uncaptioned.
+- **Filmed on a green background** (a virtual background is fine), the speaker is keyed and set in the game's world (`scripts/key-intro.ts`).
+  - **The key:** pre-keyed once into `work/intro-keyed.mov` and remade when the clip changes.
+    - It measures the background's gradient from the clip's own edges, and keys on greenness against that row's background.
+    - It un-mixes the soft edge from the background colour, despills, chokes the matte 3 px and feathers it.
+  - **The world:** the end card's archipelago, slowed to span the intro, darkened and softened, panning slowly. A gold hairline frame (the speaker's shoulders break its foot) and a small "DOCTRINE OF WAR" mark complete it.
+  - **16:9:** the speaker is anchored to the foot of the frame, sides cropped.
+  - **9:16:** the speaker is larger, the face above the middle, the shirt under the captions.
+- **Any other intro, in 16:9:** fitted whole, letterboxed if its shape differs.
+- **Any other intro, in 9:16:** a portrait clip fills the frame (a phone's rotation flag is honoured). A landscape one fills the width over a blurred, darkened copy of itself.
+- **Captions:** an `intro.srt` beside the clip (times from the clip's start) is offset into both SRTs and re-wrapped to each cut's line length. Like every caption, no cue stays up less than 1 s. With no `intro.srt`, that stretch is left uncaptioned.
 - **To splice it:** drop the file in, then run `npm run render:all`.
 
 ## Motion and framing
