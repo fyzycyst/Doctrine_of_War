@@ -1,0 +1,5 @@
+node_modules/
+# Links into the media folder ($DOW_VIDEO_DIR), made by `npm run prepare-media`.
+public/
+src/generated/
+out/

@@ -94,7 +94,8 @@ export default defineConfig({
     // "balance" (the simulation-heavy files), `npm run test:campaign` runs "campaign" (the
     // heaviest campaign sweeps); a bare `vitest run` runs all three.
     projects: [
-      { extends: true, test: { name: "unit", exclude: [...configDefaults.exclude, ...BALANCE_TEST_GLOBS, ...CAMPAIGN_TEST_GLOBS] } },
+      // video/ is the product video's own project (Remotion, its own package and tests): never the app's.
+      { extends: true, test: { name: "unit", exclude: [...configDefaults.exclude, ...BALANCE_TEST_GLOBS, ...CAMPAIGN_TEST_GLOBS, "video/**"] } },
       // Heavy simulations: a generous per-test limit, so a busy machine (other agents' gates)
       // slows them rather than failing them. Keep each test well under it at normal load.
       {
