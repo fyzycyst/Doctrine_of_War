@@ -4,7 +4,7 @@ import { playSfx } from "../../audio";
 import { sameHex } from "../../game/board";
 import type { SquadAnimationApi } from "../../render/figures/squadAnimation";
 import { emberDusk } from "../../render/skins";
-import { useCaptureStore } from "../captureStore";
+import { playbackHold, useCaptureStore } from "../captureStore";
 import { useGame } from "../game/gameStore";
 import { useAppStore } from "../store";
 import { tutorialOn, useGuide } from "../guide/guideStore";
@@ -139,7 +139,7 @@ export function Playback({
     });
     director.current = run;
     skipButton.current?.focus({ preventScroll: true });
-    void boardReady(Boolean(import.meta.env.DEV && pauseAt))
+    void (playbackHold() ?? boardReady(Boolean(import.meta.env.DEV && pauseAt)))
       .then(() => (alive ? run.run() : "skipped"))
       .then(async (result) => {
         if (!alive) return;

@@ -11,11 +11,17 @@ import { spawnSync } from "node:child_process";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, session } from "electron";
 
 const { url, shots, outDir, keepFrames, trace } = JSON.parse(process.env.VIDEO_CONFIG ?? "{}");
 const FPS = 30;
 const STEP = 1000 / FPS;
+// Frames the clock runs once the scene is ready, before a shot's warm frames and t=0: the board
+// probe's floor (91 frames), where the fastest load used to be ready, which the delivered takes
+// match (s04 re-renders onto its delivered clip), so the shot list's times keep their meaning.
+const PREROLL = 91;
+/** VIDEO_SLOW_MS: whether the page has loaded (later requests are held) and how many were. */
+const slowLoad = { after: false, held: 0 };
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 app.commandLine.appendSwitch("force-device-scale-factor", "1");
@@ -75,6 +81,7 @@ async function open(win, shot) {
   // renders that much larger; the 3D view keeps its framing. The app's "ultra" render scale
   // (set below) keeps the canvas at full resolution behind it.
   win.webContents.setZoomFactor(shot.zoom ?? 1);
+  slowLoad.after = false;
   for (let attempt = 1; ; attempt += 1) {
     try {
       await win.loadURL(shot.lab ? `${url}?lab=1&ui=0&${shot.query}` : `${url}?${shot.query}`);
@@ -85,18 +92,30 @@ async function open(win, shot) {
       await new Promise((resolve) => setTimeout(resolve, 1500));
     }
   }
+  slowLoad.after = true;
   win.webContents.setZoomFactor(shot.zoom ?? 1);
   if ((shot.zoom ?? 1) > 1) await js(win, "window.__dow?.app.setState({ ultra: true })");
   const ready = shot.ready ?? "window.__battleBoard?.ready";
+  // The clock holds while the scene loads (video-virtual-time.cjs): frames render and pending
+  // timers fire, so loads land, shaders compile and the board's probe counts, but no time passes
+  // and playback waits. Then playback is released and exactly PREROLL frames run, so t=0 is the
+  // same battle instant however long the load took (the dry run's anchor search and the capture alike).
   let frames = 0;
   while (!(await truthy(win, ready))) {
-    await step(win, false);
+    await js(win, "window.__vt.advance(0, { present: false, hold: true })");
     frames += 1;
     // Real time for fetches and decodes to land between virtual steps.
     if (frames % 15 === 0) await js(win, "window.__vt.realPause(40)");
     if (frames > 30 * 120) throw new Error(`${shot.id}: never ready (${ready})`);
   }
-  for (let i = 0; i < (shot.warm ?? 30); i += 1) await step(win, false);
+  console.log(`${shot.id}: ready after ${frames} held frames${slowLoad.held ? ` (${slowLoad.held} requests slowed so far)` : ""}`);
+  // Every web font, before anything plays: a face loads on its first use (a callout's first
+  // line), in real time, and text in the fallback face meanwhile is wider and sits elsewhere.
+  const fonts = await js(win, "Promise.all([...document.fonts].map((f) => f.load().catch(() => null))).then(() => document.fonts.ready).then(() => [...document.fonts].filter((f) => f.status === 'loaded').length)");
+  for (let i = 0; i < 2; i += 1) await js(win, "window.__vt.advance(0, { present: false, hold: true })");
+  console.log(`${shot.id}: ${fonts} font faces loaded`);
+  await js(win, "window.__releasePlayback()");
+  for (let i = 0; i < PREROLL + (shot.warm ?? 30); i += 1) await step(win, false);
   if (shot.cursor) await js(win, CURSOR);
   if (shot.setup) await js(win, `(async () => { ${shot.setup} })()`);
 }
@@ -373,6 +392,19 @@ app.on("window-all-closed", () => {});
 
 app.whenReady().then(async () => {
   await mkdir(outDir, { recursive: true });
+  // VIDEO_SLOW_MS=<ms>: a cold, slow load (no HTTP cache; every request the page makes after
+  // its load event, the lazy chunks and textures the scene waits on, held back that long), to
+  // prove a capture does not depend on how fast the scene loads.
+  const slow = Number(process.env.VIDEO_SLOW_MS ?? 0);
+  if (slow > 0) {
+    await session.defaultSession.clearCache();
+    session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+      if (!slowLoad.after) return callback({});
+      slowLoad.held += 1;
+      setTimeout(() => callback({}), slow);
+    });
+    console.log(`slow load: no HTTP cache, requests after the load event held ${slow} ms`);
+  }
   let failed = 0;
   let prepared = false;
   for (const shot of shots) {

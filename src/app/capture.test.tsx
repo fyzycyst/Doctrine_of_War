@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ashAndBanner } from "../game/campaign";
 import { firstBreach } from "../game/engine";
-import { isCaptureToggle, useCaptureStore } from "./captureStore";
+import { isCaptureToggle, playbackHold, useCaptureStore } from "./captureStore";
 import { campaignAfter } from "./flow/devCampaign";
 import { useFlow } from "./flow/flowStore";
 import { memoryStore } from "./flow/testKit";
@@ -21,6 +21,16 @@ beforeEach(() => {
   useGame.setState({ playbackSpeed: 1 });
 });
 afterEach(() => useCaptureStore.setState({ captureMode: false }));
+
+describe("playbackHold (T34, dev only)", () => {
+  it("hands playback the video harness's hold when its preload set one, else nothing", () => {
+    const hold = Promise.resolve();
+    expect(import.meta.env.DEV).toBe(true);
+    expect(playbackHold({ __holdPlayback: hold })).toBe(hold);
+    expect(playbackHold({})).toBeNull();
+    expect(playbackHold({ __holdPlayback: true })).toBeNull();
+  });
+});
 
 describe("capture mode", () => {
   it("hides every battle UI layer and brings it back with Ctrl/⌘+Shift+H", async () => {
