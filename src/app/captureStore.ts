@@ -26,6 +26,17 @@ export const useCaptureStore = create<CaptureState>((set) => ({
   setCaptureMode: (captureMode) => set({ captureMode }),
 }));
 
+/**
+ * Dev only (T34): the product-video harness (scripts/video-electron.mjs) holds playback until
+ * the board has loaded, so a frame-stepped capture starts the battle at the same instant
+ * however long the load took. Its preload sets `__holdPlayback`; anything else gets null.
+ */
+export function playbackHold(target = window as unknown as Record<string, unknown>): Promise<void> | null {
+  if (!import.meta.env.DEV) return null;
+  const hold = target.__holdPlayback;
+  return hold instanceof Promise ? (hold as Promise<void>) : null;
+}
+
 /** Ctrl/⌘ + Shift + H toggles capture mode, so footage can start mid-battle. */
 export function isCaptureToggle(event: Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey">): boolean {
   return pressed("capture", event);

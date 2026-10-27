@@ -2,7 +2,8 @@
 // by id (any case and punctuation) or as a campaign battle by number (`cinderRoad2`).
 import { describe, expect, it } from "vitest";
 import { registry } from "../game/packs";
-import { findScenario } from "./boot";
+import { exposeStoresForCapture, findScenario } from "./boot";
+import { useGame } from "./game/gameStore";
 
 describe("findScenario", () => {
   it("finds every registry scenario by id, the Cinder Road battles included", () => {
@@ -24,5 +25,14 @@ describe("findScenario", () => {
     expect(findScenario("nowhere")).toBeUndefined();
     expect(findScenario("cinderRoad99")).toBeUndefined();
     expect(findScenario(null)).toBeUndefined();
+  });
+});
+
+describe("exposeStoresForCapture (T34, dev only)", () => {
+  it("puts the stores on the target in dev builds, for the frame-stepped video capture", () => {
+    const target: Record<string, unknown> = {};
+    exposeStoresForCapture(target);
+    expect(import.meta.env.DEV).toBe(true);
+    expect((target.__dow as { game: unknown }).game).toBe(useGame);
   });
 });

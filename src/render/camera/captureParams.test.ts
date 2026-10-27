@@ -7,6 +7,16 @@ describe("dev capture shot (?captureShot=q,r;q,r&captureAz=deg)", () => {
     expect(parseCaptureShot("?captureShot=5,5")).toEqual({ hexes: [{ q: 5, r: 5 }], azimuth: undefined });
   });
 
+  it("reads an optional distance and polar angle (closer or steeper beats for the video)", () => {
+    expect(parseCaptureShot("?captureShot=2,5;3,4&captureAz=-10&captureDist=4.5&capturePolar=50")).toEqual({
+      hexes: [{ q: 2, r: 5 }, { q: 3, r: 4 }],
+      azimuth: -10,
+      distance: 4.5,
+      polar: 50,
+    });
+    expect(parseCaptureShot("?captureShot=2,5&captureDist=-1")).toEqual({ hexes: [{ q: 2, r: 5 }], azimuth: undefined });
+  });
+
   it("ignores a missing or malformed shot", () => {
     expect(parseCaptureShot("")).toBeNull();
     expect(parseCaptureShot("?captureShot=")).toBeNull();

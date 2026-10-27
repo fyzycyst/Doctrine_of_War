@@ -22,6 +22,7 @@
     "capture:app": "node scripts/capture-app.mjs",
     "build:orchestra": "node scripts/build-orchestra.mjs",
     "audio:demo": "node scripts/audio-demo.mjs",
+    "video": "node scripts/video-capture.mjs",
     "smoke:field-test": "ELECTRON=1 vite build && electron scripts/smoke-field-test.mjs",
     "smoke:roll-save": "ELECTRON=1 vite build && electron scripts/smoke-roll-save.mjs",
     "smoke:board-clicks": "node scripts/smoke-board-clicks.mjs",

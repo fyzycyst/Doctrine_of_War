@@ -157,8 +157,44 @@ export function levels(buffer: AudioBuffer) {
   return { peakDb: db(peak), rmsDb: db(Math.sqrt(sum / n)) };
 }
 
+/** Sums buffers (each at an offset in seconds, with a gain) into one stereo buffer. */
+export function mixBuffers(parts: Array<{ buffer: AudioBuffer; at?: number; gain?: number }>): AudioBuffer {
+  const length = Math.max(...parts.map((p) => Math.ceil((p.at ?? 0) * SR) + p.buffer.length));
+  const out = new AudioBuffer({ length, numberOfChannels: 2, sampleRate: SR });
+  for (const { buffer, at = 0, gain = 1 } of parts) {
+    const offset = Math.ceil(at * SR);
+    for (let c = 0; c < 2; c += 1) {
+      const src = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1));
+      const dst = out.getChannelData(c);
+      for (let i = 0; i < src.length; i += 1) dst[offset + i] += src[i] * gain;
+    }
+  }
+  return out;
+}
+
+/**
+ * The product video's music stems (T34, `npm run audio:demo -- --set video`), from the
+ * same score as the game: a dusk/menu bed (the command hush, no drums), a ~60 s battle
+ * bed (the dusk score at playback intensity over the war drums), the dawn swell (the
+ * dawn motif into the sunrise score) and the victory fanfare.
+ */
+export async function renderVideoStems(): Promise<Array<[string, AudioBuffer]>> {
+  const orch = await loadOrchestra();
+  const duskBar = (60 / MOODS.dusk.bpm) * 4;
+  return [
+    ["dusk-bed", await renderMusic("dusk", 12, orch, DRUM_BASE.command)],
+    // 18 bars of score over 70 s of drums: loop any 16 bars (60 s) away from both ends.
+    ["battle-bed", mixBuffers([{ buffer: await renderMusic("dusk", 18, orch, DRUM_BASE.playback, 7) }, { buffer: await renderDrums(18 * duskBar + 2, DRUM_BASE.playback, [], orch), gain: 0.9 }])],
+    ["dawn-swell", mixBuffers([{ buffer: await renderMotif("dawn", "predawn", orch) }, { buffer: await renderMusic("sunrise", 6, orch, DRUM_BASE.playback, 3), at: 3 }])],
+    ["victory-fanfare", await renderMotif("victory", "sunrise", orch)],
+    ["victory-fanfare-alt", await renderMotif("victoryAlt", "sunrise", orch)],
+    ["engagement-swell", await renderDrums(16, DRUM_BASE.command, [[3, "clash"], [9, "dread"]], orch)],
+  ];
+}
+
 /** Every demo, as name → WAV bytes (base64) plus levels. */
-export async function renderAllDemos() {
+export async function renderAllDemos(set: "demos" | "video" = "demos") {
+  if (set === "video") return encodeAll(await renderVideoStems());
   const orch = await loadOrchestra();
   const jobs: Array<[string, () => Promise<AudioBuffer>]> = [
     ["drums-command", () => renderDrums(12, DRUM_BASE.command, [], orch)],
@@ -174,9 +210,15 @@ export async function renderAllDemos() {
     ["victory-alt", () => renderMotif("victoryAlt", "sunrise", orch)],
     ["defeat", () => renderMotif("defeat", "nightFires", orch)],
   ];
+  const rendered: Array<[string, AudioBuffer]> = [];
+  for (const [name, job] of jobs) rendered.push([name, await job()]);
+  return encodeAll(rendered);
+}
+
+async function encodeAll(rendered: Array<[string, AudioBuffer]>) {
+  const orch = await loadOrchestra();
   const out: Record<string, { wav: string; peakDb: number; rmsDb: number; seconds: number }> = {};
-  for (const [name, job] of jobs) {
-    const buffer = await job();
+  for (const [name, buffer] of rendered) {
     const bytes = new Uint8Array(toWav(buffer));
     let bin = "";
     for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
